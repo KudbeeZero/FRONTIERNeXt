@@ -1,0 +1,37 @@
+kind = "web"
+previewPath = "/"
+title = "Frontier-AL"
+version = "1.0.0"
+id = "artifacts/frontier-al"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/", "/api", "/ws", "/nft", "/faction", "/health", "/vite-hmr" ]
+localPort = 24161
+
+[services.development]
+run = "pnpm --filter @workspace/frontier-al run dev"
+
+[services.development.env]
+PORT = "24161"
+NODE_ENV = "development"
+VITE_HMR_CLIENT_PORT = "443"
+VITE_HMR_PROTOCOL = "wss"
+
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/frontier-al", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["node", "artifacts/frontier-al/dist/index.cjs"]
+
+[services.production.run.env]
+PORT = "24161"
+NODE_ENV = "production"

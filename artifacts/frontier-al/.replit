@@ -1,0 +1,89 @@
+modules = ["nodejs-20", "python-3.11", "web", "postgresql-16"]
+run = "npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[nix]
+channel = "stable-24_05"
+packages = ["emacsclient-commands", "gt", "lsof", "nano", "psmisc", "run"]
+
+[env]
+PORT = "5000"
+NODE_ENV = "development"
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
+run = ["node", "./dist/index.cjs"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start Game"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Validation command start up"
+
+[[workflows.workflow]]
+name = "Start Game"
+author = "agent"
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Validation command start up"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "run = \"node validate-env.js && npm run start\""
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 4321
+externalPort = 3000
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 5001
+
+[[ports]]
+localPort = 5002
+externalPort = 9000
+
+[agent]
+expertMode = true
+
+[userenv]
+
+[userenv.production]
+PORT = "3000"
+NODE_ENV = "production"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000

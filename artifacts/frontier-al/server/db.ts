@@ -1,0 +1,183 @@
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as schema from "./db-schema";
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is not set");
+}
+
+// Determine SSL mode from the connection string.
+// Replit's built-in PostgreSQL uses sslmode=disable; external DBs (Neon, etc.) need SSL.
+function getSslConfig(url: string): false | { rejectUnauthorized: boolean } {
+  try {
+    const u = new URL(url);
+    const sslmode = u.searchParams.get("sslmode");
+    if (sslmode === "disable" || sslmode === "allow" || sslmode === "prefer") {
+      return false;
+    }
+  } catch {
+    // Non-URL format — fall through to default
+  }
+  return { rejectUnauthorized: false };
+}
+
+// Strip the sslmode param from the connection string — we configure SSL
+// explicitly via the `ssl` object above.
+function sanitizeDbUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.delete("sslmode");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+const _dbUrl = process.env.DATABASE_URL;
+const pool = new Pool({
+  connectionString: sanitizeDbUrl(_dbUrl),
+  ssl: getSslConfig(_dbUrl),
+  // 10 clients gives enough headroom for concurrent API requests without
+  // overwhelming Neon's free-tier connection limit.
+  max: 10,
+  connectionTimeoutMillis: 15000,
+  // Keep idle connections alive for 30 s. The previous 10 s value caused
+  // constant churn (create → idle 10 s → remove → create …) which drove
+  // connectCount into the hundreds for only ~100 queries.
+  idleTimeoutMillis: 30_000,
+  allowExitOnIdle: false,
+  // Enable TCP keepalive so the OS sends keepalive probes and we detect
+  // dead sockets before the pool tries to reuse them. This prevents the
+  // silent ECONNRESET / "Connection terminated unexpectedly" errors that
+  // previously triggered constant reconnects.
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
+});
+
+// ── DB Pool Diagnostic Counters ──────────────────────────────────────────────
+let _poolQueryCount = 0;
+let _poolErrorCount = 0;
+let _poolConnectCount = 0;
+let _poolRemoveCount = 0;
+let _totalQueryTimeMs = 0;
+let _maxQueryTimeMs = 0;
+let _slowQueryCount = 0;
+
+pool.on("connect", () => {
+  _poolConnectCount++;
+  console.log(`[db] New client connected (total connections: ${_poolConnectCount})`);
+});
+
+pool.on("remove", () => {
+  _poolRemoveCount++;
+  console.log(`[db] Client removed (total removed: ${_poolRemoveCount})`);
+});
+
+pool.on("error", (err) => {
+  _poolErrorCount++;
+  // These are transient — the pool removes the dead client automatically
+  // and creates a fresh one for the next query. No action needed.
+  if ((err as NodeJS.ErrnoException).code === "ECONNRESET" ||
+      err.message.includes("Connection terminated")) {
+    console.warn(`[db] Pool client terminated by remote host (error #${_poolErrorCount}) — will reconnect automatically`);
+  } else {
+    console.error("[db] Unexpected pool error:", err.message);
+  }
+});
+
+export const db = drizzle(pool, { schema });
+
+/**
+ * Return current pool stats as a plain object (no side effects).
+ */
+export function getPoolStats() {
+  return {
+    totalCount: pool.totalCount,
+    idleCount: pool.idleCount,
+    waitingCount: pool.waitingCount,
+    connectCount: _poolConnectCount,
+    removeCount: _poolRemoveCount,
+    errorCount: _poolErrorCount,
+    queryCount: _poolQueryCount,
+    avgQueryTimeMs: _poolQueryCount > 0 ? parseFloat((_totalQueryTimeMs / _poolQueryCount).toFixed(1)) : 0,
+    maxQueryTimeMs: _maxQueryTimeMs,
+    slowQueryCount: _slowQueryCount,
+  };
+}
+
+/**
+ * Log pool stats periodically. Call this from startup or on-demand.
+ */
+export function logPoolStats(): void {
+  console.log(`[db] Pool stats:`, JSON.stringify(getPoolStats()));
+}
+
+/**
+ * Periodic pool stats dump every 60 seconds.
+ */
+const _poolStatsInterval = setInterval(() => {
+  if (pool.totalCount > 0 || _poolErrorCount > 0) {
+    logPoolStats();
+  }
+}, 60_000);
+
+// Clean up interval on process exit
+process.on("exit", () => clearInterval(_poolStatsInterval));
+
+/**
+ * Retry wrapper for background tasks and API routes that hit stale Neon
+ * connections. Catches "Connection terminated" / ECONNRESET / timeout errors
+ * and retries up to maxRetries times with exponential backoff.
+ * Neon compute endpoints can take 1-2 s to wake from sleep on first request
+ * after a server restart — three retries with 600 ms / 1.2 s / 2.4 s backoff
+ * covers the cold-start window without blocking long.
+ */
+const CONN_ERR = /Connection terminated|ECONNRESET|connection timeout|ETIMEDOUT/i;
+
+export async function withDbRetry<T>(fn: () => Promise<T>, label = "db", maxRetries = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const queryStart = Date.now();
+    try {
+      _poolQueryCount++;
+      const result = await fn();
+      const queryDuration = Date.now() - queryStart;
+      _totalQueryTimeMs += queryDuration;
+      if (queryDuration > _maxQueryTimeMs) {
+        _maxQueryTimeMs = queryDuration;
+      }
+      // Log slow queries (>200ms)
+      if (queryDuration > 200) {
+        _slowQueryCount++;
+        console.warn(`[db] Slow query "${label}": ${queryDuration}ms (attempt ${attempt + 1})`);
+      }
+      return result;
+    } catch (err) {
+      const queryDuration = Date.now() - queryStart;
+      _totalQueryTimeMs += queryDuration;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (CONN_ERR.test(msg)) {
+        const delay = 600 * Math.pow(2, attempt); // 600 ms → 1200 ms → 2400 ms
+        console.warn(`[db] ${label}: stale connection — retrying in ${delay} ms… (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, delay));
+        lastErr = err;
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Warm-up ping — sends a trivial query to wake Neon's compute endpoint before
+ * the server begins accepting traffic. Safe to call at startup; no-ops on error.
+ */
+export async function warmUpDb(): Promise<void> {
+  try {
+    await withDbRetry(() => pool.query("SELECT 1"), "warmup", 5);
+    console.log("[db] Connection warm-up OK");
+  } catch (err) {
+    console.warn("[db] Connection warm-up failed (server will still start):", (err as Error).message);
+  }
+}

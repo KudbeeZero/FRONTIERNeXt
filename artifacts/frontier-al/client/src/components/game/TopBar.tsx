@@ -1,0 +1,154 @@
+import { Sun, Moon, HelpCircle, Menu, FlaskConical, Pickaxe, Fuel, Gem, Zap, Flag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { WalletConnect } from "./WalletConnect";
+import { useTheme } from "@/components/theme-provider";
+import { cn } from "@/lib/utils";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { Link } from "wouter";
+
+const FACTION_BADGE_COLORS: Record<string, string> = {
+  "NEXUS-7":  "border-blue-500/40 text-blue-400 bg-blue-500/10",
+  "KRONOS":   "border-green-500/40 text-green-400 bg-green-500/10",
+  "VANGUARD": "border-red-500/40 text-red-400 bg-red-500/10",
+  "SPECTRE":  "border-yellow-500/40 text-yellow-400 bg-yellow-500/10",
+};
+
+interface TopBarProps {
+  isConnected: boolean;
+  className?: string;
+  mobileMenuContent?: React.ReactNode;
+  playerFactionId?: string | null;
+  mobileResources?: {
+    iron: number;
+    fuel: number;
+    crystal: number;
+    frontier: number;
+  } | null;
+}
+
+export function TopBar({ isConnected, className, mobileMenuContent, mobileResources, playerFactionId }: TopBarProps) {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <header
+      className={cn(
+        "sticky top-0 z-40 flex items-center justify-between gap-4 px-4 py-2",
+        "bg-gradient-to-r from-black/60 via-black/50 to-black/60 backdrop-blur-lg",
+        "border-b border-blue-500/20 shadow-lg shadow-blue-500/5",
+        className
+      )}
+      data-testid="top-bar"
+      style={{
+        backgroundImage: "radial-gradient(circle at 20% 50%, rgba(30, 80, 180, 0.05) 0%, transparent 50%)",
+        backgroundAttachment: "fixed"
+      }}
+    >
+      <div className="flex items-center gap-4">
+        {mobileMenuContent && (
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden" data-testid="button-mobile-menu">
+                <Menu className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80 p-0">
+              <VisuallyHidden>
+                <SheetTitle>Game Menu</SheetTitle>
+                <SheetDescription>Base information and game controls</SheetDescription>
+              </VisuallyHidden>
+              {mobileMenuContent}
+            </SheetContent>
+          </Sheet>
+        )}
+
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-md blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative w-10 h-10 rounded-md bg-gradient-to-br from-blue-500/30 to-primary/20 flex items-center justify-center border border-blue-400/40 shadow-lg shadow-blue-500/20">
+              <span className="font-display text-xl font-bold bg-gradient-to-br from-blue-300 to-purple-300 bg-clip-text text-transparent">⬡</span>
+            </div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-success border-2 border-background animate-pulse" />
+          </div>
+          <div className="hidden sm:block">
+            <h1 className="font-display text-xl font-bold uppercase tracking-wider bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">FRONTIER</h1>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] py-0 px-1 font-mono border-blue-400/40 text-blue-300/80">
+                TESTNET
+              </Badge>
+              <span className="text-[10px] text-blue-400/60 uppercase tracking-wide">V1.1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile resource strip — visible only below sm breakpoint */}
+      {mobileResources && (
+        <div className="flex items-center gap-2.5 sm:hidden">
+          <span className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums">
+            <Pickaxe className="w-3 h-3 text-iron" />
+            <span className="text-iron">{mobileResources.iron}</span>
+          </span>
+          <span className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums">
+            <Fuel className="w-3 h-3 text-fuel" />
+            <span className="text-fuel">{mobileResources.fuel}</span>
+          </span>
+          <span className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums">
+            <Gem className="w-3 h-3 text-crystal" />
+            <span className="text-crystal">{mobileResources.crystal}</span>
+          </span>
+          <span className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums">
+            <Zap className="w-3 h-3 text-primary" />
+            <span className="text-primary">{mobileResources.frontier.toFixed(1)}</span>
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-1 sm:gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          className="hidden sm:flex"
+          data-testid="button-theme-toggle"
+        >
+          {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </Button>
+
+        <Link href="/testnet">
+          <div
+            className="hidden sm:inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-accent hover:text-accent-foreground h-10 w-10 relative cursor-pointer"
+            title="Testnet Guide"
+            data-testid="button-testnet-guide"
+          >
+            <FlaskConical className="w-5 h-5" />
+            <span className={cn(
+              "absolute top-1 right-1 w-2 h-2 rounded-full",
+              isConnected ? "bg-green-400 animate-pulse" : "bg-red-400",
+            )} />
+          </div>
+        </Link>
+        <Button variant="ghost" size="icon" className="hidden sm:flex" data-testid="button-help">
+          <HelpCircle className="w-5 h-5" />
+        </Button>
+
+        {playerFactionId && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "hidden sm:flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide border",
+              FACTION_BADGE_COLORS[playerFactionId] ?? "border-border text-muted-foreground"
+            )}
+            data-testid="faction-badge"
+          >
+            <Flag className="w-2.5 h-2.5" />
+            {playerFactionId}
+          </Badge>
+        )}
+
+        <WalletConnect />
+      </div>
+    </header>
+  );
+}

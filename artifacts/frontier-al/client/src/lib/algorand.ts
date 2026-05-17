@@ -1,0 +1,594 @@
+import algosdk from "algosdk";
+
+// Override with VITE_ALGOD_URL / VITE_INDEXER_URL at build time to switch networks.
+export const ALGORAND_TESTNET = {
+  chainId: 416002 as const,
+  genesisID: "testnet-v1.0",
+  algodUrl: (import.meta.env.VITE_ALGOD_URL as string | undefined) ?? "https://testnet-api.algonode.cloud",
+  indexerUrl: (import.meta.env.VITE_INDEXER_URL as string | undefined) ?? "https://testnet-idx.algonode.cloud",
+};
+
+export const algodClient = new algosdk.Algodv2(
+  "",
+  ALGORAND_TESTNET.algodUrl,
+  ""
+);
+
+export const indexerClient = new algosdk.Indexer(
+  "",
+  ALGORAND_TESTNET.indexerUrl,
+  ""
+);
+
+// ---------------------------------------------------------------------------
+// Wallet signer registry — injected by WalletContext when a wallet connects.
+// All signing functions route through this to support any use-wallet provider.
+// ---------------------------------------------------------------------------
+
+type SignerFn = (txns: algosdk.Transaction[]) => Promise<Uint8Array[]>;
+let _registeredSigner: SignerFn | null = null;
+
+export function registerWalletSigner(fn: SignerFn | null) {
+  _registeredSigner = fn;
+}
+
+export function hasRegisteredSigner(): boolean {
+  return _registeredSigner !== null;
+}
+
+export async function signTransactionWithActiveWallet(
+  txn: algosdk.Transaction,
+  _signerAddress: string
+): Promise<Uint8Array[]> {
+  if (!_registeredSigner) throw new Error("No wallet connected");
+  return await _registeredSigner([txn]);
+}
+
+export async function signGroupedTransactionsWithActiveWallet(
+  txns: algosdk.Transaction[],
+  signerAddress: string
+): Promise<Uint8Array[]> {
+  console.log(`[BATCH-DEBUG] signGroupedTransactions | txnCount: ${txns.length} | signer: ${signerAddress.slice(0, 8)}... | ts: ${Date.now()}`);
+  if (!_registeredSigner) throw new Error("No wallet connected");
+  const result = await _registeredSigner(txns);
+  console.log(`[BATCH-DEBUG] signed ${result.length} txns | ts: ${Date.now()}`);
+  return result;
+}
+
+export async function getAccountBalance(address: string): Promise<number> {
+  try {
+    const accountInfo = await algodClient.accountInformation(address).do();
+    const amount = accountInfo.amount;
+    return Number(amount) / 1_000_000;
+  } catch (error) {
+    console.error("Failed to fetch account balance:", error);
+    return 0;
+  }
+}
+
+export async function getTransactionParams() {
+  return await algodClient.getTransactionParams().do();
+}
+
+export async function sendPaymentTransaction(
+  fromAddress: string,
+  toAddress: string,
+  amountMicroAlgos: number,
+  note?: string
+): Promise<string> {
+  console.log(`[TXN-DEBUG] sendPaymentTransaction triggered | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${toAddress.slice(0,8)}... | amount: ${amountMicroAlgos} microAlgos`);
+  const suggestedParams = await getTransactionParams();
+  
+  const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    sender: fromAddress,
+    receiver: toAddress,
+    amount: amountMicroAlgos,
+    note: note ? new TextEncoder().encode(note) : undefined,
+    suggestedParams,
+  });
+
+  const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
+  console.log(`[TXN-DEBUG] sendPaymentTransaction submitting to algod | ts: ${Date.now()}`);
+  const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
+  const txId = response.txid || txn.txID();
+  await algosdk.waitForConfirmation(algodClient, txId, 4);
+  console.log(`[TXN-DEBUG] sendPaymentTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  
+  return txId;
+}
+
+export async function createGameActionTransaction(
+  fromAddress: string,
+  actionType: string,
+  plotId: number,
+  metadata?: Record<string, unknown>
+): Promise<string> {
+  console.log(`[TXN-DEBUG] createGameActionTransaction triggered | action: ${actionType} | plotId: ${plotId} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  const suggestedParams = await getTransactionParams();
+
+  const actionData = JSON.stringify({
+    game: "FRONTIER",
+    v: 1,
+    action: actionType,
+    plotId,
+    player: fromAddress.slice(0, 8),
+    ts: Date.now(),
+    network: "testnet",
+    ...metadata,
+  });
+
+  const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    sender: fromAddress,
+    receiver: fromAddress,
+    amount: 0,
+    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    suggestedParams,
+  });
+
+  const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
+  console.log(`[TXN-DEBUG] createGameActionTransaction submitting | ts: ${Date.now()}`);
+  const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
+  const txId = response.txid || txn.txID();
+  await algosdk.waitForConfirmation(algodClient, txId, 4);
+  console.log(`[TXN-DEBUG] createGameActionTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  
+  return txId;
+}
+
+export async function createPurchaseWithAlgoTransaction(
+  fromAddress: string,
+  treasuryAddress: string,
+  plotId: number,
+  algoAmount: number
+): Promise<string> {
+  console.log(`[TXN-DEBUG] createPurchaseWithAlgoTransaction triggered | plotId: ${plotId} | algo: ${algoAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${treasuryAddress.slice(0,8)}...`);
+  const suggestedParams = await getTransactionParams();
+  const microAlgos = Math.floor(algoAmount * 1_000_000);
+  
+  const actionData = JSON.stringify({
+    game: "FRONTIER",
+    v: 1,
+    action: "purchase",
+    plotId,
+    algoAmount,
+    player: fromAddress.slice(0, 8),
+    ts: Date.now(),
+    network: "testnet",
+  });
+
+  const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    sender: fromAddress,
+    receiver: treasuryAddress,
+    amount: microAlgos,
+    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    suggestedParams,
+  });
+
+  const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
+  console.log(`[TXN-DEBUG] createPurchaseWithAlgoTransaction submitting | ts: ${Date.now()}`);
+  const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
+  const txId = response.txid || txn.txID();
+  await algosdk.waitForConfirmation(algodClient, txId, 4);
+  console.log(`[TXN-DEBUG] createPurchaseWithAlgoTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  
+  return txId;
+}
+
+export async function createClaimFrontierTransaction(
+  fromAddress: string,
+  frontierAmount: number
+): Promise<string> {
+  console.log(`[TXN-DEBUG] createClaimFrontierTransaction triggered | amount: ${frontierAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  const suggestedParams = await getTransactionParams();
+  
+  const actionData = JSON.stringify({
+    game: "FRONTIER",
+    v: 1,
+    action: "claim_frontier",
+    amount: frontierAmount,
+    player: fromAddress.slice(0, 8),
+    ts: Date.now(),
+    network: "testnet",
+  });
+
+  const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    sender: fromAddress,
+    receiver: fromAddress,
+    amount: 0,
+    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    suggestedParams,
+  });
+
+  const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
+  console.log(`[TXN-DEBUG] createClaimFrontierTransaction submitting | ts: ${Date.now()}`);
+  const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
+  const txId = response.txid || txn.txID();
+  await algosdk.waitForConfirmation(algodClient, txId, 4);
+  console.log(`[TXN-DEBUG] createClaimFrontierTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  
+  return txId;
+}
+
+export async function createCommanderMintTransaction(
+  fromAddress: string,
+  tier: string,
+  frntrCost: number
+): Promise<string> {
+  console.log(`[TXN-DEBUG] createCommanderMintTransaction triggered | tier: ${tier} | frntrCost: ${frntrCost} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  const suggestedParams = await getTransactionParams();
+
+  const actionData = JSON.stringify({
+    game: "FRONTIER",
+    v: 1,
+    action: "mint_commander",
+    tier,
+    frntrCost,
+    player: fromAddress.slice(0, 8),
+    ts: Date.now(),
+    network: "testnet",
+  });
+
+  const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    sender: fromAddress,
+    receiver: fromAddress,
+    amount: 0,
+    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    suggestedParams,
+  });
+
+  const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
+  console.log(`[TXN-DEBUG] createCommanderMintTransaction submitting | ts: ${Date.now()}`);
+  const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
+  const txId = response.txid || txn.txID();
+  await algosdk.waitForConfirmation(algodClient, txId, 4);
+  console.log(`[TXN-DEBUG] createCommanderMintTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+
+  return txId;
+}
+
+export function formatAddress(address: string, startChars = 6, endChars = 4): string {
+  if (address.length <= startChars + endChars) return address;
+  return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
+}
+
+export const FRONTIER_ASSETS = {
+  iron: { name: "FRONTIER-IRON", unitName: "IRON", decimals: 0 },
+  fuel: { name: "FRONTIER-FUEL", unitName: "FUEL", decimals: 0 },
+  crystal: { name: "FRONTIER-CRYSTAL", unitName: "CRYSTAL", decimals: 0 },
+  frontier: { name: "FRONTIER", unitName: "FRNTR", decimals: 6 },
+} as const;
+
+export type FrontierResourceType = keyof typeof FRONTIER_ASSETS;
+
+export async function getASABalance(address: string, assetId: number): Promise<number> {
+  try {
+    const accountInfo = await algodClient.accountInformation(address).do();
+    const assets = accountInfo.assets || [];
+    // algosdk v3: .assetId (bigint) — v2/raw JSON: "asset-id" or assetIndex
+    const asset = assets.find((a: any) => Number(a.assetId ?? a["asset-id"] ?? a.assetIndex) === assetId);
+    return asset ? Number(asset.amount) : 0;
+  } catch (error) {
+    console.error("Failed to fetch ASA balance:", error);
+    return 0;
+  }
+}
+
+export async function optInToASA(
+  address: string,
+  assetId: number
+): Promise<string> {
+  console.log(`[TXN-DEBUG] optInToASA triggered | assetId: ${assetId} | txns: 1 | groupID: NO | ts: ${Date.now()} | address: ${address.slice(0,8)}...`);
+  const suggestedParams = await getTransactionParams();
+  
+  const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+    sender: address,
+    receiver: address,
+    amount: 0,
+    assetIndex: assetId,
+    suggestedParams,
+  });
+
+  const signedTxnBlob = await signTransactionWithActiveWallet(txn, address);
+  console.log(`[TXN-DEBUG] optInToASA submitting | ts: ${Date.now()}`);
+  const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
+  const txId = response.txid || txn.txID();
+  await algosdk.waitForConfirmation(algodClient, txId, 4);
+  console.log(`[TXN-DEBUG] optInToASA confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  
+  return txId;
+}
+
+export async function isOptedInToASA(address: string, assetId: number): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/blockchain/opt-in-check/${address}?assetId=${assetId}`);
+    const data = await res.json();
+    return data.optedIn === true;
+  } catch {
+    try {
+      const accountInfo = await algodClient.accountInformation(address).do();
+      const assets = accountInfo.assets || accountInfo["assets"] || [];
+      return assets.some((a: any) => {
+        // algosdk v3: .assetId (bigint); v2/raw JSON: "asset-id" / assetIndex
+        const id = a.assetId ?? a["asset-id"] ?? a.assetIndex ?? a["assetIndex"];
+        return Number(id) === assetId;
+      });
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * Pure helper: checks whether an account is opted into a specific ASA by
+ * inspecting the accountInfo object returned from algodClient.accountInformation().do().
+ *
+ * algosdk v3 deserializes AssetHolding with a camelCase `.assetId` (bigint) property.
+ * Older / raw-JSON paths expose the kebab-case `"asset-id"` key instead.
+ * We check all known variants so this works regardless of how the object was produced.
+ */
+export function hasOptedIn(
+  accountInfo: Record<string, unknown>,
+  asaId: number
+): boolean {
+  const assets = (accountInfo.assets as Array<Record<string, unknown>>) ?? [];
+  return assets.some(
+    // assetId  → algosdk v3 AssetHolding (bigint, use Number() for comparison)
+    // asset-id → raw JSON / legacy algosdk v2 response
+    // assetIndex → older SDK alias sometimes seen in typed responses
+    (a) => Number(a["assetId"] ?? a["asset-id"] ?? a["assetIndex"]) === asaId
+  );
+}
+
+let _cachedTreasuryAddress: string | null = null;
+let _cachedAsaId: number | null = null;
+
+export async function fetchBlockchainStatus(): Promise<{
+  ready: boolean;
+  frontierAsaId: number | null;
+  adminAddress: string | null;
+}> {
+  try {
+    const res = await fetch("/api/blockchain/status");
+    const data = await res.json();
+    if (data.adminAddress) _cachedTreasuryAddress = data.adminAddress;
+    if (data.frontierAsaId) _cachedAsaId = data.frontierAsaId;
+    return data;
+  } catch {
+    return { ready: false, frontierAsaId: null, adminAddress: null };
+  }
+}
+
+export function getCachedTreasuryAddress(): string {
+  return _cachedTreasuryAddress || "";
+}
+
+export function getCachedAsaId(): number | null {
+  return _cachedAsaId;
+}
+
+// Treasury address is fetched at runtime from /api/blockchain/status and
+// cached in _cachedTreasuryAddress. Use getCachedTreasuryAddress() to access it.
+
+// ---------------------------------------------------------------------------
+// Client-side atomic transaction group queue
+//
+// Game actions (mine, upgrade, attack, build, commander actions, drones,
+// special attacks) are queued as individual 0-ALGO self-payment transactions.
+// After a debounce window (BATCH_WINDOW_MS) or when the queue reaches
+// MAX_GROUP_SIZE, all pending transactions are grouped via
+// algosdk.assignGroupID(), signed in one wallet popup, and submitted as
+// an atomic group. A hard MAX_WAIT_MS cap prevents indefinite queueing.
+// ---------------------------------------------------------------------------
+
+export const MAX_GROUP_SIZE = 16;
+export const BATCH_WINDOW_MS = 800;
+export const MAX_WAIT_MS = 2000;
+
+export interface BatchedAction {
+  a: string;
+  p: number;
+  x?: Record<string, unknown>;
+  t: number;
+  m?: { fe: number; fu: number; cr: number };
+}
+
+type BatchSignCallback = (actions: BatchedAction[]) => Promise<string | null>;
+
+// ── Batch / queue tuning knobs ────────────────────────────────────────────────
+// Increase MAX_ACTIONS to allow more actions to accumulate before flushing.
+// The "Satellite Relay" framing makes this feel like a game mechanic, not lag.
+const MAX_BATCH_NOTE_BYTES   = 1000;  // stay under Algorand's 1024-byte limit
+const MAX_ACTIONS_PER_FLUSH  = 16;    // Hard cap: Algorand's 16-txn group limit
+const FLUSH_INTERVAL_MS      = 5_000; // Relay window: 5 seconds (was 15s — prevents overrun)
+const FLUSH_MAX_WAIT_MS      = 15_000; // Never hold longer than 15 seconds (was 45s)
+interface TxnQueueEntry {
+  action: BatchedAction;
+  enqueuedAt: number;
+}
+
+export type BatchStatusCallback = (
+  event: "bundling" | "submitting" | "confirmed" | "error",
+  detail: { count: number; txIds?: string[]; message?: string }
+) => void;
+
+let _txnQueue: TxnQueueEntry[] = [];
+let _txnDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let _txnMaxWaitTimer: ReturnType<typeof setTimeout> | null = null;
+let _txnFlushInProgress = false;
+let _txnQueueAddress: string | null = null;
+let _txnStatusCallback: BatchStatusCallback | null = null;
+
+export function registerTxnQueueAddress(address: string) {
+  _txnQueueAddress = address;
+  if (_txnQueue.length > 0 && !_txnFlushInProgress) {
+    console.log(`[BATCH-DEBUG] address registered with ${_txnQueue.length} queued entries → scheduling flush | ts: ${Date.now()}`);
+    _clearTimers();
+    _txnDebounceTimer = setTimeout(() => {
+      _txnDebounceTimer = null;
+      _triggerAtomicFlush();
+    }, BATCH_WINDOW_MS);
+  }
+}
+
+export function registerBatchStatusCallback(cb: BatchStatusCallback) {
+  _txnStatusCallback = cb;
+}
+
+function _buildActionNote(action: BatchedAction, fromAddress: string): Uint8Array {
+  const data = JSON.stringify({
+    game: "FRONTIER",
+    v: 1,
+    action: action.a,
+    plotId: action.p,
+    player: fromAddress.slice(0, 8),
+    ts: action.t,
+    network: "testnet",
+    ...(action.x || {}),
+    ...(action.m ? { minerals: action.m } : {}),
+  });
+  return new TextEncoder().encode(`FRNTR:${data}`);
+}
+
+export function enqueueGameAction(
+  type: string,
+  plotId: number,
+  extra?: Record<string, unknown>,
+  minerals?: { fe: number; fu: number; cr: number }
+) {
+  const CHAIN_OPTIONAL_ACTIONS = ["mine", "collect", "upgrade", "build", "switch_commander"];
+  if (CHAIN_OPTIONAL_ACTIONS.includes(type)) {
+    // These actions are server-authoritative. No on-chain note needed.
+    return;
+  }
+  const action: BatchedAction = { a: type, p: plotId, x: extra, t: Date.now() };
+  if (minerals) action.m = minerals;
+
+  _txnQueue.push({ action, enqueuedAt: Date.now() });
+  console.log(
+    `[ACTION-DEBUG] player action enqueued | type: ${type} | plotId: ${plotId} | queue: ${_txnQueue.length} | ts: ${Date.now()}`
+  );
+
+  if (_txnQueue.length >= MAX_ACTIONS_PER_FLUSH) {
+    // Hit the count threshold — flush immediately (Satellite relay opens)
+    _clearTimers();
+    _triggerAtomicFlush();
+    return;
+  }
+
+  if (!_txnDebounceTimer) {
+    // Schedule the relay window: flush after FLUSH_INTERVAL_MS
+    _txnDebounceTimer = setTimeout(() => {
+      _txnDebounceTimer = null;
+      console.log(`[TXN-DEBUG] relay window expired (${FLUSH_INTERVAL_MS}ms) → flush | queueSize: ${_txnQueue.length} | ts: ${Date.now()}`);
+      _triggerAtomicFlush();
+    }, FLUSH_INTERVAL_MS);
+  }
+
+  if (!_txnMaxWaitTimer) {
+    // Hard upper bound: never hold longer than FLUSH_MAX_WAIT_MS
+    _txnMaxWaitTimer = setTimeout(() => {
+      _txnMaxWaitTimer = null;
+      if (_txnQueue.length > 0) {
+        console.log(`[TXN-DEBUG] FLUSH_MAX_WAIT_MS reached — force flushing ${_txnQueue.length} actions`);
+        _clearTimers();
+        _triggerAtomicFlush();
+      }
+    }, FLUSH_MAX_WAIT_MS);
+  }
+}
+
+
+function _clearTimers() {
+  if (_txnDebounceTimer) {
+    clearTimeout(_txnDebounceTimer);
+    _txnDebounceTimer = null;
+  }
+  if (_txnMaxWaitTimer) {
+    clearTimeout(_txnMaxWaitTimer);
+    _txnMaxWaitTimer = null;
+  }
+}
+
+function _triggerAtomicFlush() {
+  if (_txnQueue.length === 0 || _txnFlushInProgress || !_txnQueueAddress) return;
+  _clearTimers();
+  const entries = _txnQueue.splice(0);
+  _txnFlushInProgress = true;
+
+  const address = _txnQueueAddress;
+  const waitedMs = Date.now() - entries[0].enqueuedAt;
+  console.log(`[TXN-DEBUG] flush started | actions: ${entries.length} | types: [${entries.map(e => e.action.a).join(",")}] | waitedMs: ${waitedMs} | ts: ${Date.now()}`);
+
+  _flushAtomicGroup(address, entries)
+    .then((txIds) => {
+      console.log(`[TXN-DEBUG] flush confirmed | actions: ${entries.length} | txIds: [${txIds.map(t => t.slice(0, 8)).join(",")}] | ts: ${Date.now()}`);
+      _txnStatusCallback?.("confirmed", { count: entries.length, txIds });
+    })
+    .catch((err) => {
+      const msg = (err as Error)?.message || String(err);
+      console.error(`[BATCH-DEBUG] flush FAILED | error: ${msg} | re-queuing ${entries.length} entries | ts: ${Date.now()}`);
+      if (!msg.includes("cancelled") && !msg.includes("rejected")) {
+        _txnQueue.unshift(...entries);
+      }
+      _txnStatusCallback?.("error", { count: entries.length, message: msg });
+    })
+    .finally(() => {
+      _txnFlushInProgress = false;
+    });
+}
+
+async function _flushAtomicGroup(
+  fromAddress: string,
+  entries: TxnQueueEntry[]
+): Promise<string[]> {
+  const suggestedParams = await getTransactionParams();
+  const allTxIds: string[] = [];
+
+  const chunks: TxnQueueEntry[][] = [];
+  for (let i = 0; i < entries.length; i += MAX_GROUP_SIZE) {
+    chunks.push(entries.slice(i, i + MAX_GROUP_SIZE));
+  }
+
+  for (const chunk of chunks) {
+    const txns = chunk.map((entry) => {
+      return algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        sender: fromAddress,
+        receiver: fromAddress,
+        amount: 0,
+        note: _buildActionNote(entry.action, fromAddress),
+        suggestedParams,
+      });
+    });
+
+    if (txns.length > 1) {
+      algosdk.assignGroupID(txns);
+      console.log(`[BATCH-DEBUG] assignGroupID applied | groupSize: ${txns.length} | ts: ${Date.now()}`);
+    }
+
+    _txnStatusCallback?.("submitting", { count: txns.length });
+
+    const signedBlobs = txns.length === 1
+      ? await signTransactionWithActiveWallet(txns[0], fromAddress)
+      : await signGroupedTransactionsWithActiveWallet(txns, fromAddress);
+
+    console.log(`[BATCH-DEBUG] signed ${signedBlobs.length} blob(s) → submitting to algod | ts: ${Date.now()}`);
+    const response = await algodClient.sendRawTransaction(signedBlobs).do();
+    const firstTxId = response.txid || txns[0].txID();
+    await algosdk.waitForConfirmation(algodClient, firstTxId, 4);
+    console.log(`[BATCH-DEBUG] group confirmed | firstTxId: ${firstTxId} | ts: ${Date.now()}`);
+    allTxIds.push(firstTxId);
+  }
+
+  return allTxIds;
+}
+
+export function getTxnQueueSize(): number {
+  return _txnQueue.length;
+}
+
+export function registerBatchSignCallback(
+  address: string,
+  _callback: unknown
+) {
+  registerTxnQueueAddress(address);
+}

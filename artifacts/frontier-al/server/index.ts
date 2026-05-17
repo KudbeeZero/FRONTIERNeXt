@@ -1,0 +1,257 @@
+import "dotenv/config";
+import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import { registerRoutes } from "./routes";
+import { initSeasonManager } from "./engine/season/manager";
+import { hydrateWorldEventsFromRedis } from "./worldEventStore";
+import { warmUpDb, logPoolStats } from "./db";
+import { assertChainConfig } from "./services/chain/client";
+import { serveStatic } from "./static";
+import { createServer } from "http";
+import path from "path";
+import fs from "fs";
+import { storage } from "./storage";
+
+const app = express();
+const httpServer = createServer(app);
+
+declare module "http" {
+  interface IncomingMessage {
+    rawBody: unknown;
+  }
+}
+
+// ── Memory Usage Tracking ────────────────────────────────────────────────────
+/**
+ * Log current memory usage with breakdown.
+ * Call this periodically or on-demand to track memory pressure.
+ */
+export function logMemoryUsage(source = "periodic"): void {
+  const memUsage = process.memoryUsage();
+  const memInfo = {
+    source,
+    rss: `${(memUsage.rss / 1024 / 1024).toFixed(1)} MB`,
+    heapTotal: `${(memUsage.heapTotal / 1024 / 1024).toFixed(1)} MB`,
+    heapUsed: `${(memUsage.heapUsed / 1024 / 1024).toFixed(1)} MB`,
+    external: `${(memUsage.external / 1024 / 1024).toFixed(1)} MB`,
+    arrayBuffers: `${(memUsage.arrayBuffers / 1024 / 1024).toFixed(1)} MB`,
+  };
+  console.log(`[memory] ${JSON.stringify(memInfo)}`);
+}
+
+// Log memory usage every 60 seconds
+const _memoryInterval = setInterval(() => {
+  logMemoryUsage("periodic");
+}, 60_000);
+
+// Log memory on process exit
+process.on("exit", () => {
+  clearInterval(_memoryInterval);
+  logMemoryUsage("exit");
+});
+
+// Log memory on uncaught exceptions
+process.on("uncaughtException", (err) => {
+  logMemoryUsage("uncaughtException");
+  console.error("[uncaughtException]", err);
+});
+
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+
+app.use(express.urlencoded({ extended: false }));
+
+// Security headers (helmet middleware)
+// CSP is relaxed in development to allow Vite HMR and inline styles;
+// in production a stricter policy is enforced.
+const isDev = process.env.NODE_ENV !== "production";
+app.use(
+  helmet({
+    contentSecurityPolicy: isDev
+      ? false
+      : {
+          directives: {
+            defaultSrc:     ["'self'"],
+            scriptSrc:      ["'self'", "'unsafe-inline'"],
+            styleSrc:       ["'self'", "'unsafe-inline'"],
+            imgSrc:         ["'self'", "data:", "blob:"],
+            connectSrc:     ["'self'", "wss:", "ws:", "https:"],
+            fontSrc:        ["'self'", "data:"],
+            workerSrc:      ["'self'", "blob:"],
+            objectSrc:      ["'none'"],
+            upgradeInsecureRequests: [],
+          },
+        },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// CORS — allow cross-origin requests from the Vercel (or other) frontend in production.
+// CLIENT_ORIGIN can be a comma-separated list of allowed origins, e.g.:
+//   CLIENT_ORIGIN=https://frontier.vercel.app,https://frontier-git-main.vercel.app
+app.use((req, res, next) => {
+  const rawOrigin = process.env.CLIENT_ORIGIN;
+  if (!rawOrigin) { next(); return; }
+
+  const allowedOrigins = rawOrigin.split(",").map((o) => o.trim()).filter(Boolean);
+  const requestOrigin = req.headers.origin ?? "";
+
+  // Allow if the request origin matches any configured origin
+  const matched =
+    allowedOrigins.includes(requestOrigin) ||
+    // Also allow same-origin / non-browser requests (no Origin header)
+    !requestOrigin;
+
+  if (matched) {
+    const effectiveOrigin = requestOrigin || allowedOrigins[0];
+    res.header("Access-Control-Allow-Origin", effectiveOrigin);
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(204);
+    }
+  }
+  next();
+});
+
+export function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
+
+(async () => {
+  // 1. Healthcheck route
+  // Respond 200 to "/" and "/health" for production healthchecks
+  app.get("/health", (_req, res) => {
+    res.status(200).send("OK");
+  });
+
+  app.get("/", (req, res, next) => {
+    // Return a plain text response for healthcheck requests to "/"
+    // but only if it's not a browser request for the HTML app
+    if (process.env.NODE_ENV === "production") {
+      const isHtmlRequest = req.headers.accept?.includes("text/html");
+      const userAgent = (req.headers["user-agent"] || "").toLowerCase();
+      const isReplitHealthcheck = !userAgent || userAgent.includes("replit") || userAgent.includes("healthcheck") || userAgent.includes("uptimerobot");
+
+      if (!isHtmlRequest || isReplitHealthcheck) {
+        return res.status(200).send("Frontier server running");
+      }
+    }
+    next();
+  });
+
+  assertChainConfig();
+
+  // GUARDRAIL: Warn if ALGORAND_NETWORK is missing or invalid in dev; crash in production.
+  // Normalize to lowercase so "Testnet" / "TestNet" / "TESTNET" all work.
+  const _algodNetworkRaw = process.env.ALGORAND_NETWORK;
+  const _algodNetwork = _algodNetworkRaw?.toLowerCase();
+  if (_algodNetwork && _algodNetwork !== _algodNetworkRaw) {
+    process.env.ALGORAND_NETWORK = _algodNetwork;
+  }
+  if (!_algodNetwork || !['testnet', 'mainnet', 'localnet'].includes(_algodNetwork)) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        `[FATAL] ALGORAND_NETWORK must be "testnet", "mainnet", or "localnet". ` +
+        `Got: "${_algodNetworkRaw ?? 'undefined'}". Set ALGORAND_NETWORK in your environment.`
+      );
+    }
+    console.warn(`[startup] ALGORAND_NETWORK not set or invalid ("${_algodNetworkRaw ?? 'undefined'}"). Defaulting to testnet for development.`);
+    process.env.ALGORAND_NETWORK = 'testnet';
+  } else {
+    console.log(`[startup] ALGORAND_NETWORK=${_algodNetwork} ✓`);
+  }
+
+  const { initWsServer } = await import("./wsServer");
+  initWsServer(httpServer, storage);
+  // Wake up Neon DB before accepting traffic (handles cold-start timeouts)
+  await warmUpDb();
+  // Hydrate world event feed from Redis (no-op if Redis unavailable)
+  await hydrateWorldEventsFromRedis();
+  await registerRoutes(httpServer, app);
+  // Start season lifecycle manager (auto-expiry + countdown broadcasts)
+  initSeasonManager(storage);
+  console.log("[startup] Season manager initialised ✓");
+  // Start persistent FRONTIER transfer retry worker (SEV2 #6 + #7 fix)
+  const { startFrontierTransferWorker } = await import("./services/chain/transferQueue");
+  startFrontierTransferWorker();
+  console.log("[startup] FRONTIER transfer retry worker started ✓");
+
+  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    console.error("Internal Server Error:", err);
+
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    return res.status(status).json({ message });
+  });
+
+  if (process.env.NODE_ENV === "production") {
+    serveStatic(app);
+  } else {
+    const { setupVite } = await import("./vite");
+    await setupVite(httpServer, app);
+  }
+
+  // Log initial system stats
+  logMemoryUsage("startup");
+  logPoolStats();
+
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+  httpServer.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`serving on port ${port}`);
+    },
+  );
+})().catch((err) => {
+  console.error("[startup] Fatal error during server startup:", err);
+  process.exit(1);
+});

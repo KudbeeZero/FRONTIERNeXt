@@ -18,3 +18,21 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+ALGORAND_NETWORK = "testnet"
+PUBLIC_BASE_URL = "https://frontier-al--skylineonlineva.replit.app"
+AI_ENABLED = "true"
+CLIENT_ORIGIN = "https://frontier-al--skylineonlineva.replit.app"
+ALGOD_URL = "https://testnet-api.algonode.cloud"
+INDEXER_URL = "https://testnet-idx.algonode.cloud"
+NODE_ENV = "development"
+FORCE_NEW_ASA = "false"
+FORCE_NEW_FRONTIER_ASA = "false"
+ADMIN_KEY = "dev-admin-key-placeholder"
+
+[[ports]]
+localPort = 24161
+externalPort = 80
