@@ -63,9 +63,14 @@ let _totalQueryTimeMs = 0;
 let _maxQueryTimeMs = 0;
 let _slowQueryCount = 0;
 
-pool.on("connect", () => {
+pool.on("connect", (client) => {
   _poolConnectCount++;
   console.log(`[db] New client connected (total connections: ${_poolConnectCount})`);
+  // Prevent runaway queries from holding connections; background AI/battle tasks
+  // should complete well within 30 s on Neon's free tier.
+  client.query("SET statement_timeout = 30000").catch((err: Error) =>
+    console.warn("[db] Failed to set statement_timeout:", err.message)
+  );
 });
 
 pool.on("remove", () => {

@@ -1054,6 +1054,7 @@ export async function registerRoutes(
           name: playersTable.name,
           iron: playersTable.iron,
           fuel: playersTable.fuel,
+          crystal: playersTable.crystal,
           treasury: playersTable.treasury,
         }).from(playersTable).where(eq(playersTable.isAi, true)),
       ]);
@@ -1073,12 +1074,13 @@ export async function registerRoutes(
       }
 
       // Map AI player IDs to faction names
-      const aiPlayerByName: Record<string, { id: string; iron: number; fuel: number; treasury: number }> = {};
+      const aiPlayerByName: Record<string, { id: string; iron: number; fuel: number; crystal: number; treasury: number }> = {};
       for (const ai of allAiPlayers) {
         aiPlayerByName[ai.name] = {
           id: ai.id,
           iron: ai.iron,
           fuel: ai.fuel,
+          crystal: ai.crystal ?? 0,
           treasury: ai.treasury ?? 0,
         };
       }
@@ -1103,6 +1105,7 @@ export async function registerRoutes(
           territoryCount:  aiTerritoryCount,
           iron:            aiPlayer?.iron ?? 0,
           fuel:            aiPlayer?.fuel ?? 0,
+          crystal:         aiPlayer?.crystal ?? 0,
           treasury:        aiPlayer?.treasury ?? 0,
         };
       });

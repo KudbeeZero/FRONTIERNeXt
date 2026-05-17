@@ -63,7 +63,7 @@ export async function mintCommanderNft(params: MintCommanderParams): Promise<Min
     defaultFrozen:  false,
     unitName:       "CMDR",
     assetName,
-    assetURL:       `${baseUrl}/nft/metadata/commander/${commanderId}`,
+    assetURL:       `${baseUrl}/nft/metadata/commander/${commanderId}#arc3`,
     manager:        account.addr.toString(),
     reserve:        account.addr.toString(),
     // Mainnet: no freeze/clawback → freely tradeable on secondary markets.

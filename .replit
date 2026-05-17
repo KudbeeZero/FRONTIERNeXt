@@ -34,5 +34,13 @@ FORCE_NEW_FRONTIER_ASA = "false"
 ADMIN_KEY = "dev-admin-key-placeholder"
 
 [[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
 localPort = 24161
 externalPort = 80
