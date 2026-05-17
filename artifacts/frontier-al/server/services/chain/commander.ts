@@ -167,6 +167,28 @@ export async function forwardLiquiditySplit(microAlgo: number, note: string): Pr
   console.log(`[chain/commander] Liquidity split ${microAlgo} microAlgo → ${liquidityWallet} txId=${txId}`);
 }
 
+// ── Delivery ──────────────────────────────────────────────────────────────────
+
+/**
+ * Attempt delivery of a custody-held Commander NFT.
+ * Checks opt-in status first; safe to call multiple times.
+ */
+export async function attemptCommanderDelivery(
+  assetId: AssetId,
+  toAddress: string,
+  commanderId: string
+): Promise<{ delivered: boolean; reason?: string }> {
+  try {
+    const optedIn = await isAddressOptedIn(toAddress, assetId);
+    if (!optedIn) return { delivered: false, reason: "not_opted_in" };
+    await transferCommanderNft({ assetId, toAddress, note: `FRONTIER Commander NFT ${commanderId} delivery` });
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[chain/commander] attemptCommanderDelivery failed commanderId=${commanderId}:`, err);
+    return { delivered: false, reason: "transfer_failed" };
+  }
+}
+
 // ── Payment Verification ──────────────────────────────────────────────────────
 
 /**

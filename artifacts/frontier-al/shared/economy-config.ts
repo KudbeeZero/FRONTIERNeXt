@@ -107,6 +107,26 @@ export const COMMANDER_MINT_FRNTR_ACTIVE: Record<string, number> =
  */
 export const COMMANDER_ALGO_NETWORK_FEE = 0.001;
 
+/**
+ * Commander ALGO game-level purchase price.
+ * Charged to the player on top of the network fee above.
+ * Testing: flat 0.5 ALGO. Production: tiered by rarity.
+ */
+export const COMMANDER_ALGO_PRICE_TEST: Record<string, number> = {
+  sentinel: 0.5,
+  phantom:  0.5,
+  reaper:   0.5,
+};
+
+export const COMMANDER_ALGO_PRICE_PROD: Record<string, number> = {
+  sentinel: 1.0,
+  phantom:  2.0,
+  reaper:   5.0,
+};
+
+export const COMMANDER_ALGO_PRICE_ACTIVE: Record<string, number> =
+  ECONOMY_MODE === "production" ? COMMANDER_ALGO_PRICE_PROD : COMMANDER_ALGO_PRICE_TEST;
+
 // ─── Facility Build Costs (FRNTR) ─────────────────────────────────────────────
 
 export interface FacilityCostConfig {

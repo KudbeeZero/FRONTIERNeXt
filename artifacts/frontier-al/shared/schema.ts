@@ -726,6 +726,7 @@ export const SATELLITE_YIELD_BONUS = 0.25; // +25% mining yield
 export const mintAvatarActionSchema = z.object({
   playerId: z.string(),
   tier: z.enum(["sentinel", "phantom", "reaper"]),
+  algoPaymentTxId: z.string().min(1).optional(),
 });
 
 export const specialAttackActionSchema = z.object({

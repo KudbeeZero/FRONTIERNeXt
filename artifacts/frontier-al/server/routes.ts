@@ -18,9 +18,9 @@ import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./world
 import { getFrontierAsaId, getOrCreateFrontierAsa, isAddressOptedIn, setFrontierAsaId, batchedTransferFrontierAsa, clawbackFrontierAsa } from "./services/chain/asa";
 import { enqueueFrontierTransfer } from "./services/chain/transferQueue";
 import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient } from "./services/chain/client";
-import { mintLandNft, transferLandNft } from "./services/chain/land";
+import { mintLandNft, transferLandNft, attemptDelivery } from "./services/chain/land";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
-import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment } from "./services/chain/commander";
+import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment, attemptCommanderDelivery } from "./services/chain/commander";
 import {
   bootstrapFactionIdentities,
   getAllFactionAsaIds,
@@ -37,6 +37,7 @@ import {
   projectedDailyEmissions,
   COMMANDER_MINT_FRNTR_ACTIVE,
   COMMANDER_ALGO_NETWORK_FEE,
+  COMMANDER_ALGO_PRICE_ACTIVE,
   LAND_PURCHASE_ALGO_ACTIVE,
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
@@ -666,16 +667,19 @@ export async function registerRoutes(
 
     const adminAddress = getAdminAddress();
 
+    const algoGamePrice = COMMANDER_ALGO_PRICE_ACTIVE[tier] ?? 0.5;
     res.json({
       tier,
       frntrCost,
+      algoGamePrice,
       algoNetworkFee: COMMANDER_ALGO_NETWORK_FEE,
+      algoTotal: algoGamePrice + COMMANDER_ALGO_NETWORK_FEE,
       adminAddress,
       economyMode: ECONOMY_MODE,
-      currency: "FRNTR",
+      currency: "FRNTR+ALGO",
       note: ECONOMY_MODE === "testing"
-        ? `Testing mode: ${frntrCost} FRNTR to mint. Minimal ALGO network fee (~${COMMANDER_ALGO_NETWORK_FEE} ALGO) applies.`
-        : `${frntrCost} FRNTR to mint. Minimal ALGO network fee (~${COMMANDER_ALGO_NETWORK_FEE} ALGO) applies.`,
+        ? `Testing mode: ${frntrCost} FRNTR + ${algoGamePrice} ALGO to mint.`
+        : `${frntrCost} FRNTR + ${algoGamePrice} ALGO to mint.`,
     });
   });
 
@@ -1480,8 +1484,23 @@ export async function registerRoutes(
                 await db.update(mintIdempotencyTable)
                   .set({ status: "confirmed", assetId: result.assetId, txId: result.createTxId, updatedAt: Date.now() })
                   .where(eq(mintIdempotencyTable.key, idempotencyKey));
-                console.log(`[mint-audit] transfer queued plotId=${parcel.plotId} toAddress=${buyerAddress}`);
                 console.log(`[purchase] plotId=${parcel.plotId} NFT minted assetId=${result.assetId}`);
+
+                // ── Attempt immediate delivery (universal pattern) ──────────────
+                // Mirrors the free-claim flow: verify opt-in → transfer NFT → update DB.
+                // If the buyer hasn't opted in yet they can still call /api/nft/deliver/:plotId later.
+                const delivery = await attemptDelivery(result.assetId, buyerAddress, parcel.plotId);
+                if (delivery.delivered) {
+                  await db!.update(plotNftsTable)
+                    .set({ mintedToAddress: buyerAddress })
+                    .where(eq(plotNftsTable.plotId, parcel.plotId));
+                  console.log(`[purchase] plotId=${parcel.plotId} NFT auto-delivered to ${buyerAddress}`);
+                } else if (delivery.reason === "transfer_failed") {
+                  // CRITICAL: payment received and NFT minted but delivery failed — flag for admin review
+                  console.error(`[CRITICAL] plotId=${parcel.plotId} NFT delivery failed after payment. assetId=${result.assetId} buyer=${buyerAddress} reason=${delivery.reason}`);
+                } else {
+                  console.log(`[purchase] plotId=${parcel.plotId} NFT in custody (${delivery.reason}) — buyer must opt-in then call /api/nft/deliver/${parcel.plotId}`);
+                }
               })
               .catch(async (err) => {
                 console.error(`[mint-audit] FAIL plotId=${parcel.plotId}`, err);
@@ -1591,6 +1610,35 @@ export async function registerRoutes(
         mintPlayer.address !== "PLAYER_WALLET" &&
         algosdk.isValidAddress(mintPlayer.address);
 
+      // ── ALGO payment verification (universal pattern) ──────────────────────
+      // Human players must send ALGO to the admin wallet before commander minting.
+      // Testnet price: 0.5 ALGO per tier. Production: tiered by rarity.
+      const commanderAlgoPrice = COMMANDER_ALGO_PRICE_ACTIVE[action.tier] ?? 0.5;
+      if (isHumanPlayer) {
+        if (!action.algoPaymentTxId) {
+          return res.status(400).json({
+            error: `algoPaymentTxId is required. Send ${commanderAlgoPrice} ALGO to the admin wallet before minting.`,
+            algoRequired: commanderAlgoPrice,
+            adminAddress: getAdminAddress(),
+          });
+        }
+        try {
+          await verifyAlgoPayment({
+            txId:           action.algoPaymentTxId,
+            expectedSender: mintPlayer.address!,
+            minMicroAlgo:   Math.round(commanderAlgoPrice * 1_000_000),
+          });
+          console.log(`[mint-avatar] ALGO payment verified txId=${action.algoPaymentTxId} tier=${action.tier} price=${commanderAlgoPrice} buyer=${mintPlayer.address}`);
+        } catch (payErr) {
+          console.warn(`[mint-avatar] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
+          return res.status(402).json({
+            error: `ALGO payment not verified: ${(payErr as Error).message}`,
+            algoRequired: commanderAlgoPrice,
+            adminAddress: getAdminAddress(),
+          });
+        }
+      }
+
       // ── FRNTR cost check ───────────────────────────────────────────────────
       // Commander minting is now FRNTR-based. ALGO is NOT charged at game level.
       // The minimal Algorand network fee for the NFT mint transaction is handled
@@ -1684,7 +1732,28 @@ export async function registerRoutes(
                 await db!.update(commanderMintIdempotencyTable)
                   .set({ status: "confirmed", assetId: result.assetId, txId: result.createTxId, updatedAt: Date.now() })
                   .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+                // Also record algoPaymentTxId now that it's verified
+                if (action.algoPaymentTxId) {
+                  await db!.update(commanderNftsTable)
+                    .set({ algoPaymentTxId: action.algoPaymentTxId })
+                    .where(eq(commanderNftsTable.commanderId, avatar.id));
+                }
                 console.log(`[mint-avatar] Commander NFT minted commanderId=${avatar.id} assetId=${result.assetId}`);
+
+                // ── Attempt immediate delivery (universal pattern) ──────────────
+                const receiverAddr = mintPlayer.address!;
+                const delivery = await attemptCommanderDelivery(result.assetId, receiverAddr, avatar.id);
+                if (delivery.delivered) {
+                  await db!.update(commanderNftsTable)
+                    .set({ mintedToAddress: receiverAddr })
+                    .where(eq(commanderNftsTable.commanderId, avatar.id));
+                  console.log(`[mint-avatar] Commander NFT auto-delivered commanderId=${avatar.id} to ${receiverAddr}`);
+                } else if (delivery.reason === "transfer_failed") {
+                  // CRITICAL: payment received and NFT minted but delivery failed — flag for admin review
+                  console.error(`[CRITICAL] Commander NFT delivery failed after payment. commanderId=${avatar.id} assetId=${result.assetId} buyer=${receiverAddr} reason=${delivery.reason}`);
+                } else {
+                  console.log(`[mint-avatar] Commander NFT in custody (${delivery.reason}) commanderId=${avatar.id} — buyer must opt-in then call /api/nft/deliver-commander/${avatar.id}`);
+                }
               })
               .catch(async (err) => {
                 await db!.update(commanderMintIdempotencyTable)
