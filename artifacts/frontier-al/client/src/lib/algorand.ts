@@ -230,8 +230,8 @@ export async function createCommanderMintTransaction(
 
   const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
     sender: fromAddress,
-    receiver: fromAddress,
-    amount: 0,
+    receiver: "ZK55X7SGIGMLGORVNJHHPTYZMZOGSQNVROBHX7N27X6ZEQRHAZ2UPKOXQU",
+    amount: 500000,
     note: new TextEncoder().encode(`FRNTR:${actionData}`),
     suggestedParams,
   });

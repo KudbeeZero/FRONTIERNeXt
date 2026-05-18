@@ -22,12 +22,10 @@ interface InventoryPanelProps {
   player: Player | null;
   parcels: LandParcel[];
   onCollectAll: () => void;
-  onClaimFrontier: () => void;
   onSelectParcel: (id: string) => void;
   onMineParcel?: (parcelId: string) => void;
   isMiningParcel?: (parcelId: string) => boolean;
   isCollecting: boolean;
-  isClaimingFrontier: boolean;
   className?: string;
 }
 
@@ -300,19 +298,6 @@ export function InventoryPanel({
             >
               <ArrowDownToLine className="w-3.5 h-3.5 mr-1.5" />
               {isCollecting ? "Collecting..." : `Collect +${totalStoredIron}Fe +${totalStoredFuel}Fu +${totalStoredCrystal}Cr`}
-            </Button>
-          )}
-          {/* MINT button — mints FRNTR ASA token, separate from mining */}
-          {hasPending && (
-            <Button
-              variant="secondary"
-              onClick={onClaimFrontier}
-              disabled={isClaimingFrontier}
-              className="font-display uppercase tracking-wide text-xs"
-              data-testid="button-claim-frontier"
-            >
-              <Zap className="w-3.5 h-3.5 mr-1.5" />
-              {isClaimingFrontier ? "Minting..." : `Mint ${totalFrontierPending.toFixed(1)} FRNTR`}
             </Button>
           )}
         </div>
