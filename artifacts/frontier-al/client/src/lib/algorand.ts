@@ -228,9 +228,10 @@ export async function createCommanderMintTransaction(
     network: "testnet",
   });
 
+  const adminAddress = getCachedTreasuryAddress() || "ZK55X7SGIGMLGORVNJHHPTYZMZOGSQNVROBHX7N27X6ZEQRHAZ2UPKOXQU";
   const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
     sender: fromAddress,
-    receiver: "ZK55X7SGIGMLGORVNJHHPTYZMZOGSQNVROBHX7N27X6ZEQRHAZ2UPKOXQU",
+    receiver: adminAddress,
     amount: 500000,
     note: new TextEncoder().encode(`FRNTR:${actionData}`),
     suggestedParams,

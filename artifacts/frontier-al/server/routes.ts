@@ -1355,46 +1355,38 @@ export async function registerRoutes(
       const player = await storage.getPlayer(action.playerId);
       if (!player) return res.status(404).json({ error: "Player not found" });
 
-      // First plot is free — no wallet required.
-      // All subsequent plots require a connected Algorand wallet.
-      const isFirstPlot = (player.territoriesCaptured ?? 0) === 0;
-
-      if (!isFirstPlot) {
-        if (
-          !player.address ||
-          player.address === "PLAYER_WALLET" ||
-          player.address.startsWith("AI_") ||
-          !algosdk.isValidAddress(player.address)
-        ) {
-          return res.status(403).json({ error: "A connected Algorand wallet is required to purchase territory." });
-        }
+      // All purchases require a connected Algorand wallet.
+      if (
+        !player.address ||
+        player.address === "PLAYER_WALLET" ||
+        player.address.startsWith("AI_") ||
+        !algosdk.isValidAddress(player.address)
+      ) {
+        return res.status(403).json({ error: "A connected Algorand wallet is required to purchase territory." });
       }
 
-      // ── ALGO payment verification (SEV1 #2 fix) ──────────────────────────────
-      // Paid path: any purchase beyond the first free-claim requires a verified
-      // on-chain ALGO payment.  Free-claim (first plot) bypasses this gate.
-      if (!isFirstPlot) {
-        if (!action.algoPaymentTxId) {
-          return res.status(400).json({ error: "algoPaymentTxId is required for paid territory purchases." });
-        }
+      // ── ALGO payment verification ─────────────────────────────────────────────
+      // Every purchase requires a verified on-chain ALGO payment.
+      if (!action.algoPaymentTxId) {
+        return res.status(400).json({ error: "algoPaymentTxId is required for territory purchases." });
+      }
 
-        // Fetch the parcel to determine the expected ALGO amount.
-        const selectedParcel = await storage.getParcel(action.parcelId);
-        if (!selectedParcel) return res.status(404).json({ error: "Parcel not found" });
+      // Fetch the parcel to determine the expected ALGO amount.
+      const selectedParcel = await storage.getParcel(action.parcelId);
+      if (!selectedParcel) return res.status(404).json({ error: "Parcel not found" });
 
-        const expectedMicroAlgos = Math.round((selectedParcel.purchasePriceAlgo ?? 0) * 1_000_000);
+      const expectedMicroAlgos = Math.round((selectedParcel.purchasePriceAlgo ?? 0) * 1_000_000);
 
-        try {
-          await verifyAlgoPayment({
-            txId:           action.algoPaymentTxId,
-            expectedSender: player.address,
-            minMicroAlgo:   expectedMicroAlgos,
-          });
-          console.log(`[purchase] ALGO payment verified txId=${action.algoPaymentTxId} microAlgos=${expectedMicroAlgos} buyer=${player.address}`);
-        } catch (payErr) {
-          console.warn(`[purchase] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
-          return res.status(402).json({ error: "Algo payment not verified" });
-        }
+      try {
+        await verifyAlgoPayment({
+          txId:           action.algoPaymentTxId,
+          expectedSender: player.address,
+          minMicroAlgo:   expectedMicroAlgos,
+        });
+        console.log(`[purchase] ALGO payment verified txId=${action.algoPaymentTxId} microAlgos=${expectedMicroAlgos} buyer=${player.address}`);
+      } catch (payErr) {
+        console.warn(`[purchase] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
+        return res.status(402).json({ error: "Algo payment not verified" });
       }
       // ─────────────────────────────────────────────────────────────────────────
 

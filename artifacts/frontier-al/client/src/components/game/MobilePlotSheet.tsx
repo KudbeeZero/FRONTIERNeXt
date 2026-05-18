@@ -51,9 +51,6 @@ export interface MobilePlotSheetProps {
   isClaiming: boolean;
   isWalletConnected: boolean;
 
-  /** When true, show "FREE" badge and price as 0 (first-plot entitlement) */
-  isFreeClaimEligible?: boolean;
-
   // Owned plot actions
   onOpenFullSheet?: () => void;
 
@@ -77,7 +74,6 @@ export function MobilePlotSheet({
   onClaim,
   isClaiming,
   isWalletConnected,
-  isFreeClaimEligible = false,
   onOpenFullSheet,
   onClose,
 }: MobilePlotSheetProps) {
@@ -90,9 +86,9 @@ export function MobilePlotSheet({
   const biomeLabel = BIOME_LABELS[parcel.biome] ?? parcel.biome;
   const { label: richnessLabel, className: richnessClass } = richnessBadge(parcel.richness);
 
-  const showClaimCta = isUnclaimed && player && (isFreeClaimEligible || isWalletConnected);
+  const showClaimCta = isUnclaimed && player && isWalletConnected;
   const claimPrice = parcel.purchasePriceAlgo;
-  const priceLabel = isFreeClaimEligible ? "FREE" : claimPrice !== null ? `${claimPrice} ALGO` : "—";
+  const priceLabel = claimPrice !== null ? `${claimPrice} ALGO` : "—";
 
   // Ownership badge
   let ownershipBadge: { label: string; className: string };
@@ -210,29 +206,16 @@ export function MobilePlotSheet({
 
               {/* Pricing section — for unclaimed plots */}
               {isUnclaimed && (
-                <div className={cn(
-                  "rounded-xl p-3 border",
-                  isFreeClaimEligible
-                    ? "bg-emerald-500/10 border-emerald-500/30"
-                    : "bg-muted/20 border-border"
-                )}>
+                <div className="rounded-xl p-3 border bg-muted/20 border-border">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-display">
-                        {isFreeClaimEligible ? "First Plot — No Cost" : "Claim Price"}
+                        Purchase Price
                       </p>
-                      <p className={cn(
-                        "text-lg font-display font-bold tracking-wide",
-                        isFreeClaimEligible ? "text-emerald-400" : "text-foreground"
-                      )}>
+                      <p className="text-lg font-display font-bold tracking-wide text-foreground">
                         {priceLabel}
                       </p>
                     </div>
-                    {isFreeClaimEligible && (
-                      <Badge className="bg-emerald-500 text-white text-[10px] font-display uppercase">
-                        Free Starter
-                      </Badge>
-                    )}
                   </div>
                 </div>
               )}
@@ -271,12 +254,7 @@ export function MobilePlotSheet({
               {showClaimCta && (
                 <Button
                   size="lg"
-                  className={cn(
-                    "w-full h-12 font-display uppercase tracking-widest text-sm",
-                    isFreeClaimEligible
-                      ? "bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/30"
-                      : "bg-primary hover:bg-primary/90"
-                  )}
+                  className="w-full h-12 font-display uppercase tracking-widest text-sm bg-primary hover:bg-primary/90"
                   onClick={onClaim}
                   disabled={isClaiming}
                   data-testid="mobile-sheet-claim-btn"
@@ -284,12 +262,10 @@ export function MobilePlotSheet({
                   {isClaiming ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      Claiming…
+                      Purchasing…
                     </span>
-                  ) : isFreeClaimEligible ? (
-                    "Claim Free Plot"
                   ) : (
-                    `Claim for ${priceLabel}`
+                    `Purchase for ${priceLabel}`
                   )}
                 </Button>
               )}

@@ -62,9 +62,6 @@ export interface SelectedPlotPanelProps {
   isClaiming: boolean;
   isWalletConnected: boolean;
 
-  /** True when this player is eligible for their one free first-plot claim */
-  isFreeClaimEligible?: boolean;
-
   /** Opens the full LandSheet for owned plots */
   onOpenFullSheet?: () => void;
 
@@ -86,7 +83,6 @@ function DesktopPlotPanel({
   onClaim,
   isClaiming,
   isWalletConnected,
-  isFreeClaimEligible = false,
   onOpenFullSheet,
   onClose,
   positionHint,
@@ -101,7 +97,7 @@ function DesktopPlotPanel({
   const { label: richnessLabel, className: richnessClass } = richnessBadge(parcel.richness);
 
   const claimPrice = parcel.purchasePriceAlgo;
-  const priceLabel = isFreeClaimEligible ? "FREE" : claimPrice !== null ? `${claimPrice} ALGO` : "—";
+  const priceLabel = claimPrice !== null ? `${claimPrice} ALGO` : "—";
 
   // Use default top-right position when no hint
   const cssPosition = DEFAULT_DESKTOP_POSITION;
@@ -204,29 +200,16 @@ function DesktopPlotPanel({
 
             {/* Pricing block — unclaimed */}
             {isUnclaimed && (
-              <div className={cn(
-                "rounded-xl p-3 border",
-                isFreeClaimEligible
-                  ? "bg-emerald-500/10 border-emerald-500/30"
-                  : "bg-muted/20 border-border"
-              )}>
+              <div className="rounded-xl p-3 border bg-muted/20 border-border">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-display">
-                      {isFreeClaimEligible ? "First Plot — No Cost" : "Claim Price"}
+                      Purchase Price
                     </p>
-                    <p className={cn(
-                      "text-xl font-display font-bold",
-                      isFreeClaimEligible ? "text-emerald-400" : "text-foreground"
-                    )}>
+                    <p className="text-xl font-display font-bold text-foreground">
                       {priceLabel}
                     </p>
                   </div>
-                  {isFreeClaimEligible && (
-                    <Badge className="bg-emerald-500 text-white text-[10px] font-display uppercase">
-                      Free
-                    </Badge>
-                  )}
                 </div>
               </div>
             )}
@@ -255,15 +238,10 @@ function DesktopPlotPanel({
 
           {/* CTA — always visible at panel bottom */}
           <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-border/50 bg-card/90 space-y-2">
-            {isUnclaimed && player && (isFreeClaimEligible || isWalletConnected) && (
+            {isUnclaimed && player && isWalletConnected && (
               <Button
                 size="lg"
-                className={cn(
-                  "w-full font-display uppercase tracking-widest",
-                  isFreeClaimEligible
-                    ? "bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/30"
-                    : "bg-primary hover:bg-primary/90"
-                )}
+                className="w-full font-display uppercase tracking-widest bg-primary hover:bg-primary/90"
                 onClick={onClaim}
                 disabled={isClaiming}
                 data-testid="desktop-panel-claim-btn"
@@ -271,19 +249,17 @@ function DesktopPlotPanel({
                 {isClaiming ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                    Claiming…
+                    Purchasing…
                   </span>
-                ) : isFreeClaimEligible ? (
-                  "Claim Free Plot"
                 ) : (
-                  `Claim for ${priceLabel}`
+                  `Purchase for ${priceLabel}`
                 )}
               </Button>
             )}
 
-            {isUnclaimed && (!player || (!isFreeClaimEligible && !isWalletConnected)) && (
+            {isUnclaimed && (!player || !isWalletConnected) && (
               <Button size="lg" variant="outline" className="w-full font-display uppercase tracking-widest" disabled>
-                Connect Wallet to Claim
+                Connect Wallet to Purchase
               </Button>
             )}
 
@@ -330,7 +306,6 @@ export function SelectedPlotPanel(props: SelectedPlotPanelProps) {
         onClaim={props.onClaim}
         isClaiming={props.isClaiming}
         isWalletConnected={props.isWalletConnected}
-        isFreeClaimEligible={props.isFreeClaimEligible}
         onOpenFullSheet={props.onOpenFullSheet}
         onClose={props.onClose}
       />

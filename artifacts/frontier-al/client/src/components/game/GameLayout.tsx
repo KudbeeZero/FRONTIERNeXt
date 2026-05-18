@@ -21,7 +21,6 @@ import { PredictionMarketsPanel } from "./PredictionMarkets";
 import { useWorldEvents } from "@/hooks/useWorldEvents";
 import { WalletConnect } from "./WalletConnect";
 import { OrbitalEventToast } from "./OrbitalEventToast";
-import { NftClaimNotification } from "./NftClaimNotification";
 import { useOrbitalEngine } from "@/hooks/useOrbitalEngine";
 import { useWallet } from "@/hooks/useWallet";
 import { useBlockchainActions } from "@/hooks/useBlockchainActions";
@@ -375,14 +374,10 @@ export function GameLayout() {
     );
   };
 
-  const isFreeClaimEligible = (player?.territoriesCaptured ?? 0) === 0;
-
   const handlePurchase = async () => {
     if (!player || !selectedParcelId || !selectedParcel) return;
 
-    // First plot is free — no wallet or ALGO signing required.
-    // All subsequent plots require a connected wallet and ALGO payment.
-    if (!isFreeClaimEligible && !isWalletConnected) {
+    if (!isWalletConnected) {
       toast({
         title: "Wallet Required",
         description: "Connect your Algorand wallet to purchase territory.",
@@ -391,19 +386,21 @@ export function GameLayout() {
       return;
     }
 
-    // All plot claims require transaction signing — free plots sign for 0 ALGO.
-    // Capture the returned txId so it can be forwarded to the server for
-    // on-chain payment verification (SEV1 #2 fix).
-    let algoPaymentTxId: string | undefined;
-    const priceToSign = selectedParcel.purchasePriceAlgo ?? (isFreeClaimEligible ? 0 : null);
-    if (priceToSign !== null) {
-      const result = await signPurchaseAction(selectedParcel.plotId, priceToSign);
-      if (result === "cancelled") return;
-      if (typeof result === "string") algoPaymentTxId = result;
+    const algoAmount = selectedParcel.purchasePriceAlgo;
+    if (algoAmount === null || algoAmount === undefined) {
+      toast({ title: "Price Unavailable", description: "This plot has no purchase price set.", variant: "destructive" });
+      return;
+    }
+
+    const result = await signPurchaseAction(selectedParcel.plotId, algoAmount);
+    if (result === "cancelled") return;
+    if (typeof result !== "string") {
+      toast({ title: "Payment Required", description: "ALGO payment must be confirmed to purchase territory.", variant: "destructive" });
+      return;
     }
 
     purchaseMutation.mutate(
-      { playerId: player.id, parcelId: selectedParcelId, algoPaymentTxId },
+      { playerId: player.id, parcelId: selectedParcelId, algoPaymentTxId: result },
       {
         onSuccess: () => {
           toast({ title: "Territory Acquired", description: "New land is now yours." });
@@ -487,14 +484,18 @@ export function GameLayout() {
 
     // Step 1: Open wallet for confirmation BEFORE touching the server.
     // This matches the land purchase flow (wallet → confirm → success popup).
-    if (wallet.address) {
-      const txResult = await signCommanderMintAction(tier, frntrCost);
-      if (!txResult || txResult === "cancelled") return; // wallet rejected or closed
+    if (!wallet.address) {
+      toast({ title: "Wallet Required", description: "Connect your wallet to mint a Commander.", variant: "destructive" });
+      return;
     }
+    let algoPaymentTxId: string | undefined;
+    const txResult = await signCommanderMintAction(tier, frntrCost);
+    if (!txResult || txResult === "cancelled") return; // wallet rejected or closed
+    if (typeof txResult === "string") algoPaymentTxId = txResult;
 
     // Step 2: Server creates avatar + fires async NFT mint (FRNTR deducted via clawback).
     mintAvatarMutation.mutate(
-      { playerId: player.id, tier },
+      { playerId: player.id, tier, algoPaymentTxId },
       {
         onSuccess: (data: any) => {
           const nft = data.nft;
@@ -866,21 +867,6 @@ export function GameLayout() {
 
       {impactEvents.length > 0 && <OrbitalEventToast events={impactEvents} />}
 
-      {/* ── Floating NFT Claim Notifications ── */}
-      {player && (
-        <NftClaimNotification
-          commanders={player.commanders ?? []}
-          ownedParcels={gameState?.parcels.filter(p => p.ownerId === player.id) ?? []}
-          walletAddress={wallet.address}
-          walletConnected={wallet.isConnected}
-          playerId={player.id}
-          onClaimCommander={handleClaimCommanderNft}
-          onRetryCommanderMint={handleRetryCommanderMint}
-          isClaimingCommander={isClaimingCommanderNft}
-          isRetryingCommanderMint={isRetryingCommanderMintId}
-          isDeliveringPlotId={null}
-        />
-      )}
 
       {/* Morale debuff warning badge */}
       {player?.moraleDebuffUntil && player.moraleDebuffUntil > Date.now() && (
@@ -1139,7 +1125,6 @@ export function GameLayout() {
           onClaim={handlePurchase}
           isClaiming={purchaseMutation.isPending}
           isWalletConnected={isWalletConnected}
-          isFreeClaimEligible={isFreeClaimEligible}
           onOpenFullSheet={() => {
             setShowFullLandSheet(true);
             tutorial.notifyEvent("landsheet_opened");
@@ -1169,7 +1154,6 @@ export function GameLayout() {
           isBuilding={buildMutation.isPending}
           isPurchasing={purchaseMutation.isPending}
           isWalletConnected={isWalletConnected}
-          isFreeClaimEligible={isFreeClaimEligible}
           isSpecialAttacking={specialAttackMutation.isPending}
           nftInfo={null}
           onDeliverNft={undefined}
