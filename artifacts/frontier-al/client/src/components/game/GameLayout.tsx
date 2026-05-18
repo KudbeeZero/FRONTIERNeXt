@@ -50,6 +50,7 @@ export function GameLayout() {
   const {
     signPurchaseAction,
     signOptInToFrontier,
+    signOptInToPlotNft,
     signCommanderMintAction,
     queueMineAction,
     queueUpgradeAction,
@@ -1020,8 +1021,6 @@ export function GameLayout() {
             selectedParcel={selectedParcel}
             ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
             wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
-            onDeliverPlotNft={handleDeliverPlotNft}
-            isDeliveringPlotNftId={isDeliveringPlotNftId}
             className="flex-1 border-0 rounded-none overflow-auto"
           />
         ) : gameState ? (
@@ -1052,12 +1051,10 @@ export function GameLayout() {
               player={player}
               parcels={gameState.parcels}
               onCollectAll={handleCollectAll}
-              onClaimFrontier={handleClaimFrontier}
               onSelectParcel={handleParcelSelectFromInventory}
               onMineParcel={handleMineParcel}
               isMiningParcel={isMiningParcel}
               isCollecting={collectMutation.isPending}
-              isClaimingFrontier={claimFrontierMutation.isPending}
             />
           )}
           {activeTab === "battles" && gameState && (
@@ -1086,8 +1083,6 @@ export function GameLayout() {
               selectedParcel={selectedParcel}
               ownedParcels={gameState.parcels.filter(p => p.ownerId === player?.id)}
               wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
-              onDeliverPlotNft={handleDeliverPlotNft}
-              isDeliveringPlotNftId={isDeliveringPlotNftId}
             />
           )}
           {activeTab === "leaderboard" && gameState && (
@@ -1176,9 +1171,9 @@ export function GameLayout() {
           isWalletConnected={isWalletConnected}
           isFreeClaimEligible={isFreeClaimEligible}
           isSpecialAttacking={specialAttackMutation.isPending}
-          nftInfo={nftInfo}
-          onDeliverNft={handleDeliverNft}
-          isDeliveringNft={isDeliveringNft}
+          nftInfo={null}
+          onDeliverNft={undefined}
+          isDeliveringNft={false}
         />
       )}
 

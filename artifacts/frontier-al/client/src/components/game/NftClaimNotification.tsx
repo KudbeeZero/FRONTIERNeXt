@@ -19,7 +19,7 @@ interface NftClaimNotificationProps {
   playerId?: string;
   onClaimCommander: (commanderId: string) => void;
   onRetryCommanderMint: (commanderId: string) => void;
-  onDeliverPlotNft: (plotId: number, assetId: number) => void;
+  onDeliverPlotNft?: (plotId: number, assetId: number) => void;
   isClaimingCommander?: boolean;
   isRetryingCommanderMint?: string | null;
   isDeliveringPlotId?: number | null;
@@ -217,7 +217,7 @@ export function NftClaimNotification({
                 <div className="flex gap-2">
                   {walletConnected ? (
                     <button
-                      onClick={() => onDeliverPlotNft(item.plotId, item.assetId)}
+                      onClick={() => onDeliverPlotNft?.(item.plotId, item.assetId)}
                       disabled={isDeliveringPlotId === item.plotId}
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[9px] font-display font-bold uppercase tracking-wide transition-colors"
                       style={{

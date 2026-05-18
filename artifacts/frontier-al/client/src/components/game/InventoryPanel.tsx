@@ -27,6 +27,8 @@ interface InventoryPanelProps {
   isMiningParcel?: (parcelId: string) => boolean;
   isCollecting: boolean;
   className?: string;
+  onClaimFrontier?: () => void;
+  isClaimingFrontier?: boolean;
 }
 
 function LandCard({
