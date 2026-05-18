@@ -49,7 +49,6 @@ export function GameLayout() {
   const { isConnected, balance, walletStatus } = wallet;
   const {
     signPurchaseAction,
-    signClaimFrontierAction,
     signOptInToFrontier,
     signCommanderMintAction,
     queueMineAction,
@@ -65,7 +64,6 @@ export function GameLayout() {
     frontierAsaId,
     isOptedInToFrontier,
     treasuryAddress,
-    signOptInToPlotNft,
   } = useBlockchainActions();
   useGameSocket();
   const { data: gameState, isLoading, error } = useGameState();
@@ -777,7 +775,6 @@ export function GameLayout() {
     onSelectParcel: (id: string) => {
       setSelectedParcelId(id);
     },
-    onClaimFrontier: handleClaimFrontier,
     onCollectAll: handleCollectAll,
     onMine: handleMine,
     onMineParcel: handleMineParcel,
@@ -786,7 +783,6 @@ export function GameLayout() {
     onAttack: handleAttackClick,
     isMining: mineMutation.isPending,
     isUpgrading: upgradeMutation.isPending,
-    isClaimingFrontier: claimFrontierMutation.isPending,
     isCollecting: collectMutation.isPending,
   };
 
@@ -822,9 +818,9 @@ export function GameLayout() {
               flyRequestId={flyRequestId}
               tutorialLat={tutorialLat}
               tutorialLng={tutorialLng}
-              nftInfo={nftInfo}
-              onDeliverNft={handleDeliverNft}
-              isDeliveringNft={isDeliveringNft}
+              nftInfo={null}
+              onDeliverNft={undefined}
+              isDeliveringNft={false}
             />
           </div>
 
@@ -879,10 +875,9 @@ export function GameLayout() {
           playerId={player.id}
           onClaimCommander={handleClaimCommanderNft}
           onRetryCommanderMint={handleRetryCommanderMint}
-          onDeliverPlotNft={handleDeliverPlotNft}
           isClaimingCommander={isClaimingCommanderNft}
           isRetryingCommanderMint={isRetryingCommanderMintId}
-          isDeliveringPlotId={isDeliveringPlotNftId}
+          isDeliveringPlotId={null}
         />
       )}
 

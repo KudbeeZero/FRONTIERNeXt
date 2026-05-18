@@ -349,7 +349,6 @@ interface CommandCenterPanelProps {
   parcels: LandParcel[];
   selectedParcel: LandParcel | null;
   onSelectParcel: (id: string) => void;
-  onClaimFrontier: () => void;
   onCollectAll: () => void;
   onMine: () => void;
   onMineParcel?: (parcelId: string) => void;
@@ -358,7 +357,6 @@ interface CommandCenterPanelProps {
   onAttack: () => void;
   isMining: boolean;
   isUpgrading: boolean;
-  isClaimingFrontier: boolean;
   isCollecting: boolean;
   className?: string;
 }
@@ -368,7 +366,6 @@ export function CommandCenterPanel({
   parcels,
   selectedParcel,
   onSelectParcel,
-  onClaimFrontier,
   onCollectAll,
   onMine,
   onMineParcel,
@@ -377,7 +374,6 @@ export function CommandCenterPanel({
   onAttack,
   isMining,
   isUpgrading,
-  isClaimingFrontier,
   isCollecting,
   className,
 }: CommandCenterPanelProps) {
@@ -438,68 +434,6 @@ export function CommandCenterPanel({
       </div>
 
       {/* ── FRNTR Token Mint Banner (ASA tokens only — not related to mining) ── */}
-      {player && ownedParcels.length > 0 && (
-        <div className="mx-3 mt-3 p-3 rounded-lg border border-primary/40 bg-primary/5 shrink-0">
-          <div className="flex items-center gap-1.5 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 text-primary" />
-            <span className="font-display text-[10px] font-bold uppercase tracking-wider text-primary">
-              FRNTR Token Generation
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 mb-2.5">
-            <div className="text-center bg-background/40 rounded-md p-2">
-              <span
-                className="font-mono text-lg font-bold text-primary block"
-                data-testid="cc-frontier-daily-rate"
-              >
-                {totalFrontierRate.toFixed(1)}
-              </span>
-              <span className="text-[9px] text-muted-foreground font-display uppercase tracking-wide">
-                FRNTR / Day
-              </span>
-              <div className="text-[8px] text-muted-foreground mt-0.5">
-                across {ownedParcels.length} plot{ownedParcels.length !== 1 ? "s" : ""}
-              </div>
-            </div>
-            <div className="text-center bg-background/40 rounded-md p-2">
-              <span
-                className="font-mono text-lg font-bold text-yellow-400 block"
-                data-testid="cc-frontier-pending"
-              >
-                {totalFrontierPending.toFixed(2)}
-              </span>
-              <span className="text-[9px] text-muted-foreground font-display uppercase tracking-wide">
-                Accumulated
-              </span>
-              <div className="text-[8px] text-muted-foreground mt-0.5">
-                ready to mint
-              </div>
-            </div>
-          </div>
-
-          {/* MINT FRNTR TOKEN — this mints the ASA token, separate from mining */}
-          <Button
-            onClick={onClaimFrontier}
-            disabled={isClaimingFrontier || !hasPending}
-            className="w-full font-display uppercase tracking-wide text-xs h-8"
-            data-testid="cc-button-mint-all"
-          >
-            <Zap className="w-3.5 h-3.5 mr-1.5" />
-            {isClaimingFrontier
-              ? "Minting FRNTR Token..."
-              : hasPending
-              ? `Mint FRNTR Token — ${totalFrontierPending.toFixed(2)}`
-              : "No FRNTR Accumulated Yet"}
-          </Button>
-          {hasPending && (
-            <p className="text-[8px] text-muted-foreground text-center mt-1">
-              Mints FRNTR ASA tokens to your Algorand wallet on-chain
-            </p>
-          )}
-        </div>
-      )}
-
       {/* ── Collect Minerals — collects extracted resources (iron/fuel/crystal) ── */}
       {player && hasStored && (
         <div className="mx-3 mt-2 shrink-0">
