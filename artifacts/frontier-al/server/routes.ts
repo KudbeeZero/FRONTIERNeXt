@@ -589,7 +589,12 @@ export async function registerRoutes(
       if (err && !res.headersSent) res.status(404).json({ error: "Image not found" });
     });
   };
-
+app.get("/api/blockchain/plot-price/:parcelId", async (req, res) => {
+ const parcel = await db.query.parcels.findFirst(...)
+ const usd  = LAND_PURCHASE_USD_PROD[parcel.biome] ?? 4.00;
+ const algo = usdToMicroAlgo(usd) / 1_000_000;
+ res.json({ usd, algo, algoUsdRate: getAlgoUsdPrice() });
+});
   app.get("/nft/images/commander/:tier", serveCommanderImage);
   app.get("/nft/commanders/:tier", serveCommanderImage);
 
