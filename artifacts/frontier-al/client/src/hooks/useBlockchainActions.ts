@@ -60,7 +60,7 @@ export function useBlockchainActions() {
   useEffect(() => {
     if (!address || !frontierAsaId) return;
 
-    const network = "testnet";
+    const network = import.meta.env.VITE_ALGORAND_NETWORK ?? "testnet";
     const cacheKey = `frontier_optin_${network}_${address}_${frontierAsaId}`;
     if (localStorage.getItem(cacheKey) === "true") {
       setIsOptedIn(true);
