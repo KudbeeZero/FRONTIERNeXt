@@ -591,12 +591,40 @@ export async function registerRoutes(
       if (err && !res.headersSent) res.status(404).json({ error: "Image not found" });
     });
   };
-app.get("/api/blockchain/plot-price/:parcelId", async (req, res) => {
- const parcel = await db.query.parcels.findFirst(...)
- const usd  = LAND_PURCHASE_USD_PROD[parcel.biome] ?? 4.00;
- const algo = usdToMicroAlgo(usd) / 1_000_000;
- res.json({ usd, algo, algoUsdRate: getAlgoUsdPrice() });
-});
+  app.get("/api/blockchain/plot-price/:parcelId", async (req, res) => {
+    try {
+      const parcelId = parseInt(req.params.parcelId);
+      if (isNaN(parcelId)) {
+        return res.status(400).json({ error: "Invalid parcel ID" });
+      }
+
+      const parcel = await db
+        .select()
+        .from(parcelsTable)
+        .where(eq(parcelsTable.id, parcelId))
+        .limit(1);
+
+      if (!parcel.length) {
+        return res.status(404).json({ error: "Parcel not found" });
+      }
+
+      const biome = parcel[0].biome ?? "plains";
+      const usd   = (LAND_PURCHASE_USD_PROD as Record<string, number>)[biome] ?? 4.00;
+      const algo  = usdToMicroAlgo(usd) / 1_000_000;
+
+      return res.json({
+        parcelId,
+        biome,
+        usd,
+        algo,
+        algoUsdRate: getAlgoUsdPrice(),
+      });
+    } catch (err) {
+      console.error("[plot-price] Error:", err);
+      return res.status(500).json({ error: "Failed to fetch plot price" });
+    }
+  });
+
   app.get("/nft/images/commander/:tier", serveCommanderImage);
   app.get("/nft/commanders/:tier", serveCommanderImage);
 
