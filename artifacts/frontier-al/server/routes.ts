@@ -41,6 +41,8 @@ import {
   LAND_PURCHASE_ALGO_ACTIVE,
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
+import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
+import { LAND_PURCHASE_USD_PROD } from "../shared/economy-config";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
