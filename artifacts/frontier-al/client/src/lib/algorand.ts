@@ -1,3 +1,8 @@
+// Add to top of algorand.ts
+const ALGORAND_NETWORK = (import.meta.env.VITE_ALGORAND_NETWORK as string) ?? "testnet";
+ 
+// Then everywhere you see:  network: "testnet"
+// Replace with:             network: ALGORAND_NETWORK
 import algosdk from "algosdk";
 
 // Override with VITE_ALGOD_URL / VITE_INDEXER_URL at build time to switch networks.
