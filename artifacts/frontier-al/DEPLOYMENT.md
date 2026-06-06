@@ -1,6 +1,6 @@
 # FRONTIER — Production Deployment Guide
 
-## Architecture overview
+## Architecture overview and Review
 
 FRONTIER consists of two deployable units:
 
