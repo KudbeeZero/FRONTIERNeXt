@@ -2903,6 +2903,22 @@ export async function registerRoutes(
     }
   });
 
+  /** GET /api/admin/metrics — per-route timing diagnostics (admin-gated) */
+  app.get("/api/admin/metrics", (req, res) => {
+    if (!requireAdminKey(req, res)) return;
+    const routes = Object.entries(_apiRouteTimings)
+      .filter(([, s]) => s.count > 0)
+      .map(([route, s]) => ({
+        route,
+        count: s.count,
+        avgMs: Math.round(s.totalTimeMs / s.count),
+        maxMs: s.maxTimeMs,
+        slowCount: s.slowCount,
+      }))
+      .sort((a, b) => b.count - a.count);
+    res.json({ slowThresholdMs: SLOW_API_THRESHOLD_MS, routes });
+  });
+
   /** GET /api/admin/battles-live — currently pending battles */
   app.get("/api/admin/battles-live", async (_req, res) => {
     try {

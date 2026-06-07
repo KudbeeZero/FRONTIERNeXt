@@ -17,6 +17,7 @@ import LandingFeatures from "@/pages/landing-features";
 import LandingUpdates from "@/pages/landing-updates";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import BattlesPage from "@/pages/battles";
+import AdminDashboard from "@/pages/admin";
 
 function App() {
   return (
@@ -65,6 +66,9 @@ function App() {
                 <WalletProvider enableAutoConnect={false}>
                   <BattlesPage />
                 </WalletProvider>
+              </Route>
+              <Route path="/admin">
+                <AdminDashboard />
               </Route>
               <Route path="/privacy-policy">
                 <WalletProvider enableAutoConnect={false}>
