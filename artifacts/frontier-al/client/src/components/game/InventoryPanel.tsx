@@ -111,7 +111,7 @@ function LandCard({
         <div className="flex items-center justify-between mt-1 text-[9px] text-muted-foreground">
           <span>{totalStored}/{parcel.storageCapacity} stored</span>
           {liveAccum > 0.001 && (
-            <span className="text-yellow-400">{liveAccum.toFixed(4)} FRNTR pending</span>
+            <span className="text-yellow-400">{liveAccum.toFixed(4)} ASCEND pending</span>
           )}
         </div>
       </button>
@@ -221,7 +221,7 @@ export function InventoryPanel({
           <div className="p-2.5 rounded-md bg-muted/50 text-center">
             <Zap className="w-4 h-4 mx-auto mb-1 text-primary" />
             <span className="font-mono text-lg font-bold block" data-testid="text-wallet-frontier">{player.frontier.toFixed(1)}</span>
-            <span className="text-[10px] text-muted-foreground font-display uppercase">FRNTR</span>
+            <span className="text-[10px] text-muted-foreground font-display uppercase">ASCEND</span>
           </div>
         </div>
 

@@ -94,7 +94,7 @@ function MarketCard({
         toast({ title: "Claim Failed", description: data.error, variant: "destructive" });
         return;
       }
-      toast({ title: "Winnings Claimed!", description: `+${data.payout} FRONTIER added to your balance.` });
+      toast({ title: "Winnings Claimed!", description: `+${data.payout} ASCEND added to your balance.` });
       onBetPlaced();
     },
     onError: () => toast({ title: "Claim Failed", description: "Unexpected error", variant: "destructive" }),
@@ -107,7 +107,7 @@ function MarketCard({
       return;
     }
     if (amount > currentPlayerFrontier) {
-      toast({ title: "Insufficient Balance", description: "You don't have enough FRONTIER.", variant: "destructive" });
+      toast({ title: "Insufficient Balance", description: "You don't have enough ASCEND.", variant: "destructive" });
       return;
     }
     betMutation.mutate({ outcome: betOutcome, amount });
@@ -173,7 +173,7 @@ function MarketCard({
               >
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="font-medium truncate">{label}</span>
-                  <span className="font-mono text-muted-foreground ml-2 shrink-0">{pool.toLocaleString()} FRNTR · {side === "a" ? odds.a : odds.b}</span>
+                  <span className="font-mono text-muted-foreground ml-2 shrink-0">{pool.toLocaleString()} ASCEND · {side === "a" ? odds.a : odds.b}</span>
                 </div>
                 <div className="h-1 bg-muted rounded-full overflow-hidden">
                   <div
@@ -187,7 +187,7 @@ function MarketCard({
         </div>
 
         <div className="text-[10px] text-muted-foreground font-mono">
-          Total pool: {totalPool.toLocaleString()} FRNTR · 5% protocol fee
+          Total pool: {totalPool.toLocaleString()} ASCEND · 5% protocol fee
         </div>
 
         {/* Bet form */}
@@ -196,7 +196,7 @@ function MarketCard({
             <Input
               type="number"
               min={1}
-              placeholder="Amount (FRNTR)"
+              placeholder="Amount (ASCEND)"
               value={betAmount}
               onChange={e => setBetAmount(e.target.value)}
               className="h-8 text-sm font-mono"
@@ -319,7 +319,7 @@ function MyBetsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerId
             Your positions:{" "}
             {positions
               .filter(p => p.marketId === m.id)
-              .map(p => `${p.amountWagered} FRNTR on ${p.outcome === "a" ? m.outcomeALabel : m.outcomeBLabel}${p.claimed ? " ✓" : ""}`)
+              .map(p => `${p.amountWagered} ASCEND on ${p.outcome === "a" ? m.outcomeALabel : m.outcomeBLabel}${p.claimed ? " ✓" : ""}`)
               .join(" · ")}
           </div>
           <MarketCard
@@ -372,7 +372,7 @@ function HistoryTab() {
             {m.status === "resolved" && m.winningOutcome && (
               <p className="text-xs text-muted-foreground">
                 Winner: <span className="text-blue-400 font-medium">{m.winningOutcome === "a" ? m.outcomeALabel : m.outcomeBLabel}</span>
-                {" · "}Pool: {(m.tokenPoolA + m.tokenPoolB).toLocaleString()} FRNTR
+                {" · "}Pool: {(m.tokenPoolA + m.tokenPoolB).toLocaleString()} ASCEND
               </p>
             )}
             {m.status === "closed" && (
@@ -395,11 +395,11 @@ export function PredictionMarketsPanel({ currentPlayerId, currentPlayerFrontier,
         <TrendingUp className="w-5 h-5 text-primary" />
         <div>
           <h2 className="text-sm font-display font-bold uppercase tracking-wider">Prediction Markets</h2>
-          <p className="text-[10px] text-muted-foreground">Wager FRONTIER on game outcomes</p>
+          <p className="text-[10px] text-muted-foreground">Wager ASCEND on game outcomes</p>
         </div>
         <div className="ml-auto text-right">
           <p className="text-[10px] text-muted-foreground">Balance</p>
-          <p className="text-sm font-mono font-bold text-emerald-400">{currentPlayerFrontier.toLocaleString()} FRNTR</p>
+          <p className="text-sm font-mono font-bold text-emerald-400">{currentPlayerFrontier.toLocaleString()} ASCEND</p>
         </div>
       </div>
 

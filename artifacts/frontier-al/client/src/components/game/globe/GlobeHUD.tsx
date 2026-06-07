@@ -276,7 +276,7 @@ export function ParcelHUD({ parcel, currentPlayerId, playerMap, onAttack, onMine
           {[
             { label: "Defense",  value: parcel.defenseLevel },
             { label: "Richness", value: parcel.richness },
-            { label: "FRNTR/d",  value: parcel.frontierPerDay?.toFixed(1) ?? "—" },
+            { label: "ASCEND/d",  value: parcel.frontierPerDay?.toFixed(1) ?? "—" },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-lg py-1.5"
               style={{ background: `${accentColor}0a`, border: `1px solid ${accentColor}18` }}>

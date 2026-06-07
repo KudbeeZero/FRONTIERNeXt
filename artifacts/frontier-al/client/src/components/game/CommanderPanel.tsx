@@ -623,9 +623,9 @@ export function CommanderPanel({
             { icon: <Target className="w-3.5 h-3.5" />, value: totalBattles, label: "My Battles", color: "#4fc3f7" },
             { icon: <CheckCircle2 className="w-3.5 h-3.5" />, value: player.attacksWon ?? 0, label: "Victories", color: "#4ade80" },
             { icon: <Activity className="w-3.5 h-3.5" />, value: `${winRate}%`, label: "Win Rate", color: "#a78bfa" },
-            { icon: <Star className="w-3.5 h-3.5" />, value: player.frontier.toFixed(0), label: "FRNTR Balance", color: "#fbbf24" },
+            { icon: <Star className="w-3.5 h-3.5" />, value: player.frontier.toFixed(0), label: "ASCEND Balance", color: "#fbbf24" },
             { icon: <Shield className="w-3.5 h-3.5" />, value: commanders.length, label: "Commanders", color: "#60a5fa" },
-            { icon: <Clock className="w-3.5 h-3.5" />, value: player.totalFrontierBurned.toFixed(0), label: "FRNTR Burned", color: "#f472b6" },
+            { icon: <Clock className="w-3.5 h-3.5" />, value: player.totalFrontierBurned.toFixed(0), label: "ASCEND Burned", color: "#f472b6" },
           ].map(({ icon, value, label, color }) => (
             <div key={label} className="flex items-center gap-2">
               <div
@@ -683,7 +683,7 @@ export function CommanderPanel({
             }}
           >
             MINT<br />
-            <span className="font-mono text-[9px] opacity-80">{COMMANDER_INFO[selectedTier]?.mintCostFrontier ?? 10} FRNTR</span>
+            <span className="font-mono text-[9px] opacity-80">{COMMANDER_INFO[selectedTier]?.mintCostFrontier ?? 10} ASCEND</span>
           </button>
         </div>
 
@@ -839,7 +839,7 @@ export function CommanderPanel({
                       <div className="text-xl mb-0.5">{comp.emoji}</div>
                       <img src={COMMANDER_IMAGES[tier]} alt={info.name} className="w-12 h-12 mx-auto rounded-md object-cover mb-1" />
                       <span className="text-[9px] font-display uppercase font-bold block" style={{ color: TIER_COLORS[tier] }}>{info.name}</span>
-                      <span className={cn("text-[9px] font-mono block", player.frontier >= info.mintCostFrontier ? "text-muted-foreground" : "text-destructive")}>{info.mintCostFrontier} FRNTR</span>
+                      <span className={cn("text-[9px] font-mono block", player.frontier >= info.mintCostFrontier ? "text-muted-foreground" : "text-destructive")}>{info.mintCostFrontier} ASCEND</span>
                     </button>
                   );
                 })}
@@ -862,7 +862,7 @@ export function CommanderPanel({
                 )}
                 <Button onClick={() => onMintAvatar(selectedTier)} disabled={isMinting || player.frontier < selectedInfo.mintCostFrontier} className="w-full font-display uppercase tracking-wide text-xs" data-testid="button-mint-avatar">
                   <Zap className="w-3.5 h-3.5 mr-2" />
-                  {isMinting ? "Minting…" : isRealWallet && selectedTierPrice ? `Mint · ${selectedInfo.mintCostFrontier} FRNTR + ${selectedTierPrice.algoNetworkFee} ALGO fee` : `Mint for ${selectedInfo.mintCostFrontier} FRNTR`}
+                  {isMinting ? "Minting…" : isRealWallet && selectedTierPrice ? `Mint · ${selectedInfo.mintCostFrontier} ASCEND + ${selectedTierPrice.algoNetworkFee} ALGO fee` : `Mint for ${selectedInfo.mintCostFrontier} ASCEND`}
                 </Button>
               </Card>
             </div>
@@ -1090,7 +1090,7 @@ export function CommanderPanel({
                       </div>
                       <span className="text-[8px] text-muted-foreground block">{info.effect}</span>
                       <div className="flex items-center gap-2 mt-1 text-[8px] font-mono">
-                        <span>{info.costFrontier} FRNTR</span>
+                        <span>{info.costFrontier} ASCEND</span>
                         {isOnCooldownSA && <span className="text-warning flex items-center gap-0.5"><Clock className="w-2 h-2" />{formatCountdown(cooldownRemaining)}</span>}
                       </div>
                       {!isAvailable && <span className="text-[8px] text-destructive">Req. {info.requiredTier.join("/")}</span>}
@@ -1108,7 +1108,7 @@ export function CommanderPanel({
             </h3>
             <div className="flex items-center gap-2 mb-2">
               <img src={droneImg} alt="Recon Drone" className="w-9 h-9 rounded-md object-cover" />
-              <span className="text-[9px] text-muted-foreground flex-1">Scout enemy territory. {DRONE_MINT_COST_FRONTIER} FRNTR each.</span>
+              <span className="text-[9px] text-muted-foreground flex-1">Scout enemy territory. {DRONE_MINT_COST_FRONTIER} ASCEND each.</span>
               <Button size="sm" onClick={() => onDeployDrone()} disabled={isDeployingDrone || activeDrones.length >= MAX_DRONES || player.frontier < DRONE_MINT_COST_FRONTIER} className="font-display uppercase text-xs shrink-0" data-testid="button-deploy-drone">
                 <Radio className="w-3 h-3 mr-1" />{isDeployingDrone ? "…" : "Deploy"}
               </Button>
@@ -1129,7 +1129,7 @@ export function CommanderPanel({
               <div className="w-9 h-9 rounded-md bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center shrink-0">
                 <Satellite className="w-4 h-4 text-yellow-400" />
               </div>
-              <span className="text-[9px] text-muted-foreground flex-1">+{SATELLITE_YIELD_BONUS * 100}% yield · 1h · {SATELLITE_DEPLOY_COST_FRONTIER} FRNTR</span>
+              <span className="text-[9px] text-muted-foreground flex-1">+{SATELLITE_YIELD_BONUS * 100}% yield · 1h · {SATELLITE_DEPLOY_COST_FRONTIER} ASCEND</span>
               <Button size="sm" onClick={() => onDeploySatellite()} disabled={isDeployingSatellite || activeSatellites.length >= MAX_SATELLITES || player.frontier < SATELLITE_DEPLOY_COST_FRONTIER} className="font-display uppercase text-xs shrink-0" data-testid="button-deploy-satellite">
                 <Satellite className="w-3 h-3 mr-1" />{isDeployingSatellite ? "…" : "Launch"}
               </Button>

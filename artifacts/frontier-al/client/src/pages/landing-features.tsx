@@ -40,7 +40,7 @@ const FEATURES = [
     tagline: "True ownership, on-chain",
     bullets: [
       "Commander NFTs minted as Algorand Standard Assets (ASAs)",
-      "FRONTIER (FRNTR) token — real ASA on Algorand Testnet",
+      "ASCEND token — real ASA on Algorand Testnet",
       "Sub-1-second transaction finality with near-zero fees",
       "All upgrade events permanently recorded on-chain",
       "Pera Wallet and WalletConnect 2.0 integration built-in",
@@ -68,7 +68,7 @@ const FEATURES = [
       "Three resource types: Iron (industrial), Fuel (energy), Crystal (rare)",
       "Passive income streams from biome-specific improvements",
       "Refineries convert raw iron into higher-value fuel cells",
-      "Blockchain Nodes multiply FRONTIER token yield per hour",
+      "Blockchain Nodes multiply ASCEND token yield per hour",
       "On-chain Trade Station for player-to-player resource exchange",
     ],
   },

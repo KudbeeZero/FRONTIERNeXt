@@ -83,12 +83,12 @@ const MISSIONS: Mission[] = [
   {
     id: "asa-optin",
     priority: "CRITICAL",
-    title: "FRONTIER TOKEN OPT-IN",
-    objective: "Opt your wallet into the FRONTIER ASA (Algorand Standard Asset). The game should prompt or guide you through this step.",
+    title: "ASCEND TOKEN OPT-IN",
+    objective: "Opt your wallet into the ASCEND ASA (Algorand Standard Asset). The game should prompt or guide you through this step.",
     whatToWatch: [
       "Is the opt-in prompt clear and actionable?",
       "Does the transaction confirm on-chain without errors?",
-      "Is your FRONTIER token balance visible after opt-in?",
+      "Is your ASCEND token balance visible after opt-in?",
     ],
     icon: Link2,
   },
@@ -133,8 +133,8 @@ const MISSIONS: Mission[] = [
   {
     id: "claim-frontier",
     priority: "HIGH",
-    title: "CLAIM FRONTIER TOKENS",
-    objective: "Accumulate passive FRONTIER token earnings from your territory, then claim them to your wallet.",
+    title: "CLAIM ASCEND TOKENS",
+    objective: "Accumulate passive ASCEND token earnings from your territory, then claim them to your wallet.",
     whatToWatch: [
       "Is the accumulation rate visible and consistent with expectations?",
       "Does the on-chain claim transaction confirm without errors?",
@@ -196,7 +196,7 @@ const MISSIONS: Mission[] = [
     id: "commander-mint",
     priority: "LOW",
     title: "MINT COMMANDER AVATAR",
-    objective: "Navigate to the Commander tab and attempt to mint a Commander NFT by burning FRONTIER tokens.",
+    objective: "Navigate to the Commander tab and attempt to mint a Commander NFT by burning ASCEND tokens.",
     whatToWatch: [
       "Is the token burn amount clearly shown before confirming?",
       "Does the Commander appear in the Commander panel after minting?",
@@ -488,7 +488,7 @@ ${completedList}`;
               </div>
               <div className="text-center">
                 <div className="text-lg font-bold text-primary">{stats.totalFrontierEarned.toFixed(1)}</div>
-                <div className="text-[10px] font-display uppercase tracking-wider text-muted-foreground">FRNTR Earned</div>
+                <div className="text-[10px] font-display uppercase tracking-wider text-muted-foreground">ASCEND Earned</div>
               </div>
             </div>
           )}

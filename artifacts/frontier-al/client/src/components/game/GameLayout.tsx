@@ -214,7 +214,7 @@ export function GameLayout() {
           setShowGamerTag(true);
           toast({
             title: "Welcome Commander!",
-            description: "You've received 500 FRONTIER tokens as a welcome bonus. Use them to build facilities and grow your empire!",
+            description: "You've received 500 ASCEND tokens as a welcome bonus. Use them to build facilities and grow your empire!",
           });
         }
         queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
@@ -471,7 +471,7 @@ export function GameLayout() {
 
       toast({
         title: "Minting Commander",
-        description: `Cost: ${frntrCost} FRNTR${priceData.economyMode === "testing" ? " (testing price)" : ""}. The Algorand network fee (~${priceData.algoNetworkFee} ALGO) is handled by your wallet automatically.`,
+        description: `Cost: ${frntrCost} ASCEND${priceData.economyMode === "testing" ? " (testing price)" : ""}. The Algorand network fee (~${priceData.algoNetworkFee} ALGO) is handled by your wallet automatically.`,
       });
     } catch (fetchErr) {
       toast({
@@ -493,7 +493,7 @@ export function GameLayout() {
     if (!txResult || txResult === "cancelled") return; // wallet rejected or closed
     if (typeof txResult === "string") algoPaymentTxId = txResult;
 
-    // Step 2: Server creates avatar + fires async NFT mint (FRNTR deducted via clawback).
+    // Step 2: Server creates avatar + fires async NFT mint (ASCEND deducted via clawback).
     mintAvatarMutation.mutate(
       { playerId: player.id, tier, algoPaymentTxId },
       {
@@ -502,7 +502,7 @@ export function GameLayout() {
           if (nft?.assetId) {
             toast({
               title: "Commander Minted + NFT Created!",
-              description: `${data.avatar?.name || tier} Commander is ready. ${frntrCost} FRNTR spent. NFT ASA ${nft.assetId} held in custody — open Commander Panel to claim.`,
+              description: `${data.avatar?.name || tier} Commander is ready. ${frntrCost} ASCEND spent. NFT ASA ${nft.assetId} held in custody — open Commander Panel to claim.`,
             });
           } else {
             toast({
@@ -754,11 +754,11 @@ export function GameLayout() {
             </div>
             <h1 className="font-display text-3xl uppercase tracking-wide text-primary">FRONTIER</h1>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Connect your Algorand wallet to enter the game. Compete for 21,000 land plots on a 3D globe, build facilities, and earn FRONTIER tokens.
+              Connect your Algorand wallet to enter the game. Compete for 21,000 land plots on a 3D globe, build facilities, and earn ASCEND tokens.
             </p>
             <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
               <Shield className="w-4 h-4" />
-              <span>New players receive 500 FRONTIER tokens</span>
+              <span>New players receive 500 ASCEND tokens</span>
             </div>
             <WalletConnect className="w-full" />
             <p className="text-[10px] text-muted-foreground/60">Algorand TestNet | Pera Wallet & LUTE Wallet Supported</p>
@@ -921,7 +921,7 @@ export function GameLayout() {
             data-testid="button-opt-in-frontier"
           >
             <Coins className="w-4 h-4" />
-            Opt-In to FRONTIER Token (ASA #{frontierAsaId})
+            Opt-In to ASCEND Token (ASA #{frontierAsaId})
           </Button>
         </div>
       )}

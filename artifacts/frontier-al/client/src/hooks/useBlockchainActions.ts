@@ -396,7 +396,7 @@ export function useBlockchainActions() {
       if (!isReady || !address) {
         toast({
           title: "Wallet Not Ready",
-          description: "Connect your wallet to claim FRONTIER tokens.",
+          description: "Connect your wallet to claim ASCEND tokens.",
           variant: "destructive",
         });
         return null;
@@ -408,8 +408,8 @@ export function useBlockchainActions() {
         const txId = await createClaimFrontierTransaction(address, frontierAmount);
         setLastTxId(txId);
         toast({
-          title: "FRONTIER Claimed",
-          description: `Claimed ${frontierAmount.toFixed(2)} FRONTIER tokens. TX: ${txId.slice(0, 8)}...`,
+          title: "ASCEND Claimed",
+          description: `Claimed ${frontierAmount.toFixed(2)} ASCEND tokens. TX: ${txId.slice(0, 8)}...`,
         });
         return txId;
       } catch (error: unknown) {
@@ -434,11 +434,11 @@ export function useBlockchainActions() {
         return null;
       }
       if (!frontierAsaId) {
-        toast({ title: "Not Ready", description: "FRONTIER token not created yet.", variant: "destructive" });
+        toast({ title: "Not Ready", description: "ASCEND token not created yet.", variant: "destructive" });
         return null;
       }
       if (isOptedIn === true) {
-        toast({ title: "Already Opted In", description: "You're already opted into FRONTIER." });
+        toast({ title: "Already Opted In", description: "You're already opted into ASCEND." });
         return null;
       }
 
@@ -454,7 +454,7 @@ export function useBlockchainActions() {
         localStorage.setItem(cacheKey, "true");
         // Refetch game state so the HUD and any balance displays update.
         queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
-        toast({ title: "Opt-In Confirmed", description: `Opted into FRONTIER ASA. TX: ${txId.slice(0, 8)}...` });
+        toast({ title: "Opt-In Confirmed", description: `Opted into ASCEND ASA. TX: ${txId.slice(0, 8)}...` });
         return txId;
       } catch (error: unknown) {
         const err = error as { message?: string };

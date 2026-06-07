@@ -50,7 +50,7 @@ export default function LandingEconomics() {
               Token Economics
             </div>
             <p style={{ fontSize: 14, color: "rgba(150,190,255,0.65)", maxWidth: 600, margin: "0 auto" }}>
-              FRONTIER (FRNTR) is the native Algorand ASA powering the game economy. Earn it by owning land, spend it on commanders, buildings, and attacks.
+              ASCEND is the native Algorand ASA powering the game economy. Earn it by owning land, spend it on commanders, buildings, and attacks.
             </p>
           </div>
 
@@ -125,10 +125,10 @@ export default function LandingEconomics() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, animation: "fadeInUp 0.7s ease-out 0.4s both" }}>
             {[
-              { icon: "🏗️", title: "Own Land",         desc: "Each biome generates 0.5–1.5 FRONTIER/hr passively based on improvements built." },
-              { icon: "⚡", title: "Blockchain Nodes", desc: "Build blockchain infrastructure on your parcels to multiply your daily FRNTR yield." },
+              { icon: "🏗️", title: "Own Land",         desc: "Each biome generates 0.5–1.5 ASCEND/hr passively based on improvements built." },
+              { icon: "⚡", title: "Blockchain Nodes", desc: "Build blockchain infrastructure on your parcels to multiply your daily ASCEND yield." },
               { icon: "🔥", title: "Burn Mechanics",   desc: "Minting commanders, special attacks, and upgrades consume tokens — creating deflation." },
-              { icon: "🏪", title: "Trade Station",    desc: "Trade iron, fuel, crystal and FRONTIER with other players through the in-game market." },
+              { icon: "🏪", title: "Trade Station",    desc: "Trade iron, fuel, crystal and ASCEND with other players through the in-game market." },
             ].map(({ icon, title, desc }) => (
               <div key={title} style={{ ...CARD }}>
                 <div style={{ fontSize: 28, marginBottom: 10 }}>{icon}</div>

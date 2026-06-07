@@ -147,7 +147,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
       <div className="p-4 border-b border-border flex items-center gap-2 shrink-0">
         <BarChart3 className="w-5 h-5 text-primary" />
         <h2 className="font-display text-lg font-bold uppercase tracking-wide">Token Economics</h2>
-        <Badge variant="secondary" className="ml-auto text-[10px] font-mono">FRONTIER / FRNTR</Badge>
+        <Badge variant="secondary" className="ml-auto text-[10px] font-mono">ASCEND</Badge>
         <Button
           variant="ghost"
           size="icon"
@@ -225,7 +225,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
                         <div>
                           <p className="text-xs font-bold font-display uppercase tracking-wide">Opted In</p>
-                          <p className="text-[10px] text-muted-foreground">Your wallet can receive FRONTIER tokens</p>
+                          <p className="text-[10px] text-muted-foreground">Your wallet can receive ASCEND tokens</p>
                         </div>
                       </div>
                     ) : isOptedInToFrontier === false ? (
@@ -234,7 +234,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                           <AlertCircle className="w-4 h-4 shrink-0" />
                           <div>
                             <p className="text-xs font-bold font-display uppercase tracking-wide">Opt-In Required</p>
-                            <p className="text-[10px] text-muted-foreground">You must opt in to receive FRONTIER on-chain</p>
+                            <p className="text-[10px] text-muted-foreground">You must opt in to receive ASCEND on-chain</p>
                           </div>
                         </div>
                         <Button
@@ -244,7 +244,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                           disabled={isPending}
                         >
                           <Coins className="w-3.5 h-3.5" />
-                          {isPending ? "Signing…" : `Opt-In to FRONTIER (ASA #${data.asaId})`}
+                          {isPending ? "Signing…" : `Opt-In to ASCEND (ASA #${data.asaId})`}
                         </Button>
                       </div>
                     ) : (
@@ -270,14 +270,14 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Active Rate</span>
                     <span className="font-mono text-xs font-bold text-yellow-400">
-                      {data.emissionRatePerDay} FRNTR / day
+                      {data.emissionRatePerDay} ASCEND / day
                     </span>
                   </div>
                   {data.economyMode === "testing" && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Production Rate</span>
                       <span className="font-mono text-xs text-muted-foreground">
-                        {data.emissionRateProd} FRNTR / day (future)
+                        {data.emissionRateProd} ASCEND / day (future)
                       </span>
                     </div>
                   )}
@@ -287,11 +287,11 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Daily Base Demand</span>
-                    <span className="font-mono text-xs text-emerald-400">{fmt(data.currentDailyBaseEmission)} FRNTR</span>
+                    <span className="font-mono text-xs text-emerald-400">{fmt(data.currentDailyBaseEmission)} ASCEND</span>
                   </div>
                   {data.economyMode === "testing" && (
                     <p className="text-[10px] text-yellow-400/80 leading-relaxed pt-0.5 border-t border-border/30 mt-1">
-                      Testing rate active — 50 FRNTR/day per parcel. Will be reduced for live launch.
+                      Testing rate active — 50 ASCEND/day per parcel. Will be reduced for live launch.
                     </p>
                   )}
                 </div>
@@ -309,19 +309,19 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                   </p>
                   <div className="bg-card/60 border border-border/50 rounded-lg p-3 space-y-2">
                     <p className="text-[10px] text-emerald-400/80 leading-relaxed pb-1 border-b border-border/30">
-                      Primary currency: <span className="font-bold font-mono">FRNTR</span> — ALGO is used only for unavoidable network fees.
+                      Primary currency: <span className="font-bold font-mono">ASCEND</span> — ALGO is used only for unavoidable network fees.
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Commander — Sentinel</span>
-                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.sentinel} FRNTR</span>
+                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.sentinel} ASCEND</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Commander — Phantom</span>
-                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.phantom} FRNTR</span>
+                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.phantom} ASCEND</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Commander — Reaper</span>
-                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.reaper} FRNTR</span>
+                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.reaper} ASCEND</span>
                     </div>
                     <div className="flex items-center justify-between border-t border-border/30 pt-1 mt-1">
                       <span className="text-xs text-muted-foreground">Land Purchase (all biomes)</span>
@@ -423,7 +423,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                 <p className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-2">Where to Buy</p>
                 <div className="bg-card/60 border border-border/50 rounded-lg p-3 space-y-2.5">
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    FRONTIER (FRNTR) is an Algorand Standard Asset (ASA). You can swap or provide liquidity on Algorand DEXs below. Make sure your wallet is opted in before trading.
+                    ASCEND is an Algorand Standard Asset (ASA). You can swap or provide liquidity on Algorand DEXs below. Make sure your wallet is opted in before trading.
                   </p>
 
                   <div className="flex flex-col gap-2">
@@ -436,7 +436,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                       >
                         <div>
                           <p className="font-display text-xs font-bold uppercase tracking-wide text-primary">Tinyman DEX</p>
-                          <p className="text-[10px] text-muted-foreground">Swap ALGO → FRONTIER</p>
+                          <p className="text-[10px] text-muted-foreground">Swap ALGO → ASCEND</p>
                         </div>
                         <ExternalLink className="w-3.5 h-3.5 text-primary shrink-0" />
                       </a>
@@ -482,12 +482,12 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
               </div>
 
               <div>
-                <p className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-2">How to Earn FRONTIER</p>
+                <p className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-2">How to Earn ASCEND</p>
                 <div className="bg-card/60 border border-border/50 rounded-lg p-3 space-y-2">
                   {[
-                    { label: "Own Land Plots", desc: "Each biome generates 0.5–1.5 FRONTIER/hr passively" },
+                    { label: "Own Land Plots", desc: "Each biome generates 0.5–1.5 ASCEND/hr passively" },
                     { label: "Booster Buildings", desc: "Blockchain nodes, data centres & AI labs multiply your yield" },
-                    { label: "Welcome Bonus", desc: "New commanders receive 500 FRONTIER on wallet connection" },
+                    { label: "Welcome Bonus", desc: "New commanders receive 500 ASCEND on wallet connection" },
                     { label: "Claim On-Chain", desc: "Accumulated tokens sent directly to your Algorand wallet" },
                   ].map(({ label, desc }) => (
                     <div key={label} className="flex items-start gap-2">
@@ -505,10 +505,10 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                 <p className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-2">Token Sinks (Burns)</p>
                 <div className="bg-card/60 border border-border/50 rounded-lg p-3 space-y-2">
                   {[
-                    { label: "Commander Minting", desc: data.economyMode === "testing" ? `Sentinel 10 FRNTR · Phantom 25 FRNTR · Reaper 50 FRNTR (testing)` : "Tier 1–3 commanders cost 50–400 FRONTIER to mint" },
-                    { label: "Special Attacks", desc: "EMP, Orbital Strike & Siege Barrage burn FRONTIER on use" },
-                    { label: "Drone Recon", desc: "Deploying scout drones costs FRONTIER" },
-                    { label: "Land Upgrades", desc: "Facilities consume FRONTIER tokens to build" },
+                    { label: "Commander Minting", desc: data.economyMode === "testing" ? `Sentinel 10 ASCEND · Phantom 25 ASCEND · Reaper 50 ASCEND (testing)` : "Tier 1–3 commanders cost 50–400 ASCEND to mint" },
+                    { label: "Special Attacks", desc: "EMP, Orbital Strike & Siege Barrage burn ASCEND on use" },
+                    { label: "Drone Recon", desc: "Deploying scout drones costs ASCEND" },
+                    { label: "Land Upgrades", desc: "Facilities consume ASCEND tokens to build" },
                   ].map(({ label, desc }) => (
                     <div key={label} className="flex items-start gap-2">
                       <div className="w-1 h-1 rounded-full bg-destructive mt-1.5 shrink-0" />

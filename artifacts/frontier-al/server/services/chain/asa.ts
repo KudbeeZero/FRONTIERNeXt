@@ -125,7 +125,7 @@ export async function getOrCreateFrontierAsa(
   const adminAddr = getAdminAccount().addr.toString();
 
   // 2. Look up on-chain
-  const existing = await lookupAsaByCreator(adminAddr, { name: "FRONTIER", unitName: "FRNTR" });
+  const existing = await lookupAsaByCreator(adminAddr, { name: "Ascend", unitName: "ASCEND" });
 
   if (existing) {
     if (forceNew) {
@@ -148,12 +148,12 @@ export async function getOrCreateFrontierAsa(
 
   // 3. Create — clawback MUST be set so fireBurn / clawbackFrontierAsa work on-chain.
   const { assetId } = await createAsa({
-    name:     "FRONTIER",
-    unitName: "FRNTR",
+    name:     "Ascend",
+    unitName: "ASCEND",
     total:    FRONTIER_ASA_TOTAL_SUPPLY * BigInt(Math.pow(10, FRONTIER_ASA_DECIMALS)),
     decimals: FRONTIER_ASA_DECIMALS,
     url:      process.env.PUBLIC_BASE_URL ?? "https://frontier-al.app",
-    note:     `FRONTIER Game Token - ${getNetwork()}`,
+    note:     `Ascend Game Token - ${getNetwork()}`,
     // SEV1 fix: clawback role = admin so clawbackFrontierAsa / fireBurn succeed on-chain.
     clawback: adminAddr,
   });
