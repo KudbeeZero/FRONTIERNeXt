@@ -47,7 +47,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "buy-plot",
     title: "Purchase Your First Plot",
     description:
-      "Click the Purchase button on the plot panel. Your wallet will open — approve the ALGO payment to claim the land. Territory earns FRONTIER tokens and lets you build, mine, and defend.",
+      "Click the Purchase button on the plot panel. Your wallet will open — approve the ALGO payment to claim the land. Territory earns ASCEND tokens and lets you build, mine, and defend.",
     target: "acquire-territory",
     completionRule: "plot_purchased",
   },
@@ -63,7 +63,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "first-action",
     title: "Try Your First Land Action",
     description:
-      "Use Extract to mine resources from your land. Resources fuel upgrades, construction, and your FRONTIER token earnings. Give it a try.",
+      "Use Extract to mine resources from your land. Resources fuel upgrades, construction, and your ASCEND token earnings. Give it a try.",
     target: "land-sheet",
     completionRule: "land_action_completed",
   },

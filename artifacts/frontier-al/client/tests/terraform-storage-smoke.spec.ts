@@ -36,6 +36,14 @@ beforeEach(async () => {
   storage = new MemStorage()
   await (storage as any).initialize()
 
+  // MemStorage seeds only AI players, so create a real (non-AI) owner and buy an
+  // unowned plot through the production purchase path before locating it.
+  const seededOwner = await storage.getOrCreatePlayerByAddress('OWNER_TEST_WALLET')
+  const preState = await storage.getGameState()
+  const unowned = preState.parcels.find(p => p.ownerId === null && p.purchasePriceAlgo !== null)
+  if (!unowned) throw new Error('No unowned parcel available to seed the test owner')
+  await storage.purchaseLand({ playerId: seededOwner.id, parcelId: unowned.id })
+
   const { owner, plot } = await findOwnerAndPlot(storage)
   ownerId = owner.id
   ownedPlotId = plot.plotId

@@ -16,10 +16,10 @@ const MONO: React.CSSProperties = {
 
 const ACTIVE_UPDATES = [
   {
-    label: "Testing Economy Unlock — FRNTR-First Pricing",
+    label: "Testing Economy Unlock — ASCEND-First Pricing",
     status: "complete" as const,
     date: "Mar 2026",
-    detail: "Commander minting now uses FRNTR as primary currency (no ALGO game-level charge). All testing prices are centralized in a single economy config. Sentinel: 10 FRNTR · Phantom: 25 FRNTR · Reaper: 50 FRNTR. Land purchases reduced to 0.1 ALGO (minimum viable) for testing. Unavoidable ALGO network fee (~0.001) is the only remaining chain cost.",
+    detail: "Commander minting now uses ASCEND as primary currency (no ALGO game-level charge). All testing prices are centralized in a single economy config. Sentinel: 10 ASCEND · Phantom: 25 ASCEND · Reaper: 50 ASCEND. Land purchases reduced to 0.1 ALGO (minimum viable) for testing. Unavoidable ALGO network fee (~0.001) is the only remaining chain cost.",
   },
   {
     label: "Centralized Economy Config",
@@ -37,7 +37,7 @@ const ACTIVE_UPDATES = [
     label: "Economics Panel — Testing Price Clarity",
     status: "complete" as const,
     date: "Mar 2026",
-    detail: "The in-game Economics panel now shows a dedicated 'Testing Economy Prices' section listing current FRNTR costs per action, land ALGO prices, and the unavoidable network fee. Currency per action is clearly labeled.",
+    detail: "The in-game Economics panel now shows a dedicated 'Testing Economy Prices' section listing current ASCEND costs per action, land ALGO prices, and the unavoidable network fee. Currency per action is clearly labeled.",
   },
   {
     label: "Sub-Parcel Archetype System",
@@ -135,8 +135,8 @@ export default function LandingUpdates() {
         {/* Live World Stats */}
         <div style={{ width: "100%", maxWidth: 900, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 48 }}>
           {[
-            { label: "FRNTR Circulating", value: worldData?.inGameCirculating != null ? Math.round(worldData.inGameCirculating).toLocaleString() : "—" },
-            { label: "FRNTR Burned",      value: worldData?.totalBurned        != null ? Math.round(worldData.totalBurned).toLocaleString()        : "—" },
+            { label: "ASCEND Circulating", value: worldData?.inGameCirculating != null ? Math.round(worldData.inGameCirculating).toLocaleString() : "—" },
+            { label: "ASCEND Burned",      value: worldData?.totalBurned        != null ? Math.round(worldData.totalBurned).toLocaleString()        : "—" },
             { label: "Top Commander",     value: topPlayer?.name ?? "—" },
             { label: "Build Date",        value: "March 2026" },
           ].map(({ label, value }) => (

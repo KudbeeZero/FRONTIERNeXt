@@ -7,12 +7,12 @@ const CARD: React.CSSProperties = {
 };
 
 const LOOP_STEPS = [
-  { icon: "🌍", label: "Claim Parcel",    desc: "Purchase a land parcel on the 3D globe using FRONTIER tokens. Every parcel has a unique biome — desert, forest, tundra, ocean, volcanic." },
+  { icon: "🌍", label: "Claim Parcel",    desc: "Purchase a land parcel on the 3D globe using ASCEND tokens. Every parcel has a unique biome — desert, forest, tundra, ocean, volcanic." },
   { icon: "⛏️", label: "Mine Resources",  desc: "Parcels generate iron, fuel, and crystal passively over time. Build mining improvements to amplify yield per hour." },
   { icon: "🏗️", label: "Build Improvements", desc: "Construct command centres, refineries, shield arrays, and blockchain nodes on your 3×3 sub-parcel grid." },
   { icon: "⚔️", label: "Attack & Defend", desc: "Deploy your commander and their AI companion to raid enemy parcels. Win to pillage resources and seize territory." },
   { icon: "🏪", label: "Trade",           desc: "Exchange resources and sub-parcels through the on-chain Trade Station. Set your price, list your asset, watch the market." },
-  { icon: "💎", label: "Earn FRONTIER",   desc: "Accumulate FRNTR from ownership yield, battle victories, and trade. Stake it back into new parcels and commanders." },
+  { icon: "💎", label: "Earn ASCEND",   desc: "Accumulate ASCEND from ownership yield, battle victories, and trade. Stake it back into new parcels and commanders." },
 ];
 
 const COMMANDERS = [
@@ -30,7 +30,7 @@ const SUB_CELLS = [
 const SEASONS = [
   { phase: "Phase I",   name: "Expansion", desc: "Land rush — claim parcels, build infrastructure, form resource stockpiles. AI factions actively contest unowned territory.", color: "#60a5fa" },
   { phase: "Phase II",  name: "Conflict",  desc: "Territory wars erupt. Sub-parcel battles unlock. Commander deployments accelerate. Burn mechanics peak as upgrades flood in.", color: "#a78bfa" },
-  { phase: "Phase III", name: "Dominion",  desc: "Top landholders compete for global control. Leaderboard sealed. Season rewards distributed in FRONTIER tokens.", color: "#f97316" },
+  { phase: "Phase III", name: "Dominion",  desc: "Top landholders compete for global control. Leaderboard sealed. Season rewards distributed in ASCEND tokens.", color: "#f97316" },
 ];
 
 export default function LandingGameplay() {
@@ -131,7 +131,7 @@ export default function LandingGameplay() {
                   { color: "#10b981", label: "MINE",  name: "Mining Rig",      desc: "Increases resource yield" },
                   { color: "#8b5cf6", label: "SHD",   name: "Shield Array",    desc: "Passive DEF bonus" },
                   { color: "#ef4444", label: "RFNRY", name: "Refinery",        desc: "Converts raw ore to fuel" },
-                  { color: "#06b6d4", label: "NODE",  name: "Blockchain Node", desc: "Multiplies FRNTR yield" },
+                  { color: "#06b6d4", label: "NODE",  name: "Blockchain Node", desc: "Multiplies ASCEND yield" },
                 ].map(item => (
                   <div key={item.label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <div style={{ width: 28, height: 18, background: `${item.color}22`, border: `1px solid ${item.color}66`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

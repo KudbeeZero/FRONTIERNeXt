@@ -21,11 +21,28 @@
  */
 
 import { WebSocketServer, WebSocket } from "ws";
-import type { Server } from "http";
+import type { Server, IncomingMessage } from "http";
 import type { IStorage } from "./storage";
 import { getPoolStats } from "./db";
 
 const FLUSH_INTERVAL_MS = 1_500;
+
+// ── Connection limits (DoS hardening) ────────────────────────────────────────
+// Inbound frames are only small ping/pong JSON, so cap payload size well above
+// that. Connection caps default to a generous per-IP limit (tune/disable via
+// env: 0 = unlimited) so they protect against connection-spam without wrongly
+// blocking legitimately NAT'd users.
+const WS_MAX_PAYLOAD_BYTES = 64 * 1024;
+const WS_MAX_CONN_PER_IP = Number(process.env.WS_MAX_CONN_PER_IP ?? 25);
+const WS_MAX_CONN = Number(process.env.WS_MAX_CONN ?? 0);
+const _connByIp = new Map<string, number>();
+
+/** Real client IP, honouring the trust-proxy X-Forwarded-For first hop. */
+function clientIpFromReq(req: IncomingMessage): string {
+  const fwd = req.headers["x-forwarded-for"];
+  const first = Array.isArray(fwd) ? fwd[0] : (fwd ?? "").split(",")[0];
+  return (first || req.socket.remoteAddress || "unknown").trim();
+}
 
 // ── Diagnostic counters ──────────────────────────────────────────────────────
 let _flushCount = 0;
@@ -41,11 +58,25 @@ let _flushTimer: ReturnType<typeof setInterval> | null = null;
 
 export function initWsServer(httpServer: Server, storage: IStorage): WebSocketServer {
   _storage = storage;
-  _wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+  _wss = new WebSocketServer({ server: httpServer, path: "/ws", maxPayload: WS_MAX_PAYLOAD_BYTES });
 
-  _wss.on("connection", (ws) => {
+  _wss.on("connection", (ws, req: IncomingMessage) => {
+    const ip = clientIpFromReq(req);
+
+    // Enforce connection caps before doing any work (0 = disabled).
+    if (WS_MAX_CONN > 0 && _wss!.clients.size > WS_MAX_CONN) {
+      ws.close(1013, "server connection limit reached");
+      return;
+    }
+    const ipCount = _connByIp.get(ip) ?? 0;
+    if (WS_MAX_CONN_PER_IP > 0 && ipCount >= WS_MAX_CONN_PER_IP) {
+      ws.close(1013, "too many connections");
+      return;
+    }
+    _connByIp.set(ip, ipCount + 1);
+
     let alive = true;
-    console.log(`[ws] Client connected (total: ${_wss!.clients.size + 1})`);
+    console.log(`[ws] Client connected (total: ${_wss!.clients.size})`);
 
     ws.on("message", (data) => {
       try {
@@ -67,6 +98,9 @@ export function initWsServer(httpServer: Server, storage: IStorage): WebSocketSe
 
     ws.on("close", () => {
       clearInterval(pingInterval);
+      const remaining = (_connByIp.get(ip) ?? 1) - 1;
+      if (remaining <= 0) _connByIp.delete(ip);
+      else _connByIp.set(ip, remaining);
       console.log(`[ws] Client disconnected (total: ${_wss!.clients.size})`);
     });
 

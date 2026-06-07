@@ -244,7 +244,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
       )}
 
       <div>
-        <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1">Facilities (FRNTR)</p>
+        <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1">Facilities (ASCEND)</p>
         <div className="grid grid-cols-2 gap-1">
           {facilityTypes.map(type => {
             const info = FACILITY_INFO[type];
@@ -272,14 +272,14 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
                   <span className="text-[8px] font-mono flex items-center gap-0.5">
                     {hasDiscount && <span className="line-through text-muted-foreground/50">{rawCost}</span>}
                     <span className={cn(hasDiscount ? "text-green-400" : hasPremium ? "text-amber-400" : "text-muted-foreground")}>
-                      {cost} FRNTR
+                      {cost} ASCEND
                     </span>
                     {hasDiscount && <span className="text-green-400/70">↓{Math.round((1 - multiplier) * 100)}%</span>}
                     {hasPremium && <span className="text-amber-400/70">↑{Math.round((multiplier - 1) * 100)}%</span>}
                   </span>
                 )}
                 {!hasPrereq && <span className="text-[7px] text-destructive">🔒 Needs Electricity</span>}
-                {!atMax && !canAfford && <span className="text-[7px] text-destructive/70">Insufficient FRNTR</span>}
+                {!atMax && !canAfford && <span className="text-[7px] text-destructive/70">Insufficient ASCEND</span>}
               </Button>
             );
           })}
@@ -332,7 +332,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
         <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1.5">Trade</p>
         {existingListing ? (
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-emerald-400 font-mono">Listed: {existingListing.askPriceFrontier} FRNTR</span>
+            <span className="text-[9px] text-emerald-400 font-mono">Listed: {existingListing.askPriceFrontier} ASCEND</span>
             <Button size="sm" variant="outline" className="h-5 px-2 text-[9px] border-destructive/50 text-destructive hover:bg-destructive/10"
               onClick={() => cancelListingMutation.mutate(existingListing.id)}
               disabled={cancelListingMutation.isPending}
@@ -345,7 +345,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
               min={1}
               value={listPrice}
               onChange={e => setListPrice(e.target.value)}
-              placeholder="Ask price (FRNTR)"
+              placeholder="Ask price (ASCEND)"
               className="flex-1 bg-muted/30 border border-border rounded px-2 py-1 text-[9px] font-mono focus:outline-none focus:border-primary"
             />
             <Button size="sm" variant="outline" className="h-7 px-2 text-[9px] border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 shrink-0"
@@ -539,7 +539,7 @@ function SubParcelGrid({ parcel, player, onNavigate }: SubParcelGridProps) {
                       )}
                       onClick={() => canAffordBuy && purchaseMutation.mutate(sp.id)}
                       disabled={purchaseMutation.isPending || !canAffordBuy}
-                      title={canAffordBuy ? `Buy for ${price} FRNTR` : `Need ${price} FRNTR`}
+                      title={canAffordBuy ? `Buy for ${price} ASCEND` : `Need ${price} ASCEND`}
                     >
                       {canAffordBuy ? `Buy ${price}F` : `${price}F`}
                     </Button>
@@ -742,7 +742,7 @@ export function LandSheet({
                   {isOwned && <span className="text-primary font-display uppercase font-semibold">Your Territory</span>}
                   {isEnemyOwned && <span className="text-destructive font-display uppercase font-semibold">Enemy Territory</span>}
                   {isUnclaimed && <span className="font-display uppercase">Unclaimed</span>}
-                  <span className="text-primary font-mono font-semibold">{parcel.frontierPerDay.toFixed(1)} FRNTR/day</span>
+                  <span className="text-primary font-mono font-semibold">{parcel.frontierPerDay.toFixed(1)} ASCEND/day</span>
                 </div>
               </div>
             </div>
@@ -1033,7 +1033,7 @@ export function LandSheet({
                   <span className="text-[10px] font-display uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                     <Layers className="w-3 h-3" /> Select Target Biome
                   </span>
-                  <span className="text-[10px] font-mono text-primary">{TERRAFORM_COST} FRNTR</span>
+                  <span className="text-[10px] font-mono text-primary">{TERRAFORM_COST} ASCEND</span>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {(Object.entries(TERRAFORM_BIOME_MAP) as [string, BiomeType][]).map(([protoKey, serverBiome]) => {
@@ -1065,12 +1065,12 @@ export function LandSheet({
                   >
                     {terraformMutation.isPending
                       ? "Terraforming..."
-                      : `Confirm → ${TERRAFORM_BIOME_MAP[pendingBiome]} (${TERRAFORM_COST} FRNTR)`}
+                      : `Confirm → ${TERRAFORM_BIOME_MAP[pendingBiome]} (${TERRAFORM_COST} ASCEND)`}
                   </Button>
                 )}
                 {!canAffordTerraform && (
                   <p className="text-[9px] text-destructive font-mono">
-                    Insufficient FRNTR — need {TERRAFORM_COST}, have {player?.frontier ?? 0}
+                    Insufficient ASCEND — need {TERRAFORM_COST}, have {player?.frontier ?? 0}
                   </p>
                 )}
                 {terraformMutation.isError && (
@@ -1146,7 +1146,10 @@ export function LandSheet({
 
               <div>
                 <h4 className="text-xs font-display uppercase tracking-wide text-primary mb-2 flex items-center gap-1.5">
-                  <Coins className="w-3.5 h-3.5" /> Facilities (FRONTIER burned)
+                  <Coins className="w-3.5 h-3.5" /> Facilities (ASCEND burned)
+                  <span className="ml-auto text-[9px] text-primary/70 font-mono normal-case" data-testid="text-parcel-yield-mult">
+                    Yield ×{(parcel.yieldMultiplier ?? 1.0).toFixed(2)}
+                  </span>
                 </h4>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.entries(FACILITY_INFO) as [FacilityType, typeof FACILITY_INFO[FacilityType]][]).map(([type, info]) => {
@@ -1176,12 +1179,17 @@ export function LandSheet({
                           </span>
                         )}
                         <span className="text-[9px] text-muted-foreground font-mono">
-                          {atMax ? "✓ MAX" : `${cost} FRNTR`}
+                          {atMax ? "✓ MAX" : `${cost} ASCEND`}
                         </span>
                         {showsIncome
-                          ? <span className="text-[9px] text-primary/70 font-mono">+{perDay} FRNTR/day</span>
+                          ? <span className="text-[9px] text-primary/70 font-mono">+{perDay} ASCEND/day</span>
                           : <span className="text-[9px] text-primary/70 font-mono">{info.effect}</span>
                         }
+                        {type === "data_centre" && !atMax && (
+                          <span className="text-[9px] text-emerald-400/80 font-mono" data-testid="text-data-centre-yield">
+                            +{(0.05 * level).toFixed(2)}× yield at Lv{level}
+                          </span>
+                        )}
                         {!hasPrereq && (
                           <span className="text-[8px] text-destructive flex items-center gap-0.5">
                             🔒 Needs Electricity
@@ -1270,7 +1278,7 @@ export function LandSheet({
                         <Icon className="w-3 h-3" /> {info.name}
                       </span>
                       <span className="text-[9px] text-muted-foreground font-mono">
-                        {isOnCooldown ? "Cooldown" : `${info.costFrontier} FRNTR`}
+                        {isOnCooldown ? "Cooldown" : `${info.costFrontier} ASCEND`}
                       </span>
                     </Button>
                   );

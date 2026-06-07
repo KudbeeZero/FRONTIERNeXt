@@ -42,7 +42,6 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { LAND_PURCHASE_USD_PROD } from "../shared/economy-config";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -216,10 +215,6 @@ export async function registerRoutes(
       res.json({ ready: false, frontierAsaId: null, adminAddress: null });
     }
   });
-line 195:  app.get("/api/blockchain/status", ...
-line 218:  app.get("/api/economics", ...
-           ← PASTE THE NEW ROUTE HERE
-line 348:  app.get("/api/blockchain/opt-in-check/:address", ...
 
   app.get("/api/economics", async (_req, res) => {
     try {
@@ -370,7 +365,15 @@ line 348:  app.get("/api/blockchain/opt-in-check/:address", ...
     if (!def) return res.status(404).json({ error: "Faction not found" });
 
     const asaId       = getFactionAsaId(factionName);
-    const baseUrl     = process.env.PUBLIC_BASE_URL ?? `${req.protocol}://${req.get("host")}`;
+    // PUBLIC_BASE_URL must come from env only — never the request Host header
+    // (this JSON is referenced as a permanent on-chain assetURL; a host-header
+    // fallback would let a spoofed Host poison the metadata URLs). Mirror the
+    // /nft/metadata endpoints: 503 when unset rather than serve invalid URLs.
+    const baseUrl     = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/+$/, "") : null;
+    if (!baseUrl) {
+      console.error("[/faction/:name] PUBLIC_BASE_URL is not set — faction metadata URLs would be invalid. Set PUBLIC_BASE_URL env var.");
+      return res.status(503).json({ error: "PUBLIC_BASE_URL not configured — faction metadata URLs would be invalid. Set PUBLIC_BASE_URL env var." });
+    }
     const explorerUrl = asaId ? `https://allo.info/asset/${asaId}` : null;
 
     res.json({
@@ -1002,6 +1005,9 @@ line 348:  app.get("/api/blockchain/opt-in-check/:address", ...
   });
 
   app.get("/api/testnet/progress/:address", async (req, res) => {
+    // Testnet-only debug surface — never expose on mainnet (writes/reads mission
+    // progress without auth). 404 hides its existence in production.
+    if (process.env.ALGORAND_NETWORK === "mainnet") return res.sendStatus(404);
     try {
       const { address } = req.params;
       if (!address || typeof address !== "string") {
@@ -1030,6 +1036,9 @@ line 348:  app.get("/api/blockchain/opt-in-check/:address", ...
   });
 
   app.post("/api/testnet/progress", async (req, res) => {
+    // Testnet-only debug surface — never expose on mainnet (writes mission
+    // progress without auth). 404 hides its existence in production.
+    if (process.env.ALGORAND_NETWORK === "mainnet") return res.sendStatus(404);
     try {
       const { address, completedMissions } = req.body;
       if (!address || typeof address !== "string") {
@@ -2167,7 +2176,7 @@ line 348:  app.get("/api/blockchain/opt-in-check/:address", ...
 
   setInterval(async () => {
     try {
-      if (process.env.AI_ENABLED !== "false") {
+      if (process.env.AI_ENABLED === "true") {
         const aiEvents = await withDbRetry(() => storage.runAITurn(), "runAITurn");
         if (aiEvents && aiEvents.length > 0) markDirty();
       }

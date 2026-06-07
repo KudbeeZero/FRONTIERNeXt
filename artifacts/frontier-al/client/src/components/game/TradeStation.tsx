@@ -30,7 +30,7 @@ const RESOURCE_LABELS: Record<TradeResource, string> = {
   iron:     "Iron",
   fuel:     "Fuel",
   crystal:  "Crystal",
-  frontier: "FRONTIER",
+  frontier: "ASCEND",
 };
 
 const RESOURCE_ICONS: Record<string, string> = {

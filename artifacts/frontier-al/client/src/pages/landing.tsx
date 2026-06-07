@@ -160,7 +160,7 @@ function HypeTicker() {
     "🔥 4,218 parcels claimed",
     "⚡ AI factions are mobilising",
     "🌐 Algorand TestNet LIVE",
-    "🪙 $FRONTIER token launching soon",
+    "🪙 $ASCEND token launching soon",
     "🛡 Early adopters get permanent on-chain bonuses",
     "🤖 Four rival factions compete for the planet",
     "⬡ 21,000 hex parcels — claim yours now",
@@ -187,13 +187,13 @@ function TokenSection() {
   const steps = [
     { num: "01", icon: "📱", title: "Install Pera Wallet", desc: "Download Pera Wallet on iOS or Android. It's the leading Algorand wallet with full ASA and NFT support.", action: "Get Pera Wallet →", color: "#4fc3f7" },
     { num: "02", icon: "⚡", title: "Acquire ALGO",        desc: "Fund your wallet with ALGO from any major exchange — Coinbase, Kraken, Binance, or KuCoin.", action: "Buy ALGO →", color: "#81c784" },
-    { num: "03", icon: "🪙", title: "Swap for $FRONTIER",  desc: "Visit Vestige or Tinyman DEX. Swap ALGO for $FRONTIER, then claim your parcels and begin your conquest.", action: "Swap on Vestige →", color: "#ce93d8" },
+    { num: "03", icon: "🪙", title: "Swap for $ASCEND",  desc: "Visit Vestige or Tinyman DEX. Swap ALGO for $ASCEND, then claim your parcels and begin your conquest.", action: "Swap on Vestige →", color: "#ce93d8" },
   ];
 
   return (
     <div style={{ width: "100%", maxWidth: 940, marginBottom: 80 }}>
       <div style={{ fontSize: 10, letterSpacing: "0.28em", color: "rgba(100,140,255,0.5)", textTransform: "uppercase", textAlign: "center", marginBottom: 8 }}>
-        — HOW TO ACQUIRE $FRONTIER —
+        — HOW TO ACQUIRE $ASCEND —
       </div>
       <div style={{
         fontSize: "clamp(20px, 4vw, 28px)", fontWeight: 800, letterSpacing: "0.08em",
@@ -203,12 +203,12 @@ function TokenSection() {
         marginBottom: 12,
       }}>Join the Economy</div>
       <div style={{ fontSize: 13, color: "rgba(160,190,255,0.6)", textAlign: "center", marginBottom: 40, maxWidth: 500, margin: "0 auto 40px" }}>
-        $FRONTIER powers every transaction on the planet. Own parcels, trade resources, and shape the economy.
+        $ASCEND powers every transaction on the planet. Own parcels, trade resources, and shape the economy.
       </div>
 
       <div className="token-stats-grid" style={{ marginBottom: 36 }}>
         {[
-          { label: "Token",        value: "$FRONTIER" },
+          { label: "Token",        value: "$ASCEND" },
           { label: "Chain",        value: "Algorand" },
           { label: "Total Supply", value: "21,000,000" },
           { label: "Asset Type",   value: "ASA" },
@@ -625,7 +625,7 @@ export default function LandingPage() {
             <FeatureCard icon="🔗" title="Algorand Chain"    desc="Every parcel, upgrade, and battle recorded on-chain. True ownership. Near-zero fees." />
             <FeatureCard icon="⚔️" title="Territory Wars"   desc="Expand, fortify, and defend your parcels. Strategic alliances determine who rules the frontier." />
             <FeatureCard icon="💎" title="Commander NFTs"    desc="Three tiers. Unique AI companions. Permanent stats. Traded on the open market." />
-            <FeatureCard icon="💰" title="FRNTR Economy"    desc="Earn tokens by owning land. Burn them to mint commanders and launch attacks." />
+            <FeatureCard icon="💰" title="ASCEND Economy"    desc="Earn tokens by owning land. Burn them to mint commanders and launch attacks." />
           </div>
         </div>
 

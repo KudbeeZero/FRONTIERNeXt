@@ -125,16 +125,16 @@ export async function getOrCreateFrontierAsa(
   const adminAddr = getAdminAccount().addr.toString();
 
   // 2. Look up on-chain
-  const existing = await lookupAsaByCreator(adminAddr, { name: "FRONTIER", unitName: "FRNTR" });
+  const existing = await lookupAsaByCreator(adminAddr, { name: "Ascend", unitName: "ASCEND" });
 
   if (existing) {
     if (forceNew) {
       console.warn(
-        `[chain/asa] FORCE_NEW_ASA=true but existing FRONTIER ASA ${existing} found. ` +
+        `[chain/asa] FORCE_NEW_ASA=true but existing Ascend ASA ${existing} found. ` +
         "Creating a SECOND token. This is intentional."
       );
     } else {
-      console.log(`[chain/asa] Using existing FRONTIER ASA: ${existing}`);
+      console.log(`[chain/asa] Using existing Ascend ASA: ${existing}`);
       _frontierAsaId = existing;
       return existing;
     }
@@ -143,17 +143,17 @@ export async function getOrCreateFrontierAsa(
   if (!existing && !forceNew) {
     // GUARD: no existing ASA and forceNew is false — refuse to create
     // This prevents silent token multiplication on restart.
-    console.log("[chain/asa] No existing FRONTIER ASA found. Creating new token.");
+    console.log("[chain/asa] No existing Ascend ASA found. Creating new token.");
   }
 
   // 3. Create — clawback MUST be set so fireBurn / clawbackFrontierAsa work on-chain.
   const { assetId } = await createAsa({
-    name:     "FRONTIER",
-    unitName: "FRNTR",
+    name:     "Ascend",
+    unitName: "ASCEND",
     total:    FRONTIER_ASA_TOTAL_SUPPLY * BigInt(Math.pow(10, FRONTIER_ASA_DECIMALS)),
     decimals: FRONTIER_ASA_DECIMALS,
     url:      process.env.PUBLIC_BASE_URL ?? "https://frontier-al.app",
-    note:     `FRONTIER Game Token - ${getNetwork()}`,
+    note:     `Ascend Game Token - ${getNetwork()}`,
     // SEV1 fix: clawback role = admin so clawbackFrontierAsa / fireBurn succeed on-chain.
     clawback: adminAddr,
   });

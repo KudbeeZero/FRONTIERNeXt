@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { initSeasonManager } from "./engine/season/manager";
 import { hydrateWorldEventsFromRedis } from "./worldEventStore";
@@ -14,6 +15,10 @@ import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Behind Railway's reverse proxy: trust the first hop so rate limiting and any
+// IP-based logic key on the real client IP (X-Forwarded-For) rather than the proxy.
+app.set("trust proxy", 1);
 
 declare module "http" {
   interface IncomingMessage {
@@ -58,13 +63,15 @@ process.on("uncaughtException", (err) => {
 
 app.use(
   express.json({
+    // Cap request bodies — game payloads are < 5KB; this blocks oversized-body DoS.
+    limit: "1mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 // Security headers (helmet middleware)
 // CSP is relaxed in development to allow Vite HMR and inline styles;
@@ -120,6 +127,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Rate limiting on game action routes ──────────────────────────────────────
+// Per-IP fixed window over /api/actions/* (mine, attack, purchase, build, …).
+// Read-only routes are unaffected; server-internal AI/scheduler paths do not hit
+// /api/actions. DB-level cooldowns/constraints remain the primary guard — this
+// adds a cheap spam / treasury-drain ceiling. Tune via env if needed.
+const actionsLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Number(process.env.ACTIONS_RATE_LIMIT ?? 60),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many actions — slow down and try again shortly." },
+});
+app.use("/api/actions", actionsLimiter);
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -146,7 +167,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // Only echo the response body in non-production. In production this would
+      // leak live game state (balances, player data, plot details) into stdout.
+      if (capturedJsonResponse && process.env.NODE_ENV !== "production") {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 

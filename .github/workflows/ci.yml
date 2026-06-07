@@ -1,0 +1,46 @@
+name: CI
+
+# Typecheck + server unit tests for the frontier-al app.
+# Runs on every PR and on pushes to main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Typecheck & server tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (tsc)
+        run: pnpm --filter @workspace/frontier-al run check
+
+      - name: Server unit tests (battle engine, tuning, rng, economy)
+        run: pnpm --filter @workspace/frontier-al run test:server
+
+      - name: Client unit tests (terraform, parcels)
+        run: pnpm --filter @workspace/frontier-al run test

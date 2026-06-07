@@ -22,7 +22,7 @@ function formatCooldown(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Live accumulated FRNTR = stored amount + time-based earnings since last claim. */
+/** Live accumulated ASCEND = stored amount + time-based earnings since last claim. */
 function liveFrontierAccumulated(parcel: LandParcel, now: number): number {
   const days = Math.max(0, (now - parcel.lastFrontierClaimTs) / (1000 * 60 * 60 * 24));
   return parcel.frontierAccumulated + days * parcel.frontierPerDay;
@@ -94,7 +94,7 @@ function PlotRow({
         {/* Resource storage bar */}
         <Progress value={storagePercent} className="h-1 mb-1.5" />
 
-        {/* Bottom row: resources + FRNTR rate */}
+        {/* Bottom row: resources + ASCEND rate */}
         <div className="flex items-center gap-3 text-[10px]">
           <span className="flex items-center gap-0.5 text-iron">
             <Pickaxe className="w-2.5 h-2.5" /> {parcel.ironStored}
@@ -114,10 +114,10 @@ function PlotRow({
           </span>
         </div>
 
-        {/* Pending FRNTR — live computed */}
+        {/* Pending ASCEND — live computed */}
         {liveFrontierAccumulated(parcel, now) > 0.001 && (
           <div className="mt-1.5 text-[9px] text-yellow-400 font-mono">
-            {liveFrontierAccumulated(parcel, now).toFixed(4)} FRNTR accumulated
+            {liveFrontierAccumulated(parcel, now).toFixed(4)} ASCEND accumulated
           </div>
         )}
       </button>
@@ -380,7 +380,7 @@ export function CommandCenterPanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [now, setNow] = useState(() => Date.now());
 
-  // Tick every second so accumulated FRNTR counts up in real time.
+  // Tick every second so accumulated ASCEND counts up in real time.
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -427,13 +427,13 @@ export function CommandCenterPanel({
           <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
             {ownedParcels.length} plot{ownedParcels.length !== 1 ? "s" : ""} owned
             {player.totalFrontierEarned > 0 && (
-              <> · {player.totalFrontierEarned.toFixed(1)} FRNTR earned lifetime</>
+              <> · {player.totalFrontierEarned.toFixed(1)} ASCEND earned lifetime</>
             )}
           </p>
         )}
       </div>
 
-      {/* ── FRNTR Token Mint Banner (ASA tokens only — not related to mining) ── */}
+      {/* ── ASCEND Token Mint Banner (ASA tokens only — not related to mining) ── */}
       {/* ── Collect Minerals — collects extracted resources (iron/fuel/crystal) ── */}
       {player && hasStored && (
         <div className="mx-3 mt-2 shrink-0">
