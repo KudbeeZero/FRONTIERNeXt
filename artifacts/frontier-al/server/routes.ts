@@ -65,6 +65,7 @@ import {
   clearSessionCookie,
 } from "./auth";
 import { scopeGameStateFor } from "./stateScope";
+import { assessWelcomeBonusEligibility } from "./services/chain/eligibility";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -231,6 +232,35 @@ export async function registerRoutes(
     return targetId;
   }
 
+  /**
+   * Grant the 500 FRONTIER welcome bonus once, gated by on-chain Sybil
+   * heuristics (minimum ALGO balance). Safe to call on every login: it no-ops
+   * if the bonus was already received or the wallet is ineligible, so the bonus
+   * is effectively granted on the first *eligible* login.
+   */
+  async function maybeGrantWelcomeBonus(
+    playerId: string,
+    address: string,
+  ): Promise<{ granted: boolean; reason?: string }> {
+    const p = await storage.getPlayer(playerId).catch(() => null);
+    if (!p || p.welcomeBonusReceived) return { granted: false };
+    // Internal AI players never reach here, but guard anyway.
+    if (!address || address.startsWith("AI_")) return { granted: false };
+
+    const elig = await assessWelcomeBonusEligibility(address);
+    if (!elig.eligible) return { granted: false, reason: elig.reason };
+
+    await storage.grantWelcomeBonus(playerId);
+    // Enqueue regardless of asaId / opt-in state; the worker retries.
+    enqueueFrontierTransfer({
+      recipientAddress: address,
+      recipientPlayerId: playerId,
+      amount: 500,
+      reason: "welcome_bonus",
+    }).catch((err) => console.error("Welcome bonus enqueue failed:", err));
+    return { granted: true };
+  }
+
   // ── Anti-scraping: strict per-IP throttle on enumerable read endpoints ───────
   // These endpoints are keyed by a sequential/guessable identifier (plotId,
   // playerId, wallet address) and individually return off-chain game-economy
@@ -284,24 +314,12 @@ export async function registerRoutes(
 
       // Ownership proven — resolve (or create) the player bound to this address.
       const player = await storage.getOrCreatePlayerByAddress(address);
-      let welcomeBonus = false;
-      if (!player.welcomeBonusReceived) {
-        await storage.grantWelcomeBonus(player.id);
-        welcomeBonus = true;
-        if (!address.startsWith("AI_")) {
-          enqueueFrontierTransfer({
-            recipientAddress: address,
-            recipientPlayerId: player.id,
-            amount: 500,
-            reason: "welcome_bonus",
-          }).catch((err) => console.error("Welcome bonus enqueue failed:", err));
-        }
-      }
+      const wb = await maybeGrantWelcomeBonus(player.id, address);
 
       const token = signSession({ address, playerId: player.id });
       setSessionCookie(res, token);
       const fresh = await storage.getPlayer(player.id);
-      res.json({ success: true, token, welcomeBonus, player: fresh });
+      res.json({ success: true, token, welcomeBonus: wb.granted, welcomeBonusReason: wb.reason, player: fresh });
     } catch (error) {
       console.error("[auth/verify] error:", error);
       res.status(500).json({ error: "Authentication failed" });
@@ -1124,26 +1142,11 @@ export async function registerRoutes(
       }
 
       const player = await storage.getOrCreatePlayerByAddress(address);
+      const wb = await maybeGrantWelcomeBonus(player.id, address);
 
-      let welcomeBonus = false;
-      if (!player.welcomeBonusReceived) {
-        await storage.grantWelcomeBonus(player.id);
-        welcomeBonus = true;
-
-        // SEV2 #7 fix: enqueue regardless of asaId / opt-in state; worker retries.
-        if (!address.startsWith("AI_")) {
-          enqueueFrontierTransfer({
-            recipientAddress:  address,
-            recipientPlayerId: player.id,
-            amount:            500,
-            reason:            "welcome_bonus",
-          }).catch((err) => console.error("Welcome bonus enqueue failed:", err));
-        }
-      }
-
-      // Return fresh player data (welcomeBonusReceived is now true)
+      // Return fresh player data (welcomeBonusReceived reflects any grant)
       const fresh = await storage.getPlayer(player.id);
-      res.json({ ...fresh, welcomeBonus });
+      res.json({ ...fresh, welcomeBonus: wb.granted, welcomeBonusReason: wb.reason });
     } catch (error) {
       console.error("player-by-address error:", error);
       res.status(500).json({ error: "Failed to get or create player" });
