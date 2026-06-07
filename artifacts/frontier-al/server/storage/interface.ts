@@ -137,7 +137,16 @@ export interface IStorage {
   createMarket(action: CreateMarketAction, createdBy?: string): Promise<PredictionMarket>;
   placeBet(marketId: string, playerId: string, outcome: MarketOutcome, amount: number): Promise<{ position: MarketPosition; market: PredictionMarket } | { error: string }>;
   claimWinnings(marketId: string, playerId: string): Promise<{ payout: number } | { error: string }>;
-  resolveMarket(marketId: string, winningOutcome: MarketOutcome): Promise<PredictionMarket | { error: string }>;
+  /**
+   * Provably-fair resolution: DERIVES the outcome from the market's immutable
+   * resolution source. No winning outcome is accepted from any caller. Returns
+   * { error: "Not yet resolvable" } until the resolving fact is knowable.
+   */
+  resolveMarketTrustlessly(marketId: string): Promise<PredictionMarket | { error: string }>;
+  /** Markets with a source whose staking cutoff has passed (candidates to resolve). */
+  getResolvableMarkets(): Promise<PredictionMarket[]>;
+  /** Automated resolver — resolves every market whose condition is met (no human input). */
+  resolveReadyMarkets(): Promise<void>;
   getPlayerPositions(playerId: string): Promise<(MarketPosition & { market: PredictionMarket })[]>;
   resolveExpiredMarkets(): Promise<void>;
 
