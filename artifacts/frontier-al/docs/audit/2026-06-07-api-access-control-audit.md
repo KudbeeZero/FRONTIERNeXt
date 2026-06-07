@@ -56,12 +56,11 @@ hardens.
 |---|---------|--------|
 | O1 | **No proof-of-wallet-ownership on writes.** CLOSED — see §4. Every mutating endpoint requires a verified wallet session and rejects any player-identity that doesn't match it. | ✅ FIXED |
 | O2 | **WebSocket unauthenticated + full-state firehose.** CLOSED — see §6. The WS now requires a session token to connect, and both the WS feed and `/api/game/state` are scoped per viewer (others' stored resources and balances redacted). | ✅ FIXED |
+| O3 | **No Sybil resistance on the welcome bonus.** CLOSED — see §7. The 500 FRONTIER bonus is now gated behind an on-chain minimum-ALGO-balance check; throwaway/empty wallets can't farm it. | ✅ FIXED |
 
 ### OUTSTANDING
 
-| # | Finding | Severity |
-|---|---------|----------|
-| O3 | No Sybil resistance — a new wallet address still yields a fresh player + welcome bonus. Auth proves *control* of an address, not that it's a distinct human. Mitigate with on-chain heuristics / minimum-balance gating before mainnet incentives. | MEDIUM |
+_None from the original audit. Operational follow-ups only (multi-instance Redis for nonce/rate-limit state; secret rotation; on-chain account-age heuristics if Sybil pressure persists)._
 
 ---
 
@@ -189,6 +188,29 @@ auth + scoping wiring in `server/wsServer.ts`, scoped `/api/game/state` in
 the **real** WS server confirms unauthenticated connections are closed (1008)
 and an authenticated client sees its own data in full while others' resources/
 balances are redacted to 0; full production build succeeds.
+
+## 7. Pass 4 — Sybil gating for the welcome bonus (closes O3)
+
+Wallet-signature auth proves address *control*, not human uniqueness — and
+Algorand addresses are free to generate, so a bot could mint unlimited wallets
+and farm the 500 FRONTIER welcome bonus.
+
+**Gate (`server/services/chain/eligibility.ts`):** the bonus now requires the
+wallet to hold a minimum ALGO balance (`WELCOME_BONUS_MIN_ALGO`, default 1),
+checked on-chain via algod. Funding many wallets with real ALGO has real cost
+(especially on mainnet), which raises the Sybil bar. The check:
+- gates the **bonus only** — ineligible wallets still connect and play, and the
+  bonus stays claimable on the first login where they qualify;
+- **fails closed** on a genuine algod outage (can't be bypassed by knocking the
+  node offline); an unfunded/unknown account is simply ineligible;
+- is toggleable (`WELCOME_BONUS_SYBIL_CHECK=false`).
+
+Applied in both grant paths (`/api/auth/verify`, `/api/game/player-by-address`)
+via one `maybeGrantWelcomeBonus()` helper. Also hardened `validate-env.js` to
+warn on weak `SESSION_SECRET`, missing `ADMIN_KEY`, and disabled auth/Sybil flags.
+
+**Verified:** `tsc` clean; 71/71 server tests pass (6 new eligibility tests);
+env-validator emits the expected warnings; full production build succeeds.
 
 ## 5. Remaining recommendations
 

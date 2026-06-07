@@ -52,7 +52,17 @@ Sign-In With Algorand for LUTE / Pera / Defly / Kibisis (any use-wallet provider
 - Verified: 65/65 server tests; real-WS integration test (1008 reject + scoped
   payload); full build.
 
-## Outstanding
-- O3 — Sybil: new address ⇒ new player + welcome bonus (auth proves control,
-  not human uniqueness).
+## Pass 4 — Sybil gating for welcome bonus (O3 CLOSED)
+- `server/services/chain/eligibility.ts` (+ spec, 6 tests): welcome bonus gated
+  behind min on-chain ALGO balance (`WELCOME_BONUS_MIN_ALGO`, default 1;
+  `WELCOME_BONUS_SYBIL_CHECK` toggle). Fails closed on algod outage; bonus stays
+  claimable on first eligible login.
+- `server/routes.ts`: `maybeGrantWelcomeBonus()` helper used in both grant paths
+  (auth/verify + player-by-address).
+- `validate-env.js`: warns on weak SESSION_SECRET, missing ADMIN_KEY, disabled
+  auth/Sybil flags.
+- Verified: 71/71 server tests; env-validator warnings; full build.
+
+## Outstanding (operational only — no open audit findings)
 - Multi-instance: move nonce store + rate-limit counters to Redis.
+- Secret rotation; optional on-chain account-age heuristic if Sybil pressure persists.

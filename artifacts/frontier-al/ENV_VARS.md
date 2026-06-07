@@ -23,6 +23,8 @@
 | ACTIONS_RATE_LIMIT | Per-IP limit (per minute) on `/api/actions/*` mutating game actions. | `60` (default) |
 | ADVICE_RATE_LIMIT | Per-IP limit (per minute) on the LLM terraform-advice endpoint. | `30` (default) |
 | WALLET_AUTH_REQUIRED | Enforce wallet-signature auth on all mutating game endpoints. **Defaults to ON** (any value except `false`). Set to `false` ONLY during a split-host rollout window where the new client is not yet deployed, then flip back. | `true` (default) |
+| WELCOME_BONUS_SYBIL_CHECK | Gate the 500 FRONTIER welcome bonus behind an on-chain minimum-balance check (anti-Sybil). **Defaults to ON**; set `false` to disable. | `true` (default) |
+| WELCOME_BONUS_MIN_ALGO | Minimum wallet ALGO balance required to claim the welcome bonus. `0` disables the balance gate. | `1` (default) |
 | ALGOD_URL | Custom Algorand node URL (optional, defaults to algonode) | `https://mainnet-api.algonode.cloud` |
 | INDEXER_URL | Custom Algorand indexer URL (optional, defaults to algonode) | `https://mainnet-idx.algonode.cloud` |
 | ALGOD_TOKEN | Algorand node API token (optional) | |
