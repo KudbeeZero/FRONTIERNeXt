@@ -10,6 +10,17 @@ import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
+import rateLimit from "express-rate-limit";
+
+// Per-IP limiter for the terraform advice endpoint — bounds cost when the LLM
+// advisor path (ANTHROPIC_API_KEY) is enabled. The heuristic path is cheap.
+const adviceLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Number(process.env.ADVICE_RATE_LIMIT ?? 30),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many advice requests — try again shortly." },
+});
 import { broadcastGameState, broadcastRaw, markDirty } from "./wsServer";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 
@@ -2526,8 +2537,8 @@ export async function registerRoutes(
    * heuristic by default; upgrades to a Claude recommendation when
    * ANTHROPIC_API_KEY is configured (falls back to the heuristic on any error).
    */
-  app.get("/api/plots/:plotId/terraform-advice", async (req, res) => {
-    const plotId = parseInt(req.params.plotId);
+  app.get("/api/plots/:plotId/terraform-advice", adviceLimiter, async (req, res) => {
+    const plotId = parseInt(String(req.params.plotId), 10);
     if (!plotId || isNaN(plotId)) return res.status(400).json({ error: "Invalid plotId" });
     const goalParam = String(req.query.goal ?? "balanced");
     const goal: TerraformGoal = (["defense", "yield", "balanced"].includes(goalParam) ? goalParam : "balanced") as TerraformGoal;

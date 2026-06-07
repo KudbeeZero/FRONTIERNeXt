@@ -128,9 +128,16 @@ export function heuristicAdvice(input: TerraformAdviceInput): TerraformAdvice {
 }
 
 function extractJson(text: string): string {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  return start >= 0 && end > start ? text.slice(start, end + 1) : text;
+  // Strip ```json / ``` code fences, then take the first balanced { ... } object.
+  const unfenced = text.replace(/```(?:json)?/gi, "").trim();
+  const start = unfenced.indexOf("{");
+  if (start < 0) return unfenced;
+  let depth = 0;
+  for (let i = start; i < unfenced.length; i++) {
+    if (unfenced[i] === "{") depth++;
+    else if (unfenced[i] === "}" && --depth === 0) return unfenced.slice(start, i + 1);
+  }
+  return unfenced.slice(start);
 }
 
 /**

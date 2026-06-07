@@ -2,7 +2,12 @@
  * Admin dashboard — operational monitoring + safe control surface.
  *
  * Consumes the existing ADMIN_KEY-gated endpoints. The key is entered once and
- * kept in localStorage, sent as the `x-admin-key` header on every request.
+ * kept in sessionStorage (cleared when the tab closes, not shared across tabs),
+ * sent as the `x-admin-key` header on every request.
+ *
+ * NOTE: sessionStorage is still readable by injected scripts. The proper
+ * hardening is a server-side admin session (httpOnly cookie) — tracked under
+ * feature/admin-dashboard follow-ups in ROADMAP_90DAY.md.
  */
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,13 +19,13 @@ import { Input } from "@/components/ui/input";
 const KEY_STORAGE = "ascendancy_admin_key";
 
 function useAdminKey() {
-  const [key, setKeyState] = useState<string>(() => localStorage.getItem(KEY_STORAGE) ?? "");
+  const [key, setKeyState] = useState<string>(() => sessionStorage.getItem(KEY_STORAGE) ?? "");
   const setKey = (k: string) => {
-    localStorage.setItem(KEY_STORAGE, k);
+    sessionStorage.setItem(KEY_STORAGE, k);
     setKeyState(k);
   };
   const clearKey = () => {
-    localStorage.removeItem(KEY_STORAGE);
+    sessionStorage.removeItem(KEY_STORAGE);
     setKeyState("");
   };
   return { key, setKey, clearKey };
