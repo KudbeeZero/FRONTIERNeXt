@@ -1147,6 +1147,9 @@ export function LandSheet({
               <div>
                 <h4 className="text-xs font-display uppercase tracking-wide text-primary mb-2 flex items-center gap-1.5">
                   <Coins className="w-3.5 h-3.5" /> Facilities (ASCEND burned)
+                  <span className="ml-auto text-[9px] text-primary/70 font-mono normal-case" data-testid="text-parcel-yield-mult">
+                    Yield ×{(parcel.yieldMultiplier ?? 1.0).toFixed(2)}
+                  </span>
                 </h4>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.entries(FACILITY_INFO) as [FacilityType, typeof FACILITY_INFO[FacilityType]][]).map(([type, info]) => {
@@ -1182,6 +1185,11 @@ export function LandSheet({
                           ? <span className="text-[9px] text-primary/70 font-mono">+{perDay} ASCEND/day</span>
                           : <span className="text-[9px] text-primary/70 font-mono">{info.effect}</span>
                         }
+                        {type === "data_centre" && !atMax && (
+                          <span className="text-[9px] text-emerald-400/80 font-mono" data-testid="text-data-centre-yield">
+                            +{(0.05 * level).toFixed(2)}× yield at Lv{level}
+                          </span>
+                        )}
                         {!hasPrereq && (
                           <span className="text-[8px] text-destructive flex items-center gap-0.5">
                             🔒 Needs Electricity
