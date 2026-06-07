@@ -24,7 +24,7 @@ Welcome, Commander. This page gets you from zero to your first mined resource in
 five steps. For the deep dive on any system, the **[Game Manual](GAME_MANUAL.md)**
 is your codex; this is just the launch pad.
 
-> ⏱️ **Time to first plot:** ~10 minutes · 💸 **Cost:** free TestNet ALGO + one ~0.4 ALGO plot
+> ⏱️ **Time to first plot:** ~10 minutes · 💸 **Cost:** free TestNet ALGO + one plot (0.2–1.5 ALGO by biome)
 
 ---
 
@@ -78,10 +78,11 @@ in the background once your opt-in (Step 2) is confirmed.
 
 | Biome | Price | Why it's a good start |
 |-------|-------|-----------------------|
-| 🌋 Volcanic | 0.8 | Best Iron (+80%) + Crystal — fast base building |
-| 🌲 Forest | 0.6 | Balanced: +20% Iron, +50% Crystal, slight defense |
-| 🌾 Plains | 0.6 | No modifiers — easiest to learn the ropes |
-| 🏜️ Desert / 🐊 Swamp | 0.4 | Cheapest land to get going |
+| 🌋 Volcanic | 1.0 | Best Iron (+80%) + Crystal — fast base building |
+| 🌲 Forest | 0.5 | Balanced: +20% Iron, +50% Crystal, slight defense |
+| 🌾 Plains | 0.3 | No modifiers — easiest to learn the ropes |
+| 🐊 Swamp | 0.3 | Cheap, crystal-rich start |
+| 🏜️ Desert | 0.2 | Cheapest land to get going |
 
 Once the transaction confirms, the plot is yours — marked in your color for all
 players, and a unique **ARC-3 Plot NFT** is minted to your wallet.

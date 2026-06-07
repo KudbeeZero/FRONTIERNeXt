@@ -91,7 +91,7 @@ The on-chain balance catches up shortly after. More in **[Game Manual, Ch. 6 —
 <br/>
 
 Each owned plot generates **1 FRNTR/day** at base, plus facility bonuses (Electricity
-+1, Blockchain Nodes up to +4/level). A fully upgraded plot tops out at **12 FRNTR/day**.
++1, Blockchain Node up to +4 at Lv3). A fully upgraded plot tops out at **6 FRNTR/day**.
 
 > During partner **testing mode**, emission is intentionally boosted to **50 FRNTR/day**
 > per plot. See **[Testing Mode](TESTING_MODE.md)**.

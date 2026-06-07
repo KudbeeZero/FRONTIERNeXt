@@ -183,18 +183,19 @@ defenderPower = (defenseLevel × 15 + improvementBonus) × biomeDefenseMod
 
 ## 🎁 Loot Boxes *(max 20 unopened)*
 
-**Drop sources**
+**Drop triggers** (per `shared/schema.ts`)
 
-| Source | Common | Rare | Epic | Legendary |
-|---|:---:|:---:|:---:|:---:|
-| Mining (per action) | 5% | 1% | 0.2% | — |
-| Battle victory | Guaranteed | 15% | 3% | — |
-| Orbital impact | — | 25% | 5% | 1% |
-| Quantum Forge | — | — | — | 1 / 48h |
+| Source | Box tier | Drop rate |
+|---|---|:---:|
+| Mining (per action) | Common | ~3% |
+| Battle victory | Rare | ~25% |
+| Orbital impact | Epic | ~50% |
+| Quantum Forge | Legendary | 1 / 48h |
 
-**Headline contents:** Common 50–200 ore / 5–20 FRNTR · Rare 200–500 / 20–80 ·
-Epic 500–1,000 / 80–200 (+ guaranteed minerals) · Legendary 1,000–2,500 / 200–500
-(+ guaranteed Double-FRNTR & rare minerals incl. Dark Matter).
+> ⚠️ The `GAME_MANUAL.md` describes a richer multi-tier matrix and detailed box
+> *contents* (ore/FRNTR/cosmetics) that diverge from the schema rates above and may be
+> resolved in a service layer. Treat exact figures as **pending dev confirmation** —
+> see **[Data Reconciliation](docs/DATA_RECONCILIATION.md)**.
 
 ---
 

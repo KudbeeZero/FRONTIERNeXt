@@ -52,7 +52,7 @@
 
 ### D
 
-- **Dark Matter** — The rarest mineral; drops only during orbital impact events (0.3%). Used for the Orbital Alien Dome and Legendary loot.
+- **Dark Matter** — The rarest mineral; found in Swamp, Water, and Tundra biomes and boosted by orbital impacts. Used for the Orbital Alien Dome and Legendary loot.
 - **Data Centre** — A FRONTIER facility boosting resource yield (+5/+10/+15% by level). Generates no FRNTR.
 - **Deep Space Probe** — A Launchpad ability: every 24h, reveals all enemy plots within 5 plots for 2 hours.
 - **Defender Power** — `(defenseLevel × 15 + improvementBonus) × biomeDefenseMod`.
