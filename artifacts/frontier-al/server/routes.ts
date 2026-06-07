@@ -64,6 +64,7 @@ import {
   setSessionCookie,
   clearSessionCookie,
 } from "./auth";
+import { scopeGameStateFor } from "./stateScope";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -1068,7 +1069,10 @@ export async function registerRoutes(
   app.get("/api/game/state", async (req, res) => {
     try {
       const gameState = await withDbRetry(() => storage.getGameState(), "getGameState");
-      res.json(gameState);
+      // Scope to the requesting viewer (fog of war / EPI). Anonymous → fully
+      // redacted. The WS broadcast below re-scopes per connection.
+      const auth = getAuth(req);
+      res.json(scopeGameStateFor(gameState, auth?.playerId ?? null));
       broadcastGameState(gameState);
     } catch (error) {
       console.error("Error fetching game state:", error);

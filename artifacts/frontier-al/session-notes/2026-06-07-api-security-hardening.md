@@ -41,8 +41,18 @@ Sign-In With Algorand for LUTE / Pera / Defly / Kibisis (any use-wallet provider
 - `tsc` clean; 61/61 server tests pass; HTTP integration test → 401/403/200 as
   expected; full Vite + esbuild build succeeds.
 
+## Pass 3 — WebSocket auth + per-viewer scoping (O2 CLOSED)
+- `server/stateScope.ts` (+ spec, 4 tests): `scopeGameStateFor` — own parcels/
+  player full; others' stored resources + balances redacted; AI left intact.
+- `server/wsServer.ts`: `/ws` requires session token (`?token=` or cookie),
+  closes 1008 if missing; broadcasts scoped per connection.
+- `server/routes.ts`: `/api/game/state` scoped to the caller's session.
+- Client: `useGameSocket` sends token + reconnects on auth; `LandSheet` shows
+  "classified — recon required" for non-owned plots.
+- Verified: 65/65 server tests; real-WS integration test (1008 reject + scoped
+  payload); full build.
+
 ## Outstanding
-- O2 — WebSocket unauthenticated (LOW: broadcasts only already-public state).
 - O3 — Sybil: new address ⇒ new player + welcome bonus (auth proves control,
   not human uniqueness).
 - Multi-instance: move nonce store + rate-limit counters to Redis.

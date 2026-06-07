@@ -50,17 +50,17 @@ hardens.
 | H3 | `/api/blockchain/status` broadcast the admin wallet's **live ALGO + FRNTR balances** to anonymous callers (operational treasury intelligence; unnecessary for the client). | `server/routes.ts` |
 | H4 | Admin-key comparison was a plain `!==` (timing side-channel). | `server/routes.ts` |
 
-### RESOLVED in pass 2 (wallet-signature auth)
+### RESOLVED
 
 | # | Finding | Status |
 |---|---------|--------|
-| O1 | **No proof-of-wallet-ownership on writes.** Now CLOSED — see §4. Every mutating endpoint requires a verified wallet session and rejects any player-identity that doesn't match it. | ✅ FIXED |
+| O1 | **No proof-of-wallet-ownership on writes.** CLOSED — see §4. Every mutating endpoint requires a verified wallet session and rejects any player-identity that doesn't match it. | ✅ FIXED |
+| O2 | **WebSocket unauthenticated + full-state firehose.** CLOSED — see §6. The WS now requires a session token to connect, and both the WS feed and `/api/game/state` are scoped per viewer (others' stored resources and balances redacted). | ✅ FIXED |
 
 ### OUTSTANDING
 
 | # | Finding | Severity |
 |---|---------|----------|
-| O2 | **WebSocket is unauthenticated** and broadcasts game state to any connection. Low practical impact: the broadcast payload is the same public, rate-limited game state already served by `/api/game/state`. Gate it only if per-player private channels are added. | LOW |
 | O3 | No Sybil resistance — a new wallet address still yields a fresh player + welcome bonus. Auth proves *control* of an address, not that it's a distinct human. Mitigate with on-chain heuristics / minimum-balance gating before mainnet incentives. | MEDIUM |
 
 ---
@@ -153,6 +153,42 @@ integration test confirms 401 (no session) / 403 (forged playerId) / 200
 - Split-host (Vercel SPA + separate API): deploy the client first or set
   `WALLET_AUTH_REQUIRED=false` briefly, since cookies need `SameSite=None;Secure`
   and the Bearer token path needs the updated client.
+
+## 6. Pass 3 — WebSocket auth + per-viewer state scoping (closes O2)
+
+The WS previously broadcast the **entire** `GameState` — every player's balance
+and every parcel's stored resources — to every connection every 1.5s, with no
+auth. That was the single largest real-time EPI leak.
+
+**Authentication:** the `/ws` upgrade now requires a valid session token,
+supplied via `?token=` (browsers can't set WS headers) or the session cookie.
+Unauthenticated connections are closed `1008` when `WALLET_AUTH_REQUIRED` is on.
+
+**Per-viewer scoping (`server/stateScope.ts`):** a single `scopeGameStateFor()`
+produces a tailored view —
+- the viewer's own parcels/player keep full detail,
+- all other parcels have stored resources (+ accrued FRONTIER) zeroed,
+- other **human** players have spendable balances/vaults/loot zeroed,
+- AI players are left intact (public game challenge, surfaced in War Room / Factions).
+
+Applied at every exit: the WS flush + instant `broadcastGameState` (scoped per
+connection) **and** the `/api/game/state` REST endpoint (scoped to the caller's
+session; anonymous → fully redacted). Sanctioned target intel still flows
+through the rate-limited `/api/parcels/attackable` endpoint.
+
+**Client:** `useGameSocket` passes the token on the WS URL and reconnects when
+auth completes; `LandSheet` shows a "🔒 classified — recon required" placeholder
+for non-owned plots instead of the (now-redacted) numbers.
+
+**Implementation:** `server/stateScope.ts` (+ `stateScope.spec.ts`, 4 tests),
+auth + scoping wiring in `server/wsServer.ts`, scoped `/api/game/state` in
+`server/routes.ts`; client `hooks/useGameSocket.ts`, `components/game/LandSheet.tsx`,
+`components/game/GameLayout.tsx`.
+
+**Verified:** `tsc` clean; 65/65 server tests pass; an integration test against
+the **real** WS server confirms unauthenticated connections are closed (1008)
+and an authenticated client sees its own data in full while others' resources/
+balances are redacted to 0; full production build succeeds.
 
 ## 5. Remaining recommendations
 
