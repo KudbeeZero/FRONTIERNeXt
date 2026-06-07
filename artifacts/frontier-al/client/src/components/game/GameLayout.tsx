@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { TopBar } from "./TopBar";
+import { SeasonBanner } from "./SeasonBanner";
 import PlanetGlobe from "./PlanetGlobe";
 import type { LivePulse } from "@/components/game/PlanetGlobe";
 import { AttackModal } from "./AttackModal";
@@ -846,25 +847,9 @@ export function GameLayout() {
           mobileMenuContent={mobileMenuContent}
           playerFactionId={player?.playerFactionId ?? null}
         />
-        {/* Season countdown badge — shown when a season is active */}
-        {seasonCountdown && (
-          <div
-            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 pointer-events-none select-none flex items-center gap-2 px-3 py-1 rounded-full z-50"
-            style={{
-              background: "rgba(4,8,20,0.85)",
-              border: "1px solid rgba(0,229,255,0.25)",
-              backdropFilter: "blur(8px)",
-              fontFamily: "monospace",
-              fontSize: 10,
-              letterSpacing: "0.2em",
-              color: "rgba(0,229,255,0.8)",
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00e5ff", display: "inline-block", boxShadow: "0 0 6px #00e5ff" }} />
-            {seasonName ? `${seasonName.toUpperCase()} · ` : "SEASON · "}
-            {seasonCountdown}
-          </div>
-        )}
+        {/* Season HUD banner — name + time remaining + $ASCEND prize pool.
+            Drives GET /api/season/current (DORMANT LUT 1.3). */}
+        <SeasonBanner />
       </div>
 
       {impactEvents.length > 0 && <OrbitalEventToast events={impactEvents} />}
