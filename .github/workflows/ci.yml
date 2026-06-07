@@ -39,5 +39,8 @@ jobs:
       - name: Typecheck (tsc)
         run: pnpm --filter @workspace/frontier-al run check
 
-      - name: Server unit tests (battle engine)
+      - name: Server unit tests (battle engine, tuning, rng, economy)
         run: pnpm --filter @workspace/frontier-al run test:server
+
+      - name: Client unit tests (terraform, parcels)
+        run: pnpm --filter @workspace/frontier-al run test
