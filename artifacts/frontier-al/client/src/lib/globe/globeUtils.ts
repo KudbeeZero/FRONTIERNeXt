@@ -68,14 +68,17 @@ export function tangentFrame(normal: THREE.Vector3): { right: THREE.Vector3; up:
 export function getPlotColor(
   parcel: LandParcel | undefined,
   currentPlayerId: string | null,
+  colors?: { player: THREE.Color; enemy: THREE.Color },
 ): THREE.Color {
   if (!parcel) return new THREE.Color(0x1a2a3a); // fallback dark blue-grey
   if (!parcel.ownerId) {
     const biomeCol = BIOME_COLORS[parcel.biome];
     return biomeCol ? biomeCol.clone() : new THREE.Color(0x1a2a3a);
   }
-  if (currentPlayerId && parcel.ownerId === currentPlayerId) return COLOR_PLAYER.clone();
-  return COLOR_ENEMY.clone();
+  const playerCol = colors?.player ?? COLOR_PLAYER;
+  const enemyCol  = colors?.enemy ?? COLOR_ENEMY;
+  if (currentPlayerId && parcel.ownerId === currentPlayerId) return playerCol.clone();
+  return enemyCol.clone();
 }
 
 /** Subtle size variant from plotId to avoid monotonous repetition. */

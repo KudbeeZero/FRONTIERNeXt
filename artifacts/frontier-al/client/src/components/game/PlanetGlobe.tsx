@@ -19,6 +19,7 @@ import { GlobeTerrain }        from "./globe/GlobeTerrain";
 import { PlotOverlay, SubParcelOverlay } from "./globe/GlobeParcels";
 import { BattleArcs, MiningPulseLayer, OrbitalZoneLayer, SatelliteOrbitLayer } from "./globe/GlobeEvents";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
+import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
 
 export type { LivePulse } from "@/lib/globe/globeTypes";
@@ -250,6 +251,8 @@ export default function PlanetGlobe({
       </div>
 
       <PlayerLegend />
+
+      {!streamMode && <GlobeColorSettings />}
 
       {selectedParcel && (
         <ParcelHUD
