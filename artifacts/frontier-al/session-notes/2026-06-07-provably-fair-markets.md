@@ -45,6 +45,11 @@ targetTurn` so the automated resolver fires when the turn is reached and reads t
 read the already-immutable, seed-replayable battle outcome. This avoids an ownership-history
 table while keeping every resolution self-contained and verifiable.
 
+## Staking lock (front-run defense)
+`placeBet` now rejects once `resolutionCutoffTs` has passed (server guard) and the UI hides
+the bet form past the cutoff. Without this, a player could stake in the window after a battle
+resolved but before the 60s resolver fired — the exact front-running hole the LUT forbids.
+
 ## Settlement
 Payouts stay pull-based via the existing `claimWinnings` (5% fee, treasury ledger) — unchanged.
 
