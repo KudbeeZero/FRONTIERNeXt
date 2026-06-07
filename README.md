@@ -81,7 +81,9 @@ Go deeper into the universe — or grab the numbers fast.
 |---|---|---|
 | 🌌 | **[Lore & Universe Codex](artifacts/frontier-al/LORE_CODEX.md)** | The Ascendancy story, faction dossiers, biome lore, commander corps, artifacts, and the sky above |
 | ⚡ | **[Quick Reference](artifacts/frontier-al/QUICK_REFERENCE.md)** | One-screen cheat card — every cost, modifier, formula, and cooldown |
+| 🪙 | **[FRNTR Tokenomics (one-pager)](artifacts/frontier-al/TOKENOMICS.md)** | The token at a glance — supply, inflows, sinks, treasury |
 | 📒 | **[Glossary](artifacts/frontier-al/GLOSSARY.md)** | A–Z of every term, from ADR to Xenorite |
+| 🖨️ | **[Printable Field Handbook](artifacts/frontier-al/handbook.html)** | Self-contained HTML — open in a browser → **Print → Save as PDF** |
 
 ---
 
@@ -117,8 +119,11 @@ FRONTIERNeXt/
 │   │   ├── ECONOMICS.md          · Tokenomics
 │   │   ├── LORE_CODEX.md         · World lore & faction dossiers
 │   │   ├── QUICK_REFERENCE.md    · One-screen cheat card
+│   │   ├── TOKENOMICS.md         · FRNTR one-pager
 │   │   ├── GLOSSARY.md           · A–Z terms
+│   │   ├── handbook.html         · Printable / PDF field handbook
 │   │   ├── client/  server/  shared/   · React · Express · types
+│   │   ├── docs/DATA_RECONCILIATION.md · Docs↔code number audit
 │   │   └── docs/                 · ADRs, runbooks, audits
 │   ├── api-server/         ◍ Shared API infrastructure
 │   └── mockup-sandbox/     ◍ Prototyping environment

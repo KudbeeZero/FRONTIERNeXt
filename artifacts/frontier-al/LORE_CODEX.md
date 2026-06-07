@@ -263,16 +263,17 @@ upgrading commanders, and forging Legendary loot. Each mineral keeps to its own
 biomes, and each has its own **dedicated vault** (50 units per type) separate from
 your standard storage.
 
-| Mineral | Origin | Drop | Legend |
-|---------|--------|------|--------|
-| 💎 **Xenorite** | Volcanic, Mountain | 2.0% | Crystallized volcanic compounds — the stuff of Launchpads and Forges |
-| 🔮 **Void Shard** | Tundra, Water | 1.5% | Frozen dark-energy fragments — the key to the Alien Dome |
-| 🔥 **Plasma Core** | Desert, Swamp | 1.0% | Condensed thermal plasma — powers orbital ops and siege weaponry |
-| 🌑 **Dark Matter** | Any biome — **orbital impacts only** | 0.3% | Ultra-rare exotic matter; the rarest prize on the frontier |
+| Mineral | Richest Source Biomes | Legend |
+|---------|----------------------|--------|
+| 💎 **Xenorite** | Volcanic (richest), Mountain, Desert | Crystallized volcanic compounds — the stuff of Launchpads and Forges |
+| 🔮 **Void Shard** | Tundra (richest), Forest, Mountain | Frozen dark-energy fragments — the key to the Alien Dome |
+| 🔥 **Plasma Core** | Volcanic, Desert (richest) | Condensed thermal plasma — powers orbital ops and siege weaponry |
+| 🌑 **Dark Matter** | Swamp, Water, Tundra — **and the falling sky** | Ultra-rare exotic matter; the rarest prize on the frontier |
 
-> **Lore note — Dark Matter only falls from the sky.** It cannot be mined by ordinary
-> means; it rains down only during active **orbital impact events**. To stockpile it,
-> you must mine *while the heavens are falling*.
+> **Lore note — Dark Matter favors the falling sky.** It surfaces in the drowned and
+> frozen biomes, and **orbital impact events** stir more of it loose. To stockpile it,
+> mine *while the heavens are falling*. (Exact drop chances vary by biome — see the
+> **[Quick Reference](QUICK_REFERENCE.md)** and **[Game Manual](GAME_MANUAL.md)**.)
 
 ---
 

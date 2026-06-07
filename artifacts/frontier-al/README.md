@@ -53,9 +53,11 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 | 🎯 | **[Strategy Guide](STRATEGY_GUIDE.md)** | Beginner tips, advanced strategies, scenario playbooks, and quick-reference tables |
 | ❓ | **[FAQ & Troubleshooting](FAQ.md)** | Fast answers — opt-in issues, balance mismatches, cooldowns, and "where's my NFT?" |
 | 💰 | **[Economics & Tokenomics](ECONOMICS.md)** | Parcel/sub-parcel pricing, 70/30 fee splits, protocol treasury, FRONTIER token supply/sinks |
+| 🪙 | **[FRNTR Tokenomics (one-pager)](TOKENOMICS.md)** | The token at a glance — supply, inflows, sinks, and the protocol treasury |
 | 🌌 | **[Lore & Universe Codex](LORE_CODEX.md)** | The Ascendancy story, faction dossiers, biome lore, commander corps, and orbital phenomena |
 | ⚡ | **[Quick Reference](QUICK_REFERENCE.md)** | One-screen cheat card — every cost, modifier, formula, and cooldown |
 | 📒 | **[Glossary](GLOSSARY.md)** | A–Z of every term, from ADR to Xenorite |
+| 🖨️ | **[Printable Field Handbook](handbook.html)** | Self-contained HTML — open in a browser → **Print → Save as PDF** |
 | 🗺️ | **[Development Roadmap](ROADMAP.md)** | Full development roadmap with 6 phases covering infrastructure, new features, and visual polish |
 
 ## 🛠️ Operator & Developer Docs
@@ -66,6 +68,7 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 | 🚢 | **[Deployment](DEPLOYMENT.md)** | Ship to Railway / Render / DigitalOcean, with the pre-go-live checklist |
 | 🔧 | **[Environment Variables](ENV_VARS.md)** | Every config knob and required secret |
 | 🧪 | **[Testing Mode](TESTING_MODE.md)** | Partner-testing emission rates and switches |
+| 🔎 | **[Data Reconciliation Audit](docs/DATA_RECONCILIATION.md)** | Docs↔code number verification (run 2026-06-07) |
 
 > The deep technical reference — **Tech Stack, Project Structure, Database Schema, API Reference,** and the on-chain note format — lives further down this page.
 

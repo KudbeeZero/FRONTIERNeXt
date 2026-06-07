@@ -55,14 +55,15 @@
 
 ## 💠 Rare Minerals
 
-| Mineral | Biomes | Drop |
-|---|---|:---:|
-| Xenorite | Volcanic, Mountain | 2.0% |
-| Void Shard | Tundra, Water | 1.5% |
-| Plasma Core | Desert, Swamp | 1.0% |
-| Dark Matter | Any (orbital impacts only) | 0.3% |
+| Mineral | Richest Source Biomes | Used For |
+|---|---|---|
+| Xenorite | Volcanic (richest), Mountain, Desert | Launchpad, Quantum Forge |
+| Void Shard | Tundra (richest), Forest, Mountain | Orbital Alien Dome, upgrades |
+| Plasma Core | Volcanic, Desert (richest) | Launchpad ops, siege weaponry |
+| Dark Matter | Swamp, Water, Tundra — **boosted by orbital impacts** | Legendary loot, endgame |
 
-> Dedicated vault: **50 per type (200 total)** — does **not** count against normal storage.
+> Drop chance varies by biome (per `shared/schema.ts`). Dedicated vault holds
+> **50 per type** and does **not** count against normal storage.
 
 ---
 
