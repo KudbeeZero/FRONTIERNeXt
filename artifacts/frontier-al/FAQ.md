@@ -211,6 +211,8 @@ Counter-strategies for each are in the **[Strategy Guide](STRATEGY_GUIDE.md)**.
 | 🚀 | **[Getting Started](GETTING_STARTED.md)** | The step-by-step launch sequence |
 | 📖 | **[Game Manual](GAME_MANUAL.md)** | The complete reference for every system |
 | 🎯 | **[Strategy Guide](STRATEGY_GUIDE.md)** | Tactics, build orders, and faction counter-play |
+| ⚡ | **[Quick Reference](QUICK_REFERENCE.md)** | Fast lookup for every cost, modifier, and formula |
+| 🌌 | **[Lore & Universe Codex](LORE_CODEX.md)** | The story and factions behind the frontier |
 | 💰 | **[Economics](ECONOMICS.md)** | FRNTR supply, sinks, and pricing |
 
 ---

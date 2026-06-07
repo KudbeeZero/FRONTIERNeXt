@@ -32,7 +32,8 @@
 <a href="artifacts/frontier-al/STRATEGY_GUIDE.md"><img src="https://img.shields.io/badge/🎯_Strategy_Guide-Master-2EE6A6?style=for-the-badge&labelColor=0B0E2A" alt="Strategy Guide"></a>
 <a href="artifacts/frontier-al/FAQ.md"><img src="https://img.shields.io/badge/❓_FAQ-Help-FFB020?style=for-the-badge&labelColor=0B0E2A" alt="FAQ"></a>
 <a href="artifacts/frontier-al/ECONOMICS.md"><img src="https://img.shields.io/badge/💰_Tokenomics-FRNTR-F5C518?style=for-the-badge&labelColor=0B0E2A" alt="Economics"></a>
-<a href="artifacts/frontier-al/ROADMAP.md"><img src="https://img.shields.io/badge/🗺️_Roadmap-Horizon-B26BFF?style=for-the-badge&labelColor=0B0E2A" alt="Roadmap"></a>
+<a href="artifacts/frontier-al/LORE_CODEX.md"><img src="https://img.shields.io/badge/🌌_Lore_Codex-Explore-B26BFF?style=for-the-badge&labelColor=0B0E2A" alt="Lore Codex"></a>
+<a href="artifacts/frontier-al/QUICK_REFERENCE.md"><img src="https://img.shields.io/badge/⚡_Quick_Ref-Cheat_Sheet-FF5DA2?style=for-the-badge&labelColor=0B0E2A" alt="Quick Reference"></a>
 
 <br/><br/>
 
@@ -72,6 +73,18 @@ Everything a commander needs, from first wallet connection to late-game orbital 
 
 ---
 
+## 🌌  Lore & Reference
+
+Go deeper into the universe — or grab the numbers fast.
+
+| | Page | What you'll find |
+|---|---|---|
+| 🌌 | **[Lore & Universe Codex](artifacts/frontier-al/LORE_CODEX.md)** | The Ascendancy story, faction dossiers, biome lore, commander corps, artifacts, and the sky above |
+| ⚡ | **[Quick Reference](artifacts/frontier-al/QUICK_REFERENCE.md)** | One-screen cheat card — every cost, modifier, formula, and cooldown |
+| 📒 | **[Glossary](artifacts/frontier-al/GLOSSARY.md)** | A–Z of every term, from ADR to Xenorite |
+
+---
+
 ## 🛠️  Builder Docs — Operators & Developers
 
 For anyone deploying, extending, or auditing the frontier.
@@ -102,6 +115,9 @@ FRONTIERNeXt/
 │   │   ├── STRATEGY_GUIDE.md     · Tactics & playbooks
 │   │   ├── FAQ.md                · Troubleshooting
 │   │   ├── ECONOMICS.md          · Tokenomics
+│   │   ├── LORE_CODEX.md         · World lore & faction dossiers
+│   │   ├── QUICK_REFERENCE.md    · One-screen cheat card
+│   │   ├── GLOSSARY.md           · A–Z terms
 │   │   ├── client/  server/  shared/   · React · Express · types
 │   │   └── docs/                 · ADRs, runbooks, audits
 │   ├── api-server/         ◍ Shared API infrastructure

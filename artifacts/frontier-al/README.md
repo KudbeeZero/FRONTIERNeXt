@@ -17,7 +17,8 @@
 <a href="STRATEGY_GUIDE.md"><img src="https://img.shields.io/badge/🎯_Strategy-Master-2EE6A6?style=for-the-badge&labelColor=0B0E2A" alt="Strategy Guide"></a>
 <a href="FAQ.md"><img src="https://img.shields.io/badge/❓_FAQ-Help-FFB020?style=for-the-badge&labelColor=0B0E2A" alt="FAQ"></a>
 <a href="ECONOMICS.md"><img src="https://img.shields.io/badge/💰_Economics-FRNTR-F5C518?style=for-the-badge&labelColor=0B0E2A" alt="Economics"></a>
-<a href="ROADMAP.md"><img src="https://img.shields.io/badge/🗺️_Roadmap-Horizon-B26BFF?style=for-the-badge&labelColor=0B0E2A" alt="Roadmap"></a>
+<a href="LORE_CODEX.md"><img src="https://img.shields.io/badge/🌌_Lore-Codex-B26BFF?style=for-the-badge&labelColor=0B0E2A" alt="Lore"></a>
+<a href="QUICK_REFERENCE.md"><img src="https://img.shields.io/badge/⚡_Quick_Ref-Cheat-FF5DA2?style=for-the-badge&labelColor=0B0E2A" alt="Quick Reference"></a>
 
 <br/>
 
@@ -52,6 +53,9 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 | 🎯 | **[Strategy Guide](STRATEGY_GUIDE.md)** | Beginner tips, advanced strategies, scenario playbooks, and quick-reference tables |
 | ❓ | **[FAQ & Troubleshooting](FAQ.md)** | Fast answers — opt-in issues, balance mismatches, cooldowns, and "where's my NFT?" |
 | 💰 | **[Economics & Tokenomics](ECONOMICS.md)** | Parcel/sub-parcel pricing, 70/30 fee splits, protocol treasury, FRONTIER token supply/sinks |
+| 🌌 | **[Lore & Universe Codex](LORE_CODEX.md)** | The Ascendancy story, faction dossiers, biome lore, commander corps, and orbital phenomena |
+| ⚡ | **[Quick Reference](QUICK_REFERENCE.md)** | One-screen cheat card — every cost, modifier, formula, and cooldown |
+| 📒 | **[Glossary](GLOSSARY.md)** | A–Z of every term, from ADR to Xenorite |
 | 🗺️ | **[Development Roadmap](ROADMAP.md)** | Full development roadmap with 6 phases covering infrastructure, new features, and visual polish |
 
 ## 🛠️ Operator & Developer Docs

@@ -106,6 +106,8 @@ You're now live on the frontier. 🎉
 | 📖 | **[Game Manual](GAME_MANUAL.md)** | Learn every system in depth — facilities, commanders, landmarks, seasons |
 | 🎯 | **[Strategy Guide](STRATEGY_GUIDE.md)** | First-30-minutes checklist, build orders, and how to beat each AI faction |
 | 💰 | **[Economics](ECONOMICS.md)** | Understand FRNTR emission, sinks, and how to grow your treasury |
+| ⚡ | **[Quick Reference](QUICK_REFERENCE.md)** | The one-screen cheat card — every cost, modifier, and formula |
+| 🌌 | **[Lore & Universe Codex](LORE_CODEX.md)** | The story, factions, and artifacts behind the frontier |
 | ❓ | **[FAQ](FAQ.md)** | Stuck on opt-in, balances, or cooldowns? Start here |
 
 ---
