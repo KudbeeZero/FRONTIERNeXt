@@ -63,13 +63,15 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   const plotIdToParcelRef = useRef(plotIdToParcel);
   plotIdToParcelRef.current = plotIdToParcel;
 
+  // Prefixed with currentPlayerId so the base-color pass re-runs when the
+  // session resolves (own plots must flip from enemy-red to player-green).
   const plotVisualFingerprint = useMemo(() => {
-    return parcels
+    return (currentPlayerId ?? "") + "|" + parcels
       .filter(p => p.ownerId || p.activeBattleId || p.isSubdivided)
       .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}`)
       .sort()
       .join("|");
-  }, [parcels]);
+  }, [parcels, currentPlayerId]);
 
   // Flat Float32Array of every plot's 3D position — used for O(n) nearest-neighbor on clicks/hover
   const plotPositions3D = useMemo(() => {
@@ -185,6 +187,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       const isSelected = parcel?.id === selectedPlotId;
       const isHovered  = currentHovered === i;
       const isOwned    = !!parcel?.ownerId;
+      const isOwnedByMe = !!parcel?.ownerId && parcel.ownerId === currentPlayerId;
       const isSubdivided = !!(parcel as LandParcel)?.isSubdivided;
 
       const fillPos   = fillPositions3D[i];
@@ -209,13 +212,18 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor = getPlotColor(parcel, currentPlayerId);
       }
 
+      // Your own plots get a breathing border-glow so ownership reads as motion,
+      // not just color. Enemy-owned plots keep a static white border.
+      const ownPulse = 0.55 + 0.45 * Math.sin(pulseRef.current * 2.2);
       const borderColor = isSelected
         ? COLOR_SELECTED.clone().multiplyScalar(1.5)
         : isHovered
           ? COLOR_SELECTED.clone()
-          : isOwned
-            ? COLOR_BORDER_OWNED.clone()
-            : COLOR_BORDER_UNOWNED.clone();
+          : isOwnedByMe
+            ? COLOR_PLAYER.clone().multiplyScalar(0.7 + ownPulse * 0.8)
+            : isOwned
+              ? COLOR_BORDER_OWNED.clone()
+              : COLOR_BORDER_UNOWNED.clone();
 
       const fillScale   = isSelected ? 1.12 : isHovered ? 1.06 : isOwned ? 1.0 : 0.85;
       const borderScale = isSelected ? 1.15 : isHovered ? 1.08 : isOwned ? 1.0 : 0.85;
@@ -241,7 +249,6 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     if (!fillMeshRef.current || !borderMeshRef.current) return;
 
     const idToParcel = plotIdToParcelRef.current;
-    const t0 = performance.now();
 
     for (let i = 0; i < plotCoords.length; i++) {
       const coord  = plotCoords[i];
@@ -277,7 +284,6 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     if (borderMeshRef.current.instanceColor) borderMeshRef.current.instanceColor.needsUpdate = true;
 
     if (idToParcel.size > 0) readyRef.current = true;
-    console.log(`[PLOT-OVERLAY] full update: ${(performance.now() - t0).toFixed(1)}ms`);
   }, [plotVisualFingerprint, currentPlayerId, plotCoords,
       fillPositions3D, borderPositions3D]);
 
@@ -378,9 +384,6 @@ export function SubParcelOverlay({ parcels, currentPlayerId }: SubParcelOverlayP
   useEffect(() => {
     if (!fillMeshRef.current || !borderMeshRef.current) return;
 
-    const subdivided = parcelsRef.current.filter(p => p.isSubdivided && p.subParcelOwnerIds);
-    console.log(`[SubParcelOverlay] updating — ${subdivided.length} subdivided parcels → ${subdivided.length * 9} tiles`);
-
     const currentParcels = parcelsRef.current;
     let instanceIdx = 0;
 
@@ -437,8 +440,6 @@ export function SubParcelOverlay({ parcels, currentPlayerId }: SubParcelOverlayP
     if (borderMeshRef.current.instanceColor) borderMeshRef.current.instanceColor.needsUpdate = true;
     fillMeshRef.current.count   = instanceIdx;
     borderMeshRef.current.count = instanceIdx;
-
-    console.timeEnd("[SubParcelOverlay] instance update");
   }, [subParcelFingerprint, currentPlayerId, dummy]);
 
   return (
