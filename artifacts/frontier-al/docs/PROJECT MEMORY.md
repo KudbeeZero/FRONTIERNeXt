@@ -4,7 +4,8 @@
 
 > Sits between SKILL.md (the rules) and the LUTs (the plans). This is the *current state*:
 > what’s done, what’s in flight, what was decided. Read after SKILL, before any LUT.
-> **Last updated: 2026-06-07**
+> **Last updated: 2026-06-07 (overnight integration pass — blocks 1-7 on branch
+> `claude/ascendancy-overnight-integration-JQUET`, awaiting review/merge)**
 
 -----
 
@@ -69,11 +70,22 @@ correct, env block prepared. Server binds `0.0.0.0:$PORT`.
   testnet routes, 1mb body caps, prod log-leak fix, WS connection caps, CI workflow
 - ✅ Test coverage: battle engine, tuning, rng, economy, biome
 
+### Overnight integration pass (branch `claude/ascendancy-overnight-integration-JQUET`, 2026-06-07 — NOT yet merged to main)
+
+- ✅ **Pera** `@perawallet/connect` 1.4.2 → 1.5.2 (MASTER A1)
+- ✅ **routes.ts split by domain** (MASTER A2): `server/routes/{auth,blockchain,nft,actions,game,trade,markets,subparcels,admin}.ts` + `context.ts` + `_timing.ts`; orchestrator mounts them in order. 90 routes, verbatim handlers, verified identical inventory + mount-order smoke.
+- ✅ **gameConfig.ts** (MASTER A3): `server/config/gameConfig.ts` typed tunables aggregator (references existing constants, no drift) + `SEASON_DEFAULT_DAYS`.
+- ✅ **Globe color fix** (GLOBE §5): `currentPlayerId` added to `plotVisualFingerprint` in GlobeParcels.tsx.
+- ✅ **Admin fail-closed** confirmed already done; added **`/api/health` + `/api/ready`** probes (SECURITY §2,§6.3) in `server/routes/health.ts` + `redisPing()`.
+- ✅ **Sub-parcel UI** (DORMANT 1.1): extracted the already-built UI from LandSheet into dedicated `client/src/components/game/subparcel/` (Panel/Detail/Countdown/config). Reuse, not rebuild.
+- ✅ **Seasons HUD** (DORMANT 1.3): `client/src/components/game/SeasonBanner.tsx` (name + countdown + $ASCEND prize pool) on `/api/season/current`; settle scheduler confirmed running.
+- Verified each step: `pnpm run check` (tsc) clean, server suite 78, client suite 36, production `build` green.
+
 ### Built earlier, confirmed present
 
-- ✅ Sub-parcel archetype/building/marketplace — FULL backend, routes live, no UI yet
+- ✅ Sub-parcel archetype/building/marketplace — FULL backend, routes live; **UI also already existed in LandSheet** (now extracted to subparcel/)
 - ✅ Prediction markets — FULL stack (storage + routes + 427-line UI)
-- ✅ Seasons — FULL backend (start/settle/history), no HUD yet
+- ✅ Seasons — FULL backend (start/settle/history) + settle scheduler; **HUD now built (SeasonBanner)**
 - ✅ Treasury ledger — wired into 3 panels
 - ✅ Wallet integration — use-wallet v4, all current except Pera (1.4.2 → needs 1.5.2)
 - ✅ Idempotency tables + retry transfer queue
@@ -87,21 +99,19 @@ Ordered. When you finish one, move it to §3 and update the date.
 
 |Pri|Task                        |Branch              |LUT ref             |Blocker?        |
 |---|----------------------------|--------------------|--------------------|----------------|
+|0  |**Merge overnight branch → main** |claude/ascendancy-overnight-integration-JQUET|MASTER A1/A2/A3, GLOBE §5, SECURITY §2, DORMANT 1.1/1.3|Needs review — 7 blocks done, not merged|
 |1  |Railway backend deploy      |(infra)             |RAILWAY_DEPLOY_GUIDE|Unblocks globe  |
 |2  |Rotate Neon + SESSION_SECRET|(infra)             |SECURITY §7         |Pre-mainnet     |
-|3  |Pera wallet 1.4.2 → 1.5.2   |chore/wallet-update |MASTER P1           |No              |
-|4  |Split routes.ts by domain   |feat/routes-refactor|MASTER A2           |Makes auth safer|
 |5  |Wallet signature auth       |feat/wallet-auth    |SECURITY §1         |**MAINNET GATE**|
 |6  |Session identity refactor   |feat/auth-refactor  |SECURITY §1         |**MAINNET GATE**|
-|7  |Sub-parcel UI               |feat/subparcel-ui   |DORMANT 1.1         |Highest ROI     |
-|8  |Globe color fix + lighting  |feat/globe-visual   |GLOBE passes 1-3    |No              |
-|9  |gameConfig.ts tunables      |feat/game-config    |DORMANT + MASTER A3 |Anti-reset      |
+|8  |Globe lighting + ownership border (passes 2-3) |feat/globe-visual|GLOBE passes 2-3|No (color fix done) |
 
-**The biggest single win available right now:** Sub-parcel UI (task 7) — the entire backend
-is already built, so one day of frontend unlocks the deepest gameplay layer.
+Done this session (now in §3, on the overnight branch): Pera update, routes split,
+gameConfig, globe color fix, health/ready probes, sub-parcel UI, seasons HUD.
 
 **The thing that must happen before mainnet:** tasks 5+6 (wallet auth). No real value goes
-live on body-trust identity.
+live on body-trust identity. (Per the overnight scope, wallet-auth was intentionally left
+as a focused daytime task.)
 
 -----
 
@@ -128,10 +138,13 @@ These were decided. Don’t re-debate them in future sessions.
 
 ## 6. ACTIVE GOTCHAS (live traps to remember)
 
-- **Globe color bug:** `currentPlayerId` is null at first paint → own parcels show as enemy.
-  Fix = add `currentPlayerId` to `plotVisualFingerprint` deps. (Not yet applied.)
-- **Admin guard dev-hole:** `if (!ADMIN_KEY) return true` opens all admin routes incl.
-  `/api/game/reset`. Must fail-closed in production. (Not yet applied.)
+- ~~**Globe color bug:** `currentPlayerId` null at first paint → own parcels show as enemy.~~
+  ✅ FIXED (overnight branch): `currentPlayerId` now in `plotVisualFingerprint` prefix + deps.
+- ~~**Admin guard dev-hole:** `if (!ADMIN_KEY) return true` opens all admin routes.~~
+  ✅ Already fail-closed in prod (security.ts → 503). Confirmed this session.
+- **routes.ts split:** now `server/routes/*.ts` (overnight branch). Add new routes as a domain
+  file's `register*Routes(app, ctx)`; the orchestrator (`server/routes.ts`) keeps the limiters,
+  auth routes, and the global mutation guard — keep new mutation routes AFTER that guard.
 - **VITE vars bake at build:** changing `VITE_API_URL`/`VITE_WS_URL` requires a Cloudflare
   redeploy — setting them does nothing until rebuild.
 - **Cloudflare double-nest trap:** never set both root dir AND full output path — causes
