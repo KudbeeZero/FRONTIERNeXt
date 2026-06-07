@@ -47,13 +47,24 @@ export function GlobeColorSettings() {
             </div>
           ))}
 
-          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0 10px", cursor: "pointer" }}>
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0 8px", cursor: "pointer" }}>
             <span style={{ fontSize: 11, color: "rgba(180,210,255,0.8)" }}>Fog of War</span>
             <input
               type="checkbox"
               checked={prefs.fogOfWar}
               onChange={(e) => setVisualPref("fogOfWar", e.target.checked)}
               aria-label="Fog of War"
+              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#00e5ff" }}
+            />
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 10px", cursor: "pointer" }}>
+            <span style={{ fontSize: 11, color: "rgba(180,210,255,0.8)" }} title="Zoom out to look into the past">Observer Mode</span>
+            <input
+              type="checkbox"
+              checked={prefs.observerMode}
+              onChange={(e) => setVisualPref("observerMode", e.target.checked)}
+              aria-label="Observer Mode"
               style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#00e5ff" }}
             />
           </label>
