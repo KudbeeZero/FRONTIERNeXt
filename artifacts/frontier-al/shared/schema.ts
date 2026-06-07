@@ -993,6 +993,43 @@ export type MarketStatus = "open" | "closed" | "resolved" | "cancelled";
 export type MarketCategory = "battle" | "faction" | "season" | "orbital" | "economy";
 export type MarketOutcome = "a" | "b";
 
+/**
+ * A market's RESOLUTION SOURCE — a deterministic function of public data, declared
+ * at creation and IMMUTABLE thereafter. The trustless resolver reads the fact this
+ * source points at and DERIVES the outcome; no human ever chooses a winner.
+ *
+ * Outcome convention: the derived fact maps to outcome "a" when the predicted
+ * condition holds (attacker won / owner matches / threshold met), else "b".
+ * Note: `ownerId` is the in-engine owner identity (player or AI-faction UUID) the
+ * parcel/territory is predicted to belong to — the game's real ownership key.
+ */
+export type ResolutionSource =
+  | { type: "battle_outcome"; battleId: string }
+  | { type: "ownership_at_turn"; plotId: number; ownerId: string; turn: number }
+  | { type: "burn_threshold"; amount: number; byTurn: number }
+  | { type: "territory_count"; ownerId: string; turn: number; threshold: number };
+
+export const resolutionSourceSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("battle_outcome"), battleId: z.string().min(1) }),
+  z.object({
+    type: z.literal("ownership_at_turn"),
+    plotId: z.number().int().nonnegative(),
+    ownerId: z.string().min(1),
+    turn: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal("burn_threshold"),
+    amount: z.number().positive(),
+    byTurn: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal("territory_count"),
+    ownerId: z.string().min(1),
+    turn: z.number().int().positive(),
+    threshold: z.number().int().positive(),
+  }),
+]);
+
 export interface PredictionMarket {
   id: string;
   title: string;
@@ -1010,6 +1047,11 @@ export interface PredictionMarket {
   createdBy: string;
   relatedEventId: string | null;
   createdAt: number;
+  // ── Provably-fair resolution (declared at creation, immutable) ──────────────
+  resolutionSource: ResolutionSource | null; // what this market resolves from
+  resolutionCutoffTs: number | null;         // staking closes here (before fact knowable)
+  resolvedInputs: Record<string, unknown> | null; // exact public facts read at resolution
+  resolutionHash: string | null;             // sha256(source+inputs+outcome) for verification
 }
 
 export interface MarketPosition {
@@ -1039,15 +1081,15 @@ export const createMarketSchema = z.object({
   outcomeBLabel: z.string().min(1).max(100).default("No"),
   resolvesAt: z.number().int().positive(),
   relatedEventId: z.string().optional(),
-});
-
-export const resolveMarketSchema = z.object({
-  winningOutcome: z.enum(["a", "b"]),
+  // Provably-fair: every new market MUST declare a deterministic resolution source.
+  // There is no admin-chosen-outcome path — the source IS the judge.
+  resolutionSource: resolutionSourceSchema,
+  // Staking closes at the cutoff (must be before the resolving fact is knowable).
+  resolutionCutoffTs: z.number().int().positive(),
 });
 
 export type PlaceBetAction = z.infer<typeof placeBetSchema>;
 export type CreateMarketAction = z.infer<typeof createMarketSchema>;
-export type ResolveMarketAction = z.infer<typeof resolveMarketSchema>;
 
 export function calculateFrontierPerDay(improvements: Improvement[]): number {
   // Base rate sourced from centralized economy config — see shared/economy-config.ts

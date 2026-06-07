@@ -125,8 +125,9 @@ import {
   type ParcelRow,
   type BattleRow,
 } from "./game-rules";
-import type { SubParcel, SubParcelListing, Season, PredictionMarket, MarketPosition, MarketOutcome, CreateMarketAction, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
+import type { SubParcel, SubParcelListing, Season, PredictionMarket, MarketPosition, MarketOutcome, CreateMarketAction, ResolutionSource, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
 import { MARKET_FEE_RATE } from "@shared/schema";
+import { deriveOutcome, isResolvable, hashResolution, type ResolutionFact } from "../engine/markets/resolve.js";
 import {
   SUB_PARCEL_HOLD_HOURS,
   SUB_PARCEL_FULL_CONTROL_BONUS,
@@ -2785,6 +2786,10 @@ export class DbStorage implements IStorage {
       createdBy: row.createdBy,
       relatedEventId: row.relatedEventId ?? null,
       createdAt: Number(row.createdAt),
+      resolutionSource: (row.resolutionSource as ResolutionSource | null) ?? null,
+      resolutionCutoffTs: row.resolutionCutoffTs != null ? Number(row.resolutionCutoffTs) : null,
+      resolvedInputs: (row.resolvedInputs as Record<string, unknown> | null) ?? null,
+      resolutionHash: row.resolutionHash ?? null,
     };
   }
 
@@ -2849,6 +2854,9 @@ export class DbStorage implements IStorage {
         relatedEventId: action.relatedEventId ?? null,
         createdBy,
         createdAt: now,
+        // Provably-fair: source is recorded at creation and never changes.
+        resolutionSource: action.resolutionSource,
+        resolutionCutoffTs: action.resolutionCutoffTs,
       })
       .returning();
     return this.rowToMarket(row);
@@ -2982,7 +2990,86 @@ export class DbStorage implements IStorage {
     return { payout };
   }
 
-  async resolveMarket(marketId: string, winningOutcome: MarketOutcome): Promise<PredictionMarket | { error: string }> {
+  // ── Provably-fair resolution ────────────────────────────────────────────────
+  // There is NO admin-chosen-outcome path. Outcomes are DERIVED from deterministic
+  // public facts by code anyone can re-run; the dev has no hand on the lever.
+
+  /** Read the on-chain / deterministic fact a market resolves from. */
+  private async computeOutcome(
+    source: ResolutionSource,
+  ): Promise<{ outcome: MarketOutcome; inputs: Record<string, unknown> } | { error: string }> {
+    switch (source.type) {
+      case "battle_outcome": {
+        const battle = await this.getBattle(source.battleId);
+        if (!battle) return { error: "Battle not found" };
+        if (battle.status !== "resolved" || !battle.outcome) return { error: "Battle not yet resolved" };
+        const fact: ResolutionFact = { attackerWon: battle.outcome === "attacker_wins" };
+        // Record the seed so anyone can replay the deterministic battle and confirm.
+        const inputs = {
+          battleId: battle.id,
+          seed: hashSeed(battle.id, battle.startTs),
+          outcome: battle.outcome,
+          attackerWon: (fact as { attackerWon: boolean }).attackerWon,
+        };
+        return { outcome: deriveOutcome(source, fact), inputs };
+      }
+      case "ownership_at_turn": {
+        const [parcelRow] = await this.db
+          .select({ ownerId: parcelsTable.ownerId })
+          .from(parcelsTable)
+          .where(eq(parcelsTable.plotId, source.plotId));
+        const owner = parcelRow?.ownerId ?? null;
+        const fact: ResolutionFact = { owner };
+        return { outcome: deriveOutcome(source, fact), inputs: { plotId: source.plotId, owner, turn: source.turn } };
+      }
+      case "burn_threshold": {
+        const [agg] = await this.db
+          .select({ total: sum(playersTable.totalFrontierBurned) })
+          .from(playersTable);
+        const burned = Number(agg?.total ?? 0);
+        const fact: ResolutionFact = { burned };
+        return { outcome: deriveOutcome(source, fact), inputs: { burned, amount: source.amount, byTurn: source.byTurn } };
+      }
+      case "territory_count": {
+        const [agg] = await this.db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(parcelsTable)
+          .where(eq(parcelsTable.ownerId, source.ownerId));
+        const count = Number(agg?.c ?? 0);
+        const fact: ResolutionFact = { count };
+        return { outcome: deriveOutcome(source, fact), inputs: { ownerId: source.ownerId, count, threshold: source.threshold, turn: source.turn } };
+      }
+      default: {
+        const _never: never = source;
+        return { error: `Unknown resolution source: ${JSON.stringify(_never)}` };
+      }
+    }
+  }
+
+  /** Markets that have a source and whose staking cutoff has passed (candidates to resolve). */
+  async getResolvableMarkets(): Promise<PredictionMarket[]> {
+    await this.initialize();
+    const now = Date.now();
+    const rows = await this.db
+      .select()
+      .from(predictionMarketsTable)
+      .where(
+        and(
+          sql`${predictionMarketsTable.resolutionSource} IS NOT NULL`,
+          sql`${predictionMarketsTable.resolutionCutoffTs} IS NOT NULL`,
+          lt(predictionMarketsTable.resolutionCutoffTs, now),
+          sql`${predictionMarketsTable.status} IN ('open', 'closed')`,
+        ),
+      );
+    return rows.map((r) => this.rowToMarket(r));
+  }
+
+  /**
+   * Resolve a market by DERIVING its outcome from the declared source. No winning
+   * outcome is accepted from any caller. Records the exact inputs + a sha256 hash so
+   * anyone can re-run the computation and verify. Payouts stay pull-based (claimWinnings).
+   */
+  async resolveMarketTrustlessly(marketId: string): Promise<PredictionMarket | { error: string }> {
     await this.initialize();
 
     const [marketRow] = await this.db
@@ -2992,14 +3079,61 @@ export class DbStorage implements IStorage {
     if (!marketRow) return { error: "Market not found" };
     if (marketRow.status === "resolved") return { error: "Market already resolved" };
     if (marketRow.status === "cancelled") return { error: "Market is cancelled" };
+    const source = marketRow.resolutionSource as ResolutionSource | null;
+    if (!source) return { error: "Market has no resolution source (legacy market)" };
+
+    const now = Date.now();
+    const cutoffTs = marketRow.resolutionCutoffTs != null ? Number(marketRow.resolutionCutoffTs) : Number(marketRow.resolvesAt);
+
+    // Gate on knowability (cheap, no chain read) before computing.
+    let battleResolved: boolean | undefined;
+    if (source.type === "battle_outcome") {
+      const battle = await this.getBattle(source.battleId);
+      battleResolved = battle?.status === "resolved" && !!battle.outcome;
+    }
+    const [meta] = await this.db.select({ currentTurn: gameMeta.currentTurn }).from(gameMeta).where(eq(gameMeta.id, 1));
+    const currentTurn = meta?.currentTurn ?? 1;
+    if (!isResolvable(source, { now, cutoffTs, currentTurn, battleResolved })) {
+      return { error: "Not yet resolvable" };
+    }
+
+    const computed = await this.computeOutcome(source);
+    if ("error" in computed) return computed;
+    const { outcome, inputs } = computed;
+    const resolutionHash = hashResolution(source, inputs, outcome);
 
     const [updated] = await this.db
       .update(predictionMarketsTable)
-      .set({ status: "resolved", winningOutcome, resolvedAt: Date.now() })
+      .set({
+        status: "resolved",
+        winningOutcome: outcome,
+        resolvedAt: now,
+        resolvedInputs: inputs,
+        resolutionHash,
+      })
       .where(eq(predictionMarketsTable.id, marketId))
       .returning();
 
     return this.rowToMarket(updated);
+  }
+
+  /** Automated resolver — resolves every market whose condition is met. No human in the loop. */
+  async resolveReadyMarkets(): Promise<void> {
+    let candidates: PredictionMarket[];
+    try {
+      candidates = await this.getResolvableMarkets();
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string };
+      if (pgErr?.code === "42P01") return; // table not yet created in this env — skip
+      throw err;
+    }
+    for (const m of candidates) {
+      const result = await this.resolveMarketTrustlessly(m.id);
+      // "Not yet resolvable" simply means the fact isn't knowable yet; leave it pending.
+      if (result && "error" in result && result.error !== "Not yet resolvable") {
+        console.warn(`[markets] resolveReadyMarkets ${m.id}: ${result.error}`);
+      }
+    }
   }
 
   async getPlayerPositions(playerId: string): Promise<(MarketPosition & { market: PredictionMarket })[]> {

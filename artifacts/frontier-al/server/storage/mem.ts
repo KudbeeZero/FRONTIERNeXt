@@ -1361,7 +1361,9 @@ export class MemStorage implements IStorage {
   async createMarket(_action: CreateMarketAction, _createdBy?: string): Promise<PredictionMarket> { throw new Error("Not supported in memory storage"); }
   async placeBet(_marketId: string, _playerId: string, _outcome: MarketOutcome, _amount: number): Promise<{ position: MarketPosition; market: PredictionMarket } | { error: string }> { return { error: "Not supported in memory storage" }; }
   async claimWinnings(_marketId: string, _playerId: string): Promise<{ payout: number } | { error: string }> { return { error: "Not supported in memory storage" }; }
-  async resolveMarket(_marketId: string, _winningOutcome: MarketOutcome): Promise<PredictionMarket | { error: string }> { return { error: "Not supported in memory storage" }; }
+  async resolveMarketTrustlessly(_marketId: string): Promise<PredictionMarket | { error: string }> { return { error: "Not supported in memory storage" }; }
+  async getResolvableMarkets(): Promise<PredictionMarket[]> { return []; }
+  async resolveReadyMarkets(): Promise<void> { /* no-op */ }
   async getPlayerPositions(_playerId: string): Promise<(MarketPosition & { market: PredictionMarket })[]> { return []; }
   async resolveExpiredMarkets(): Promise<void> { /* no-op */ }
 
