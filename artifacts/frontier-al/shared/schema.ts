@@ -885,6 +885,37 @@ export const ARCHETYPE_FACTION_BONUSES: Record<SubParcelArchetype, Partial<Recor
 export const MAX_SAME_ARCHETYPE_PER_GRID = 3;
 
 /**
+ * Which existing improvements each archetype permits a player to build on a
+ * sub-parcel. The archetype determines the buildable structures (the core of
+ * the archetype system). Prerequisites still apply on top of this (e.g.
+ * blockchain_node/data_centre/ai_lab require electricity, so electricity is
+ * included wherever those are). An UNASSIGNED sub-parcel (archetype === null)
+ * can build anything — assigning an archetype specialises (and restricts) it.
+ */
+export const ARCHETYPE_BUILDING_CATALOG: Record<SubParcelArchetype, ImprovementType[]> = {
+  // Mining & refining — yield boosts, cooldown reduction, storage.
+  resource: ["electricity", "data_centre", "ai_lab", "storage_depot"],
+  // Economic — token generation (blockchain node) + storage for goods.
+  trade:    ["electricity", "blockchain_node", "storage_depot"],
+  // Power generation & compute distribution.
+  energy:   ["electricity", "blockchain_node", "data_centre"],
+  // Military — weapons, shields, fortifications, detection.
+  fortress: ["turret", "shield_gen", "fortress", "radar"],
+};
+
+/**
+ * Whether `type` may be built on a sub-parcel with the given archetype.
+ * Null/undefined archetype = unrestricted (backwards compatible).
+ */
+export function isImprovementAllowedForArchetype(
+  archetype: SubParcelArchetype | null | undefined,
+  type: ImprovementType,
+): boolean {
+  if (!archetype) return true;
+  return ARCHETYPE_BUILDING_CATALOG[archetype].includes(type);
+}
+
+/**
  * Fortress archetype level labels.
  * archetypeLevel 1 = Outpost, 2 = Garrison, 3 = Citadel.
  */
