@@ -2162,7 +2162,7 @@ export async function registerRoutes(
 
   setInterval(async () => {
     try {
-      if (process.env.AI_ENABLED !== "false") {
+      if (process.env.AI_ENABLED === "true") {
         const aiEvents = await withDbRetry(() => storage.runAITurn(), "runAITurn");
         if (aiEvents && aiEvents.length > 0) markDirty();
       }
