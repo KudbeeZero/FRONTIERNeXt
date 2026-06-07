@@ -144,11 +144,11 @@ FRONTIERNeXt/
 │
 ├── scripts/                      # build/deploy scripts
 ├── docs/                         # NEW — all the LUTs live here
-│   ├── ASCENDANCY_LUT.md
-│   ├── ASCENDANCY_GLOBE_ENGINEERING_LUT.md
-│   ├── ASCENDANCY_DORMANT_SYSTEMS_LUT.md
-│   ├── ASCENDANCY_SECURITY_HARDENING_LUT.md
-│   └── ASCENDANCY_MASTER_INTEGRATION_LUT.md  (this file)
+│   ├── ASCENDANCY LUT.md          # (filenames on disk use spaces, not underscores)
+│   ├── ASCENDANCY GLOBE ENGINEERING LUT.md
+│   ├── ASCENDANCY DORMANT SYSTEMS LUT.md
+│   ├── ASCENDANCY SECURITY HARDENING LUT.md
+│   └── ASCENDANCY MASTER INTEGRATION LUT.md  (this file)
 └── .github/workflows/ci.yml      # CI (existing)
 ```
 

@@ -19,3 +19,4 @@ Use these notes to track decisions, context, and progress across sessions.
 - [2026-03-18-commander-mint-delivery](./2026-03-18-commander-mint-delivery.md) — Commander mint delivery fix; ghost mint resolved; NFT status polling + claim UI
 - [2026-06-07-provably-fair-markets](./2026-06-07-provably-fair-markets.md) — Provably-fair prediction markets: deleted admin-chosen outcome; derived/hashed resolution + proof endpoint
 - [2026-06-07-veritas-grind-engine](./2026-06-07-veritas-grind-engine.md) — VERITAS verification grind engine (first increment): in-repo CLI harness; market flow re-verifies the trustless resolver
+- [2026-06-07-money-path-hardening](./2026-06-07-money-path-hardening.md) — Money-path & EPI follow-up: fixed claimWinnings double-claim + placeBet overdraft (atomic compare-and-set), attackable-endpoint EPI leak, inArray/timing-safe wins; LUT refresh

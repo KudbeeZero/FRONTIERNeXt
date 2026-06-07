@@ -8,7 +8,7 @@ import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionS
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, inArray } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import rateLimit from "express-rate-limit";
 
@@ -54,7 +54,7 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit } from "./security";
+import { requireAdminKey, safeEqual, enumerationLimiter, authLimiter, clampLimit } from "./security";
 import {
   getAuth,
   isWalletAuthRequired,
@@ -392,7 +392,10 @@ export async function registerRoutes(
       // here; this is an additive field on an otherwise-public endpoint).
       if (process.env.ADMIN_KEY) {
         const headerKey = req.headers["x-admin-key"];
-        if (typeof headerKey === "string" && headerKey === process.env.ADMIN_KEY) {
+        // Constant-time compare — a plain `===` here would leak the admin key
+        // byte-by-byte via response timing, the exact side-channel safeEqual
+        // (and the centralized requireAdminKey) exist to prevent.
+        if (typeof headerKey === "string" && safeEqual(headerKey, process.env.ADMIN_KEY)) {
           const balance = await getAdminBalance();
           body.adminAlgoBalance = balance.algo;
           body.adminFrontierBalance = balance.frontierAsa;
@@ -2097,8 +2100,17 @@ export async function registerRoutes(
   // Optional query param: ?biome=forest
   app.get("/api/parcels/attackable", async (req, res) => {
     try {
-      const { session } = req as any;
-      const playerId = (session?.playerId as string) ?? "";
+      // This endpoint returns other players' STORED resource counts — the exact
+      // off-chain EPI that Pass-3 redacts from /api/game/state and the WS feed.
+      // It must be gated on a real session (the old `(req as any).session` was
+      // never populated, so playerId was always "" → it leaked every player's
+      // stored resources to anonymous callers and never excluded the caller's
+      // own parcels). `getAuth` is the canonical accessor used everywhere else.
+      const auth = getAuth(req);
+      if (isWalletAuthRequired() && !auth) {
+        return res.status(401).json({ error: "Authentication required — connect your wallet" });
+      }
+      const playerId = auth?.playerId ?? "";
       const biomeFilter = req.query.biome as string | undefined;
 
       const rows = await withDbRetry(
@@ -3051,7 +3063,7 @@ export async function registerRoutes(
       const playerRows = playerIds.size > 0
         ? await db.select({ id: playersTable.id, name: playersTable.name })
             .from(playersTable)
-            .where(sql`${playersTable.id} = ANY(ARRAY[${sql.raw([...playerIds].map(id => `'${id}'`).join(","))}]::text[])`)
+            .where(inArray(playersTable.id, [...playerIds]))
         : [];
       const nameById = new Map(playerRows.map(p => [p.id, p.name]));
 
@@ -3060,7 +3072,7 @@ export async function registerRoutes(
       const parcelRows = parcelIds.length > 0
         ? await db.select({ id: parcelsTable.id, plotId: parcelsTable.plotId, biome: parcelsTable.biome })
             .from(parcelsTable)
-            .where(sql`${parcelsTable.id} = ANY(ARRAY[${sql.raw(parcelIds.map(id => `'${id}'`).join(","))}]::text[])`)
+            .where(inArray(parcelsTable.id, parcelIds))
         : [];
       const parcelById = new Map(parcelRows.map(p => [p.id, p]));
 
@@ -3132,14 +3144,14 @@ export async function registerRoutes(
       const playerRows = playerIds.length > 0
         ? await db.select({ id: playersTable.id, name: playersTable.name })
             .from(playersTable)
-            .where(sql`${playersTable.id} = ANY(ARRAY[${sql.raw(playerIds.map(id => `'${id}'`).join(","))}]::text[])`)
+            .where(inArray(playersTable.id, playerIds))
         : [];
       const nameById = new Map(playerRows.map(p => [p.id, p.name]));
 
       const parcelRows = pending.length > 0
         ? await db.select({ id: parcelsTable.id, plotId: parcelsTable.plotId })
             .from(parcelsTable)
-            .where(sql`${parcelsTable.id} = ANY(ARRAY[${sql.raw(pending.map(b => `'${b.targetParcelId}'`).join(","))}]::text[])`)
+            .where(inArray(parcelsTable.id, pending.map(b => b.targetParcelId)))
         : [];
       const plotIdById = new Map(parcelRows.map(p => [p.id, p.plotId]));
 

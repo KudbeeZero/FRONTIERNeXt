@@ -128,6 +128,7 @@ import {
 import type { SubParcel, SubParcelListing, Season, PredictionMarket, MarketPosition, MarketOutcome, CreateMarketAction, ResolutionSource, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
 import { MARKET_FEE_RATE } from "@shared/schema";
 import { deriveOutcome, isResolvable, hashResolution, type ResolutionFact } from "../engine/markets/resolve.js";
+import { computeMarketPayout } from "../engine/markets/payout.js";
 import {
   SUB_PARCEL_HOLD_HOURS,
   SUB_PARCEL_FULL_CONTROL_BONUS,
@@ -2880,131 +2881,138 @@ export class DbStorage implements IStorage {
   ): Promise<{ position: MarketPosition; market: PredictionMarket } | { error: string }> {
     await this.initialize();
 
-    const [marketRow] = await this.db
-      .select()
-      .from(predictionMarketsTable)
-      .where(eq(predictionMarketsTable.id, marketId));
-    if (!marketRow) return { error: "Market not found" };
-    if (marketRow.status !== "open") return { error: "Market is not open for betting" };
-    if (Number(marketRow.resolvesAt) <= Date.now()) return { error: "Market has expired" };
-    // Provably-fair: staking MUST close at the resolution cutoff (before the resolving
-    // fact is knowable), so no one can bet on a known/derivable outcome. Without this,
-    // a player could stake in the window after a battle resolves but before the
-    // automated resolver fires — the exact front-running hole the design forbids.
-    if (marketRow.resolutionCutoffTs != null && Date.now() >= Number(marketRow.resolutionCutoffTs)) {
-      return { error: "Staking is closed (resolution cutoff passed)" };
-    }
+    if (!Number.isFinite(amount) || amount <= 0) return { error: "Invalid bet amount" };
 
-    const [playerRow] = await this.db
-      .select()
-      .from(playersTable)
-      .where(eq(playersTable.id, playerId));
-    if (!playerRow) return { error: "Player not found" };
-    if (playerRow.isAi) return { error: "AI players cannot place bets" };
-    if (playerRow.frontier < amount) return { error: "Insufficient FRONTIER balance" };
+    // Whole bet runs in one transaction with atomic compare-and-set writes. The
+    // previous read-check-deduct sequence had a TOCTOU race: two concurrent bets
+    // could both pass a stale balance check and overdraw the player. Postgres
+    // READ COMMITTED does not stop that on its own, so the debit and the pool
+    // increment are expressed as conditional/atomic UPDATEs rather than
+    // read-then-write.
+    return this.db.transaction(async (tx) => {
+      const [marketRow] = await tx
+        .select()
+        .from(predictionMarketsTable)
+        .where(eq(predictionMarketsTable.id, marketId));
+      if (!marketRow) return { error: "Market not found" };
+      if (marketRow.status !== "open") return { error: "Market is not open for betting" };
+      if (Number(marketRow.resolvesAt) <= Date.now()) return { error: "Market has expired" };
+      // Provably-fair: staking MUST close at the resolution cutoff (before the resolving
+      // fact is knowable), so no one can bet on a known/derivable outcome. Without this,
+      // a player could stake in the window after a battle resolves but before the
+      // automated resolver fires — the exact front-running hole the design forbids.
+      if (marketRow.resolutionCutoffTs != null && Date.now() >= Number(marketRow.resolutionCutoffTs)) {
+        return { error: "Staking is closed (resolution cutoff passed)" };
+      }
 
-    // Deduct from player
-    await this.db
-      .update(playersTable)
-      .set({ frontier: playerRow.frontier - amount })
-      .where(eq(playersTable.id, playerId));
+      const [playerRow] = await tx
+        .select({ isAi: playersTable.isAi })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId));
+      if (!playerRow) return { error: "Player not found" };
+      if (playerRow.isAi) return { error: "AI players cannot place bets" };
 
-    // Update pool
-    const poolField = outcome === "a" ? { tokenPoolA: marketRow.tokenPoolA + amount } : { tokenPoolB: marketRow.tokenPoolB + amount };
-    const [updatedMarket] = await this.db
-      .update(predictionMarketsTable)
-      .set(poolField)
-      .where(eq(predictionMarketsTable.id, marketId))
-      .returning();
+      // Atomic debit: only deducts if the balance still covers the bet.
+      const debited = await tx
+        .update(playersTable)
+        .set({ frontier: sql`${playersTable.frontier} - ${amount}` })
+        .where(and(eq(playersTable.id, playerId), sql`${playersTable.frontier} >= ${amount}`))
+        .returning({ frontier: playersTable.frontier });
+      if (debited.length === 0) return { error: "Insufficient FRONTIER balance" };
 
-    // Create position
-    const [posRow] = await this.db
-      .insert(marketPositionsTable)
-      .values({
-        id: randomUUID(),
-        marketId,
-        playerId,
-        outcome,
-        amountWagered: amount,
-        claimed: false,
-        createdAt: Date.now(),
-      })
-      .returning();
+      // Atomic pool increment (avoids a lost update when bets race on the pool).
+      const poolField = outcome === "a"
+        ? { tokenPoolA: sql`${predictionMarketsTable.tokenPoolA} + ${amount}` }
+        : { tokenPoolB: sql`${predictionMarketsTable.tokenPoolB} + ${amount}` };
+      const [updatedMarket] = await tx
+        .update(predictionMarketsTable)
+        .set(poolField)
+        .where(eq(predictionMarketsTable.id, marketId))
+        .returning();
 
-    return { position: this.rowToPosition(posRow), market: this.rowToMarket(updatedMarket) };
+      const [posRow] = await tx
+        .insert(marketPositionsTable)
+        .values({
+          id: randomUUID(),
+          marketId,
+          playerId,
+          outcome,
+          amountWagered: amount,
+          claimed: false,
+          createdAt: Date.now(),
+        })
+        .returning();
+
+      return { position: this.rowToPosition(posRow), market: this.rowToMarket(updatedMarket) };
+    });
   }
 
   async claimWinnings(marketId: string, playerId: string): Promise<{ payout: number } | { error: string }> {
     await this.initialize();
 
-    const [marketRow] = await this.db
-      .select()
-      .from(predictionMarketsTable)
-      .where(eq(predictionMarketsTable.id, marketId));
-    if (!marketRow) return { error: "Market not found" };
-    if (marketRow.status !== "resolved") return { error: "Market not yet resolved" };
-    if (!marketRow.winningOutcome) return { error: "No winning outcome set" };
+    return this.db.transaction(async (tx) => {
+      const [marketRow] = await tx
+        .select()
+        .from(predictionMarketsTable)
+        .where(eq(predictionMarketsTable.id, marketId));
+      if (!marketRow) return { error: "Market not found" };
+      if (marketRow.status !== "resolved") return { error: "Market not yet resolved" };
+      if (!marketRow.winningOutcome) return { error: "No winning outcome set" };
 
-    // Get player's unclaimed winning positions
-    const positions = await this.db
-      .select()
-      .from(marketPositionsTable)
-      .where(
-        and(
-          eq(marketPositionsTable.marketId, marketId),
-          eq(marketPositionsTable.playerId, playerId),
-          eq(marketPositionsTable.outcome, marketRow.winningOutcome),
-          eq(marketPositionsTable.claimed, false),
-        )
-      );
-    if (positions.length === 0) return { error: "No unclaimed winning positions" };
-
-    // Sum of player's winning wagers
-    const playerWagered = positions.reduce((s, p) => s + p.amountWagered, 0);
-
-    // Total winning side pool
-    const totalWinningPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolA : marketRow.tokenPoolB;
-    const totalLosingPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolB : marketRow.tokenPoolA;
-
-    if (totalWinningPool === 0) return { error: "Winning pool is empty" };
-
-    const totalPool = totalWinningPool + totalLosingPool;
-    const feeAmount = totalPool * MARKET_FEE_RATE;
-    const distributablePool = totalPool - feeAmount;
-
-    const payout = Math.floor((playerWagered / totalWinningPool) * distributablePool);
-
-    // Mark positions claimed
-    for (const pos of positions) {
-      await this.db
+      // Atomically claim this player's unclaimed winning positions. The
+      // UPDATE … WHERE claimed=false … RETURNING flips the rows and hands back
+      // ONLY the ones it actually changed, so a second concurrent claim flips
+      // zero rows and credits nothing. The old path (SELECT, then per-row
+      // UPDATE, then credit, none of it transactional) let two concurrent
+      // claims both read claimed=false and both pay out — duplicating funds.
+      const claimed = await tx
         .update(marketPositionsTable)
         .set({ claimed: true })
-        .where(eq(marketPositionsTable.id, pos.id));
-    }
+        .where(
+          and(
+            eq(marketPositionsTable.marketId, marketId),
+            eq(marketPositionsTable.playerId, playerId),
+            eq(marketPositionsTable.outcome, marketRow.winningOutcome),
+            eq(marketPositionsTable.claimed, false),
+          ),
+        )
+        .returning();
+      if (claimed.length === 0) return { error: "No unclaimed winning positions" };
 
-    // Credit player
-    const [playerRow] = await this.db.select().from(playersTable).where(eq(playersTable.id, playerId));
-    if (playerRow) {
-      await this.db
-        .update(playersTable)
-        .set({ frontier: playerRow.frontier + payout })
-        .where(eq(playersTable.id, playerId));
-    }
+      // Sum of the wagers we actually just claimed (not a prior, racy SELECT).
+      const playerWagered = claimed.reduce((s, p) => s + p.amountWagered, 0);
 
-    // Record fee to treasury
-    if (feeAmount > 0 && positions.length > 0) {
-      const playerShare = (playerWagered / totalWinningPool) * feeAmount;
-      await this.db.insert(treasuryLedgerTable).values({
-        id: randomUUID(),
-        eventType: "prediction_market_fee",
-        amountMicro: Math.floor(playerShare * 1_000_000),
-        fromPlayerId: playerId,
-        settled: false,
-        createdAt: Date.now(),
+      const totalWinningPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolA : marketRow.tokenPoolB;
+      const totalLosingPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolB : marketRow.tokenPoolA;
+      if (totalWinningPool === 0) return { error: "Winning pool is empty" };
+
+      const { payout, feeShareMicro } = computeMarketPayout({
+        playerWagered,
+        totalWinningPool,
+        totalLosingPool,
+        feeRate: MARKET_FEE_RATE,
       });
-    }
 
-    return { payout };
+      // Credit player atomically (no read-then-write).
+      await tx
+        .update(playersTable)
+        .set({ frontier: sql`${playersTable.frontier} + ${payout}` })
+        .where(eq(playersTable.id, playerId));
+
+      // Record fee to treasury.
+      if (feeShareMicro > 0) {
+        await tx.insert(treasuryLedgerTable).values({
+          id: randomUUID(),
+          eventType: "prediction_market_fee",
+          amountMicro: feeShareMicro,
+          fromPlayerId: playerId,
+          settled: false,
+          createdAt: Date.now(),
+        });
+      }
+
+      return { payout };
+    });
   }
 
   // ── Provably-fair resolution ────────────────────────────────────────────────

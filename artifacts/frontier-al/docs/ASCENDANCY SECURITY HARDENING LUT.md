@@ -221,6 +221,14 @@ address** closes this. Add a unique constraint or check on `address` for bonus g
 - Bets can’t exceed balance via concurrent requests (the rate limiter helps but isn’t a
   substitute for a balance check inside a transaction).
 
+> **UPDATE 2026-06-07 (money-path follow-up pass):** `placeBet` and `claimWinnings`
+> are now wrapped in `this.db.transaction` with **atomic compare-and-set** writes
+> (conditional `frontier >= amount` debit; guarded `claimed=false … RETURNING`
+> claim) — not just a transaction wrapper, since Postgres READ COMMITTED alone
+> won't stop a lost update. This closes the concurrent-overdraft bet race **and** a
+> previously-unflagged double-claim/double-payout race in `claimWinnings`. See
+> `docs/audit/2026-06-07-money-path-and-epi-followup.md`.
+
 ### 3.3 — Resource mining / claim cadence
 
 `/api/actions/mine` and `/api/actions/claim-frontier` accrue value over time. Confirm the
@@ -385,23 +393,30 @@ main branch so nothing merges that breaks the build or tests.
 
 ## 7. PRE-MAINNET SECURITY CHECKLIST
 
+> **STATUS — 2026-06-07:** The code-level blockers below were closed across the
+> five-pass API access-control audit (`docs/audit/2026-06-07-api-access-control-audit.md`)
+> and the money-path follow-up pass (`docs/audit/2026-06-07-money-path-and-epi-followup.md`).
+> Boxes checked `[x]` are done in code; unchecked items are **operator/infra tasks**
+> (rotate secrets, wire probes/logging, upgrade Neon, enforce CI) that must still be
+> completed on the deployment host before mainnet.
+
 ### Block mainnet until ALL of these are true:
 
 **Authentication**
 
-- [ ] Wallet signature auth implemented (§1)
-- [ ] Actions read identity from session, not body
-- [ ] Auth endpoints rate-limited separately
-- [ ] Welcome bonus is one-per-verified-address
+- [x] Wallet signature auth implemented (§1) — audit pass 2
+- [x] Actions read identity from session, not body — audit pass 2 (global ownership guard)
+- [x] Auth endpoints rate-limited separately — audit pass 5 (`authLimiter`)
+- [x] Welcome bonus is one-per-verified-address — audit pass 4 (`welcomeBonusReceived` + Sybil gate)
 
 **Authorization**
 
-- [ ] `requireAdminKey` fails closed in production (§2)
-- [ ] `ADMIN_KEY` set to strong random value on Railway
+- [x] `requireAdminKey` fails closed in production (§2) — audit pass 1
+- [ ] `ADMIN_KEY` set to strong random value on Railway (operator)
 - [ ] `/api/game/reset` hard-disabled in prod unless explicit flag
 - [ ] Market resolution + NFT transfer write audit-log entries
 
-**Secrets**
+**Secrets** (all operator tasks on the host — never committed)
 
 - [ ] `DATABASE_URL` rotated (exposed earlier in chat)
 - [ ] `SESSION_SECRET` rotated, strong, prod-only
@@ -411,21 +426,21 @@ main branch so nothing merges that breaks the build or tests.
 **Economic**
 
 - [ ] Order fills atomic (transaction + row lock)
-- [ ] Bets/spends balance-checked inside a transaction
+- [x] Bets/spends balance-checked inside a transaction — money-path pass (`placeBet` atomic debit; `claimWinnings` guarded claim)
 - [ ] Accrual computed from server timestamps only
 - [ ] Pillage + attack caps enforced server-side
-- [ ] AI guard active at storage layer (done ✅)
+- [x] AI guard active at storage layer (done ✅)
 
 **Network / chain**
 
-- [ ] `ALGORAND_NETWORK` startup assertion (testnet code can’t hit mainnet)
-- [ ] `PUBLIC_BASE_URL` env-only (done ✅)
+- [x] `ALGORAND_NETWORK` startup assertion (testnet code can’t hit mainnet)
+- [x] `PUBLIC_BASE_URL` env-only (done ✅)
 - [ ] Mainnet ASA minted once, ID recorded, never re-minted
 
 **Infrastructure**
 
-- [ ] `trust proxy` set for real client IPs
-- [ ] Global rate limit on all `/api`
+- [x] `trust proxy` set for real client IPs
+- [x] Global rate limit on all `/api` — audit pass 1 (`apiReadLimiter`)
 - [ ] `helmet()` with proper CSP
 - [ ] `/api/ready` readiness probe wired to Railway
 - [ ] Structured logging + error tracking live

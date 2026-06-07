@@ -25,8 +25,12 @@ const isProd = (): boolean => process.env.NODE_ENV === "production";
 /**
  * Constant-time string comparison. Avoids leaking the admin key length/prefix
  * through response-timing side channels. Returns false on any length mismatch.
+ *
+ * Exported so any inline secret comparison (e.g. the additive admin-balance
+ * field on /api/blockchain/status) uses the same timing-safe path instead of a
+ * plain `===`, which would reintroduce a timing side-channel on the admin key.
  */
-function safeEqual(a: string, b: string): boolean {
+export function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a, "utf8");
   const bufB = Buffer.from(b, "utf8");
   if (bufA.length !== bufB.length) return false;

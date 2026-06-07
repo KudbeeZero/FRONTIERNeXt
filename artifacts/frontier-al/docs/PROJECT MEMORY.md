@@ -161,13 +161,13 @@ These were decided. Don’t re-debate them in future sessions.
 |-------------------------------------|----------------------|
 |How to work here (rules)             |SKILL.md              |
 |Where we are now                     |THIS FILE             |
-|Deploy backend                       |RAILWAY_DEPLOY_GUIDE  |
+|Deploy backend                       |RAILWAY_DEPLOY_GUIDE → bring-up steps live in MASTER_INTEGRATION_LUT §5 + `docs/DEPLOYMENT_ENV_CHECKLIST.md`|
 |Globe / parcels / sub-parcel design  |GLOBE_ENGINEERING_LUT |
 |What’s built and dormant             |DORMANT_SYSTEMS_LUT   |
-|Auth / security / hardening          |SECURITY_HARDENING_LUT|
+|Auth / security / hardening          |SECURITY_HARDENING_LUT + `docs/audit/` (5-pass access-control audit + 2026-06-07 money-path/EPI follow-up)|
 |Branching / folders / wallets        |MASTER_INTEGRATION_LUT|
 |Chat / weather / contests / narration|LIVING_WORLD_LUT      |
-|Video worker (HILDA)                 |HILDA_v2_Pipeline     |
+|Video worker (HILDA)                 |HILDA_v2_Pipeline → detailed in ASCENDANCY_LUT §3 ("HILDA — AI Content Worker") + `docs/HILDA v2 Pipeline.md`|
 |Original roadmap / Jarvis            |ASCENDANCY_LUT        |
 
 -----
