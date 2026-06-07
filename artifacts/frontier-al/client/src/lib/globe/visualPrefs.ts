@@ -13,11 +13,14 @@ export interface VisualPrefs {
   territoryColor: string;
   /** Enemy territory colour (hex). */
   enemyColor: string;
+  /** Fog of war: dim plots that aren't near your territory. Opt-in. */
+  fogOfWar: boolean;
 }
 
 export const DEFAULT_PREFS: VisualPrefs = {
   territoryColor: "#00ffaa", // matches COLOR_PLAYER
   enemyColor: "#ff4400",     // matches COLOR_ENEMY
+  fogOfWar: false,
 };
 
 function load(): VisualPrefs {
@@ -29,6 +32,7 @@ function load(): VisualPrefs {
     return {
       territoryColor: parsed.territoryColor || DEFAULT_PREFS.territoryColor,
       enemyColor: parsed.enemyColor || DEFAULT_PREFS.enemyColor,
+      fogOfWar: parsed.fogOfWar ?? DEFAULT_PREFS.fogOfWar,
     };
   } catch {
     return DEFAULT_PREFS;
