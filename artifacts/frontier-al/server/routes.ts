@@ -54,6 +54,17 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
+import { requireAdminKey, enumerationLimiter, clampLimit } from "./security";
+import {
+  getAuth,
+  isWalletAuthRequired,
+  issueNonce,
+  verifyAuthAndNonce,
+  signSession,
+  setSessionCookie,
+  clearSessionCookie,
+} from "./auth";
+import { scopeGameStateFor } from "./stateScope";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -185,8 +196,23 @@ export async function registerRoutes(
     res: Response,
     bodyPlayerId?: string
   ): Promise<string | null> {
-    const targetId = bodyPlayerId ?? req.body?.playerId;
+    const auth = getAuth(req);
 
+    // When wallet auth is enforced, a verified session is mandatory and the
+    // session's player is authoritative — a client-supplied id can no longer be
+    // used to act on behalf of someone else.
+    if (isWalletAuthRequired() && !auth) {
+      res.status(401).json({ error: "Authentication required — connect your wallet" });
+      return null;
+    }
+
+    const claimedId = bodyPlayerId ?? req.body?.playerId;
+    if (auth && claimedId && claimedId !== auth.playerId) {
+      res.status(403).json({ error: "Forbidden — session does not own this player" });
+      return null;
+    }
+
+    const targetId = auth?.playerId ?? claimedId;
     if (!targetId || typeof targetId !== "string") {
       res.status(401).json({ error: "Player ID required" });
       return null;
@@ -205,24 +231,154 @@ export async function registerRoutes(
     return targetId;
   }
 
-  app.get("/api/blockchain/status", async (_req, res) => {
+  // ── Anti-scraping: strict per-IP throttle on enumerable read endpoints ───────
+  // These endpoints are keyed by a sequential/guessable identifier (plotId,
+  // playerId, wallet address) and individually return off-chain game-economy
+  // intelligence. A real client hits any one occasionally; a bot walking the
+  // keyspace to harvest "which plots hold the most resources" hammers them.
+  // Mounted via app.use (not as a per-route arg) so it never perturbs the
+  // typed route-param inference of the handlers below. GET-only paths, so
+  // matching all methods on these exact paths is harmless.
+  for (const p of [
+    "/api/blockchain/opt-in-check/:address",
+    "/api/nft/plot/:plotId",
+    "/api/nft/commander/:commanderId",
+    "/api/game/parcel/:id",
+    "/api/game/player/:id",
+    "/api/game/player-by-address/:address",
+    "/api/parcels/attackable",
+    "/api/markets/player/:playerId",
+    "/api/plots/:plotId/sub-parcels",
+  ]) {
+    app.use(p, enumerationLimiter);
+  }
+
+  // ── Wallet-signature authentication endpoints ────────────────────────────────
+  // Sign-In With Algorand: prove control of the wallet, receive a session token.
+  app.post("/api/auth/nonce", (req, res) => {
+    try {
+      const { address } = req.body ?? {};
+      if (!address || typeof address !== "string" || !algosdk.isValidAddress(address)) {
+        return res.status(400).json({ error: "Valid Algorand address required" });
+      }
+      const { nonce, expiresAt } = issueNonce(address);
+      // `message` is the exact note the wallet must sign into the auth txn.
+      res.json({ nonce, expiresAt, message: `FRONTIER-AUTH:v1:${nonce}` });
+    } catch {
+      res.status(500).json({ error: "Failed to issue nonce" });
+    }
+  });
+
+  app.post("/api/auth/verify", async (req, res) => {
+    try {
+      const { address, signedTxn, nonce } = req.body ?? {};
+      if (!address || !signedTxn || !nonce) {
+        return res.status(400).json({ error: "address, signedTxn and nonce are required" });
+      }
+      if (!algosdk.isValidAddress(address)) {
+        return res.status(400).json({ error: "Invalid Algorand address" });
+      }
+      if (!verifyAuthAndNonce(address, signedTxn, nonce)) {
+        return res.status(401).json({ error: "Signature verification failed" });
+      }
+
+      // Ownership proven — resolve (or create) the player bound to this address.
+      const player = await storage.getOrCreatePlayerByAddress(address);
+      let welcomeBonus = false;
+      if (!player.welcomeBonusReceived) {
+        await storage.grantWelcomeBonus(player.id);
+        welcomeBonus = true;
+        if (!address.startsWith("AI_")) {
+          enqueueFrontierTransfer({
+            recipientAddress: address,
+            recipientPlayerId: player.id,
+            amount: 500,
+            reason: "welcome_bonus",
+          }).catch((err) => console.error("Welcome bonus enqueue failed:", err));
+        }
+      }
+
+      const token = signSession({ address, playerId: player.id });
+      setSessionCookie(res, token);
+      const fresh = await storage.getPlayer(player.id);
+      res.json({ success: true, token, welcomeBonus, player: fresh });
+    } catch (error) {
+      console.error("[auth/verify] error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ authenticated: false });
+    const player = await storage.getPlayer(auth.playerId).catch(() => null);
+    res.json({ authenticated: true, address: auth.address, player });
+  });
+
+  app.post("/api/auth/logout", (_req, res) => {
+    clearSessionCookie(res);
+    res.json({ success: true });
+  });
+
+  // ── Global ownership guard for mutating game endpoints ───────────────────────
+  // Single chokepoint: every state-changing game route requires a verified
+  // wallet session (when enforced), and any player-identity field in the body
+  // MUST match the session's player. This is what makes acting on behalf of
+  // another player impossible — a client can no longer just supply someone
+  // else's playerId. Registered before the routes below so it runs first.
+  const MUTATION_PATH_RE = /^\/api\/(actions|trade|markets|plots|sub-parcels|factions)\b/;
+  const OWNER_ID_FIELDS = ["playerId", "attackerId", "sellerId", "buyerId"] as const;
+  app.use((req, res, next) => {
+    if (req.method !== "POST" && req.method !== "DELETE" && req.method !== "PUT") return next();
+    if (!MUTATION_PATH_RE.test(req.path)) return next();
+
+    const auth = getAuth(req);
+    if (isWalletAuthRequired() && !auth) {
+      return res.status(401).json({ error: "Authentication required — connect your wallet" });
+    }
+    if (auth) {
+      req.auth = auth;
+      const bodyId = OWNER_ID_FIELDS
+        .map((f) => req.body?.[f])
+        .find((v) => typeof v === "string" && v.length > 0);
+      if (bodyId && bodyId !== auth.playerId) {
+        return res.status(403).json({ error: "Forbidden — session does not own this player" });
+      }
+    }
+    next();
+  });
+
+  app.get("/api/blockchain/status", async (req, res) => {
     try {
       const asaId      = getFrontierAsaId();
       const adminAddress = getAdminAddress();
-      const balance    = await getAdminBalance();
       const forceNew   = process.env.FORCE_NEW_FRONTIER_ASA === "true" || process.env.FORCE_NEW_ASA === "true";
       const network    = process.env.ALGORAND_NETWORK ?? "testnet";
       const factionAsaIds = getAllFactionAsaIds();
-      res.json({
+
+      const body: Record<string, unknown> = {
         ready: blockchainReady,
         frontierAsaId: asaId,
-        adminAddress,
-        adminAlgoBalance: balance.algo,
-        adminFrontierBalance: balance.frontierAsa,
+        adminAddress, // payment target — clients need this; it is public on-chain anyway
         network,
         forceNewAsaEnabled: forceNew,
         factionIdentities: factionAsaIds,
-      });
+      };
+
+      // The admin wallet's live balances are operational treasury intelligence.
+      // They are queryable on-chain, but we do not hand them to anonymous API
+      // callers — surface them only to an authenticated admin (no 403 written
+      // here; this is an additive field on an otherwise-public endpoint).
+      if (process.env.ADMIN_KEY) {
+        const headerKey = req.headers["x-admin-key"];
+        if (typeof headerKey === "string" && headerKey === process.env.ADMIN_KEY) {
+          const balance = await getAdminBalance();
+          body.adminAlgoBalance = balance.algo;
+          body.adminFrontierBalance = balance.frontierAsa;
+        }
+      }
+
+      res.json(body);
     } catch (error) {
       res.json({ ready: false, frontierAsaId: null, adminAddress: null });
     }
@@ -913,7 +1069,10 @@ export async function registerRoutes(
   app.get("/api/game/state", async (req, res) => {
     try {
       const gameState = await withDbRetry(() => storage.getGameState(), "getGameState");
-      res.json(gameState);
+      // Scope to the requesting viewer (fog of war / EPI). Anonymous → fully
+      // redacted. The WS broadcast below re-scopes per connection.
+      const auth = getAuth(req);
+      res.json(scopeGameStateFor(gameState, auth?.playerId ?? null));
       broadcastGameState(gameState);
     } catch (error) {
       console.error("Error fetching game state:", error);
@@ -1976,16 +2135,10 @@ export async function registerRoutes(
   });
 
   // ── Admin key guard (used for internal/admin endpoints) ───────────────────
-  function requireAdminKey(req: any, res: any): boolean {
-    const adminKey = process.env.ADMIN_KEY;
-    if (!adminKey) return true; // No key configured → allow (dev mode)
-    const provided = (req.headers["x-admin-key"] as string) ?? (req.query.adminKey as string);
-    if (provided !== adminKey) {
-      res.status(403).json({ error: "Forbidden: invalid admin key" });
-      return false;
-    }
-    return true;
-  }
+  // NOTE: requireAdminKey is now imported from ./security — it fails CLOSED in
+  // production (a missing ADMIN_KEY no longer grants access) and only accepts
+  // the key via the x-admin-key header in prod (never the query string, which
+  // would be captured by access logs).
 
   app.post("/api/game/resolve-battles", async (req, res) => {
     if (!requireAdminKey(req, res)) return;
@@ -2088,7 +2241,9 @@ export async function registerRoutes(
       const filters: import("@shared/worldEvents").WorldEventFilters = {};
       if (start)  filters.start  = Number(start);
       if (end)    filters.end    = Number(end);
-      if (limit)  filters.limit  = Number(limit);
+      // Always clamp — an unbounded `limit` lets a caller dump the entire event
+      // log in one request (off-chain activity-intelligence scrape).
+      filters.limit = clampLimit(limit, 100, 200);
       if (types)  filters.types  = String(types).split(",") as import("@shared/worldEvents").WorldEventType[];
       res.json(listWorldEvents(filters));
     } catch { res.status(500).json({ error: "Failed to fetch world events" }); }
@@ -2441,10 +2596,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/mint-status/:plotId", async (req, res) => {
-    const adminKey = process.env.ADMIN_KEY;
-    if (adminKey && req.query.adminKey !== adminKey) {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
+    if (!requireAdminKey(req, res)) return;
 
     const plotId = parseInt(req.params.plotId, 10);
     if (isNaN(plotId)) {
@@ -2931,7 +3083,8 @@ export async function registerRoutes(
   });
 
   /** GET /api/admin/battles-live — currently pending battles */
-  app.get("/api/admin/battles-live", async (_req, res) => {
+  app.get("/api/admin/battles-live", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const pending = await db.select()
         .from(battlesTable)
@@ -2968,7 +3121,8 @@ export async function registerRoutes(
   });
 
   /** GET /api/admin/ai-activity — AI faction status + last action per faction */
-  app.get("/api/admin/ai-activity", async (_req, res) => {
+  app.get("/api/admin/ai-activity", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const factionRows = await db
         .select()

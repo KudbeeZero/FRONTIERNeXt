@@ -65,7 +65,9 @@ export function GameLayout() {
     isOptedInToFrontier,
     treasuryAddress,
   } = useBlockchainActions();
-  useGameSocket();
+  // Reconnect the socket (with the session token) once wallet auth completes,
+  // so the server can authenticate it and scope broadcasts to this player.
+  useGameSocket(wallet.isAuthenticated);
   const { data: gameState, isLoading, error } = useGameState();
   const player = useCurrentPlayer(wallet.address);
   const { toast } = useToast();

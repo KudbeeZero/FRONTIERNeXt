@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { queryClient } from "@/lib/queryClient";
+import { getAuthToken } from "@/lib/authToken";
 import type { GameState } from "@shared/schema";
 import type { WorldEvent } from "@shared/worldEvents";
 
@@ -76,20 +77,33 @@ function dispatchChainHealth(health: ChainHealth): void {
   }
 }
 
-export function useGameSocket() {
+/**
+ * @param authTrigger Pass a value that changes when wallet auth completes (e.g.
+ * `isAuthenticated`). The socket reconnects — now carrying the session token —
+ * so the server can authenticate it and scope broadcasts to this player.
+ */
+export function useGameSocket(authTrigger?: unknown) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectCount = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Auth state changed — restart the attempt budget so a previously
+    // exhausted (unauthenticated) loop reconnects with the new token.
+    reconnectCount.current = 0;
+
     function connect() {
       if (reconnectCount.current >= WS_MAX_RECONNECTS) return;
 
       // MIGRATION: WebSocket URL now driven by VITE_WS_URL env var
       const wsBase = import.meta.env.VITE_WS_URL;
-      const url = wsBase
+      const base = wsBase
         ? `${wsBase}/ws`
         : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+      // Browsers can't set headers on a WebSocket — pass the session token as a
+      // query param so the server can authenticate the connection.
+      const token = getAuthToken();
+      const url = token ? `${base}?token=${encodeURIComponent(token)}` : base;
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
@@ -137,7 +151,7 @@ export function useGameSocket() {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
-  }, []);
+  }, [authTrigger]);
 }
 
 /**

@@ -846,23 +846,35 @@ export function LandSheet({
               <span className="font-mono text-sm font-bold">{Math.round(parcel.richness)}%</span>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-iron/40 transition-colors">
-              <Pickaxe className="w-4 h-4 mx-auto mb-1 text-iron" />
-              <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Iron</span>
-              <span className="font-mono text-sm font-bold text-iron">{parcel.ironStored}</span>
+          {/* Stored-resource intel is fog-of-war: only the owner sees exact
+              amounts. For enemy/unclaimed plots the server redacts these values,
+              so we show a classified placeholder instead of a misleading 0.
+              Sanctioned target intel comes from the War Room (attackable list). */}
+          {isOwned ? (
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-iron/40 transition-colors">
+                <Pickaxe className="w-4 h-4 mx-auto mb-1 text-iron" />
+                <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Iron</span>
+                <span className="font-mono text-sm font-bold text-iron">{parcel.ironStored}</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-fuel/40 transition-colors">
+                <Fuel className="w-4 h-4 mx-auto mb-1 text-fuel" />
+                <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Fuel</span>
+                <span className="font-mono text-sm font-bold text-fuel">{parcel.fuelStored}</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-purple-400/40 transition-colors">
+                <Gem className="w-4 h-4 mx-auto mb-1 text-purple-400" />
+                <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Crystal</span>
+                <span className="font-mono text-sm font-bold text-purple-400">{parcel.crystalStored}</span>
+              </div>
             </div>
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-fuel/40 transition-colors">
-              <Fuel className="w-4 h-4 mx-auto mb-1 text-fuel" />
-              <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Fuel</span>
-              <span className="font-mono text-sm font-bold text-fuel">{parcel.fuelStored}</span>
+          ) : (
+            <div className="mb-3 p-2.5 rounded-lg bg-muted/30 border border-border/40 text-center">
+              <span className="text-[10px] text-muted-foreground font-display uppercase tracking-wide">
+                🔒 Stored resources classified — recon required
+              </span>
             </div>
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-purple-400/40 transition-colors">
-              <Gem className="w-4 h-4 mx-auto mb-1 text-purple-400" />
-              <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Crystal</span>
-              <span className="font-mono text-sm font-bold text-purple-400">{parcel.crystalStored}</span>
-            </div>
-          </div>
+          )}
 
           {/* 24h Resource Yield Forecast */}
           {(() => {
