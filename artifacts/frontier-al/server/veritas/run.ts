@@ -22,12 +22,21 @@ import type { FlowContext, FlowResult, RunResult, StepResult } from "./types.js"
 import { toFlowResult, tally } from "./assert.js";
 import { formatReport, shouldAlert, postDiscordAlert } from "./reporter.js";
 import { FLOWS } from "./flows/index.js";
+import { TestWallet } from "./wallet.js";
 
 function buildContext(): FlowContext {
+  const wallet = TestWallet.fromEnv();
+  if (wallet && !process.env.VERITAS_TEST_MNEMONIC_LOGGED) {
+    // Surface the address once so it can be funded; never log the mnemonic.
+    console.log(`[veritas] test wallet: ${wallet.address}`);
+  }
+  const asaId = Number(process.env.VERITAS_FRONTIER_ASA_ID ?? 0) || undefined;
   return {
     baseUrl: process.env.VERITAS_TARGET_URL ?? "http://localhost:5000",
     adminKey: process.env.VERITAS_ADMIN_KEY,
     playerId: process.env.VERITAS_PLAYER_ID,
+    wallet,
+    frontierAsaId: asaId,
     log: (msg) => console.log(`[veritas] ${msg}`),
   };
 }

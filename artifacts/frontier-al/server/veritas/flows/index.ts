@@ -10,11 +10,12 @@
 import type { FlowRunner } from "../types.js";
 import { skip } from "../assert.js";
 import { marketFlow } from "./market.js";
+import { tokenFlow } from "./token.js";
 
 function pending(name: string): FlowRunner {
   return {
     name,
-    run: async () => [skip(`${name} flow`, "not yet implemented — needs the testnet wallet manager (funded test ALGO)")],
+    run: async () => [skip(`${name} flow`, "not yet implemented — needs purchase/auth choreography on top of the wallet manager")],
   };
 }
 
@@ -22,7 +23,7 @@ function pending(name: string): FlowRunner {
 export const FLOWS: FlowRunner[] = [
   pending("land"),
   pending("commander"),
-  pending("token"),
+  tokenFlow,
   pending("trade"),
   marketFlow,
 ];

@@ -13,7 +13,8 @@ before a player does.
 | Flow | Status | Notes |
 |------|--------|-------|
 | market | ✅ implemented | create → bet-lock → resolve → proof, and **independently re-runs the published resolver** on the proof's public inputs to confirm the outcome + sha256 hash. |
-| land / commander / token / trade | ⏭️ pending | scaffolded; need the testnet wallet manager (funded test ALGO) to walk mint → opt-in → transfer → DB sync. |
+| token | ✅ implemented | uses the test wallet: funding (auto top-up), **opt-in idempotency**, on-chain ASA balance read. |
+| land / commander / trade | ⏭️ pending | scaffolded; need the purchase/auth choreography on top of the wallet manager. |
 
 The market flow asserts the provably-fair guarantees directly: the source is persisted
 immutably, resolution is refused before the cutoff, an injected `winningOutcome` is ignored
@@ -43,6 +44,13 @@ pnpm run veritas
 | `VERITAS_FLOWS` | optional comma list to filter flows (e.g. `market`) |
 | `VERITAS_INTERVAL_MS` | if set, loop every N ms instead of a single pass |
 | `VERITAS_DISCORD_WEBHOOK` | optional alert webhook (posts the report on FAIL/DRIFT) |
+| `VERITAS_TEST_MNEMONIC` | testnet test-wallet 25-word mnemonic (the player the chain flows act as) |
+| `VERITAS_FUNDER_MNEMONIC` | optional funded account used to auto top-up the test wallet |
+| `VERITAS_FRONTIER_ASA_ID` | $FRNTR ASA id, for the token flow |
+| `VERITAS_ALGOD_URL` / `VERITAS_ALGOD_TOKEN` | algod endpoint (default testnet algonode) |
+
+> The wallet runs as an external client — point it at **testnet**. On first run with no
+> `VERITAS_TEST_MNEMONIC`, generate one with `pnpm exec tsx -e "import a from 'algosdk'; const x=a.generateAccount(); console.log(a.secretKeyToMnemonic(x.sk), x.addr.toString())"`, fund the address from the testnet dispenser, and set the mnemonic.
 
 ## Report
 
