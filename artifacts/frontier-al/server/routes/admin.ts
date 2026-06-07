@@ -59,6 +59,7 @@ import { scopeGameStateFor } from "../stateScope";
 import { assessWelcomeBonusEligibility } from "../services/chain/eligibility";
 import type { RouteContext } from "./context";
 import { _apiRouteTimings, SLOW_API_THRESHOLD_MS } from "./_timing";
+import { GAME_CONFIG } from "../config/gameConfig";
 
 export function registerAdminRoutes(app: Express, ctx: RouteContext): void {
   const { assertPlayerOwnership, maybeGrantWelcomeBonus, fireBurn, adviceLimiter, algodClient, indexerClient } = ctx;
@@ -243,7 +244,7 @@ export function registerAdminRoutes(app: Express, ctx: RouteContext): void {
     const { name, daysLen } = req.body;
     if (!name) return res.status(400).json({ error: "name required" });
     try {
-      const season = await storage.startSeason(name, daysLen ?? 90);
+      const season = await storage.startSeason(name, daysLen ?? GAME_CONFIG.season.defaultDays);
       markDirty();
       res.json({ success: true, season });
     } catch (err: any) {
