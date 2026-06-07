@@ -231,7 +231,7 @@ importers:
         specifier: ^0.3.25
         version: 0.3.31
       '@perawallet/connect':
-        specifier: ^1.4.2
+        specifier: ^1.5.2
         version: 1.5.2(algosdk@3.5.2)(bufferutil@4.1.0)
       '@radix-ui/react-accordion':
         specifier: ^1.2.4
