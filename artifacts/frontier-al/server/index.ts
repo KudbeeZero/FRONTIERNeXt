@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { initSeasonManager } from "./engine/season/manager";
 import { hydrateWorldEventsFromRedis } from "./worldEventStore";
@@ -14,6 +15,10 @@ import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Behind Railway's reverse proxy: trust the first hop so rate limiting and any
+// IP-based logic key on the real client IP (X-Forwarded-For) rather than the proxy.
+app.set("trust proxy", 1);
 
 declare module "http" {
   interface IncomingMessage {
@@ -119,6 +124,20 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// ── Rate limiting on game action routes ──────────────────────────────────────
+// Per-IP fixed window over /api/actions/* (mine, attack, purchase, build, …).
+// Read-only routes are unaffected; server-internal AI/scheduler paths do not hit
+// /api/actions. DB-level cooldowns/constraints remain the primary guard — this
+// adds a cheap spam / treasury-drain ceiling. Tune via env if needed.
+const actionsLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Number(process.env.ACTIONS_RATE_LIMIT ?? 60),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many actions — slow down and try again shortly." },
+});
+app.use("/api/actions", actionsLimiter);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
