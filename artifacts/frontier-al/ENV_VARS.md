@@ -10,7 +10,7 @@
 | SESSION_SECRET | HMAC key for wallet-auth session tokens (≥16 chars). **Now actively used** — if unset in production the server falls back to an ephemeral per-process key (sessions die on restart and cannot be shared across instances). Set a strong value. | random 64-char string |
 | PUBLIC_BASE_URL | Railway service base URL (used for NFT metadata URLs) | `https://api.ascendancyalgo.xyz` |
 | ALGORAND_NETWORK | `testnet` or `mainnet` | `mainnet` |
-| UPSTASH_REDIS_REST_URL | Upstash Redis REST URL | `https://....upstash.io` |
+| UPSTASH_REDIS_REST_URL | Upstash Redis REST URL. **Required for multi-instance**: when set, auth nonces + the enumeration/auth rate limiters are shared across instances; when unset, they fall back to per-instance memory (correct for a single instance only). Also backs world events / battle replays. | `https://....upstash.io` |
 | UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token | |
 | CLIENT_ORIGIN | Vercel frontend URL for CORS | `https://ascendancyalgo.xyz` |
 | NODE_ENV | Environment flag | `production` |
@@ -19,7 +19,8 @@
 | FORCE_NEW_ASA | Force new ASA creation on startup | `false` |
 | ADMIN_KEY | Admin API key for privileged endpoints. **In production a missing key now FAILS CLOSED** (admin endpoints return 503) instead of granting open access. Sent via `x-admin-key` header only in prod. | random secret string |
 | API_RATE_LIMIT | Coarse per-IP request ceiling across all `/api/*` (per minute). Anti-bulk-scrape / DoS backstop. | `1000` (default) |
-| ENUMERATION_RATE_LIMIT | Strict per-IP limit (per minute) on ID/address-enumerable read endpoints (`/api/game/parcel/:id`, `/api/game/player/:id`, `/api/game/player-by-address/:address`, `/api/parcels/attackable`, etc.). Primary defense against scraping off-chain economic data. | `90` (default) |
+| ENUMERATION_RATE_LIMIT | Strict per-IP limit (per minute) on ID/address-enumerable read endpoints (`/api/game/parcel/:id`, `/api/game/player/:id`, `/api/game/player-by-address/:address`, `/api/parcels/attackable`, etc.). Primary defense against scraping off-chain economic data. **Redis-backed** when Upstash is configured (shared across instances). | `90` (default) |
+| AUTH_RATE_LIMIT | Per-IP limit (per minute) on `/api/auth/*` (nonce/verify). Blunts auth spam / signature-guessing. **Redis-backed** when Upstash is configured. | `20` (default) |
 | ACTIONS_RATE_LIMIT | Per-IP limit (per minute) on `/api/actions/*` mutating game actions. | `60` (default) |
 | ADVICE_RATE_LIMIT | Per-IP limit (per minute) on the LLM terraform-advice endpoint. | `30` (default) |
 | WALLET_AUTH_REQUIRED | Enforce wallet-signature auth on all mutating game endpoints. **Defaults to ON** (any value except `false`). Set to `false` ONLY during a split-host rollout window where the new client is not yet deployed, then flip back. | `true` (default) |

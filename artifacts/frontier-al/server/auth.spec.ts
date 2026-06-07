@@ -77,22 +77,22 @@ describe("auth — wallet signature verification", () => {
   });
 });
 
-describe("auth — nonce lifecycle", () => {
-  it("issues, verifies, and enforces single-use", () => {
+describe("auth — nonce lifecycle (in-memory fallback, no Redis)", () => {
+  it("issues, verifies, and enforces single-use", async () => {
     const account = algosdk.generateAccount();
     const address = addrOf(account);
-    const { nonce } = issueNonce(address);
+    const { nonce } = await issueNonce(address);
     const blob = buildSignedAuth(account, nonce);
 
     // First use succeeds.
-    expect(verifyAuthAndNonce(address, blob, nonce)).toBe(true);
+    expect(await verifyAuthAndNonce(address, blob, nonce)).toBe(true);
     // Replay with the same nonce fails (consumed).
-    expect(verifyAuthAndNonce(address, blob, nonce)).toBe(false);
+    expect(await verifyAuthAndNonce(address, blob, nonce)).toBe(false);
   });
 
-  it("rejects a nonce that was never issued", () => {
+  it("rejects a nonce that was never issued", async () => {
     const account = algosdk.generateAccount();
     const blob = buildSignedAuth(account, "never-issued");
-    expect(verifyAuthAndNonce(addrOf(account), blob, "never-issued")).toBe(false);
+    expect(await verifyAuthAndNonce(addrOf(account), blob, "never-issued")).toBe(false);
   });
 });

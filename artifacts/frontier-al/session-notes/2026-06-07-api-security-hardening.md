@@ -63,6 +63,19 @@ Sign-In With Algorand for LUTE / Pera / Defly / Kibisis (any use-wallet provider
   auth/Sybil flags.
 - Verified: 71/71 server tests; env-validator warnings; full build.
 
+## Pass 5 — multi-instance readiness (Redis-backed security state)
+- `server/services/redis.ts`: added isRedisEnabled/setWithPx/getDel/rlIncr (Lua
+  atomic incr+pexpire+pttl)/rlDecr/rlDelete (reuse existing getRedis + graceful-null).
+- `server/rateLimitStore.ts` (new): custom express-rate-limit v7 Store, Redis-backed
+  with MemoryStore fallback (fail-safe). + `rateLimitStore.spec.ts` (4 tests).
+- `server/auth.ts`: nonce store Redis-backed (SET px + atomic GETDEL), async, Map
+  fallback; verifyAuthAndNonce now async. auth.spec.ts updated to await.
+- `server/security.ts`: enumerationLimiter Redis-backed; new authLimiter on /api/auth/*
+  (AUTH_RATE_LIMIT, default 20). Coarse apiRead/actions/advice stay per-instance.
+- `server/routes.ts`: await issueNonce/verifyAuthAndNonce; mount authLimiter.
+- `server/index.ts`: startup log for distributed vs per-instance mode.
+- WS _connByIp left per-instance (documented — distributed counter leaks on crash).
+- Verified: tsc clean; 75/75 tests; authLimiter integration test (200×3→429); build OK.
+
 ## Outstanding (operational only — no open audit findings)
-- Multi-instance: move nonce store + rate-limit counters to Redis.
 - Secret rotation; optional on-chain account-age heuristic if Sybil pressure persists.

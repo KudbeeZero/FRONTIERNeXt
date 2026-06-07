@@ -18,6 +18,7 @@
 import rateLimit from "express-rate-limit";
 import { timingSafeEqual } from "crypto";
 import type { Request, Response } from "express";
+import { RedisStore } from "./rateLimitStore";
 
 const isProd = (): boolean => process.env.NODE_ENV === "production";
 
@@ -102,7 +103,25 @@ export const enumerationLimiter = rateLimit({
   limit: Math.max(1, Number(process.env.ENUMERATION_RATE_LIMIT) || 90),
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  // Redis-backed so the anti-scrape budget is shared across instances (a scraper
+  // can't multiply its allowance by hitting different nodes). Falls back to
+  // per-instance memory when Redis is unavailable.
+  store: new RedisStore("rl:enum:"),
   message: { error: "Too many lookups — slow down and try again shortly." },
+});
+
+/**
+ * Tight per-IP limiter for the authentication endpoints (/api/auth/*). Blunts
+ * nonce/verify spam and signature-guessing. Redis-backed for cross-instance
+ * enforcement. Tune via AUTH_RATE_LIMIT (requests per minute per IP).
+ */
+export const authLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Math.max(1, Number(process.env.AUTH_RATE_LIMIT) || 20),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  store: new RedisStore("rl:auth:"),
+  message: { error: "Too many authentication attempts — try again shortly." },
 });
 
 /**
