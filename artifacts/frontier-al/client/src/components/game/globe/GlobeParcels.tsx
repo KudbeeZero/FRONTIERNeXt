@@ -12,7 +12,6 @@ import type { LandParcel, Player } from "@shared/schema";
 import {
   GLOBE_RADIUS,
   PLOT_COUNT,
-  COLOR_PLAYER,
   COLOR_BATTLE,
   COLOR_SELECTED,
   COLOR_BORDER_OWNED,
@@ -32,6 +31,7 @@ import {
   getPlotSizeVariant,
   tangentFrame,
 } from "@/lib/globe/globeUtils";
+import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 
 // ── PlotOverlay ────────────────────────────────────────────────────────────────
 
@@ -54,6 +54,16 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   const plotCoords = useMemo(() => generateFibonacciSphere(PLOT_COUNT), []);
 
+  // Player-customisable territory / enemy colours (localStorage-backed).
+  const prefs = useVisualPrefs();
+  const customColors = useMemo(
+    () => ({
+      player: new THREE.Color(prefs.territoryColor),
+      enemy: new THREE.Color(prefs.enemyColor),
+    }),
+    [prefs.territoryColor, prefs.enemyColor],
+  );
+
   const plotIdToParcel = useMemo(() => {
     const m = new Map<number, LandParcel>();
     parcels.forEach(p => m.set(p.plotId, p));
@@ -66,12 +76,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   // Prefixed with currentPlayerId so the base-color pass re-runs when the
   // session resolves (own plots must flip from enemy-red to player-green).
   const plotVisualFingerprint = useMemo(() => {
-    return (currentPlayerId ?? "") + "|" + parcels
+    return (currentPlayerId ?? "") + "|" + prefs.territoryColor + ":" + prefs.enemyColor + "|" + parcels
       .filter(p => p.ownerId || p.activeBattleId || p.isSubdivided)
       .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}`)
       .sort()
       .join("|");
-  }, [parcels, currentPlayerId]);
+  }, [parcels, currentPlayerId, prefs.territoryColor, prefs.enemyColor]);
 
   // Flat Float32Array of every plot's 3D position — used for O(n) nearest-neighbor on clicks/hover
   const plotPositions3D = useMemo(() => {
@@ -209,7 +219,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
-        fillColor = getPlotColor(parcel, currentPlayerId);
+        fillColor = getPlotColor(parcel, currentPlayerId, customColors);
       }
 
       // Your own plots get a breathing border-glow so ownership reads as motion,
@@ -220,7 +230,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         : isHovered
           ? COLOR_SELECTED.clone()
           : isOwnedByMe
-            ? COLOR_PLAYER.clone().multiplyScalar(0.7 + ownPulse * 0.8)
+            ? customColors.player.clone().multiplyScalar(0.7 + ownPulse * 0.8)
             : isOwned
               ? COLOR_BORDER_OWNED.clone()
               : COLOR_BORDER_UNOWNED.clone();
@@ -268,7 +278,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
-        fillColor = getPlotColor(parcel, currentPlayerId);
+        fillColor = getPlotColor(parcel, currentPlayerId, customColors);
       }
 
       const borderColor = isOwned ? COLOR_BORDER_OWNED.clone() : COLOR_BORDER_UNOWNED.clone();
