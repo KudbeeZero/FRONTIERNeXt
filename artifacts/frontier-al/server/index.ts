@@ -63,13 +63,15 @@ process.on("uncaughtException", (err) => {
 
 app.use(
   express.json({
+    // Cap request bodies — game payloads are < 5KB; this blocks oversized-body DoS.
+    limit: "1mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 // Security headers (helmet middleware)
 // CSP is relaxed in development to allow Vite HMR and inline styles;
@@ -165,7 +167,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // Only echo the response body in non-production. In production this would
+      // leak live game state (balances, player data, plot details) into stdout.
+      if (capturedJsonResponse && process.env.NODE_ENV !== "production") {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
