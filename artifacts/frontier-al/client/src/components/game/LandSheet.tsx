@@ -675,6 +675,19 @@ export function LandSheet({
   const [showTerraformPanel, setShowTerraformPanel] = useState(false);
   const [pendingBiome, setPendingBiome] = useState<string | null>(null);
   const [lastTerraformResult, setLastTerraformResult] = useState<{ fromBiome: string; toBiome: string; level: number } | null>(null);
+  const [advisorGoal, setAdvisorGoal] = useState<"defense" | "yield" | "balanced">("balanced");
+  const { data: terraformAdvice, isFetching: adviceLoading } = useQuery<{
+    recommendedBiome: string; recommendedAction: string; rationale: string; source: string;
+  }>({
+    queryKey: [`/api/plots/${parcel?.plotId}/terraform-advice`, advisorGoal],
+    queryFn: async () => {
+      const r = await fetch(`/api/plots/${parcel!.plotId}/terraform-advice?goal=${advisorGoal}`);
+      if (!r.ok) throw new Error("advice unavailable");
+      return r.json();
+    },
+    enabled: showTerraformPanel && !!parcel,
+    staleTime: 30_000,
+  });
 
   const TERRAFORM_COST = TERRAFORM_COSTS.convert_biome;
 
@@ -1029,6 +1042,51 @@ export function LandSheet({
             );
             return (
               <div className="mt-2 p-2.5 rounded-lg bg-muted/30 border border-border/40 space-y-2">
+                {/* Terraforming advisor — heuristic by default, AI when configured */}
+                <div className="rounded border border-primary/20 bg-primary/5 p-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-display uppercase tracking-wide text-primary flex items-center gap-1">
+                      <Layers className="w-3 h-3" /> Advisor
+                    </span>
+                    <div className="flex gap-1">
+                      {(["defense", "yield", "balanced"] as const).map((g) => (
+                        <button
+                          key={g}
+                          onClick={() => setAdvisorGoal(g)}
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[8px] font-display uppercase tracking-wide transition-colors",
+                            advisorGoal === g ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-primary",
+                          )}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {adviceLoading && <p className="text-[9px] text-muted-foreground">Analyzing plot…</p>}
+                  {!adviceLoading && terraformAdvice && (
+                    <div className="space-y-1">
+                      <p className="text-[9px] text-foreground/90 leading-snug">{terraformAdvice.rationale}</p>
+                      {terraformAdvice.recommendedAction === "convert_biome" && (() => {
+                        const proto = Object.keys(TERRAFORM_BIOME_MAP).find(
+                          (k) => TERRAFORM_BIOME_MAP[k] === terraformAdvice.recommendedBiome,
+                        );
+                        if (!proto) return null;
+                        return (
+                          <button
+                            onClick={() => setPendingBiome(proto)}
+                            className="text-[8px] font-display uppercase tracking-wide text-primary underline underline-offset-2"
+                          >
+                            Use recommended → {terraformAdvice.recommendedBiome}
+                          </button>
+                        );
+                      })()}
+                      <p className="text-[7px] text-muted-foreground/60">
+                        {terraformAdvice.source === "llm" ? "AI advisor" : "heuristic"}
+                      </p>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-display uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                     <Layers className="w-3 h-3" /> Select Target Biome

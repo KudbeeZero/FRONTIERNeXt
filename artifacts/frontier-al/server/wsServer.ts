@@ -33,8 +33,11 @@ const FLUSH_INTERVAL_MS = 1_500;
 // env: 0 = unlimited) so they protect against connection-spam without wrongly
 // blocking legitimately NAT'd users.
 const WS_MAX_PAYLOAD_BYTES = 64 * 1024;
-const WS_MAX_CONN_PER_IP = Number(process.env.WS_MAX_CONN_PER_IP ?? 25);
-const WS_MAX_CONN = Number(process.env.WS_MAX_CONN ?? 0);
+// Guard against a non-numeric env value silently disabling the cap (NaN). 0 = disabled.
+const _perIpRaw = Number(process.env.WS_MAX_CONN_PER_IP);
+const WS_MAX_CONN_PER_IP = Number.isFinite(_perIpRaw) ? _perIpRaw : 25;
+const _globalRaw = Number(process.env.WS_MAX_CONN);
+const WS_MAX_CONN = Number.isFinite(_globalRaw) ? _globalRaw : 0;
 const _connByIp = new Map<string, number>();
 
 /** Real client IP, honouring the trust-proxy X-Forwarded-For first hop. */

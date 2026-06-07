@@ -9,6 +9,18 @@ import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
 import { eq, sql, desc } from "drizzle-orm";
+import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
+import rateLimit from "express-rate-limit";
+
+// Per-IP limiter for the terraform advice endpoint — bounds cost when the LLM
+// advisor path (ANTHROPIC_API_KEY) is enabled. The heuristic path is cheap.
+const adviceLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Math.max(1, Number(process.env.ADVICE_RATE_LIMIT) || 30),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many advice requests — try again shortly." },
+});
 import { broadcastGameState, broadcastRaw, markDirty } from "./wsServer";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 
@@ -396,9 +408,11 @@ export async function registerRoutes(
 
   // ── NFT Metadata (ARC-3) ────────────────────────────────────────────────────
   // Public endpoint used by Algorand NFT marketplaces and wallets.
-  // Returns immutable plot attributes only — no mutable game state.
-  // BASE_URL: set PUBLIC_BASE_URL env var in production, or it falls back
-  // to the request's own origin (works in dev and on Replit).
+  // Intentionally DYNAMIC: biome + terraform state (stability/hazard/yield) reflect
+  // the live parcel, so terraforming a plot updates its metadata + biome image.
+  // The ASA identity is preserved (no burn/remint); metadataVersion + a short
+  // Cache-Control let wallets/indexers pick up changes.
+  // BASE_URL must come from the PUBLIC_BASE_URL env var in production.
   app.get("/nft/metadata/:plotId", async (req, res) => {
     // Reject non-integer plotId values early.
     const plotId = parseInt(req.params.plotId, 10);
@@ -2517,6 +2531,45 @@ export async function registerRoutes(
     }
   });
 
+  /**
+   * GET /api/plots/:plotId/terraform-advice?goal=defense|yield|balanced
+   * Read-only terraforming recommendation for a plot. Uses the deterministic
+   * heuristic by default; upgrades to a Claude recommendation when
+   * ANTHROPIC_API_KEY is configured (falls back to the heuristic on any error).
+   */
+  app.get("/api/plots/:plotId/terraform-advice", adviceLimiter, async (req, res) => {
+    const plotId = parseInt(String(req.params.plotId), 10);
+    if (!plotId || isNaN(plotId)) return res.status(400).json({ error: "Invalid plotId" });
+    const goalParam = String(req.query.goal ?? "balanced");
+    const goal: TerraformGoal = (["defense", "yield", "balanced"].includes(goalParam) ? goalParam : "balanced") as TerraformGoal;
+    if (!db) return res.status(503).json({ error: "Database not available" });
+    try {
+      const [parcel] = await db
+        .select({
+          biome:           parcelsTable.biome,
+          stability:       parcelsTable.stability,
+          hazardLevel:     parcelsTable.hazardLevel,
+          yieldMultiplier: parcelsTable.yieldMultiplier,
+        })
+        .from(parcelsTable)
+        .where(eq(parcelsTable.plotId, plotId))
+        .limit(1);
+      if (!parcel) return res.status(404).json({ error: "Plot not found" });
+
+      const advice = await recommendTerraform({
+        biome:           parcel.biome as import("@shared/schema").BiomeType,
+        stability:       parcel.stability ?? 100,
+        hazardLevel:     parcel.hazardLevel ?? 0,
+        yieldMultiplier: parcel.yieldMultiplier ?? 1,
+        goal,
+      });
+      res.json(advice);
+    } catch (err) {
+      console.error("[terraform-advice] error", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   /** POST /api/sub-parcels/:subParcelId/purchase — buy an unowned sub-parcel */
   app.post("/api/sub-parcels/:subParcelId/purchase", async (req, res) => {
     const { subParcelId } = req.params;
@@ -2859,6 +2912,22 @@ export async function registerRoutes(
       console.error("[battles/history]", err);
       res.status(500).json({ error: "Internal server error" });
     }
+  });
+
+  /** GET /api/admin/metrics — per-route timing diagnostics (admin-gated) */
+  app.get("/api/admin/metrics", (req, res) => {
+    if (!requireAdminKey(req, res)) return;
+    const routes = Object.entries(_apiRouteTimings)
+      .filter(([, s]) => s.count > 0)
+      .map(([route, s]) => ({
+        route,
+        count: s.count,
+        avgMs: Math.round(s.totalTimeMs / s.count),
+        maxMs: s.maxTimeMs,
+        slowCount: s.slowCount,
+      }))
+      .sort((a, b) => b.count - a.count);
+    res.json({ slowThresholdMs: SLOW_API_THRESHOLD_MS, routes });
   });
 
   /** GET /api/admin/battles-live — currently pending battles */

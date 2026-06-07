@@ -134,7 +134,7 @@ app.use((req, res, next) => {
 // adds a cheap spam / treasury-drain ceiling. Tune via env if needed.
 const actionsLimiter = rateLimit({
   windowMs: 60_000,
-  limit: Number(process.env.ACTIONS_RATE_LIMIT ?? 60),
+  limit: Math.max(1, Number(process.env.ACTIONS_RATE_LIMIT) || 60),
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many actions — slow down and try again shortly." },
