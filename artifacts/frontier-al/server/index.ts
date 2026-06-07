@@ -13,6 +13,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { apiReadLimiter } from "./security";
+import { isRedisEnabled } from "./services/redis";
 
 const app = express();
 const httpServer = createServer(app);
@@ -248,6 +249,15 @@ app.use((req, res, next) => {
   const { startFrontierTransferWorker } = await import("./services/chain/transferQueue");
   startFrontierTransferWorker();
   console.log("[startup] FRONTIER transfer retry worker started ✓");
+
+  // Surface whether security state (auth nonces + enumeration/auth rate limits)
+  // is shared across instances (Redis) or per-instance (memory). The latter is
+  // only correct for a single instance.
+  console.log(
+    isRedisEnabled()
+      ? "[startup] Distributed mode ✓ — auth nonces + security rate limits backed by Redis (multi-instance safe)"
+      : "[startup] Per-instance mode — no Redis (UPSTASH_REDIS_REST_URL/TOKEN unset); auth nonces + rate limits are local. Safe for a single instance only.",
+  );
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

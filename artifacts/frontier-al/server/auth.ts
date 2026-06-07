@@ -19,6 +19,7 @@
 import algosdk from "algosdk";
 import { createHmac, createPublicKey, verify as cryptoVerify, randomBytes, timingSafeEqual } from "crypto";
 import type { Request, Response } from "express";
+import { isRedisEnabled, setWithPx, getDel } from "./services/redis";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -115,10 +116,15 @@ export function sessionMaxAgeSeconds(): number {
 
 // ── Nonce store (one-time, per-address, short TTL) ─────────────────────────────
 //
-// In-memory: correct for a single instance. For multi-instance deployments back
-// this with Redis (the codebase already has an optional Redis service).
+// Redis-backed (shared across instances) when Upstash is configured; otherwise a
+// per-instance in-memory Map. The in-memory path also serves as a fallback if a
+// Redis write fails, so a nonce issued in either store can still be consumed.
 
 const _nonces = new Map<string, { nonce: string; exp: number }>();
+
+function nonceKey(address: string): string {
+  return `frontier:auth:nonce:${address}`;
+}
 
 function pruneNonces(): void {
   const now = Date.now();
@@ -126,22 +132,43 @@ function pruneNonces(): void {
 }
 
 /** Issue a fresh one-time nonce for an address. */
-export function issueNonce(address: string): { nonce: string; expiresAt: number } {
-  pruneNonces();
+export async function issueNonce(address: string): Promise<{ nonce: string; expiresAt: number }> {
   const nonce = randomBytes(24).toString("hex");
-  const exp = Date.now() + NONCE_TTL_MS;
-  _nonces.set(address, { nonce, exp });
-  return { nonce, expiresAt: exp };
+  const expiresAt = Date.now() + NONCE_TTL_MS;
+  let stored = false;
+  if (isRedisEnabled()) {
+    stored = await setWithPx(nonceKey(address), nonce, NONCE_TTL_MS);
+  }
+  if (!stored) {
+    // No Redis (or the write failed) — keep it in memory for this instance.
+    pruneNonces();
+    _nonces.set(address, { nonce, exp: expiresAt });
+  }
+  return { nonce, expiresAt };
 }
 
 /** Consume (validate + single-use) a nonce previously issued to an address. */
-function consumeNonce(address: string, nonce: string): boolean {
-  const entry = _nonces.get(address);
-  if (!entry) return false;
-  _nonces.delete(address); // single-use regardless of outcome
-  if (entry.exp < Date.now()) return false;
+async function consumeNonce(address: string, nonce: string): Promise<boolean> {
+  let candidate: string | null = null;
+
+  // Redis path: GETDEL is atomic single-use; the key auto-expires (TTL).
+  if (isRedisEnabled()) {
+    candidate = await getDel(nonceKey(address));
+  }
+
+  // Fall back to / also check the in-memory store (covers no-Redis mode and the
+  // case where the issue write landed in memory).
+  if (candidate == null) {
+    const entry = _nonces.get(address);
+    if (entry) {
+      _nonces.delete(address); // single-use regardless of outcome
+      if (entry.exp >= Date.now()) candidate = entry.nonce;
+    }
+  }
+
+  if (candidate == null) return false;
   // constant-time compare
-  const a = Buffer.from(entry.nonce);
+  const a = Buffer.from(candidate);
   const b = Buffer.from(nonce);
   return a.length === b.length && timingSafeEqual(a, b);
 }
@@ -219,9 +246,9 @@ export function verifyAuthTxn(address: string, signedTxnB64: string, expectedNon
 }
 
 /** Full verify step: checks the signed txn AND consumes the matching nonce. */
-export function verifyAuthAndNonce(address: string, signedTxnB64: string, nonce: string): boolean {
+export async function verifyAuthAndNonce(address: string, signedTxnB64: string, nonce: string): Promise<boolean> {
   if (!nonce || typeof nonce !== "string") return false;
-  if (!consumeNonce(address, nonce)) return false;
+  if (!(await consumeNonce(address, nonce))) return false;
   return verifyAuthTxn(address, signedTxnB64, nonce);
 }
 

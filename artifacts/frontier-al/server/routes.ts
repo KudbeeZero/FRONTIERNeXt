@@ -54,7 +54,7 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { requireAdminKey, enumerationLimiter, clampLimit } from "./security";
+import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit } from "./security";
 import {
   getAuth,
   isWalletAuthRequired,
@@ -285,13 +285,16 @@ export async function registerRoutes(
 
   // ── Wallet-signature authentication endpoints ────────────────────────────────
   // Sign-In With Algorand: prove control of the wallet, receive a session token.
-  app.post("/api/auth/nonce", (req, res) => {
+  // Tight, Redis-backed per-IP limiter blunts nonce/verify spam across instances.
+  app.use("/api/auth", authLimiter);
+
+  app.post("/api/auth/nonce", async (req, res) => {
     try {
       const { address } = req.body ?? {};
       if (!address || typeof address !== "string" || !algosdk.isValidAddress(address)) {
         return res.status(400).json({ error: "Valid Algorand address required" });
       }
-      const { nonce, expiresAt } = issueNonce(address);
+      const { nonce, expiresAt } = await issueNonce(address);
       // `message` is the exact note the wallet must sign into the auth txn.
       res.json({ nonce, expiresAt, message: `FRONTIER-AUTH:v1:${nonce}` });
     } catch {
@@ -308,7 +311,7 @@ export async function registerRoutes(
       if (!algosdk.isValidAddress(address)) {
         return res.status(400).json({ error: "Invalid Algorand address" });
       }
-      if (!verifyAuthAndNonce(address, signedTxn, nonce)) {
+      if (!(await verifyAuthAndNonce(address, signedTxn, nonce))) {
         return res.status(401).json({ error: "Signature verification failed" });
       }
 

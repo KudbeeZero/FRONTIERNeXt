@@ -44,6 +44,9 @@ const _perIpRaw = Number(process.env.WS_MAX_CONN_PER_IP);
 const WS_MAX_CONN_PER_IP = Number.isFinite(_perIpRaw) ? _perIpRaw : 25;
 const _globalRaw = Number(process.env.WS_MAX_CONN);
 const WS_MAX_CONN = Number.isFinite(_globalRaw) ? _globalRaw : 0;
+// Per-IP connection counter is intentionally per-instance (NOT Redis-backed): a
+// distributed counter would leak on crash/ungraceful disconnect and wrongly
+// block real users. Per-instance caps already bound connection spam on each node.
 const _connByIp = new Map<string, number>();
 
 /** Real client IP, honouring the trust-proxy X-Forwarded-For first hop. */

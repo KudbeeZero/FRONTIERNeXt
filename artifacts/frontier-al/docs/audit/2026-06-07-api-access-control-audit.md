@@ -212,6 +212,32 @@ warn on weak `SESSION_SECRET`, missing `ADMIN_KEY`, and disabled auth/Sybil flag
 **Verified:** `tsc` clean; 71/71 server tests pass (6 new eligibility tests);
 env-validator emits the expected warnings; full production build succeeds.
 
+## 8. Pass 5 — multi-instance readiness (Redis-backed security state)
+
+Two pieces of security state were per-process memory, which breaks behind a
+load balancer (nonce issued on A can't verify on B; each node grants its own
+rate-limit budget). Moved to the **existing** Upstash client — no new deps — with
+graceful per-instance fallback when Redis is absent.
+
+- `server/services/redis.ts`: added `isRedisEnabled`, `setWithPx`, `getDel`,
+  `rlIncr` (atomic INCR + first-hit PEXPIRE + PTTL via Lua `eval`), `rlDecr`, `rlDelete`.
+- `server/rateLimitStore.ts` (new): custom express-rate-limit v7 `Store` backed by
+  `rlIncr`, falling back to an internal `MemoryStore` on absence/error (fail-safe).
+- `server/auth.ts`: nonce store now Redis-backed (`SET px` + atomic `GETDEL` single-use),
+  async, with in-memory fallback. `verifyAuthAndNonce` is now async.
+- Applied (per decision) only to the **security-sensitive, lower-volume** limiters:
+  `enumerationLimiter` (anti-scrape) and a new `authLimiter` on `/api/auth/*`
+  (`AUTH_RATE_LIMIT`, default 20/min). Coarse high-volume limiters (`apiReadLimiter`,
+  `actionsLimiter`, `adviceLimiter`) stay per-instance to avoid a Redis round-trip
+  on routine traffic.
+- WS per-IP connection counter (`_connByIp`) intentionally left per-instance
+  (a distributed counter leaks on crash and would wrongly block users).
+- `server/index.ts`: startup log reports distributed (Redis) vs per-instance mode.
+
+**Verified:** `tsc` clean; 75/75 server tests pass (4 new RedisStore fallback
+tests; async nonce tests updated); HTTP integration test shows the custom store
+drives `authLimiter` (200×3 → 429); full production build succeeds.
+
 ## 5. Remaining recommendations
 
 - **O3 (Sybil):** gate welcome-bonus / mainnet incentives behind on-chain
