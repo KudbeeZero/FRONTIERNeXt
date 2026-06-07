@@ -11,6 +11,7 @@ import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersT
 import { eq, sql, desc } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import rateLimit from "express-rate-limit";
+import { registerHealthRoutes } from "./routes/health";
 import { registerAuthRoutes } from "./routes/auth";
 import { registerBlockchainRoutes } from "./routes/blockchain";
 import { registerNftRoutes } from "./routes/nft";
@@ -247,6 +248,9 @@ export async function registerRoutes(
     algodClient,
     indexerClient,
   };
+
+  // Liveness/readiness probes — public, unguarded (SECURITY LUT §6.3).
+  registerHealthRoutes(app);
 
   // Auth routes mount BEFORE the global mutation guard (they must not be guarded).
   registerAuthRoutes(app, ctx);

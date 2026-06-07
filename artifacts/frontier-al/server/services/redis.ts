@@ -44,6 +44,22 @@ export function isRedisEnabled(): boolean {
   return getRedis() !== null;
 }
 
+/**
+ * Readiness probe — returns true only if a configured Redis answers PING.
+ * Returns false when Redis is unconfigured or unreachable. Callers that treat
+ * Redis as optional should gate on isRedisEnabled() first.
+ */
+export async function redisPing(): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return false;
+  try {
+    const res = await r.ping();
+    return typeof res === "string" && res.toUpperCase() === "PONG";
+  } catch {
+    return false;
+  }
+}
+
 /** SET key=value with a millisecond TTL. Returns true on success. */
 export async function setWithPx(key: string, value: string, ttlMs: number): Promise<boolean> {
   const r = getRedis();
