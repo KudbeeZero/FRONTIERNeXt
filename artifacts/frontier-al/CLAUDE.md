@@ -164,3 +164,38 @@ This system should:
 > Session logs are stored in [`session-notes/`](session-notes/). See [session-notes/README.md](session-notes/README.md) for the full index.
 >
 > Claude must create a new dated file in `session-notes/` at the end of each session instead of appending here.
+
+---
+
+# Session close-out workflow (security / feature passes)
+
+How to wrap up and merge a unit of work. Established across the 2026-06-07
+security audit (see `docs/audit/` + `session-notes/`).
+
+**Develop**
+- Work on the designated feature branch (e.g. `claude/security-audit-*`). Never commit straight to `main`.
+- Centralize cross-cutting logic in small modules (e.g. `server/security.ts`, `server/auth.ts`, `server/rateLimitStore.ts`) rather than scattering it.
+
+**Verify BEFORE closing — all must be green:**
+1. `pnpm run check` (tsc)
+2. `pnpm run test:server`
+3. `pnpm run build` (Vite + esbuild)
+- Add unit tests for new logic; for middleware/security wiring add a throwaway `tsx` HTTP/WS integration test (mount the real handler, assert status codes), since the suite is single-process.
+
+**Document** (same commit): update `ENV_VARS.md` + `docs/DEPLOYMENT_ENV_CHECKLIST.md`, the audit report in `docs/audit/`, and a dated `session-notes/` file.
+
+**Merge to main (no-ff, from the real remote head):**
+```
+git fetch origin main
+git checkout main && git reset --hard origin/main   # local main ref is often stale
+git merge --no-ff <feature-branch> -m "Merge …"
+git push origin main                                  # retry w/ backoff on network errors
+git fetch origin main && verify local==origin
+```
+Always `reset --hard origin/main` first — skipping it produces a messy first-parent history.
+
+**When to close out**
+- Only after the three checks are green AND the merge is verified (`local main == origin/main`). Never merge on red.
+- For PR-watch / "babysit" tasks, the task isn't done until the PR is MERGED or CLOSED.
+- Secrets are never committed — document them in the env checklist; real values go in the host dashboard (Railway/Vercel), mnemonic in a secrets manager.
+
