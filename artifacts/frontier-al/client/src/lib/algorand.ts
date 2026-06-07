@@ -1,6 +1,11 @@
 // Add to top of algorand.ts
 const ALGORAND_NETWORK = (import.meta.env.VITE_ALGORAND_NETWORK as string) ?? "testnet";
- 
+
+// Dev-only debug logger — silenced in production builds. Set VITE_DEBUG=true to
+// force-enable. Errors/failures still use console.error directly.
+const DEBUG = import.meta.env.DEV || import.meta.env.VITE_DEBUG === "true";
+const dbg = (...args: unknown[]): void => { if (DEBUG) console.log(...args); };
+
 // Then everywhere you see:  network: "testnet"
 // Replace with:             network: ALGORAND_NETWORK
 import algosdk from "algosdk";
@@ -53,10 +58,10 @@ export async function signGroupedTransactionsWithActiveWallet(
   txns: algosdk.Transaction[],
   signerAddress: string
 ): Promise<Uint8Array[]> {
-  console.log(`[BATCH-DEBUG] signGroupedTransactions | txnCount: ${txns.length} | signer: ${signerAddress.slice(0, 8)}... | ts: ${Date.now()}`);
+  dbg(`[BATCH-DEBUG] signGroupedTransactions | txnCount: ${txns.length} | signer: ${signerAddress.slice(0, 8)}... | ts: ${Date.now()}`);
   if (!_registeredSigner) throw new Error("No wallet connected");
   const result = await _registeredSigner(txns);
-  console.log(`[BATCH-DEBUG] signed ${result.length} txns | ts: ${Date.now()}`);
+  dbg(`[BATCH-DEBUG] signed ${result.length} txns | ts: ${Date.now()}`);
   return result;
 }
 
@@ -81,7 +86,7 @@ export async function sendPaymentTransaction(
   amountMicroAlgos: number,
   note?: string
 ): Promise<string> {
-  console.log(`[TXN-DEBUG] sendPaymentTransaction triggered | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${toAddress.slice(0,8)}... | amount: ${amountMicroAlgos} microAlgos`);
+  dbg(`[TXN-DEBUG] sendPaymentTransaction triggered | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${toAddress.slice(0,8)}... | amount: ${amountMicroAlgos} microAlgos`);
   const suggestedParams = await getTransactionParams();
   
   const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
@@ -93,11 +98,11 @@ export async function sendPaymentTransaction(
   });
 
   const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
-  console.log(`[TXN-DEBUG] sendPaymentTransaction submitting to algod | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] sendPaymentTransaction submitting to algod | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
   const txId = response.txid || txn.txID();
   await algosdk.waitForConfirmation(algodClient, txId, 4);
-  console.log(`[TXN-DEBUG] sendPaymentTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] sendPaymentTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
   return txId;
 }
@@ -108,7 +113,7 @@ export async function createGameActionTransaction(
   plotId: number,
   metadata?: Record<string, unknown>
 ): Promise<string> {
-  console.log(`[TXN-DEBUG] createGameActionTransaction triggered | action: ${actionType} | plotId: ${plotId} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  dbg(`[TXN-DEBUG] createGameActionTransaction triggered | action: ${actionType} | plotId: ${plotId} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
   const suggestedParams = await getTransactionParams();
 
   const actionData = JSON.stringify({
@@ -131,11 +136,11 @@ export async function createGameActionTransaction(
   });
 
   const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
-  console.log(`[TXN-DEBUG] createGameActionTransaction submitting | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createGameActionTransaction submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
   const txId = response.txid || txn.txID();
   await algosdk.waitForConfirmation(algodClient, txId, 4);
-  console.log(`[TXN-DEBUG] createGameActionTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createGameActionTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
   return txId;
 }
@@ -146,7 +151,7 @@ export async function createPurchaseWithAlgoTransaction(
   plotId: number,
   algoAmount: number
 ): Promise<string> {
-  console.log(`[TXN-DEBUG] createPurchaseWithAlgoTransaction triggered | plotId: ${plotId} | algo: ${algoAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${treasuryAddress.slice(0,8)}...`);
+  dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction triggered | plotId: ${plotId} | algo: ${algoAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${treasuryAddress.slice(0,8)}...`);
   const suggestedParams = await getTransactionParams();
   const microAlgos = Math.floor(algoAmount * 1_000_000);
   
@@ -170,11 +175,11 @@ export async function createPurchaseWithAlgoTransaction(
   });
 
   const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
-  console.log(`[TXN-DEBUG] createPurchaseWithAlgoTransaction submitting | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
   const txId = response.txid || txn.txID();
   await algosdk.waitForConfirmation(algodClient, txId, 4);
-  console.log(`[TXN-DEBUG] createPurchaseWithAlgoTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
   return txId;
 }
@@ -183,7 +188,7 @@ export async function createClaimFrontierTransaction(
   fromAddress: string,
   frontierAmount: number
 ): Promise<string> {
-  console.log(`[TXN-DEBUG] createClaimFrontierTransaction triggered | amount: ${frontierAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  dbg(`[TXN-DEBUG] createClaimFrontierTransaction triggered | amount: ${frontierAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
   const suggestedParams = await getTransactionParams();
   
   const actionData = JSON.stringify({
@@ -205,11 +210,11 @@ export async function createClaimFrontierTransaction(
   });
 
   const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
-  console.log(`[TXN-DEBUG] createClaimFrontierTransaction submitting | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createClaimFrontierTransaction submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
   const txId = response.txid || txn.txID();
   await algosdk.waitForConfirmation(algodClient, txId, 4);
-  console.log(`[TXN-DEBUG] createClaimFrontierTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createClaimFrontierTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
   return txId;
 }
@@ -219,7 +224,7 @@ export async function createCommanderMintTransaction(
   tier: string,
   frntrCost: number
 ): Promise<string> {
-  console.log(`[TXN-DEBUG] createCommanderMintTransaction triggered | tier: ${tier} | frntrCost: ${frntrCost} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  dbg(`[TXN-DEBUG] createCommanderMintTransaction triggered | tier: ${tier} | frntrCost: ${frntrCost} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
   const suggestedParams = await getTransactionParams();
 
   const actionData = JSON.stringify({
@@ -243,11 +248,11 @@ export async function createCommanderMintTransaction(
   });
 
   const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
-  console.log(`[TXN-DEBUG] createCommanderMintTransaction submitting | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createCommanderMintTransaction submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
   const txId = response.txid || txn.txID();
   await algosdk.waitForConfirmation(algodClient, txId, 4);
-  console.log(`[TXN-DEBUG] createCommanderMintTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createCommanderMintTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
 
   return txId;
 }
@@ -283,7 +288,7 @@ export async function optInToASA(
   address: string,
   assetId: number
 ): Promise<string> {
-  console.log(`[TXN-DEBUG] optInToASA triggered | assetId: ${assetId} | txns: 1 | groupID: NO | ts: ${Date.now()} | address: ${address.slice(0,8)}...`);
+  dbg(`[TXN-DEBUG] optInToASA triggered | assetId: ${assetId} | txns: 1 | groupID: NO | ts: ${Date.now()} | address: ${address.slice(0,8)}...`);
   const suggestedParams = await getTransactionParams();
   
   const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
@@ -295,11 +300,11 @@ export async function optInToASA(
   });
 
   const signedTxnBlob = await signTransactionWithActiveWallet(txn, address);
-  console.log(`[TXN-DEBUG] optInToASA submitting | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] optInToASA submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
   const txId = response.txid || txn.txID();
   await algosdk.waitForConfirmation(algodClient, txId, 4);
-  console.log(`[TXN-DEBUG] optInToASA confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] optInToASA confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
   return txId;
 }
@@ -427,7 +432,7 @@ let _txnStatusCallback: BatchStatusCallback | null = null;
 export function registerTxnQueueAddress(address: string) {
   _txnQueueAddress = address;
   if (_txnQueue.length > 0 && !_txnFlushInProgress) {
-    console.log(`[BATCH-DEBUG] address registered with ${_txnQueue.length} queued entries → scheduling flush | ts: ${Date.now()}`);
+    dbg(`[BATCH-DEBUG] address registered with ${_txnQueue.length} queued entries → scheduling flush | ts: ${Date.now()}`);
     _clearTimers();
     _txnDebounceTimer = setTimeout(() => {
       _txnDebounceTimer = null;
@@ -485,7 +490,7 @@ export function enqueueGameAction(
     // Schedule the relay window: flush after FLUSH_INTERVAL_MS
     _txnDebounceTimer = setTimeout(() => {
       _txnDebounceTimer = null;
-      console.log(`[TXN-DEBUG] relay window expired (${FLUSH_INTERVAL_MS}ms) → flush | queueSize: ${_txnQueue.length} | ts: ${Date.now()}`);
+      dbg(`[TXN-DEBUG] relay window expired (${FLUSH_INTERVAL_MS}ms) → flush | queueSize: ${_txnQueue.length} | ts: ${Date.now()}`);
       _triggerAtomicFlush();
     }, FLUSH_INTERVAL_MS);
   }
@@ -495,7 +500,7 @@ export function enqueueGameAction(
     _txnMaxWaitTimer = setTimeout(() => {
       _txnMaxWaitTimer = null;
       if (_txnQueue.length > 0) {
-        console.log(`[TXN-DEBUG] FLUSH_MAX_WAIT_MS reached — force flushing ${_txnQueue.length} actions`);
+        dbg(`[TXN-DEBUG] FLUSH_MAX_WAIT_MS reached — force flushing ${_txnQueue.length} actions`);
         _clearTimers();
         _triggerAtomicFlush();
       }
@@ -523,11 +528,11 @@ function _triggerAtomicFlush() {
 
   const address = _txnQueueAddress;
   const waitedMs = Date.now() - entries[0].enqueuedAt;
-  console.log(`[TXN-DEBUG] flush started | actions: ${entries.length} | types: [${entries.map(e => e.action.a).join(",")}] | waitedMs: ${waitedMs} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] flush started | actions: ${entries.length} | types: [${entries.map(e => e.action.a).join(",")}] | waitedMs: ${waitedMs} | ts: ${Date.now()}`);
 
   _flushAtomicGroup(address, entries)
     .then((txIds) => {
-      console.log(`[TXN-DEBUG] flush confirmed | actions: ${entries.length} | txIds: [${txIds.map(t => t.slice(0, 8)).join(",")}] | ts: ${Date.now()}`);
+      dbg(`[TXN-DEBUG] flush confirmed | actions: ${entries.length} | txIds: [${txIds.map(t => t.slice(0, 8)).join(",")}] | ts: ${Date.now()}`);
       _txnStatusCallback?.("confirmed", { count: entries.length, txIds });
     })
     .catch((err) => {
@@ -568,7 +573,7 @@ async function _flushAtomicGroup(
 
     if (txns.length > 1) {
       algosdk.assignGroupID(txns);
-      console.log(`[BATCH-DEBUG] assignGroupID applied | groupSize: ${txns.length} | ts: ${Date.now()}`);
+      dbg(`[BATCH-DEBUG] assignGroupID applied | groupSize: ${txns.length} | ts: ${Date.now()}`);
     }
 
     _txnStatusCallback?.("submitting", { count: txns.length });
@@ -577,11 +582,11 @@ async function _flushAtomicGroup(
       ? await signTransactionWithActiveWallet(txns[0], fromAddress)
       : await signGroupedTransactionsWithActiveWallet(txns, fromAddress);
 
-    console.log(`[BATCH-DEBUG] signed ${signedBlobs.length} blob(s) → submitting to algod | ts: ${Date.now()}`);
+    dbg(`[BATCH-DEBUG] signed ${signedBlobs.length} blob(s) → submitting to algod | ts: ${Date.now()}`);
     const response = await algodClient.sendRawTransaction(signedBlobs).do();
     const firstTxId = response.txid || txns[0].txID();
     await algosdk.waitForConfirmation(algodClient, firstTxId, 4);
-    console.log(`[BATCH-DEBUG] group confirmed | firstTxId: ${firstTxId} | ts: ${Date.now()}`);
+    dbg(`[BATCH-DEBUG] group confirmed | firstTxId: ${firstTxId} | ts: ${Date.now()}`);
     allTxIds.push(firstTxId);
   }
 

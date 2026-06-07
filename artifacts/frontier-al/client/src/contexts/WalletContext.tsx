@@ -45,7 +45,6 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 
 interface WalletProviderProps {
   children: ReactNode;
-  enableAutoConnect?: boolean;
 }
 
 // Broad set of strings that indicate user-cancelled / modal-dismissed — not real errors.
@@ -95,7 +94,7 @@ function friendlyErrorMessage(walletId: string, msg: string): string {
   return msg || "Connection failed — please try again.";
 }
 
-export function WalletProvider({ children, enableAutoConnect = false }: WalletProviderProps) {
+export function WalletProvider({ children }: WalletProviderProps) {
   const { wallets, activeAddress, signTransactions } = useWalletLib();
 
   const [balance, setBalance] = useState(0);
