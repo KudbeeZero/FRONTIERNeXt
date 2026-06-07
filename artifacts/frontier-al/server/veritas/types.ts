@@ -50,6 +50,10 @@ export interface FlowContext {
   adminKey?: string;
   /** A player id to act as, if a flow needs one. */
   playerId?: string;
+  /** Test wallet (testnet) for flows that perform on-chain actions. Null if unconfigured. */
+  wallet?: import("./wallet.js").TestWallet | null;
+  /** FRONTIER ($FRNTR) ASA id, for token/balance reconciliation flows. */
+  frontierAsaId?: number;
   /** Structured logger. */
   log: (msg: string) => void;
 }
