@@ -396,9 +396,11 @@ export async function registerRoutes(
 
   // ── NFT Metadata (ARC-3) ────────────────────────────────────────────────────
   // Public endpoint used by Algorand NFT marketplaces and wallets.
-  // Returns immutable plot attributes only — no mutable game state.
-  // BASE_URL: set PUBLIC_BASE_URL env var in production, or it falls back
-  // to the request's own origin (works in dev and on Replit).
+  // Intentionally DYNAMIC: biome + terraform state (stability/hazard/yield) reflect
+  // the live parcel, so terraforming a plot updates its metadata + biome image.
+  // The ASA identity is preserved (no burn/remint); metadataVersion + a short
+  // Cache-Control let wallets/indexers pick up changes.
+  // BASE_URL must come from the PUBLIC_BASE_URL env var in production.
   app.get("/nft/metadata/:plotId", async (req, res) => {
     // Reject non-integer plotId values early.
     const plotId = parseInt(req.params.plotId, 10);
