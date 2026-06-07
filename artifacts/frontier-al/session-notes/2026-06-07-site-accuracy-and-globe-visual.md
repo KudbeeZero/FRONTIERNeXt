@@ -38,16 +38,35 @@ Engineering LUT). Two merged units.
   `COLOR_PLAYER` in `useFrame`) so ownership reads as motion, not just color.
 - Removed always-on globe debug logs incl. an orphan `console.timeEnd`.
 
-## Deferred (remaining LUT passes — full-stack, larger)
-- E2 emissive — skipped by design (would regress unlit palettes).
-- E4 color-customization sliders (client + optional `players.territory_color`).
-- E5 sub-parcel archetype colors — needs sub-parcel archetype data plumbed to
-  the client `LandParcel` (currently only `subParcelOwnerIds` is available;
-  `SubParcelOverlay` is also disabled at the scene level).
-- E6 archetype assignment, E7 building system, E8 fog-of-war + scan, E9 observer
-  mechanic — full-stack systems; to be built in dependency order
-  (schema → server → shared → client → render), additive only, battle engine
-  stays pure (effects feed `BattleInput`, never `tuning.ts`).
+## Globe passes E4–E9 (all merged)
+- **E2 emissive** — skipped by design (tiles are unlit meshBasicMaterial; switching
+  would make colors lighting-dependent and regress them).
+- **E4** — player-customizable territory/enemy colors: `visualPrefs` store
+  (localStorage + useSyncExternalStore), `useVisualPrefs`, `getPlotColor` accepts
+  optional colors, 🎨 `GlobeColorSettings` popover.
+- **E5** — sub-parcel archetype colors on the globe: `subParcelArchetypes[]` added to
+  `LandParcel` + populated in `getGameState`; `ARCHETYPE_COLORS`; `SubParcelOverlay`
+  colors by archetype and re-enabled behind a camera-distance LOD gate.
+- **E6** — archetype assignment was already implemented end-to-end and is secured by
+  the global mutation middleware (blocks cross-player playerId spoofing). Added
+  `archetype.spec.ts`.
+- **E7** — archetype-gated building: `ARCHETYPE_BUILDING_CATALOG` +
+  `isImprovementAllowedForArchetype`; enforced in `buildSubParcelImprovement` and
+  filtered in the LandSheet build UI. The archetype now determines buildable
+  structures (no parallel building tree — gates the existing improvements).
+- **E8** — opt-in fog of war (default OFF): pure `shared/fog.ts`
+  `computeVisiblePlotIndices`; hidden plots dimmed; toggle in settings; `fog.spec.ts`.
+- **E9** — scoped Observer mode prototype (opt-in): camera distance → look-back time
+  driving the EXISTING world-event replay overlay (`ObserverLayer`), with a
+  HUD "T-MINUS" badge. No Redis/schema (full snapshot version intentionally not built).
+
+Suite grew 98 → 115 tests across these passes.
+
+## Deferred / future
+- E8 server-side **scan action** (burn $ASCEND to reveal a radius for N turns) — an
+  economic/state change best added with live playtesting.
+- E9 full version — periodic Redis world-state snapshots for true historical
+  ownership replay (the prototype reinterprets recorded events only).
 
 ## Verification
 `tsc` clean · `vitest --config vitest.server.config.ts` 98/98 · `build` OK.
