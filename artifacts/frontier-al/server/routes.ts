@@ -42,7 +42,6 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { LAND_PURCHASE_USD_PROD } from "../shared/economy-config";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -216,10 +215,6 @@ export async function registerRoutes(
       res.json({ ready: false, frontierAsaId: null, adminAddress: null });
     }
   });
-line 195:  app.get("/api/blockchain/status", ...
-line 218:  app.get("/api/economics", ...
-           ← PASTE THE NEW ROUTE HERE
-line 348:  app.get("/api/blockchain/opt-in-check/:address", ...
 
   app.get("/api/economics", async (_req, res) => {
     try {
