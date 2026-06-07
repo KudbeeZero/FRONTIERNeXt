@@ -109,7 +109,7 @@ Development session logs are stored in [`session-notes/`](session-notes/). Each 
 - All blockchain activity runs on **Algorand TestNet** (chainId: 416002)
 - Each wallet's on-chain operations are independent: opt-in checks, ASA transfers, and NFT minting are all per-wallet
 - Admin wallet (server-side) manages the FRONTIER ASA and mints plot NFTs on purchase
-- Token minting supply is tied directly to the on-chain ASA total (1 billion units, 6 decimals)
+- Token minting supply is tied to the on-chain ASA total (6 decimals). The current TestNet ASA (`755818217`) was minted at 1 billion units for testing; the **target token model is 10,000,000,000 $ASCEND** — see Token Model below
 
 ### Production vs Development Database
 | Mode | Storage | Persistence |
@@ -146,12 +146,22 @@ Always provision a PostgreSQL database before any production deployment.
 | Component | Details |
 |-----------|---------|
 | Network | Algorand TestNet (chainId: 416002) |
-| FRONTIER Token | Real ASA — 1 billion total supply (FRNTR), Asset ID `755818217` |
+| FRONTIER Token | On-chain ASA `755818217` (FRNTR on TestNet; **$ASCEND** is the public ticker). TestNet mint: 1B units for testing |
 | Plot NFTs | Each purchased plot minted as a unique ARC-3 NFT on-chain |
 | Wallet Support | Pera Wallet (mobile + web) and LUTE Wallet (browser) |
 | On-chain actions | Territory purchases (ALGO), FRONTIER claims (batched ASA transfers) |
 | Off-chain actions | Mining, upgrades, builds, attacks (instant, no signing required) |
 | Tx notes | Structured `FRNTR:{…}` JSON on every on-chain transaction (v1 schema) |
+
+### Token Model ($ASCEND)
+| Allocation | Amount | Notes |
+|-----------|--------|-------|
+| **Total supply** | **10,000,000,000** | Target token model (MainNet) |
+| Liquidity-backed | 5,000,000,000 (50%) | Minted at launch and backed with liquidity |
+| Land-minted | 5,000,000,000 (50%) | Emitted **only** through land claims / holding |
+
+> The TestNet ASA (`755818217`) currently uses a 1B test mint. The 10B / 5B+5B
+> split above is the canonical economic model the public site reflects.
 
 ---
 

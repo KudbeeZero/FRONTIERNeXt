@@ -136,24 +136,6 @@ function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc:
   );
 }
 
-// ─── Progress Bar ─────────────────────────────────────────────────────────────
-function BuildProgress({ label, pct, color }: { label: string; pct: number; color: string }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 11, letterSpacing: "0.08em", color: "rgba(160,190,255,0.7)", textTransform: "uppercase" }}>{label}</span>
-        <span style={{ fontSize: 11, color, fontWeight: 700 }}>{pct}%</span>
-      </div>
-      <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-        <div style={{
-          height: "100%", width: `${pct}%`, background: color, borderRadius: 2,
-          boxShadow: `0 0 8px ${color}`, animation: "growBar 1.8s ease-out forwards",
-        }} />
-      </div>
-    </div>
-  );
-}
-
 // ─── Hype Ticker ──────────────────────────────────────────────────────────────
 function HypeTicker() {
   const items = [
@@ -164,7 +146,7 @@ function HypeTicker() {
     "🛡 Early adopters get permanent on-chain bonuses",
     "🤖 Four rival factions compete for the planet",
     "⬡ 21,000 hex parcels — claim yours now",
-    "📡 Blockchain integration 91% complete",
+    "📡 Live on Algorand TestNet — fully on-chain",
     "🚀 Be first. Be Frontier.",
   ];
   const text = items.join("   ·   ");
@@ -185,9 +167,9 @@ function HypeTicker() {
 // ─── Token Section ─────────────────────────────────────────────────────────────
 function TokenSection() {
   const steps = [
-    { num: "01", icon: "📱", title: "Install Pera Wallet", desc: "Download Pera Wallet on iOS or Android. It's the leading Algorand wallet with full ASA and NFT support.", action: "Get Pera Wallet →", color: "#4fc3f7" },
-    { num: "02", icon: "⚡", title: "Acquire ALGO",        desc: "Fund your wallet with ALGO from any major exchange — Coinbase, Kraken, Binance, or KuCoin.", action: "Buy ALGO →", color: "#81c784" },
-    { num: "03", icon: "🪙", title: "Swap for $ASCEND",  desc: "Visit Vestige or Tinyman DEX. Swap ALGO for $ASCEND, then claim your parcels and begin your conquest.", action: "Swap on Vestige →", color: "#ce93d8" },
+    { num: "01", icon: "📱", title: "Install a Wallet",   desc: "Connect with Pera, Defly, Kibisis, or LUTE — any Algorand wallet with ASA & NFT support works on TestNet.", action: "Get Pera Wallet →", href: "https://perawallet.app", color: "#4fc3f7" },
+    { num: "02", icon: "🎁", title: "Claim Your Bonus",   desc: "Connect to the game and receive a one-time 500 $ASCEND welcome bonus to kickstart your conquest.", action: "Enter Game →", href: "/game", color: "#81c784" },
+    { num: "03", icon: "🪙", title: "Earn By Owning Land", desc: "Claim parcels and earn $ASCEND passively. The land-minted supply is emitted only to landholders. (DEX listing arrives at MainNet.)", action: "View Economics →", href: "/info/economics", color: "#ce93d8" },
   ];
 
   return (
@@ -206,11 +188,11 @@ function TokenSection() {
         $ASCEND powers every transaction on the planet. Own parcels, trade resources, and shape the economy.
       </div>
 
-      <div className="token-stats-grid" style={{ marginBottom: 36 }}>
+      <div className="token-stats-grid" style={{ marginBottom: 18 }}>
         {[
           { label: "Token",        value: "$ASCEND" },
           { label: "Chain",        value: "Algorand" },
-          { label: "Total Supply", value: "21,000,000" },
+          { label: "Total Supply", value: "10,000,000,000" },
           { label: "Asset Type",   value: "ASA" },
           { label: "Status",       value: "Pre-Launch" },
         ].map(({ label, value }) => (
@@ -220,6 +202,30 @@ function TokenSection() {
           }}>
             <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "rgba(100,130,200,0.55)", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
             <div style={{ fontSize: 14, color: "rgba(180,210,255,0.85)", fontWeight: 600 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Supply allocation — 10B total, split 5B liquidity-backed / 5B land-minted */}
+      <div style={{
+        display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center",
+        marginBottom: 40,
+      }}>
+        {[
+          { pct: "50%", amount: "5,000,000,000", label: "Liquidity-Backed", desc: "Minted at launch and backed with liquidity", color: "#4fc3f7" },
+          { pct: "50%", amount: "5,000,000,000", label: "Land-Minted", desc: "Mintable only by claiming & holding land", color: "#81c784" },
+        ].map(({ pct, amount, label, desc, color }) => (
+          <div key={label} style={{
+            flex: "1 1 240px", maxWidth: 360,
+            background: "rgba(5,10,30,0.6)", border: `1px solid ${color}33`,
+            borderRadius: 10, padding: "16px 18px", backdropFilter: "blur(8px)",
+          }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color, textTransform: "uppercase" }}>{label}</span>
+              <span style={{ fontSize: 11, color, fontWeight: 700 }}>{pct}</span>
+            </div>
+            <div style={{ fontSize: 15, color: "rgba(200,225,255,0.9)", fontWeight: 700, fontFamily: "monospace", marginBottom: 6 }}>{amount}</div>
+            <div style={{ fontSize: 11, color: "rgba(160,190,240,0.65)", lineHeight: 1.5 }}>{desc}</div>
           </div>
         ))}
       </div>
@@ -237,9 +243,13 @@ function TokenSection() {
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", color: "#a0b8ff", textTransform: "uppercase" }}>{step.title}</div>
             <div style={{ fontSize: 13, color: "rgba(160,190,240,0.7)", lineHeight: 1.6, flex: 1 }}>{step.desc}</div>
-            <div style={{ fontSize: 11, color: step.color, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, borderTop: `1px solid ${step.color}30`, paddingTop: 12, marginTop: 4 }}>
+            <a
+              href={step.href}
+              {...(step.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              style={{ fontSize: 11, color: step.color, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, borderTop: `1px solid ${step.color}30`, paddingTop: 12, marginTop: 4, textDecoration: "none", display: "block" }}
+            >
               {step.action}
-            </div>
+            </a>
           </div>
         ))}
       </div>
@@ -600,14 +610,26 @@ export default function LandingPage() {
           animation: "fadeInUp 0.8s ease-out 0.2s both",
         }}>
           <div style={{ fontSize: 10, letterSpacing: "0.25em", color: "rgba(100,140,255,0.5)", textTransform: "uppercase", marginBottom: 20 }}>
-            Build Progress — Testnet Alpha
+            Development Status — Testnet Alpha
           </div>
-          <BuildProgress label="Blockchain Integration"     pct={91} color="#4fc3f7" />
-          <BuildProgress label="Territory & Battle System"  pct={88} color="#81c784" />
-          <BuildProgress label="Economy & Token"            pct={85} color="#ce93d8" />
-          <BuildProgress label="3D Globe & Visuals"         pct={79} color="#ffb74d" />
-          <BuildProgress label="Commander NFT System"       pct={72} color="#f48fb1" />
-          <BuildProgress label="MainNet Migration"          pct={18} color="#9e9e9e" />
+          {[
+            { label: "Blockchain Integration",    status: "Live",        color: "#4fc3f7" },
+            { label: "Territory & Battle System", status: "Live",        color: "#81c784" },
+            { label: "Economy & $ASCEND Token",   status: "Live",        color: "#81c784" },
+            { label: "3D Globe & Visuals",        status: "Live",        color: "#4fc3f7" },
+            { label: "Commander NFT System",      status: "In Progress", color: "#ffb74d" },
+            { label: "Sub-Parcel Archetypes",     status: "In Progress", color: "#ffb74d" },
+            { label: "MainNet Migration",         status: "Planned",     color: "#9e9e9e" },
+          ].map(({ label, status, color }) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: "1px solid rgba(60,90,180,0.12)" }}>
+              <span style={{ fontSize: 12, letterSpacing: "0.06em", color: "rgba(180,205,255,0.8)" }}>{label}</span>
+              <span style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                color, border: `1px solid ${color}55`, background: `${color}14`,
+                borderRadius: 4, padding: "3px 10px",
+              }}>{status}</span>
+            </div>
+          ))}
         </div>
 
         {/* ── Feature Cards ── */}
@@ -620,7 +642,7 @@ export default function LandingPage() {
             textAlign: "center", textTransform: "uppercase", color: "#e0eaff", marginBottom: 36,
           }}>What's Inside</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-            <FeatureCard icon="🌍" title="3D Planetary Map"  desc="Rendered in Three.js. 21,000 hex parcels across 5 biomes. Explore, scout, and plan your expansion." />
+            <FeatureCard icon="🌍" title="3D Planetary Map"  desc="Rendered in Three.js. 21,000 hex parcels across 8 biomes. Explore, scout, and plan your expansion." />
             <FeatureCard icon="🤖" title="AI Factions"       desc="Four AI factions contest unowned land. NEXUS-7, KRONOS, VANGUARD, SPECTRE — all hostile." />
             <FeatureCard icon="🔗" title="Algorand Chain"    desc="Every parcel, upgrade, and battle recorded on-chain. True ownership. Near-zero fees." />
             <FeatureCard icon="⚔️" title="Territory Wars"   desc="Expand, fortify, and defend your parcels. Strategic alliances determine who rules the frontier." />
