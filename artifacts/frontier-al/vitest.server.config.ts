@@ -15,7 +15,7 @@ export default defineConfig({
   },
   test: {
     root: __dirname,
-    include: ["server/**/*.{test,spec}.ts"],
+    include: ["server/**/*.{test,spec}.ts", "shared/**/*.{test,spec}.ts"],
     environment: "node",
   },
 });
