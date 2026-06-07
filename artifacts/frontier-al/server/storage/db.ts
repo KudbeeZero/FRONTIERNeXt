@@ -66,7 +66,7 @@ import {
   ORBITAL_IMPACT_CHANCE,
 } from "@shared/schema";
 import type { FacilityType, DefenseImprovementType, ImprovementType } from "@shared/schema";
-import { resolveBattle } from "../engine/battle/resolve.js";
+import { resolveBattle, resolveBattleFromPowers } from "../engine/battle/resolve.js";
 import { hashSeed } from "../engine/battle/random.js";
 import { CRYSTAL_POWER_FACTOR } from "../engine/battle/tuning.js";
 import type {
@@ -1562,40 +1562,18 @@ export class DbStorage implements IStorage {
 
         if (!targetRow || !attackerRow) return;
 
-        // ── Deterministic resolution via the battle engine ────────────────────
-        // resolveBattle() is the single source of truth. BattleInput is rebuilt
-        // from the stored battle row (attacker commitment) and the target's
-        // defence, with crystal + radar folded into the engine inputs exactly as
-        // at deploy time. The seed matches deployAttack (hashSeed(id, startTs))
-        // so the same battle always resolves to the same outcome.
-        const storedBurn        = (battleRow.resourcesBurned ?? { iron: 0, fuel: 0 }) as { iron: number; fuel: number };
-        const storedCrystal     = battleRow.crystalBurned ?? 0;
-        const battleCommanders  = (attackerRow.commanders ?? []) as CommanderAvatar[];
-        const battleCmdBonus    = battleRow.commanderId
-          ? (battleCommanders.find((c) => c.id === battleRow.commanderId)?.attackBonus ?? 0)
-          : 0;
-        const hasRadar          = ((targetRow.improvements ?? []) as { type: string }[]).some((i) => i.type === "radar");
-        const radarMod          = hasRadar ? 0.9 : 1.0;
-        const moraleActive      = !!(attackerRow.moraleDebuffUntil && now < attackerRow.moraleDebuffUntil);
-
-        const battleInput: EngineBattleInput = {
-          battleId:           battleRow.id,
-          attackerId:         attackerRow.id,
-          defenderId:         battleRow.defenderId ?? null,
-          plotId:             targetRow.plotId,
-          troopsCommitted:    battleRow.troopsCommitted * radarMod,
-          resourcesBurned:    { iron: storedBurn.iron * radarMod, fuel: storedBurn.fuel * radarMod },
-          commanderBonus:     (battleCmdBonus + storedCrystal * CRYSTAL_POWER_FACTOR) * radarMod,
-          moraleDebuffActive: moraleActive,
-          defenseLevel:       targetRow.defenseLevel,
-          biome:              targetRow.biome as EngineBiomeType,
-          improvements:       ((targetRow.improvements ?? []) as { type: string; level: number }[])
-            .filter((i) => ["turret", "shield_gen", "fortress"].includes(i.type))
-            .map((i) => ({ type: i.type as EngineImprovementType, level: i.level })),
-          orbitalHazardActive: false,
-          randomSeed:         hashSeed(battleRow.id, battleRow.startTs),
-        };
-        const battleResult = resolveBattle(battleInput);
+        // ── Deterministic resolution via the battle engine (Pass B) ───────────
+        // The matchup is locked at deploy time: deployAttack already ran the
+        // engine and persisted the snapshot powers on the battle row. We resolve
+        // from those stored powers via resolveBattleFromPowers() — the shared
+        // engine resolution core — so the outcome is immune to any mid-battle
+        // change in the target's defence. Seed matches deployAttack
+        // (hashSeed(id, startTs)), so the same battle always resolves identically.
+        const battleResult = resolveBattleFromPowers(
+          battleRow.attackerPower,
+          battleRow.defenderPower,
+          hashSeed(battleRow.id, battleRow.startTs),
+        );
         const randFactor   = battleResult.randFactor;
         const outcome      = battleResult.outcome;
         const attackerWins = outcome === "attacker_wins";

@@ -26,7 +26,6 @@ import {
 
 export function resolveBattle(input: BattleInput): BattleResult {
   const log: BattleLogEntry[] = [];
-  const rng = mulberry32(input.randomSeed);
 
   // ── Attacker Power ────────────────────────────────────────────────────────
   const rawAttackerPower =
@@ -77,7 +76,49 @@ export function resolveBattle(input: BattleInput): BattleResult {
 
   const defenderPower = rawDefenderPower;
 
-  // ── Random Factor ─────────────────────────────────────────────────────────
+  // ── Random Factor + Outcome ───────────────────────────────────────────────
+  // Delegated to resolveBattleFromPowers so the randFactor algorithm and the
+  // win/pillage decision live in exactly one place. attackerPower here is the
+  // post-morale, pre-randFactor value; the helper applies randFactor.
+  const resolution = resolveBattleFromPowers(attackerPower, defenderPower, input.randomSeed);
+  log.push(...resolution.log);
+
+  return {
+    winner:          resolution.winner,
+    attackerPower:   resolution.attackerPower,
+    defenderPower:   resolution.defenderPower,
+    randFactor:      resolution.randFactor,
+    outcome:         resolution.outcome,
+    pillagedIron:    resolution.pillagedIron,
+    pillagedFuel:    resolution.pillagedFuel,
+    pillagedCrystal: resolution.pillagedCrystal,
+    log,
+  };
+}
+
+/**
+ * Resolve a battle from already-computed powers.
+ *
+ * This is the deterministic resolution core shared by:
+ *   - resolveBattle() (computes powers from raw BattleInput, then calls this)
+ *   - the DB storage layer at battle-resolution time, which passes the
+ *     deploy-time snapshot powers stored on the battle row so the matchup is
+ *     locked at launch (immune to mid-battle defence changes).
+ *
+ * CONTRACT: identical (attackerPower, defenderPower, randomSeed) → identical result.
+ *
+ * @param attackerPower pre-randFactor attacker power (morale already applied).
+ * @param defenderPower  final defender power.
+ * @param randomSeed     derive via hashSeed(battleId, startTs) for stability.
+ */
+export function resolveBattleFromPowers(
+  attackerPower: number,
+  defenderPower: number,
+  randomSeed: number,
+): Omit<BattleResult, "log"> & { log: BattleLogEntry[] } {
+  const log: BattleLogEntry[] = [];
+  const rng = mulberry32(randomSeed);
+
   // randFactor in [-RAND_FACTOR_MAX, +RAND_FACTOR_MAX]
   const randFactor = randInt(rng, -RAND_FACTOR_MAX, RAND_FACTOR_MAX);
   const adjustedAttackerPower = attackerPower * (1 + randFactor / 100);
@@ -87,7 +128,6 @@ export function resolveBattle(input: BattleInput): BattleResult {
     message: `randFactor=${randFactor}, adjusted attacker=${adjustedAttackerPower.toFixed(2)}, defender=${defenderPower.toFixed(2)}`,
   });
 
-  // ── Outcome ───────────────────────────────────────────────────────────────
   const attackerWins = adjustedAttackerPower > defenderPower;
   const outcome: BattleResult["outcome"] = attackerWins ? "attacker_wins" : "defender_wins";
   const winner: BattleResult["winner"]   = attackerWins ? "attacker"      : "defender";
@@ -97,16 +137,7 @@ export function resolveBattle(input: BattleInput): BattleResult {
     message: `Outcome: ${outcome}`,
   });
 
-  // ── Pillage (only on attacker win) ────────────────────────────────────────
-  // Note: actual stored amounts are not available in BattleInput by design.
-  // The route must multiply these rates against the actual stored values.
-  // We encode the rate here; caller applies it.
-  //
-  // To avoid making BattleInput depend on mutable game state (stored resources),
-  // the engine returns PILLAGE_RATE and the caller computes actual amounts:
-  //   pillagedIron = Math.floor(targetParcel.ironStored * result.pillagedIron)
-  //
-  // For ergonomics we return the rate directly as the pillagedX fields.
+  // Pillage rates (only on attacker win). Caller multiplies against stored amounts.
   const pillagedIron    = attackerWins ? PILLAGE_RATE : 0;
   const pillagedFuel    = attackerWins ? PILLAGE_RATE : 0;
   const pillagedCrystal = attackerWins ? PILLAGE_RATE : 0;
