@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { WalletConnect } from "@/components/game/WalletConnect";
 
 // ─── Shared Nav Links ─────────────────────────────────────────────────────────
 export const NAV_LINKS = [
@@ -118,6 +119,8 @@ export function LandingNav({ activePath }: { activePath: string }) {
             letterSpacing: "0.12em", textTransform: "uppercase",
             cursor: "pointer", fontWeight: 700, fontFamily: "inherit",
           }}>Enter Game →</button>
+          {/* Global wallet integration — persistent across all static pages */}
+          <WalletConnect className="ml-2 h-8 text-[11px]" />
         </div>
 
         <button className="hamburger" onClick={() => setMenuOpen(v => !v)} aria-label="Toggle menu" style={{
@@ -151,6 +154,8 @@ export function LandingNav({ activePath }: { activePath: string }) {
             cursor: "pointer", fontWeight: 700, textAlign: "center", width: "100%",
             marginTop: 4, fontFamily: "inherit",
           }}>▶ Enter Game</button>
+          {/* Global wallet integration in mobile menu */}
+          <WalletConnect className="w-full mt-1" />
         </div>
       )}
     </>
