@@ -268,11 +268,11 @@ your standard storage.
 | 💎 **Xenorite** | Volcanic (richest), Mountain, Desert | Crystallized volcanic compounds — the stuff of Launchpads and Forges |
 | 🔮 **Void Shard** | Tundra (richest), Forest, Mountain | Frozen dark-energy fragments — the key to the Alien Dome |
 | 🔥 **Plasma Core** | Volcanic, Desert (richest) | Condensed thermal plasma — powers orbital ops and siege weaponry |
-| 🌑 **Dark Matter** | Swamp, Water, Tundra — **and the falling sky** | Ultra-rare exotic matter; the rarest prize on the frontier |
+| 🌑 **Dark Matter** | Swamp, Water, Tundra — the drowned and frozen reaches | Ultra-rare exotic matter; the rarest prize on the frontier |
 
-> **Lore note — Dark Matter favors the falling sky.** It surfaces in the drowned and
-> frozen biomes, and **orbital impact events** stir more of it loose. To stockpile it,
-> mine *while the heavens are falling*. (Exact drop chances vary by biome — see the
+> **Lore note — Dark Matter haunts the drowned and frozen reaches.** It surfaces only in
+> the Swamp, Water, and Tundra biomes — rarest of all the exotic matter. To stockpile it,
+> work those hostile fronts. (Exact per-biome drop chances — see the
 > **[Quick Reference](QUICK_REFERENCE.md)** and **[Game Manual](GAME_MANUAL.md)**.)
 
 ---

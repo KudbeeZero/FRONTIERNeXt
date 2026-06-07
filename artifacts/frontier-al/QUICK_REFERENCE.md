@@ -55,15 +55,15 @@
 
 ## 💠 Rare Minerals
 
-| Mineral | Richest Source Biomes | Used For |
+| Mineral | Drop chance per mine (by biome) | Used For |
 |---|---|---|
-| Xenorite | Volcanic (richest), Mountain, Desert | Launchpad, Quantum Forge |
-| Void Shard | Tundra (richest), Forest, Mountain | Orbital Alien Dome, upgrades |
-| Plasma Core | Volcanic, Desert (richest) | Launchpad ops, siege weaponry |
-| Dark Matter | Swamp, Water, Tundra — **boosted by orbital impacts** | Legendary loot, endgame |
+| Xenorite | Volcanic 8% · Mountain 4% · Desert 3% · Plains 2% | Launchpad, Quantum Forge |
+| Void Shard | Tundra 6% · Forest 4% · Mountain 3% · Swamp 2% | Orbital Alien Dome, upgrades |
+| Plasma Core | Volcanic 5% · Desert 5% · Forest 2% · Water 2% | Launchpad ops, siege weaponry |
+| Dark Matter | Swamp 3% · Water 2% · Tundra 1% | Orbital Alien Dome, endgame |
 
-> Drop chance varies by biome (per `shared/schema.ts`). Dedicated vault holds
-> **50 per type** and does **not** count against normal storage.
+> Each mine rolls independently per mineral (per `shared/schema.ts` / `server/storage/db.ts`).
+> Vault holds **50 per type**, separate from normal storage.
 
 ---
 
@@ -183,19 +183,18 @@ defenderPower = (defenseLevel × 15 + improvementBonus) × biomeDefenseMod
 
 ## 🎁 Loot Boxes *(max 20 unopened)*
 
-**Drop triggers** (per `shared/schema.ts`)
+**Designed drop triggers** (per `shared/schema.ts`)
 
-| Source | Box tier | Drop rate |
+| Source | Box tier | Drop chance |
 |---|---|:---:|
-| Mining (per action) | Common | ~3% |
-| Battle victory | Rare | ~25% |
-| Orbital impact | Epic | ~50% |
-| Quantum Forge | Legendary | 1 / 48h |
+| Mining (per action) | Common | 3% |
+| Battle victory | Rare | 25% |
+| Orbital impact | Epic | 50% |
+| Quantum Forge | Legendary | planned |
 
-> ⚠️ The `GAME_MANUAL.md` describes a richer multi-tier matrix and detailed box
-> *contents* (ore/FRNTR/cosmetics) that diverge from the schema rates above and may be
-> resolved in a service layer. Treat exact figures as **pending dev confirmation** —
-> see **[Data Reconciliation](docs/DATA_RECONCILIATION.md)**.
+> ⚠️ **Planned feature — not yet active.** These triggers are defined in `shared/schema.ts`,
+> but loot boxes are **not yet awarded or openable at runtime** (`Player.lootBoxes` is always
+> empty). See **[Game Manual §18](GAME_MANUAL.md)** and **[Data Reconciliation](docs/DATA_RECONCILIATION.md)**.
 
 ---
 

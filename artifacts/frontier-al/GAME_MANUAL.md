@@ -108,22 +108,23 @@ Each plot has a **richness score from 1–100** that affects resource yield qual
 
 ## 4. Rare Minerals
 
-Rare minerals are an advanced resource tier found during mining and orbital events. They are used for Landmark construction, advanced upgrades, and Legendary loot box crafting.
+Rare minerals are an advanced resource tier that drops while mining, based on the plot's biome. They are used for Landmark construction and advanced upgrades.
 
-### Mineral Types
+### Mineral Types & Drop Rates
 
-| Mineral | Primary Biomes | Drop Rate (per mine) | Description |
-|---------|---------------|---------------------|-------------|
-| **Xenorite** | Volcanic, Mountain | 2.0% | Crystallized volcanic compounds. Used for Launchpad and Quantum Forge construction |
-| **Void Shard** | Tundra, Water | 1.5% | Frozen dark-energy fragments. Required for Orbital Alien Dome access and Commander upgrades |
-| **Plasma Core** | Desert, Swamp | 1.0% | Condensed thermal plasma. Powers Launchpad operations and Siege-tier weaponry |
-| **Dark Matter** | Any biome (orbital events only) | 0.3% during impacts | Ultra-rare exotic matter. Used for Legendary loot boxes and endgame upgrades |
+Each mine action rolls **independently** for every mineral its biome can yield — so a single mine can return more than one. Drop chances per mine (verified against `shared/schema.ts` and `server/storage/db.ts`):
+
+| Mineral | Drops in (chance per mine) | Description |
+|---------|---------------------------|-------------|
+| **Xenorite** | Volcanic 8% · Mountain 4% · Desert 3% · Plains 2% | Crystallized volcanic compounds. Used for the Launchpad and Quantum Forge |
+| **Void Shard** | Tundra 6% · Forest 4% · Mountain 3% · Swamp 2% | Frozen dark-energy fragments. Required for the Orbital Alien Dome and Commander upgrades |
+| **Plasma Core** | Volcanic 5% · Desert 5% · Forest 2% · Water 2% | Condensed thermal plasma. Powers Launchpad operations and Siege-tier weaponry |
+| **Dark Matter** | Swamp 3% · Water 2% · Tundra 1% | Ultra-rare exotic matter. Used for the Orbital Alien Dome and endgame upgrades |
 
 ### Storage Rules
 
 - Rare minerals have a **dedicated vault** — they do not count against your standard storage capacity
-- Vault capacity: **50 units per mineral type** (200 total)
-- Dark Matter can only drop during active orbital impact events
+- Vault capacity: **50 units per mineral type**, enforced independently per type
 - Rare minerals are tradeable through the Trading system
 
 ---
@@ -145,11 +146,15 @@ The AI Lab facility reduces mining cooldown:
 
 ### Rare Mineral Drops
 
-Every mine action has a chance to drop rare minerals based on the plot's biome:
-- Volcanic/Mountain plots: 2% chance for Xenorite
-- Tundra/Water plots: 1.5% chance for Void Shard
-- Desert/Swamp plots: 1% chance for Plasma Core
-- During orbital impact events: additional 0.3% chance for Dark Matter on any biome
+Every mine action rolls independently for rare minerals based on the plot's biome (chance per mine):
+- **Volcanic:** Xenorite 8%, Plasma Core 5%
+- **Mountain:** Xenorite 4%, Void Shard 3%
+- **Forest:** Void Shard 4%, Plasma Core 2%
+- **Desert:** Plasma Core 5%, Xenorite 3%
+- **Tundra:** Void Shard 6%, Dark Matter 1%
+- **Swamp:** Dark Matter 3%, Void Shard 2%
+- **Water:** Dark Matter 2%, Plasma Core 2%
+- **Plains:** Xenorite 2%
 
 ### Collection
 
@@ -538,18 +543,28 @@ When a territory is captured, all **adjacent plots** owned by the defender lose 
 
 ## 18. Loot Boxes
 
-Loot boxes contain randomized rewards including resources, FRNTR, rare minerals, and exclusive items.
+Loot boxes are designed to contain randomized rewards including resources, FRNTR, rare minerals, and exclusive items.
 
-### How to Obtain
+> ⚠️ **Status: Planned — not yet active.** The loot-box system is defined in code
+> (`shared/schema.ts`) but is **not yet awarded or openable at runtime** as of this
+> version — no mine, battle, or orbital outcome currently grants a box, and there is no
+> open/reward logic. The values below describe the **intended design**, not live mechanics.
 
-| Source | Common | Rare | Epic | Legendary |
-|--------|--------|------|------|-----------|
-| **Mining** (per action) | 5% | 1% | 0.2% | — |
-| **Battle Victory** | Guaranteed | 15% | 3% | — |
-| **Orbital Impact Event** | — | 25% | 5% | 1% |
-| **Quantum Forge** (crafting) | — | — | — | 1 per 48h |
+### How to Obtain (designed)
 
-### Tiers & Contents
+Each trigger is designed to award a single box tier at the rate defined in `shared/schema.ts`:
+
+| Source | Box tier | Drop chance |
+|--------|----------|-------------|
+| **Mining** (per action) | Common | 3% |
+| **Battle Victory** | Rare | 25% |
+| **Orbital Impact Event** | Epic | 50% |
+| **Quantum Forge** (crafting) | Legendary | planned |
+
+### Tiers & Contents *(designed — not yet implemented)*
+
+> The reward tables below are the intended contents; no reward-granting logic exists in
+> the current runtime.
 
 #### Common (Gray)
 
@@ -593,9 +608,9 @@ Loot boxes contain randomized rewards including resources, FRNTR, rare minerals,
 | Exclusive Cosmetic Title | 25% chance |
 | Golden Plot NFT Badge | 5% chance |
 
-### Inventory Rules
+### Inventory Rules *(designed)*
 
-- Maximum **20 unopened boxes** at a time
+- Designed maximum: **20 unopened boxes** at a time
 - Must open boxes to make room for new drops
 - Opening is instant with an animated reveal sequence
 - Results are added to your inventory immediately
@@ -700,7 +715,7 @@ Build up defense on captured plots during the 6-hour grace period. High defense 
 | **Resource Burst** | +50% yield | 10 minutes | Boosted mining output on affected plot |
 | **Tile Hazard** | -40% yield | 8 minutes | Reduced mining output; -20% defense in battle |
 
-> **Note:** During impact events, there is a **0.3% chance** of dropping Dark Matter when mining the affected plot.
+> **Note:** Dark Matter is **not** exclusive to orbital events — it drops from normal mining in Swamp (3%), Water (2%), and Tundra (1%). See §4 for the full per-biome table.
 
 ---
 
