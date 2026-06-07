@@ -17,6 +17,7 @@ import {
   text,
   index,
 } from "drizzle-orm/pg-core";
+import type { ResolutionSource } from "@shared/schema";
 
 // ─── plot_nfts ─────────────────────────────────────────────────────────────
 // Tracks on-chain Algorand ASA (NFT) minting state per plot.
@@ -456,6 +457,11 @@ export const predictionMarkets = pgTable(
     createdBy:           varchar("created_by", { length: 36 }).notNull().default("admin"),
     relatedEventId:      varchar("related_event_id", { length: 36 }),
     createdAt:           bigint("created_at", { mode: "number" }).notNull(),
+    // ── Provably-fair resolution (additive, nullable for legacy rows) ──────────
+    resolutionSource:    jsonb("resolution_source").$type<ResolutionSource>(),       // immutable, declared at creation
+    resolutionCutoffTs:  bigint("resolution_cutoff_ts", { mode: "number" }),          // staking lock
+    resolvedInputs:      jsonb("resolved_inputs").$type<Record<string, unknown>>(),   // facts read at resolution
+    resolutionHash:      varchar("resolution_hash", { length: 64 }),                  // sha256 proof
   },
   (t) => ({
     statusIdx:     index("prediction_markets_status_idx").on(t.status),

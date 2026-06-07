@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { PredictionMarket, MarketPosition } from "@shared/schema";
+import type { PredictionMarket, MarketPosition, ResolutionSource } from "@shared/schema";
 
 interface PredictionMarketsPanelProps {
   currentPlayerId: string;
@@ -43,6 +43,51 @@ function oddsLabel(poolA: number, poolB: number): { a: string; b: string } {
     a: `${Math.round((poolA / total) * 100)}%`,
     b: `${Math.round((poolB / total) * 100)}%`,
   };
+}
+
+/** Human-readable description of how a market resolves — shown up front so players
+ *  see exactly what deterministic fact decides the outcome (provably-fair). */
+function formatResolutionSource(source: ResolutionSource | null): string {
+  if (!source) return "Legacy market (no declared resolution source).";
+  switch (source.type) {
+    case "battle_outcome":
+      return `Resolves from the deterministic outcome of battle ${source.battleId.slice(0, 8)}… (replayable by anyone from its seed).`;
+    case "ownership_at_turn":
+      return `Resolves from on-chain ownership of plot ${source.plotId} at turn ${source.turn}.`;
+    case "burn_threshold":
+      return `Resolves from total $FRNTR burned reaching ${source.amount.toLocaleString()} by turn ${source.byTurn}.`;
+    case "territory_count":
+      return `Resolves from a holder controlling ≥ ${source.threshold} parcels at turn ${source.turn}.`;
+    default:
+      return "Resolves from a deterministic on-chain fact.";
+  }
+}
+
+// ── Verify proof (re-run the resolution yourself) ──────────────────────────────
+
+function VerifyProof({ marketId }: { marketId: string }) {
+  const [open, setOpen] = useState(false);
+  const { data, isFetching } = useQuery({
+    queryKey: ["/api/markets", marketId, "proof"],
+    queryFn: () => fetch(`/api/markets/${marketId}/proof`).then(r => r.json()),
+    enabled: open,
+  });
+
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-[10px] text-blue-400 hover:underline font-mono"
+      >
+        {open ? "Hide proof" : "Verify resolution"}
+      </button>
+      {open && (
+        <pre className="text-[9px] leading-relaxed bg-background/60 border border-border/50 rounded-md p-2 overflow-x-auto text-muted-foreground">
+          {isFetching ? "Loading proof…" : JSON.stringify(data, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
 }
 
 // ── Market Card ───────────────────────────────────────────────────────────────
@@ -189,6 +234,13 @@ function MarketCard({
         <div className="text-[10px] text-muted-foreground font-mono">
           Total pool: {totalPool.toLocaleString()} ASCEND · 5% protocol fee
         </div>
+
+        {/* Provably-fair: how this market resolves (immutable, declared at creation) */}
+        <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+          <CheckCircle className="w-3 h-3 mt-px shrink-0 text-emerald-400/70" />
+          <span className="leading-snug">{formatResolutionSource(market.resolutionSource)}</span>
+        </div>
+        {isResolved && <VerifyProof marketId={market.id} />}
 
         {/* Bet form */}
         {isOpen && (
@@ -369,14 +421,18 @@ function HistoryTab() {
                 {m.status}
               </Badge>
             </div>
+            <p className="text-[10px] text-muted-foreground">{formatResolutionSource(m.resolutionSource)}</p>
             {m.status === "resolved" && m.winningOutcome && (
-              <p className="text-xs text-muted-foreground">
-                Winner: <span className="text-blue-400 font-medium">{m.winningOutcome === "a" ? m.outcomeALabel : m.outcomeBLabel}</span>
-                {" · "}Pool: {(m.tokenPoolA + m.tokenPoolB).toLocaleString()} ASCEND
-              </p>
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Winner: <span className="text-blue-400 font-medium">{m.winningOutcome === "a" ? m.outcomeALabel : m.outcomeBLabel}</span>
+                  {" · "}Pool: {(m.tokenPoolA + m.tokenPoolB).toLocaleString()} ASCEND
+                </p>
+                <VerifyProof marketId={m.id} />
+              </>
             )}
             {m.status === "closed" && (
-              <p className="text-xs text-muted-foreground">Awaiting admin resolution.</p>
+              <p className="text-xs text-muted-foreground">Awaiting trustless resolution (outcome derived automatically when the fact is knowable).</p>
             )}
           </CardContent>
         </Card>
