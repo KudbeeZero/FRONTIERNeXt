@@ -64,12 +64,16 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   plotIdToParcelRef.current = plotIdToParcel;
 
   const plotVisualFingerprint = useMemo(() => {
-    return parcels
+    // Prefix with currentPlayerId: it is null on first paint (session not yet
+    // resolved), which makes owned parcels render as enemy. Including it here
+    // forces a re-paint once the session resolves, since the fingerprint then
+    // changes even though ownership did not. (GLOBE LUT §5, root cause A.)
+    return (currentPlayerId ?? "") + "|" + parcels
       .filter(p => p.ownerId || p.activeBattleId || p.isSubdivided)
       .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}`)
       .sort()
       .join("|");
-  }, [parcels]);
+  }, [parcels, currentPlayerId]);
 
   // Flat Float32Array of every plot's 3D position — used for O(n) nearest-neighbor on clicks/hover
   const plotPositions3D = useMemo(() => {
