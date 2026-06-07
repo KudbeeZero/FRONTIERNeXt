@@ -25,7 +25,9 @@ import {
   SUB_SPACING,
   MAX_SUB_TILES,
   SUB_PARCEL_LOD_DISTANCE,
+  FOG_REVEAL_RADIUS,
 } from "@/lib/globe/globeConstants";
+import { computeVisiblePlotIndices, FOG_DIM_HIDDEN } from "@shared/fog";
 import {
   generateFibonacciSphere,
   latLngToVec3,
@@ -78,12 +80,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   // Prefixed with currentPlayerId so the base-color pass re-runs when the
   // session resolves (own plots must flip from enemy-red to player-green).
   const plotVisualFingerprint = useMemo(() => {
-    return (currentPlayerId ?? "") + "|" + prefs.territoryColor + ":" + prefs.enemyColor + "|" + parcels
+    return (currentPlayerId ?? "") + "|" + prefs.territoryColor + ":" + prefs.enemyColor + ":" + Number(prefs.fogOfWar) + "|" + parcels
       .filter(p => p.ownerId || p.activeBattleId || p.isSubdivided)
       .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}`)
       .sort()
       .join("|");
-  }, [parcels, currentPlayerId, prefs.territoryColor, prefs.enemyColor]);
+  }, [parcels, currentPlayerId, prefs.territoryColor, prefs.enemyColor, prefs.fogOfWar]);
 
   // Flat Float32Array of every plot's 3D position — used for O(n) nearest-neighbor on clicks/hover
   const plotPositions3D = useMemo(() => {
@@ -112,6 +114,21 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     plotCoords.forEach((c, i) => m.set(c.plotId, i));
     return m;
   }, [plotCoords]);
+
+  // Fog of war (opt-in): set of plot indices visible to the current player —
+  // owned plots + anything within FOG_REVEAL_RADIUS of them. null = fog off.
+  const fogVisibleSet = useMemo(() => {
+    if (!prefs.fogOfWar) return null;
+    const owned: number[] = [];
+    plotIdToParcel.forEach((parcel, plotId) => {
+      if (parcel.ownerId && parcel.ownerId === currentPlayerId) {
+        const idx = plotIdToIndex.get(plotId);
+        if (idx !== undefined) owned.push(idx);
+      }
+    });
+    return computeVisiblePlotIndices(plotPositions3D, owned, FOG_REVEAL_RADIUS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.fogOfWar, plotVisualFingerprint, plotIdToParcel, plotIdToIndex, plotPositions3D, currentPlayerId]);
 
   // Quickly derive which indices need per-frame animation WITHOUT looping 21k entries
   const animatedIndices = useMemo(() => {
@@ -237,6 +254,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
               ? COLOR_BORDER_OWNED.clone()
               : COLOR_BORDER_UNOWNED.clone();
 
+      // Fog of war: dim hidden plots (but never the active selection/hover).
+      if (fogVisibleSet && !isSelected && !isHovered && !fogVisibleSet.has(i)) {
+        fillColor.multiplyScalar(FOG_DIM_HIDDEN);
+        borderColor.multiplyScalar(FOG_DIM_HIDDEN);
+      }
+
       const fillScale   = isSelected ? 1.12 : isHovered ? 1.06 : isOwned ? 1.0 : 0.85;
       const borderScale = isSelected ? 1.15 : isHovered ? 1.08 : isOwned ? 1.0 : 0.85;
 
@@ -284,6 +307,13 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       }
 
       const borderColor = isOwned ? COLOR_BORDER_OWNED.clone() : COLOR_BORDER_UNOWNED.clone();
+
+      // Fog of war: dim plots outside your revealed area.
+      if (fogVisibleSet && !fogVisibleSet.has(i)) {
+        fillColor.multiplyScalar(FOG_DIM_HIDDEN);
+        borderColor.multiplyScalar(FOG_DIM_HIDDEN);
+      }
+
       const fillScale   = isOwned ? 1.0 : 0.85;
       const borderScale = isOwned ? 1.0 : 0.85;
       applyInstance(fillMeshRef.current,   i, fillPos,   FILL_SIZE   * sizeVar * fillScale,   fillColor);
@@ -297,7 +327,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
     if (idToParcel.size > 0) readyRef.current = true;
   }, [plotVisualFingerprint, currentPlayerId, plotCoords,
-      fillPositions3D, borderPositions3D]);
+      fillPositions3D, borderPositions3D, fogVisibleSet]);
 
   const handlePointerMove = useCallback((e: any) => {
     const p = e.point as THREE.Vector3;

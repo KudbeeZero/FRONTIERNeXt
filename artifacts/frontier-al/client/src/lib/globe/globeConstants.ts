@@ -94,3 +94,6 @@ export const SUB_SPACING     = GLOBE_RADIUS * 0.019;  // gap between cell center
 export const MAX_SUB_TILES   = 9 * 500;
 /** Sub-parcel 3×3 grids only render when the camera is closer than this (LOD). */
 export const SUB_PARCEL_LOD_DISTANCE = GLOBE_RADIUS * 2.6;
+
+/** Fog of war: reveal radius around each owned plot (euclidean, globe units). */
+export const FOG_REVEAL_RADIUS = GLOBE_RADIUS * 0.085;
