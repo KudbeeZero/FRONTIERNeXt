@@ -25,11 +25,24 @@ gaps. Full write-up in [`docs/audit/2026-06-07-api-access-control-audit.md`](../
 - Runtime tests: enumeration limiter → 429 past threshold; admin gate → 503
   when key unset in prod; clampLimit bounds correctly.
 
-## Outstanding (next pass — highest priority)
-- **O1 — no proof-of-wallet-ownership on writes.** `assertPlayerOwnership`
-  trusts a client-supplied `playerId`; `connect-wallet` has no signature.
-  Recommended: nonce + `algosdk.verifyBytes` → session token; replaces body
-  `playerId` trust and gates the WebSocket. Touches the live LUTE/Pera wallet
-  flow, so implement + test against the real connect path rather than blindly.
-- O2 — WebSocket unauthenticated (broadcasts full state).
-- O3 — Sybil: `player-by-address` auto-creates player + welcome bonus per address.
+## Pass 2 — wallet-signature auth (O1 CLOSED)
+Sign-In With Algorand for LUTE / Pera / Defly / Kibisis (any use-wallet provider).
+- `server/auth.ts` + `server/auth.spec.ts` (8 tests): one-time nonce, ed25519
+  verification of a wallet-signed 0-ALGO self-pay (note = `FRONTIER-AUTH:v1:<nonce>`,
+  never submitted), HMAC session tokens (SESSION_SECRET), cookie + Bearer.
+- `server/routes.ts`: `/api/auth/{nonce,verify,me,logout}`, a global ownership
+  guard over all mutating routes (body player-id must equal session player →
+  impersonation = 403), and `assertPlayerOwnership` upgraded as defense-in-depth.
+- Client: `lib/authToken.ts`, `lib/auth.ts` (authenticateWallet/logout),
+  Bearer injection in `lib/queryClient.ts`, auto-login + state in `WalletContext`.
+- Toggle: `WALLET_AUTH_REQUIRED` (default ON). `SESSION_SECRET` now actively used.
+
+### Verified (pass 2)
+- `tsc` clean; 61/61 server tests pass; HTTP integration test → 401/403/200 as
+  expected; full Vite + esbuild build succeeds.
+
+## Outstanding
+- O2 — WebSocket unauthenticated (LOW: broadcasts only already-public state).
+- O3 — Sybil: new address ⇒ new player + welcome bonus (auth proves control,
+  not human uniqueness).
+- Multi-instance: move nonce store + rate-limit counters to Redis.

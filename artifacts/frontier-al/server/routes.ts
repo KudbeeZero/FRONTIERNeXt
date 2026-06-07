@@ -55,6 +55,15 @@ import {
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
 import { requireAdminKey, enumerationLimiter, clampLimit } from "./security";
+import {
+  getAuth,
+  isWalletAuthRequired,
+  issueNonce,
+  verifyAuthAndNonce,
+  signSession,
+  setSessionCookie,
+  clearSessionCookie,
+} from "./auth";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -186,8 +195,23 @@ export async function registerRoutes(
     res: Response,
     bodyPlayerId?: string
   ): Promise<string | null> {
-    const targetId = bodyPlayerId ?? req.body?.playerId;
+    const auth = getAuth(req);
 
+    // When wallet auth is enforced, a verified session is mandatory and the
+    // session's player is authoritative — a client-supplied id can no longer be
+    // used to act on behalf of someone else.
+    if (isWalletAuthRequired() && !auth) {
+      res.status(401).json({ error: "Authentication required — connect your wallet" });
+      return null;
+    }
+
+    const claimedId = bodyPlayerId ?? req.body?.playerId;
+    if (auth && claimedId && claimedId !== auth.playerId) {
+      res.status(403).json({ error: "Forbidden — session does not own this player" });
+      return null;
+    }
+
+    const targetId = auth?.playerId ?? claimedId;
     if (!targetId || typeof targetId !== "string") {
       res.status(401).json({ error: "Player ID required" });
       return null;
@@ -227,6 +251,101 @@ export async function registerRoutes(
   ]) {
     app.use(p, enumerationLimiter);
   }
+
+  // ── Wallet-signature authentication endpoints ────────────────────────────────
+  // Sign-In With Algorand: prove control of the wallet, receive a session token.
+  app.post("/api/auth/nonce", (req, res) => {
+    try {
+      const { address } = req.body ?? {};
+      if (!address || typeof address !== "string" || !algosdk.isValidAddress(address)) {
+        return res.status(400).json({ error: "Valid Algorand address required" });
+      }
+      const { nonce, expiresAt } = issueNonce(address);
+      // `message` is the exact note the wallet must sign into the auth txn.
+      res.json({ nonce, expiresAt, message: `FRONTIER-AUTH:v1:${nonce}` });
+    } catch {
+      res.status(500).json({ error: "Failed to issue nonce" });
+    }
+  });
+
+  app.post("/api/auth/verify", async (req, res) => {
+    try {
+      const { address, signedTxn, nonce } = req.body ?? {};
+      if (!address || !signedTxn || !nonce) {
+        return res.status(400).json({ error: "address, signedTxn and nonce are required" });
+      }
+      if (!algosdk.isValidAddress(address)) {
+        return res.status(400).json({ error: "Invalid Algorand address" });
+      }
+      if (!verifyAuthAndNonce(address, signedTxn, nonce)) {
+        return res.status(401).json({ error: "Signature verification failed" });
+      }
+
+      // Ownership proven — resolve (or create) the player bound to this address.
+      const player = await storage.getOrCreatePlayerByAddress(address);
+      let welcomeBonus = false;
+      if (!player.welcomeBonusReceived) {
+        await storage.grantWelcomeBonus(player.id);
+        welcomeBonus = true;
+        if (!address.startsWith("AI_")) {
+          enqueueFrontierTransfer({
+            recipientAddress: address,
+            recipientPlayerId: player.id,
+            amount: 500,
+            reason: "welcome_bonus",
+          }).catch((err) => console.error("Welcome bonus enqueue failed:", err));
+        }
+      }
+
+      const token = signSession({ address, playerId: player.id });
+      setSessionCookie(res, token);
+      const fresh = await storage.getPlayer(player.id);
+      res.json({ success: true, token, welcomeBonus, player: fresh });
+    } catch (error) {
+      console.error("[auth/verify] error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ authenticated: false });
+    const player = await storage.getPlayer(auth.playerId).catch(() => null);
+    res.json({ authenticated: true, address: auth.address, player });
+  });
+
+  app.post("/api/auth/logout", (_req, res) => {
+    clearSessionCookie(res);
+    res.json({ success: true });
+  });
+
+  // ── Global ownership guard for mutating game endpoints ───────────────────────
+  // Single chokepoint: every state-changing game route requires a verified
+  // wallet session (when enforced), and any player-identity field in the body
+  // MUST match the session's player. This is what makes acting on behalf of
+  // another player impossible — a client can no longer just supply someone
+  // else's playerId. Registered before the routes below so it runs first.
+  const MUTATION_PATH_RE = /^\/api\/(actions|trade|markets|plots|sub-parcels|factions)\b/;
+  const OWNER_ID_FIELDS = ["playerId", "attackerId", "sellerId", "buyerId"] as const;
+  app.use((req, res, next) => {
+    if (req.method !== "POST" && req.method !== "DELETE" && req.method !== "PUT") return next();
+    if (!MUTATION_PATH_RE.test(req.path)) return next();
+
+    const auth = getAuth(req);
+    if (isWalletAuthRequired() && !auth) {
+      return res.status(401).json({ error: "Authentication required — connect your wallet" });
+    }
+    if (auth) {
+      req.auth = auth;
+      const bodyId = OWNER_ID_FIELDS
+        .map((f) => req.body?.[f])
+        .find((v) => typeof v === "string" && v.length > 0);
+      if (bodyId && bodyId !== auth.playerId) {
+        return res.status(403).json({ error: "Forbidden — session does not own this player" });
+      }
+    }
+    next();
+  });
 
   app.get("/api/blockchain/status", async (req, res) => {
     try {
