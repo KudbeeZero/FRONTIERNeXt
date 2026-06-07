@@ -17,7 +17,11 @@
 | PORT | Server listen port (Railway injects automatically) | `5000` |
 | AI_ENABLED | Enable/disable AI faction turns | `false` |
 | FORCE_NEW_ASA | Force new ASA creation on startup | `false` |
-| ADMIN_KEY | Admin API key for privileged endpoints | random secret string |
+| ADMIN_KEY | Admin API key for privileged endpoints. **In production a missing key now FAILS CLOSED** (admin endpoints return 503) instead of granting open access. Sent via `x-admin-key` header only in prod. | random secret string |
+| API_RATE_LIMIT | Coarse per-IP request ceiling across all `/api/*` (per minute). Anti-bulk-scrape / DoS backstop. | `1000` (default) |
+| ENUMERATION_RATE_LIMIT | Strict per-IP limit (per minute) on ID/address-enumerable read endpoints (`/api/game/parcel/:id`, `/api/game/player/:id`, `/api/game/player-by-address/:address`, `/api/parcels/attackable`, etc.). Primary defense against scraping off-chain economic data. | `90` (default) |
+| ACTIONS_RATE_LIMIT | Per-IP limit (per minute) on `/api/actions/*` mutating game actions. | `60` (default) |
+| ADVICE_RATE_LIMIT | Per-IP limit (per minute) on the LLM terraform-advice endpoint. | `30` (default) |
 | ALGOD_URL | Custom Algorand node URL (optional, defaults to algonode) | `https://mainnet-api.algonode.cloud` |
 | INDEXER_URL | Custom Algorand indexer URL (optional, defaults to algonode) | `https://mainnet-idx.algonode.cloud` |
 | ALGOD_TOKEN | Algorand node API token (optional) | |

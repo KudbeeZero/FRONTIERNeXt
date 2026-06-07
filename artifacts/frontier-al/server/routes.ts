@@ -54,6 +54,7 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
+import { requireAdminKey, enumerationLimiter, clampLimit } from "./security";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -205,24 +206,59 @@ export async function registerRoutes(
     return targetId;
   }
 
-  app.get("/api/blockchain/status", async (_req, res) => {
+  // ── Anti-scraping: strict per-IP throttle on enumerable read endpoints ───────
+  // These endpoints are keyed by a sequential/guessable identifier (plotId,
+  // playerId, wallet address) and individually return off-chain game-economy
+  // intelligence. A real client hits any one occasionally; a bot walking the
+  // keyspace to harvest "which plots hold the most resources" hammers them.
+  // Mounted via app.use (not as a per-route arg) so it never perturbs the
+  // typed route-param inference of the handlers below. GET-only paths, so
+  // matching all methods on these exact paths is harmless.
+  for (const p of [
+    "/api/blockchain/opt-in-check/:address",
+    "/api/nft/plot/:plotId",
+    "/api/nft/commander/:commanderId",
+    "/api/game/parcel/:id",
+    "/api/game/player/:id",
+    "/api/game/player-by-address/:address",
+    "/api/parcels/attackable",
+    "/api/markets/player/:playerId",
+    "/api/plots/:plotId/sub-parcels",
+  ]) {
+    app.use(p, enumerationLimiter);
+  }
+
+  app.get("/api/blockchain/status", async (req, res) => {
     try {
       const asaId      = getFrontierAsaId();
       const adminAddress = getAdminAddress();
-      const balance    = await getAdminBalance();
       const forceNew   = process.env.FORCE_NEW_FRONTIER_ASA === "true" || process.env.FORCE_NEW_ASA === "true";
       const network    = process.env.ALGORAND_NETWORK ?? "testnet";
       const factionAsaIds = getAllFactionAsaIds();
-      res.json({
+
+      const body: Record<string, unknown> = {
         ready: blockchainReady,
         frontierAsaId: asaId,
-        adminAddress,
-        adminAlgoBalance: balance.algo,
-        adminFrontierBalance: balance.frontierAsa,
+        adminAddress, // payment target — clients need this; it is public on-chain anyway
         network,
         forceNewAsaEnabled: forceNew,
         factionIdentities: factionAsaIds,
-      });
+      };
+
+      // The admin wallet's live balances are operational treasury intelligence.
+      // They are queryable on-chain, but we do not hand them to anonymous API
+      // callers — surface them only to an authenticated admin (no 403 written
+      // here; this is an additive field on an otherwise-public endpoint).
+      if (process.env.ADMIN_KEY) {
+        const headerKey = req.headers["x-admin-key"];
+        if (typeof headerKey === "string" && headerKey === process.env.ADMIN_KEY) {
+          const balance = await getAdminBalance();
+          body.adminAlgoBalance = balance.algo;
+          body.adminFrontierBalance = balance.frontierAsa;
+        }
+      }
+
+      res.json(body);
     } catch (error) {
       res.json({ ready: false, frontierAsaId: null, adminAddress: null });
     }
@@ -1976,16 +2012,10 @@ export async function registerRoutes(
   });
 
   // ── Admin key guard (used for internal/admin endpoints) ───────────────────
-  function requireAdminKey(req: any, res: any): boolean {
-    const adminKey = process.env.ADMIN_KEY;
-    if (!adminKey) return true; // No key configured → allow (dev mode)
-    const provided = (req.headers["x-admin-key"] as string) ?? (req.query.adminKey as string);
-    if (provided !== adminKey) {
-      res.status(403).json({ error: "Forbidden: invalid admin key" });
-      return false;
-    }
-    return true;
-  }
+  // NOTE: requireAdminKey is now imported from ./security — it fails CLOSED in
+  // production (a missing ADMIN_KEY no longer grants access) and only accepts
+  // the key via the x-admin-key header in prod (never the query string, which
+  // would be captured by access logs).
 
   app.post("/api/game/resolve-battles", async (req, res) => {
     if (!requireAdminKey(req, res)) return;
@@ -2088,7 +2118,9 @@ export async function registerRoutes(
       const filters: import("@shared/worldEvents").WorldEventFilters = {};
       if (start)  filters.start  = Number(start);
       if (end)    filters.end    = Number(end);
-      if (limit)  filters.limit  = Number(limit);
+      // Always clamp — an unbounded `limit` lets a caller dump the entire event
+      // log in one request (off-chain activity-intelligence scrape).
+      filters.limit = clampLimit(limit, 100, 200);
       if (types)  filters.types  = String(types).split(",") as import("@shared/worldEvents").WorldEventType[];
       res.json(listWorldEvents(filters));
     } catch { res.status(500).json({ error: "Failed to fetch world events" }); }
@@ -2441,10 +2473,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/mint-status/:plotId", async (req, res) => {
-    const adminKey = process.env.ADMIN_KEY;
-    if (adminKey && req.query.adminKey !== adminKey) {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
+    if (!requireAdminKey(req, res)) return;
 
     const plotId = parseInt(req.params.plotId, 10);
     if (isNaN(plotId)) {
@@ -2931,7 +2960,8 @@ export async function registerRoutes(
   });
 
   /** GET /api/admin/battles-live — currently pending battles */
-  app.get("/api/admin/battles-live", async (_req, res) => {
+  app.get("/api/admin/battles-live", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const pending = await db.select()
         .from(battlesTable)
@@ -2968,7 +2998,8 @@ export async function registerRoutes(
   });
 
   /** GET /api/admin/ai-activity — AI faction status + last action per faction */
-  app.get("/api/admin/ai-activity", async (_req, res) => {
+  app.get("/api/admin/ai-activity", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const factionRows = await db
         .select()

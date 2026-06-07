@@ -12,6 +12,7 @@ import { createServer } from "http";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
+import { apiReadLimiter } from "./security";
 
 const app = express();
 const httpServer = createServer(app);
@@ -139,6 +140,15 @@ const actionsLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many actions — slow down and try again shortly." },
 });
+
+// Coarse per-IP ceiling across the ENTIRE /api surface (read + write). This is
+// the backstop against bulk scraping of off-chain game-economy data — e.g. a
+// bot walking /api/game/parcel/:id or /api/game/player/:id to harvest which
+// plots hold the most resources. Deliberately generous (default 1000/min) so a
+// single legitimate player session is never affected; per-endpoint limiters in
+// security.ts apply tighter caps to the enumerable lookups. Registered before
+// the actions limiter so both counters apply to /api/actions.
+app.use("/api", apiReadLimiter);
 app.use("/api/actions", actionsLimiter);
 
 export function log(message: string, source = "express") {
