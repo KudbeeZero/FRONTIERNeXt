@@ -9,6 +9,7 @@ import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
 import { eq, sql, desc } from "drizzle-orm";
+import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import { broadcastGameState, broadcastRaw, markDirty } from "./wsServer";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 
@@ -2515,6 +2516,45 @@ export async function registerRoutes(
       res.json({ success: true, parcel: result.parcel });
     } catch (err) {
       console.error("[terraform] error", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * GET /api/plots/:plotId/terraform-advice?goal=defense|yield|balanced
+   * Read-only terraforming recommendation for a plot. Uses the deterministic
+   * heuristic by default; upgrades to a Claude recommendation when
+   * ANTHROPIC_API_KEY is configured (falls back to the heuristic on any error).
+   */
+  app.get("/api/plots/:plotId/terraform-advice", async (req, res) => {
+    const plotId = parseInt(req.params.plotId);
+    if (!plotId || isNaN(plotId)) return res.status(400).json({ error: "Invalid plotId" });
+    const goalParam = String(req.query.goal ?? "balanced");
+    const goal: TerraformGoal = (["defense", "yield", "balanced"].includes(goalParam) ? goalParam : "balanced") as TerraformGoal;
+    if (!db) return res.status(503).json({ error: "Database not available" });
+    try {
+      const [parcel] = await db
+        .select({
+          biome:           parcelsTable.biome,
+          stability:       parcelsTable.stability,
+          hazardLevel:     parcelsTable.hazardLevel,
+          yieldMultiplier: parcelsTable.yieldMultiplier,
+        })
+        .from(parcelsTable)
+        .where(eq(parcelsTable.plotId, plotId))
+        .limit(1);
+      if (!parcel) return res.status(404).json({ error: "Plot not found" });
+
+      const advice = await recommendTerraform({
+        biome:           parcel.biome as import("@shared/schema").BiomeType,
+        stability:       parcel.stability ?? 100,
+        hazardLevel:     parcel.hazardLevel ?? 0,
+        yieldMultiplier: parcel.yieldMultiplier ?? 1,
+        goal,
+      });
+      res.json(advice);
+    } catch (err) {
+      console.error("[terraform-advice] error", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
