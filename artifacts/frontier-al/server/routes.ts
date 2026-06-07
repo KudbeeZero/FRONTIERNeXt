@@ -16,7 +16,7 @@ import rateLimit from "express-rate-limit";
 // advisor path (ANTHROPIC_API_KEY) is enabled. The heuristic path is cheap.
 const adviceLimiter = rateLimit({
   windowMs: 60_000,
-  limit: Number(process.env.ADVICE_RATE_LIMIT ?? 30),
+  limit: Math.max(1, Number(process.env.ADVICE_RATE_LIMIT) || 30),
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many advice requests — try again shortly." },
