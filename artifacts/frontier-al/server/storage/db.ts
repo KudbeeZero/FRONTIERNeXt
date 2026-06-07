@@ -66,6 +66,14 @@ import {
   ORBITAL_IMPACT_CHANCE,
 } from "@shared/schema";
 import type { FacilityType, DefenseImprovementType, ImprovementType } from "@shared/schema";
+import { resolveBattle } from "../engine/battle/resolve.js";
+import { hashSeed } from "../engine/battle/random.js";
+import { CRYSTAL_POWER_FACTOR } from "../engine/battle/tuning.js";
+import type {
+  BattleInput as EngineBattleInput,
+  BiomeType as EngineBiomeType,
+  ImprovementType as EngineImprovementType,
+} from "../engine/battle/types.js";
 import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP } from "@shared/schema";
 import type { RareMineralType } from "@shared/schema";
 import { sphereDistance } from "../sphereUtils";
@@ -1163,23 +1171,43 @@ export class DbStorage implements IStorage {
         commanders[cmdIdx] = { ...cmd, lockedUntil: now + COMMANDER_LOCK_MS };
       }
 
-      // Radar Array: reduces incoming attacker power by 10% if defender has one built
-      const hasRadar = target.improvements.some(i => i.type === "radar");
-      const radarMod = hasRadar ? 0.9 : 1.0;
-      const rawAttackerPower = (action.troopsCommitted * 10 + iron * 0.5 + fuel * 0.8 + crystal * 1.2 + commanderBonus) * radarMod;
-      // Apply morale debuff: attacker power is reduced when they recently lost territory
-      const moraleActive   = attacker.moraleDebuffUntil && now < attacker.moraleDebuffUntil;
-      const attackerPower  = moraleActive
-        ? rawAttackerPower * (1 - MORALE_ATTACK_PENALTY)
-        : rawAttackerPower;
-
-      const biomeBonus    = biomeBonuses[target.biome];
-      const turretBonus   = target.improvements
-        .filter((i) => ["turret", "shield_gen", "fortress"].includes(i.type))
-        .reduce((sum, i) => sum + i.level * 5, 0);
-      const defenderPower = (target.defenseLevel * 15 + turretBonus) * biomeBonus.defenseMod;
-
       const battleId = randomUUID();
+
+      // ── Battle power via the deterministic battle engine ──────────────────
+      // resolveBattle() is the single source of truth for all battle math.
+      // Two attacker-side modifiers that the engine does not model directly are
+      // folded into its inputs so the result is identical to the legacy formula:
+      //   • crystal burned contributes attacker power at CRYSTAL_POWER_FACTOR —
+      //     folded additively into commanderBonus (same position in the sum).
+      //   • a defender Radar Array scales the whole attacker contribution ×0.9 —
+      //     pre-scaling every attacker input by radarMod is mathematically
+      //     equivalent to scaling the summed attacker power.
+      const hasRadar     = target.improvements.some(i => i.type === "radar");
+      const radarMod     = hasRadar ? 0.9 : 1.0;
+      const moraleActive = !!(attacker.moraleDebuffUntil && now < attacker.moraleDebuffUntil);
+
+      const battleInput: EngineBattleInput = {
+        battleId,
+        attackerId:         attacker.id,
+        defenderId:         target.ownerId ?? null,
+        plotId:             target.plotId,
+        troopsCommitted:    action.troopsCommitted * radarMod,
+        resourcesBurned:    { iron: iron * radarMod, fuel: fuel * radarMod },
+        commanderBonus:     (commanderBonus + crystal * CRYSTAL_POWER_FACTOR) * radarMod,
+        moraleDebuffActive: moraleActive,
+        defenseLevel:       target.defenseLevel,
+        biome:              target.biome as EngineBiomeType,
+        improvements:       target.improvements
+          .filter((i) => ["turret", "shield_gen", "fortress"].includes(i.type))
+          .map((i) => ({ type: i.type as EngineImprovementType, level: i.level })),
+        orbitalHazardActive: false,
+        randomSeed:         hashSeed(battleId, now),
+      };
+      const deployResult = resolveBattle(battleInput);
+      // Persist the pre-randFactor base power; resolveBattles applies the
+      // deterministic randFactor exactly once at resolution time.
+      const attackerPower = deployResult.attackerPower / (1 + deployResult.randFactor / 100);
+      const defenderPower = deployResult.defenderPower;
 
       const battleValues = {
         id:               battleId,
@@ -1527,24 +1555,50 @@ export class DbStorage implements IStorage {
 
     for (const battleRow of pending) {
       await this.db.transaction(async (tx) => {
-        // Deterministic outcome using a hash of (id + startTs)
-        const seed = `${battleRow.id}${battleRow.startTs}`;
-        let hash = 0;
-        for (let i = 0; i < seed.length; i++) {
-          hash = (hash << 5) - hash + seed.charCodeAt(i);
-          hash = hash & hash;
-        }
-        const randFactor      = (Math.abs(hash) % 21) - 10;
-        const adjustedPower   = battleRow.attackerPower * (1 + randFactor / 100);
-        const attackerWins    = adjustedPower > battleRow.defenderPower;
-        const outcome         = attackerWins ? "attacker_wins" : "defender_wins";
-
         const [[targetRow], [attackerRow]] = await Promise.all([
           tx.select().from(parcelsTable).where(eq(parcelsTable.id, battleRow.targetParcelId)),
           tx.select().from(playersTable).where(eq(playersTable.id, battleRow.attackerId)),
         ]);
 
         if (!targetRow || !attackerRow) return;
+
+        // ── Deterministic resolution via the battle engine ────────────────────
+        // resolveBattle() is the single source of truth. BattleInput is rebuilt
+        // from the stored battle row (attacker commitment) and the target's
+        // defence, with crystal + radar folded into the engine inputs exactly as
+        // at deploy time. The seed matches deployAttack (hashSeed(id, startTs))
+        // so the same battle always resolves to the same outcome.
+        const storedBurn        = (battleRow.resourcesBurned ?? { iron: 0, fuel: 0 }) as { iron: number; fuel: number };
+        const storedCrystal     = battleRow.crystalBurned ?? 0;
+        const battleCommanders  = (attackerRow.commanders ?? []) as CommanderAvatar[];
+        const battleCmdBonus    = battleRow.commanderId
+          ? (battleCommanders.find((c) => c.id === battleRow.commanderId)?.attackBonus ?? 0)
+          : 0;
+        const hasRadar          = ((targetRow.improvements ?? []) as { type: string }[]).some((i) => i.type === "radar");
+        const radarMod          = hasRadar ? 0.9 : 1.0;
+        const moraleActive      = !!(attackerRow.moraleDebuffUntil && now < attackerRow.moraleDebuffUntil);
+
+        const battleInput: EngineBattleInput = {
+          battleId:           battleRow.id,
+          attackerId:         attackerRow.id,
+          defenderId:         battleRow.defenderId ?? null,
+          plotId:             targetRow.plotId,
+          troopsCommitted:    battleRow.troopsCommitted * radarMod,
+          resourcesBurned:    { iron: storedBurn.iron * radarMod, fuel: storedBurn.fuel * radarMod },
+          commanderBonus:     (battleCmdBonus + storedCrystal * CRYSTAL_POWER_FACTOR) * radarMod,
+          moraleDebuffActive: moraleActive,
+          defenseLevel:       targetRow.defenseLevel,
+          biome:              targetRow.biome as EngineBiomeType,
+          improvements:       ((targetRow.improvements ?? []) as { type: string; level: number }[])
+            .filter((i) => ["turret", "shield_gen", "fortress"].includes(i.type))
+            .map((i) => ({ type: i.type as EngineImprovementType, level: i.level })),
+          orbitalHazardActive: false,
+          randomSeed:         hashSeed(battleRow.id, battleRow.startTs),
+        };
+        const battleResult = resolveBattle(battleInput);
+        const randFactor   = battleResult.randFactor;
+        const outcome      = battleResult.outcome;
+        const attackerWins = outcome === "attacker_wins";
 
         // ── Influence damage calculation ──────────────────────────────────────
         const totalDefenseLevels = ((targetRow.improvements ?? []) as any[])
@@ -1767,8 +1821,8 @@ export class DbStorage implements IStorage {
           defenderName:   battleRow.defenderId
             ? (allAiPlayers.find((p: any) => p.id === battleRow.defenderId)?.name ?? "Defender")
             : "Unclaimed",
-          attackerPower:  battleRow.attackerPower * (1 + randFactor / 100),
-          defenderPower:  battleRow.defenderPower,
+          attackerPower:  battleResult.attackerPower,
+          defenderPower:  battleResult.defenderPower,
           randFactor,
           outcome:        outcome as "attacker_wins" | "defender_wins",
           plotId:         targetRow.plotId,
@@ -1778,7 +1832,7 @@ export class DbStorage implements IStorage {
           pillagedCrystal: attackerWins ? Math.floor(targetRow.crystalStored * PILLAGE_RATE) : 0,
           resolvedAt:     now,
           log: [
-            { phase: "power_calc", message: `Attacker power: ${(battleRow.attackerPower * (1 + randFactor / 100)).toFixed(2)} vs Defender power: ${battleRow.defenderPower.toFixed(2)}` },
+            { phase: "power_calc", message: `Attacker power: ${battleResult.attackerPower.toFixed(2)} vs Defender power: ${battleResult.defenderPower.toFixed(2)}` },
             { phase: "resolution", message: `Rand factor: ${randFactor > 0 ? "+" : ""}${randFactor}% — Outcome: ${outcome}` },
             attackerWins
               ? { phase: "resolution", message: `${attackerRow.name} conquered plot #${targetRow.plotId}. Pillaged ${Math.floor(targetRow.ironStored * PILLAGE_RATE)} iron, ${Math.floor(targetRow.fuelStored * PILLAGE_RATE)} fuel.` }
