@@ -365,7 +365,15 @@ export async function registerRoutes(
     if (!def) return res.status(404).json({ error: "Faction not found" });
 
     const asaId       = getFactionAsaId(factionName);
-    const baseUrl     = process.env.PUBLIC_BASE_URL ?? `${req.protocol}://${req.get("host")}`;
+    // PUBLIC_BASE_URL must come from env only — never the request Host header
+    // (this JSON is referenced as a permanent on-chain assetURL; a host-header
+    // fallback would let a spoofed Host poison the metadata URLs). Mirror the
+    // /nft/metadata endpoints: 503 when unset rather than serve invalid URLs.
+    const baseUrl     = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/+$/, "") : null;
+    if (!baseUrl) {
+      console.error("[/faction/:name] PUBLIC_BASE_URL is not set — faction metadata URLs would be invalid. Set PUBLIC_BASE_URL env var.");
+      return res.status(503).json({ error: "PUBLIC_BASE_URL not configured — faction metadata URLs would be invalid. Set PUBLIC_BASE_URL env var." });
+    }
     const explorerUrl = asaId ? `https://allo.info/asset/${asaId}` : null;
 
     res.json({
@@ -997,6 +1005,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/testnet/progress/:address", async (req, res) => {
+    // Testnet-only debug surface — never expose on mainnet (writes/reads mission
+    // progress without auth). 404 hides its existence in production.
+    if (process.env.ALGORAND_NETWORK === "mainnet") return res.sendStatus(404);
     try {
       const { address } = req.params;
       if (!address || typeof address !== "string") {
@@ -1025,6 +1036,9 @@ export async function registerRoutes(
   });
 
   app.post("/api/testnet/progress", async (req, res) => {
+    // Testnet-only debug surface — never expose on mainnet (writes mission
+    // progress without auth). 404 hides its existence in production.
+    if (process.env.ALGORAND_NETWORK === "mainnet") return res.sendStatus(404);
     try {
       const { address, completedMissions } = req.body;
       if (!address || typeof address !== "string") {
