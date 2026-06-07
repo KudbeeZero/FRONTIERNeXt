@@ -2877,6 +2877,13 @@ export class DbStorage implements IStorage {
     if (!marketRow) return { error: "Market not found" };
     if (marketRow.status !== "open") return { error: "Market is not open for betting" };
     if (Number(marketRow.resolvesAt) <= Date.now()) return { error: "Market has expired" };
+    // Provably-fair: staking MUST close at the resolution cutoff (before the resolving
+    // fact is knowable), so no one can bet on a known/derivable outcome. Without this,
+    // a player could stake in the window after a battle resolves but before the
+    // automated resolver fires — the exact front-running hole the design forbids.
+    if (marketRow.resolutionCutoffTs != null && Date.now() >= Number(marketRow.resolutionCutoffTs)) {
+      return { error: "Staking is closed (resolution cutoff passed)" };
+    }
 
     const [playerRow] = await this.db
       .select()

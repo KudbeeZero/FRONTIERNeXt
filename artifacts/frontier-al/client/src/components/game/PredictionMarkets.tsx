@@ -162,6 +162,9 @@ function MarketCard({
   const totalPool = market.tokenPoolA + market.tokenPoolB;
   const isOpen = market.status === "open";
   const isResolved = market.status === "resolved";
+  // Staking locks at the resolution cutoff (before the fact is knowable) — mirror the
+  // server guard so we don't show a bet form that can only error.
+  const stakingOpen = isOpen && (market.resolutionCutoffTs == null || Date.now() < market.resolutionCutoffTs);
 
   return (
     <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
@@ -207,11 +210,11 @@ function MarketCard({
             return (
               <button
                 key={side}
-                disabled={!isOpen || betMutation.isPending}
+                disabled={!stakingOpen || betMutation.isPending}
                 onClick={() => setBetOutcome(betOutcome === side ? null : side)}
                 className={cn(
                   "w-full text-left rounded-md border px-3 py-2 transition-all",
-                  isOpen ? "cursor-pointer hover:border-primary/50" : "cursor-default",
+                  stakingOpen ? "cursor-pointer hover:border-primary/50" : "cursor-default",
                   betOutcome === side ? "border-primary bg-primary/10" : "border-border/50 bg-background/30",
                   isWinner && "border-blue-500/50 bg-blue-500/10",
                 )}
@@ -242,8 +245,15 @@ function MarketCard({
         </div>
         {isResolved && <VerifyProof marketId={market.id} />}
 
+        {/* Staking closed but not yet resolved */}
+        {isOpen && !stakingOpen && (
+          <div className="text-[10px] text-yellow-400/80 font-mono">
+            Staking closed — awaiting trustless resolution.
+          </div>
+        )}
+
         {/* Bet form */}
-        {isOpen && (
+        {stakingOpen && (
           <div className="flex gap-2">
             <Input
               type="number"
