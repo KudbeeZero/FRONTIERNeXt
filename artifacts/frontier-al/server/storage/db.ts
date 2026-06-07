@@ -74,7 +74,7 @@ import type {
   BiomeType as EngineBiomeType,
   ImprovementType as EngineImprovementType,
 } from "../engine/battle/types.js";
-import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP } from "@shared/schema";
+import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP, isImprovementAllowedForArchetype } from "@shared/schema";
 import type { RareMineralType } from "@shared/schema";
 import { sphereDistance } from "../sphereUtils";
 import {
@@ -2189,6 +2189,11 @@ export class DbStorage implements IStorage {
       const isFacility = improvementType in FACILITY_INFO;
       const isDefense  = improvementType in DEFENSE_IMPROVEMENT_INFO;
       if (!isFacility && !isDefense) return { subParcel: null as any, error: "Invalid improvement type" };
+
+      // Archetype gating — the assigned archetype determines buildable structures.
+      if (!isImprovementAllowedForArchetype(spRow.archetype as SubParcelArchetype | null, improvementType)) {
+        return { subParcel: null as any, error: `${improvementType} can't be built on a ${spRow.archetype} sub-parcel` };
+      }
 
       const level = existing ? existing.level + 1 : 1;
       let playerUpdates: Partial<typeof playerRow> = {};

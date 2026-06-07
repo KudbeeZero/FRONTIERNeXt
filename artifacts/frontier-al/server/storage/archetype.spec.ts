@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { canAssignArchetype, computeArchetypeFactionBonus } from "./game-rules.js";
+import { isImprovementAllowedForArchetype } from "../../shared/schema.js";
 import type { SubParcel, SubParcelArchetype } from "../../shared/schema.js";
 
 // Minimal SubParcel factory — only the fields the archetype rules read matter.
@@ -72,5 +73,45 @@ describe("computeArchetypeFactionBonus", () => {
     expect(computeArchetypeFactionBonus("fortress", "SPECTRE")).toBe(0);
     expect(computeArchetypeFactionBonus("resource", null)).toBe(0);
     expect(computeArchetypeFactionBonus("trade", undefined)).toBe(0);
+  });
+});
+
+describe("isImprovementAllowedForArchetype", () => {
+  it("an unassigned sub-parcel can build anything", () => {
+    expect(isImprovementAllowedForArchetype(null, "turret")).toBe(true);
+    expect(isImprovementAllowedForArchetype(null, "blockchain_node")).toBe(true);
+    expect(isImprovementAllowedForArchetype(undefined, "ai_lab")).toBe(true);
+  });
+
+  it("fortress allows defenses but not facilities", () => {
+    expect(isImprovementAllowedForArchetype("fortress", "turret")).toBe(true);
+    expect(isImprovementAllowedForArchetype("fortress", "fortress")).toBe(true);
+    expect(isImprovementAllowedForArchetype("fortress", "radar")).toBe(true);
+    expect(isImprovementAllowedForArchetype("fortress", "electricity")).toBe(false);
+    expect(isImprovementAllowedForArchetype("fortress", "blockchain_node")).toBe(false);
+  });
+
+  it("resource allows yield facilities + storage but not weapons or token gen", () => {
+    expect(isImprovementAllowedForArchetype("resource", "data_centre")).toBe(true);
+    expect(isImprovementAllowedForArchetype("resource", "ai_lab")).toBe(true);
+    expect(isImprovementAllowedForArchetype("resource", "storage_depot")).toBe(true);
+    expect(isImprovementAllowedForArchetype("resource", "turret")).toBe(false);
+    expect(isImprovementAllowedForArchetype("resource", "blockchain_node")).toBe(false);
+  });
+
+  it("energy and trade gate to their themes", () => {
+    expect(isImprovementAllowedForArchetype("energy", "blockchain_node")).toBe(true);
+    expect(isImprovementAllowedForArchetype("energy", "turret")).toBe(false);
+    expect(isImprovementAllowedForArchetype("trade", "blockchain_node")).toBe(true);
+    expect(isImprovementAllowedForArchetype("trade", "ai_lab")).toBe(false);
+  });
+
+  it("every archetype that permits a prereq-gated facility also permits electricity", () => {
+    for (const a of ["resource", "trade", "energy"] as SubParcelArchetype[]) {
+      const needsElec = ["blockchain_node", "data_centre", "ai_lab"].some(
+        t => isImprovementAllowedForArchetype(a, t as any),
+      );
+      if (needsElec) expect(isImprovementAllowedForArchetype(a, "electricity")).toBe(true);
+    }
   });
 });
