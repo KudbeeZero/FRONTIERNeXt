@@ -87,7 +87,14 @@ function Scene({
           selectedPlotId={selectedPlotId}
           onPlotSelect={onPlotSelect}
         />
-        {/* SubParcelOverlay disabled: sub-parcel data shown in table only */}
+        {/* Sub-parcel 3×3 grids — archetype-colored, LOD-gated (only visible when zoomed in) */}
+        {!streamMode && (
+          <SubParcelOverlay
+            parcels={parcels}
+            players={players}
+            currentPlayerId={currentPlayerId}
+          />
+        )}
         {replayEvents && replayEvents.length > 0 && replayVisibleTypes && replayTime !== undefined && (
           <GlobeEventOverlays
             events={replayEvents}

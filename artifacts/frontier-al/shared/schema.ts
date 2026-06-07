@@ -224,6 +224,8 @@ export interface LandParcel {
   isSubdivided?: boolean;
   /** Owner IDs for each of the 9 sub-parcels (index 0–8, null = unowned) */
   subParcelOwnerIds?: (string | null)[];
+  /** Assigned archetype for each of the 9 sub-parcels (index 0–8, null = unassigned) — for globe rendering */
+  subParcelArchetypes?: (SubParcelArchetype | null)[];
   /** Terraforming: environmental hazard level (0–100, 0 = safe) */
   hazardLevel: number;
   /** Terraforming: terrain stability (0–100, 100 = fully stable) */

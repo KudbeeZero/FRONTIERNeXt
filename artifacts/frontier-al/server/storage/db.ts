@@ -464,17 +464,21 @@ export class DbStorage implements IStorage {
         parentPlotId: subParcelsTable.parentPlotId,
         subIndex:     subParcelsTable.subIndex,
         ownerId:      subParcelsTable.ownerId,
+        archetype:    subParcelsTable.archetype,
       }).from(subParcelsTable),
       this.getCurrentSeason(),
     ]);
 
-    // Build sub-parcel map: parentPlotId → array of 9 owner ids
+    // Build sub-parcel maps: parentPlotId → array of 9 owner ids / archetypes
     const subParcelMap = new Map<number, (string | null)[]>();
+    const subParcelArchetypeMap = new Map<number, (SubParcelArchetype | null)[]>();
     for (const sp of allSubParcels) {
       if (!subParcelMap.has(sp.parentPlotId)) {
         subParcelMap.set(sp.parentPlotId, new Array(9).fill(null));
+        subParcelArchetypeMap.set(sp.parentPlotId, new Array(9).fill(null));
       }
       subParcelMap.get(sp.parentPlotId)![sp.subIndex] = sp.ownerId ?? null;
+      subParcelArchetypeMap.get(sp.parentPlotId)![sp.subIndex] = (sp.archetype as SubParcelArchetype | null) ?? null;
     }
 
     // Build ownedParcels arrays from the parcel rows (avoids a separate join).
@@ -496,6 +500,7 @@ export class DbStorage implements IStorage {
         if (ownerIds) {
           parcel.isSubdivided = true;
           parcel.subParcelOwnerIds = ownerIds;
+          parcel.subParcelArchetypes = subParcelArchetypeMap.get(r.plotId);
         }
         return parcel;
       }),

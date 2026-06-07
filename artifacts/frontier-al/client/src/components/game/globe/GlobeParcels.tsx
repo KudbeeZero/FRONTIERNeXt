@@ -7,7 +7,7 @@
 
 import * as THREE from "three";
 import { useRef, useMemo, useCallback, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import type { LandParcel, Player } from "@shared/schema";
 import {
   GLOBE_RADIUS,
@@ -17,12 +17,14 @@ import {
   COLOR_BORDER_OWNED,
   COLOR_BORDER_UNOWNED,
   COLOR_SUBDIVIDED,
+  ARCHETYPE_COLORS,
   FILL_SIZE,
   BORDER_SIZE,
   SUB_FILL_SIZE,
   SUB_BORDER_SIZE,
   SUB_SPACING,
   MAX_SUB_TILES,
+  SUB_PARCEL_LOD_DISTANCE,
 } from "@/lib/globe/globeConstants";
 import {
   generateFibonacciSphere,
@@ -376,7 +378,18 @@ interface SubParcelOverlayProps {
 export function SubParcelOverlay({ parcels, currentPlayerId }: SubParcelOverlayProps) {
   const fillMeshRef   = useRef<THREE.InstancedMesh>(null!);
   const borderMeshRef = useRef<THREE.InstancedMesh>(null!);
+  const groupRef = useRef<THREE.Group>(null!);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const { camera } = useThree();
+
+  // LOD: only show the 3×3 sub-grids when the camera is zoomed in close, so the
+  // planet-wide view stays clean (mirrors the prior "table only" behavior at
+  // far zoom while revealing archetype colors as you fly toward a region).
+  useFrame(() => {
+    if (groupRef.current) {
+      groupRef.current.visible = camera.position.length() < SUB_PARCEL_LOD_DISTANCE;
+    }
+  });
 
   const parcelsRef = useRef(parcels);
   parcelsRef.current = parcels;
@@ -386,7 +399,7 @@ export function SubParcelOverlay({ parcels, currentPlayerId }: SubParcelOverlayP
     const parts: string[] = [];
     for (const p of parcels) {
       if (!p.isSubdivided) continue;
-      parts.push(`${p.plotId}:${(p.subParcelOwnerIds ?? []).join(",")}`);
+      parts.push(`${p.plotId}:${(p.subParcelOwnerIds ?? []).join(",")}:${(p.subParcelArchetypes ?? []).join(",")}`);
     }
     return parts.join("|");
   }, [parcels]);
@@ -418,13 +431,17 @@ export function SubParcelOverlay({ parcels, currentPlayerId }: SubParcelOverlayP
             .normalize()
             .multiplyScalar(GLOBE_RADIUS * 1.028); // above main tiles (1.012/1.018)
 
-          // Vivid colors — easy to see during debugging
+          // Fill = archetype color when assigned; otherwise ownership color.
+          const archetype = parcel.subParcelArchetypes?.[subIndex] ?? null;
           const isOwn = currentPlayerId && ownerId === currentPlayerId;
-          const fillColor = new THREE.Color(
-            !ownerId ? 0x0055aa    // unowned: bright blue
-            : isOwn  ? 0x00ff88   // your sub-parcel: bright green
-            : 0xff3300            // enemy sub-parcel: bright red
-          );
+          const archColor = archetype ? ARCHETYPE_COLORS[archetype] : undefined;
+          const fillColor = archColor
+            ? archColor.clone()
+            : new THREE.Color(
+                !ownerId ? 0x0055aa    // unowned: bright blue
+                : isOwn  ? 0x00ff88   // your sub-parcel: bright green
+                : 0xff3300            // enemy sub-parcel: bright red
+              );
           const borderColor = new THREE.Color(ownerId ? 0xffffff : 0x44aaff);
 
           dummy.position.copy(worldPos);
@@ -453,7 +470,7 @@ export function SubParcelOverlay({ parcels, currentPlayerId }: SubParcelOverlayP
   }, [subParcelFingerprint, currentPlayerId, dummy]);
 
   return (
-    <>
+    <group ref={groupRef} visible={false}>
       {/* renderOrder 3/4 so sub-tiles render above main plot layer (1/2) */}
       <instancedMesh ref={borderMeshRef} args={[undefined, undefined, MAX_SUB_TILES]} renderOrder={3}>
         <planeGeometry args={[1.0, 1.0]} />
@@ -479,6 +496,6 @@ export function SubParcelOverlay({ parcels, currentPlayerId }: SubParcelOverlayP
           toneMapped={false}
         />
       </instancedMesh>
-    </>
+    </group>
   );
 }
