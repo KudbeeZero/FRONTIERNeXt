@@ -2675,7 +2675,7 @@ export async function registerRoutes(
 
   /** GET /api/plots/:plotId/sub-parcels — list sub-parcels for a macro-plot */
   app.get("/api/plots/:plotId/sub-parcels", async (req, res) => {
-    const plotId = parseInt(req.params.plotId);
+    const plotId = parseInt(req.params.plotId, 10);
     if (!plotId || isNaN(plotId)) return res.status(400).json({ error: "Invalid plotId" });
     try {
       const subParcels = await storage.getSubParcels(plotId);
@@ -2688,7 +2688,7 @@ export async function registerRoutes(
 
   /** POST /api/plots/:plotId/subdivide — subdivide a macro-plot into 9 sub-parcels */
   app.post("/api/plots/:plotId/subdivide", async (req, res) => {
-    const plotId = parseInt(req.params.plotId);
+    const plotId = parseInt(req.params.plotId, 10);
     const { playerId } = req.body;
     if (!plotId || isNaN(plotId)) return res.status(400).json({ error: "Invalid plotId" });
     if (!playerId) return res.status(400).json({ error: "playerId required" });
@@ -2705,7 +2705,7 @@ export async function registerRoutes(
 
   /** POST /api/plots/:plotId/terraform — apply a terraform action to an owned plot */
   app.post("/api/plots/:plotId/terraform", async (req, res) => {
-    const plotId = parseInt(req.params.plotId);
+    const plotId = parseInt(req.params.plotId, 10);
     if (!plotId || isNaN(plotId)) return res.status(400).json({ error: "Invalid plotId" });
     const parsed = terraformActionSchema.safeParse({ ...req.body, plotId });
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
