@@ -475,9 +475,6 @@ export function enqueueGameAction(
   if (minerals) action.m = minerals;
 
   _txnQueue.push({ action, enqueuedAt: Date.now() });
-  console.log(
-    `[ACTION-DEBUG] player action enqueued | type: ${type} | plotId: ${plotId} | queue: ${_txnQueue.length} | ts: ${Date.now()}`
-  );
 
   if (_txnQueue.length >= MAX_ACTIONS_PER_FLUSH) {
     // Hit the count threshold — flush immediately (Satellite relay opens)
