@@ -24,6 +24,13 @@ cd "${CLAUDE_PROJECT_DIR:-.}"
 # pull a newer pnpm than CI uses, introducing avoidable version drift.
 if ! command -v pnpm >/dev/null 2>&1; then
   corepack enable pnpm 2>/dev/null || true
+  # Fail loudly here rather than letting `pnpm install` below die with an opaque
+  # "pnpm: command not found". `|| true` above neutralizes `set -e`, so check
+  # explicitly that corepack actually produced a usable pnpm.
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "[session-start] ERROR: pnpm is not on PATH and corepack could not provide it." >&2
+    exit 1
+  fi
 fi
 
 # Root install hydrates every workspace package (artifacts/*, lib/*, scripts).
@@ -37,6 +44,15 @@ fi
 # and `db:push` do, and those are run deliberately, not at session start. Keeping
 # secrets out of the hook avoids baking placeholder credentials into the env.
 echo "[session-start] installing pnpm workspace dependencies…"
-pnpm install --frozen-lockfile --prefer-offline
+# Bounded retry so a transient network/registry hiccup doesn't kill session start.
+for attempt in 1 2 3; do
+  if pnpm install --frozen-lockfile --prefer-offline; then
+    echo "[session-start] dependencies ready."
+    exit 0
+  fi
+  echo "[session-start] install attempt ${attempt} failed; retrying…" >&2
+  sleep $((attempt * 2))
+done
 
-echo "[session-start] dependencies ready."
+echo "[session-start] ERROR: pnpm install failed after 3 attempts." >&2
+exit 1
