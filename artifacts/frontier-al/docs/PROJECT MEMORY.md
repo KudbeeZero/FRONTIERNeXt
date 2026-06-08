@@ -139,6 +139,10 @@ These were decided. Don’t re-debate them in future sessions.
 - **mockup-sandbox** has a React 18/19 type mismatch — keep it OUT of prod builds entirely.
 - **Neon credential** was exposed in chat — rotate before mainnet.
 - **routes.ts** is a 3000-line monolith — split before the auth refactor to reduce risk.
+- **Fresh containers have no `node_modules`:** web sessions / fresh clones fail
+  `pnpm run check`/`test:server`/`build` with `TS2688` until deps install. Web sessions
+  auto-fix via the `SessionStart` hook (`.claude/hooks/session-start.sh`); see
+  `docs/DEV_ENVIRONMENT.md`. lint/test/build need no DB secrets — only `dev`/`db:push` do.
 
 -----
 
@@ -169,6 +173,7 @@ These were decided. Don’t re-debate them in future sessions.
 |Chat / weather / contests / narration|LIVING_WORLD_LUT      |
 |Video worker (HILDA)                 |HILDA_v2_Pipeline     |
 |Original roadmap / Jarvis            |ASCENDANCY_LUT        |
+|Dev env / fresh-container / web setup|DEV_ENVIRONMENT.md    |
 
 -----
 

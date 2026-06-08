@@ -199,3 +199,20 @@ Always `reset --hard origin/main` first — skipping it produces a messy first-p
 - For PR-watch / "babysit" tasks, the task isn't done until the PR is MERGED or CLOSED.
 - Secrets are never committed — document them in the env checklist; real values go in the host dashboard (Railway/Vercel), mnemonic in a secrets manager.
 
+---
+
+# Fresh-container / web-session setup
+
+This is a pnpm workspace; a fresh clone (Claude Code on the web, CI) has **no
+`node_modules`**, so `pnpm run check` / `test:server` / `build` fail with
+`TS2688: Cannot find type definition file for 'node'` until deps are installed.
+
+- **Web sessions auto-install** via the `SessionStart` hook
+  (`.claude/hooks/session-start.sh`, registered in `.claude/settings.json`):
+  `pnpm install --frozen-lockfile --prefer-offline` at the repo root, remote-only.
+  If a session's tooling fails on missing types, run that install manually.
+- **lint/test/build need NO secrets** — only `pnpm dev` / `db:push` need
+  `DATABASE_URL` (+ chain env). Don't inject placeholder secrets to run checks.
+- Full setup map, env matrix, and fragility points (Node 22↔24 skew, post-merge
+  DB requirement, `baseUrl` deprecation, esbuild allowlist): **`docs/DEV_ENVIRONMENT.md`**.
+
