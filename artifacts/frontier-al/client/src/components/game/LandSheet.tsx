@@ -356,8 +356,8 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
               className="flex-1 bg-muted/30 border border-border rounded px-2 py-1 text-[9px] font-mono focus:outline-none focus:border-primary"
             />
             <Button size="sm" variant="outline" className="h-7 px-2 text-[9px] border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 shrink-0"
-              onClick={() => { const p = parseInt(listPrice); if (p > 0) createListingMutation.mutate(p); }}
-              disabled={!listPrice || parseInt(listPrice) < 1 || createListingMutation.isPending}
+              onClick={() => { const p = parseInt(listPrice, 10); if (p > 0) createListingMutation.mutate(p); }}
+              disabled={!listPrice || parseInt(listPrice, 10) < 1 || createListingMutation.isPending}
             >List for Sale</Button>
           </div>
         )}

@@ -67,11 +67,6 @@ export function useOrbitalEngine() {
         if (!res.ok) return;
         const data = await res.json() as { events: OrbitalEvent[] };
         setImpactEvents(data.events ?? []);
-        if (data.events?.length) {
-          console.log(
-            `[ORBITAL-DEBUG] client fetched impact events | count: ${data.events.length} | ids: [${data.events.map((e) => e.id).join(",")}]`
-          );
-        }
       } catch {
         // Network error — keep stale data
       }
