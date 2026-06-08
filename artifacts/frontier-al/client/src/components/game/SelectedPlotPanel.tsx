@@ -65,6 +65,9 @@ export interface SelectedPlotPanelProps {
   /** Opens the full LandSheet for owned plots */
   onOpenFullSheet?: () => void;
 
+  /** Opens the attack modal for enemy-owned plots */
+  onAttack?: () => void;
+
   onClose: () => void;
 
   /**
@@ -84,6 +87,7 @@ function DesktopPlotPanel({
   isClaiming,
   isWalletConnected,
   onOpenFullSheet,
+  onAttack,
   onClose,
   positionHint,
 }: SelectedPlotPanelProps) {
@@ -276,8 +280,14 @@ function DesktopPlotPanel({
             )}
 
             {isEnemyOwned && (
-              <Button size="lg" variant="outline" className="w-full font-display uppercase tracking-widest opacity-50 cursor-not-allowed" disabled>
-                Attack (Coming Soon)
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full font-display uppercase tracking-widest"
+                onClick={onAttack}
+                disabled={!onAttack}
+              >
+                ⚔ Attack
               </Button>
             )}
           </div>
@@ -307,6 +317,7 @@ export function SelectedPlotPanel(props: SelectedPlotPanelProps) {
         isClaiming={props.isClaiming}
         isWalletConnected={props.isWalletConnected}
         onOpenFullSheet={props.onOpenFullSheet}
+        onAttack={props.onAttack}
         onClose={props.onClose}
       />
     );

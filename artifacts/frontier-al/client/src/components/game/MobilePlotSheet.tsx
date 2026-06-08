@@ -54,6 +54,9 @@ export interface MobilePlotSheetProps {
   // Owned plot actions
   onOpenFullSheet?: () => void;
 
+  /** Opens the attack modal for enemy-owned plots */
+  onAttack?: () => void;
+
   onClose: () => void;
 }
 
@@ -75,6 +78,7 @@ export function MobilePlotSheet({
   isClaiming,
   isWalletConnected,
   onOpenFullSheet,
+  onAttack,
   onClose,
 }: MobilePlotSheetProps) {
   const isOwnedByPlayer = !!player && parcel.ownerId === player.id;
@@ -286,10 +290,11 @@ export function MobilePlotSheet({
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-full h-12 font-display uppercase tracking-widest text-sm opacity-50 cursor-not-allowed"
-                  disabled
+                  className="w-full h-12 font-display uppercase tracking-widest text-sm"
+                  onClick={onAttack}
+                  disabled={!onAttack}
                 >
-                  Attack (Coming Soon)
+                  ⚔ Attack
                 </Button>
               )}
 

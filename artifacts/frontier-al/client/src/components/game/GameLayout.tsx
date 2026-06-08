@@ -1131,6 +1131,7 @@ export function GameLayout() {
             setShowFullLandSheet(true);
             tutorial.notifyEvent("landsheet_opened");
           }}
+          onAttack={handleAttackClick}
           onClose={() => setSelectedParcelId(null)}
         />
       )}
