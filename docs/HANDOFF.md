@@ -5,7 +5,7 @@
 
 ## Current baton
 - **Branch:** `session-relay-protocol`
-- **PR:** #<PENDING — set by /closeout once the PR is opened>
+- **PR:** [#8](https://github.com/KudbeeZero/FRONTIERNeXt/pull/8)
 - **Audit status:** `AWAITING_AUDIT`
 
 ## What this chat did (for the auditor)
