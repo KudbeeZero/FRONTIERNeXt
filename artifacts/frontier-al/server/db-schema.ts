@@ -579,7 +579,16 @@ export const plotPurchases = pgTable("plot_purchases", {
   assetId:      bigint("asset_id", { mode: "number" }),                      // the plot ASA delivered
   priceAlgo:    real("price_algo").notNull(),                                // NOT NULL — actual charge
   deliveryTxId: text("delivery_tx_id"),                                      // NULL until admin transfer confirms
-  status:       varchar("status", { length: 12 }).notNull().default("paid"), // paid | delivered | failed
+  status:       varchar("status", { length: 12 }).notNull().default("paid"), // paid | delivered | failed (coarse)
+  // ── Phased delivery worker (PAID → OPTED_IN → DELIVERED → STAMPED) ──────────
+  // Fine-grained state machine driven by the fulfillment worker; each phase is
+  // verified ON-CHAIN (green) before advancing. `status` stays the coarse view.
+  phase:        varchar("phase", { length: 12 }).notNull().default("paid"),  // paid|opted_in|delivered|stamped|failed
+  optInTxId:    text("opt_in_tx_id"),                                        // OPTED_IN proof (buyer-signed opt-in)
+  stampTxId:    text("stamp_tx_id"),                                         // STAMPED proof (on-chain completion note)
+  attempts:     integer("attempts").notNull().default(0),                    // worker retry count
+  nextRunAt:    bigint("next_run_at", { mode: "number" }).notNull().default(0), // worker backoff schedule (unix ms)
+  lastError:    text("last_error"),                                          // last worker error (debug only)
   createdAt:    bigint("created_at", { mode: "number" }).notNull().default(0),
   updatedAt:    bigint("updated_at", { mode: "number" }).notNull().default(0),
 });

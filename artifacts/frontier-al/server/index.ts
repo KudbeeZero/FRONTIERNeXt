@@ -250,6 +250,11 @@ app.use((req, res, next) => {
   startFrontierTransferWorker();
   console.log("[startup] FRONTIER transfer retry worker started ✓");
 
+  // Phased plot-delivery fulfillment worker (safe core: PAID → OPTED_IN; the
+  // funds-moving DELIVERED/STAMPED phases land behind the algo-auditor gate).
+  const { startDeliveryWorker } = await import("./services/delivery-worker");
+  startDeliveryWorker();
+
   // Surface whether security state (auth nonces + enumeration/auth rate limits)
   // is shared across instances (Redis) or per-instance (memory). The latter is
   // only correct for a single instance.
