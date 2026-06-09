@@ -120,10 +120,13 @@ export function sessionMaxAgeSeconds(): number {
 // per-instance in-memory Map. The in-memory path also serves as a fallback if a
 // Redis write fails, so a nonce issued in either store can still be consumed.
 
-const _nonces = new Map<string, { nonce: string; exp: number }>();
+// Outstanding nonces, keyed by the NONCE value (NOT the address) so issuing a
+// new challenge for an address never invalidates an in-flight one. Value = the
+// address the nonce was issued to. Single-use via getDel / delete on consume.
+const _nonces = new Map<string, { address: string; exp: number }>();
 
-function nonceKey(address: string): string {
-  return `frontier:auth:nonce:${address}`;
+function nonceKey(nonce: string): string {
+  return `frontier:auth:nonce:${nonce}`;
 }
 
 function pruneNonces(): void {
@@ -137,39 +140,44 @@ export async function issueNonce(address: string): Promise<{ nonce: string; expi
   const expiresAt = Date.now() + NONCE_TTL_MS;
   let stored = false;
   if (isRedisEnabled()) {
-    stored = await setWithPx(nonceKey(address), nonce, NONCE_TTL_MS);
+    stored = await setWithPx(nonceKey(nonce), address, NONCE_TTL_MS);
   }
   if (!stored) {
     // No Redis (or the write failed) — keep it in memory for this instance.
     pruneNonces();
-    _nonces.set(address, { nonce, exp: expiresAt });
+    _nonces.set(nonce, { address, exp: expiresAt });
   }
   return { nonce, expiresAt };
 }
 
-/** Consume (validate + single-use) a nonce previously issued to an address. */
+/**
+ * Consume (validate + single-use) a nonce. Race-free: keyed by the nonce, so
+ * concurrent/retried challenges for the same address don't clobber each other.
+ * Returns true only if the nonce was issued to exactly this address.
+ */
 async function consumeNonce(address: string, nonce: string): Promise<boolean> {
-  let candidate: string | null = null;
+  if (!nonce || typeof nonce !== "string") return false;
+  let storedAddress: string | null = null;
 
   // Redis path: GETDEL is atomic single-use; the key auto-expires (TTL).
   if (isRedisEnabled()) {
-    candidate = await getDel(nonceKey(address));
+    storedAddress = await getDel(nonceKey(nonce));
   }
 
   // Fall back to / also check the in-memory store (covers no-Redis mode and the
   // case where the issue write landed in memory).
-  if (candidate == null) {
-    const entry = _nonces.get(address);
+  if (storedAddress == null) {
+    const entry = _nonces.get(nonce);
     if (entry) {
-      _nonces.delete(address); // single-use regardless of outcome
-      if (entry.exp >= Date.now()) candidate = entry.nonce;
+      _nonces.delete(nonce); // single-use regardless of outcome
+      if (entry.exp >= Date.now()) storedAddress = entry.address;
     }
   }
 
-  if (candidate == null) return false;
-  // constant-time compare
-  const a = Buffer.from(candidate);
-  const b = Buffer.from(nonce);
+  if (storedAddress == null) return false;
+  // The nonce must have been issued to exactly this address (constant-time).
+  const a = Buffer.from(storedAddress);
+  const b = Buffer.from(address);
   return a.length === b.length && timingSafeEqual(a, b);
 }
 

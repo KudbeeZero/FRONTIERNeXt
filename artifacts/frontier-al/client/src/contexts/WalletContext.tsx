@@ -149,8 +149,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
     } catch (err) {
       const msg = (err as { message?: string })?.message || "Authentication failed";
       setIsAuthenticated(false);
-      // Allow a manual retry (e.g. user dismissed the signature prompt).
-      authAttemptedFor.current = null;
+      // Do NOT re-arm the auto-auth here. Resetting authAttemptedFor caused a
+      // retry-storm that issued+clobbered nonces and overlapped wallet signing
+      // (the recurring 401 root cause). Auto-auth runs exactly ONCE per address;
+      // an explicit retry is still possible via the exposed authenticate().
       if (!isUserCancellation(msg)) setAuthError(msg);
     } finally {
       setIsAuthenticating(false);

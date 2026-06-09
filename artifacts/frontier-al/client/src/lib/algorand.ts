@@ -46,23 +46,38 @@ export function hasRegisteredSigner(): boolean {
   return _registeredSigner !== null;
 }
 
+// Serialize ALL wallet signing — only one signature operation runs at a time.
+// Without this, an auth sign and a purchase sign could overlap, cross their
+// signed blobs, and POST a purchase txn to /api/auth/verify. Every signer entry
+// point routes through this lock.
+let _signLock: Promise<unknown> = Promise.resolve();
+function withSignLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = _signLock.then(task, task);
+  _signLock = run.then(() => undefined, () => undefined); // never reject the chain
+  return run;
+}
+
 export async function signTransactionWithActiveWallet(
   txn: algosdk.Transaction,
   _signerAddress: string
 ): Promise<Uint8Array[]> {
-  if (!_registeredSigner) throw new Error("No wallet connected");
-  return await _registeredSigner([txn]);
+  const signer = _registeredSigner;
+  if (!signer) throw new Error("No wallet connected");
+  return withSignLock(() => signer([txn]));
 }
 
 export async function signGroupedTransactionsWithActiveWallet(
   txns: algosdk.Transaction[],
   signerAddress: string
 ): Promise<Uint8Array[]> {
-  dbg(`[BATCH-DEBUG] signGroupedTransactions | txnCount: ${txns.length} | signer: ${signerAddress.slice(0, 8)}... | ts: ${Date.now()}`);
-  if (!_registeredSigner) throw new Error("No wallet connected");
-  const result = await _registeredSigner(txns);
-  dbg(`[BATCH-DEBUG] signed ${result.length} txns | ts: ${Date.now()}`);
-  return result;
+  const signer = _registeredSigner;
+  if (!signer) throw new Error("No wallet connected");
+  return withSignLock(async () => {
+    dbg(`[BATCH-DEBUG] signGroupedTransactions | txnCount: ${txns.length} | signer: ${signerAddress.slice(0, 8)}... | ts: ${Date.now()}`);
+    const result = await signer(txns);
+    dbg(`[BATCH-DEBUG] signed ${result.length} txns | ts: ${Date.now()}`);
+    return result;
+  });
 }
 
 export async function getAccountBalance(address: string): Promise<number> {
