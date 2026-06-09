@@ -15,6 +15,7 @@
 import algosdk from "algosdk";
 import { getAlgodClient, getAdminAccount, getNetwork, getIndexerClient } from "./client";
 import { isAddressOptedIn } from "./asa";
+import { assertMintBaseUrlSafe } from "../../lib/public-base-url";
 import type { AssetId, MintResult } from "./types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -47,6 +48,9 @@ export async function mintCommanderNft(params: MintCommanderParams): Promise<Min
   const network = getNetwork();
 
   const baseUrl = metadataBaseUrl.replace(/\/+$/, "");
+  // assetURL is IMMUTABLE once minted — never bake a localhost/non-public URL on
+  // mainnet (throws); warns on testnet/localnet (throwaway assets).
+  assertMintBaseUrlSafe(baseUrl, network);
   const shortId = commanderId.slice(0, 8);
 
   // Algorand ASA name limit is 32 bytes. Keep well under the limit.

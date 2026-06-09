@@ -77,6 +77,17 @@ export const LAND_PURCHASE_ALGO_PROD: Record<string, number> = {
 export const LAND_PURCHASE_ALGO_ACTIVE: Record<string, number> =
   ECONOMY_MODE === "production" ? LAND_PURCHASE_ALGO_PROD : LAND_PURCHASE_ALGO_TEST;
 
+/** Absolute global minimum land price (ALGO) — safety floor below any biome price. */
+export const MIN_LAND_PRICE_ALGO = 0.05;
+
+/**
+ * Price floor for a biome: the active seeded price IS the floor (audit C2). A
+ * purchase priced null / <= 0 / below this must be rejected — never `?? 0`.
+ */
+export function landPriceFloorAlgo(biome: string): number {
+  return Math.max(MIN_LAND_PRICE_ALGO, LAND_PURCHASE_ALGO_ACTIVE[biome] ?? MIN_LAND_PRICE_ALGO);
+}
+
 // ─── Commander Mint Prices ────────────────────────────────────────────────────
 // Primary currency: FRNTR (in-game). No ALGO game-level charge for commanders.
 // The minimal Algorand network fee (~0.001 ALGO) is the only on-chain cost

@@ -7,8 +7,8 @@ import { storage } from "./storage";
 import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimFrontierActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, terraformActionSchema } from "@shared/schema";
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
-import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable, plotPurchases as plotPurchasesTable, plotPurchasePrepare as plotPurchasePrepareTable } from "./db-schema";
+import { eq, sql, desc, and } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import rateLimit from "express-rate-limit";
 
@@ -29,8 +29,10 @@ import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./world
 // Routes import ONLY from the service layer — never from algosdk directly.
 import { getFrontierAsaId, getOrCreateFrontierAsa, isAddressOptedIn, setFrontierAsaId, batchedTransferFrontierAsa, clawbackFrontierAsa } from "./services/chain/asa";
 import { enqueueFrontierTransfer } from "./services/chain/transferQueue";
-import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient } from "./services/chain/client";
+import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient, getNetwork } from "./services/chain/client";
 import { mintLandNft, transferLandNft, attemptDelivery } from "./services/chain/land";
+import { buildPlotPurchaseGroup, submitPlotPurchaseGroup } from "./services/chain/plot-purchase-group";
+import { requireMintBaseUrl } from "./lib/public-base-url";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
 import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment, attemptCommanderDelivery } from "./services/chain/commander";
 import {
@@ -51,10 +53,30 @@ import {
   COMMANDER_ALGO_NETWORK_FEE,
   COMMANDER_ALGO_PRICE_ACTIVE,
   LAND_PURCHASE_ALGO_ACTIVE,
+  landPriceFloorAlgo,
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit } from "./security";
+import { enumerationLimiter, authLimiter, clampLimit, safeEqual } from "./security";
+import {
+  requireAdmin,
+  getAdminByUsername,
+  getAdminById,
+  verifyPassword,
+  registerFailedLogin,
+  clearFailedLogin,
+  markLoginSuccess,
+  issueOtp,
+  verifyOtp,
+  signPendingToken,
+  verifyPendingToken,
+  signAdminSession,
+  setAdminCookie,
+  clearAdminCookie,
+  getAdminAuth,
+  DUMMY_PASSWORD_HASH,
+} from "./adminAuth";
+import { sendSms, maskPhone } from "./services/sms";
 import {
   getAuth,
   isWalletAuthRequired,
@@ -341,6 +363,99 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // ── Admin login (username + password + SMS 2FA) ──────────────────────────────
+  // Public endpoints (they ARE the gate). Rate-limited to blunt brute force.
+  app.use(["/api/admin/login", "/api/admin/2fa"], authLimiter);
+
+  // Step 1: password → issue a short-lived pending-2FA token + SMS a 6-digit code.
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const { username, password } = req.body ?? {};
+      if (!username || !password || typeof username !== "string" || typeof password !== "string") {
+        return res.status(400).json({ error: "Username and password are required." });
+      }
+      if (username.length > 64 || password.length > 256) {
+        return res.status(400).json({ error: "Username or password too long." });
+      }
+      const admin = await getAdminByUsername(username);
+      const now = Date.now();
+      // Constant-time verify whether or not the user exists (no username enumeration).
+      const ok = verifyPassword(password, admin?.passwordHash ?? DUMMY_PASSWORD_HASH);
+      if (!admin || !ok) {
+        // Fire-and-forget so an existing-user attempt isn't slower than a no-user one
+        // (the extra UPDATE would otherwise be a timing oracle).
+        if (admin) void registerFailedLogin(admin.id, admin.failedAttempts).catch(() => {});
+        return res.status(401).json({ error: "Invalid username or password." });
+      }
+      // Password is correct — only NOW reveal a lockout (to the real owner, who
+      // already proved the password, so this leaks nothing to an enumerator).
+      if (admin.lockedUntil > now) {
+        return res.status(423).json({ error: "Account temporarily locked after too many attempts. Try again later." });
+      }
+      await clearFailedLogin(admin.id);
+
+      const pendingToken = signPendingToken(admin.id);
+      const code = await issueOtp(admin.id);
+      const sms = await sendSms(admin.phone, `Your FRONTIER admin code is ${code}. It expires in 5 minutes.`);
+      if (sms.delivery === "failed") {
+        return res.status(502).json({ error: "Could not send the 2FA code. Contact the operator / check SMS config." });
+      }
+      return res.json({
+        success: true,
+        pendingToken,
+        twoFactor: { sentTo: maskPhone(admin.phone), delivery: sms.delivery },
+        // Dev-only convenience when no SMS provider is configured (never in prod).
+        devCode: (process.env.NODE_ENV !== "production" && sms.delivery === "console") ? code : undefined,
+      });
+    } catch (err) {
+      console.error("[admin/login] error:", err);
+      return res.status(500).json({ error: "Login failed." });
+    }
+  });
+
+  // Step 2: pending token + SMS code → issue an admin session.
+  app.post("/api/admin/2fa", async (req, res) => {
+    try {
+      const { pendingToken, code } = req.body ?? {};
+      if (!pendingToken || !code) {
+        return res.status(400).json({ error: "pendingToken and code are required." });
+      }
+      const pending = verifyPendingToken(String(pendingToken));
+      if (!pending) {
+        return res.status(401).json({ error: "Your login session expired — please start again." });
+      }
+      if (!(await verifyOtp(pending.adminId, String(code)))) {
+        // Count failed codes toward the SAME account lockout as password failures,
+        // so a holder of the password can't grind codes across re-issues.
+        const a = await getAdminById(pending.adminId);
+        if (a) void registerFailedLogin(a.id, a.failedAttempts).catch(() => {});
+        return res.status(401).json({ error: "Invalid or expired code." });
+      }
+      const admin = await getAdminById(pending.adminId);
+      if (!admin) {
+        return res.status(401).json({ error: "Admin account not found." });
+      }
+      await markLoginSuccess(admin.id);
+      const token = signAdminSession(admin.id, admin.username);
+      setAdminCookie(res, token);
+      return res.json({ success: true, token, admin: { username: admin.username } });
+    } catch (err) {
+      console.error("[admin/2fa] error:", err);
+      return res.status(500).json({ error: "Verification failed." });
+    }
+  });
+
+  app.get("/api/admin/session", (req, res) => {
+    const a = getAdminAuth(req);
+    if (!a) return res.status(401).json({ authenticated: false });
+    return res.json({ authenticated: true, username: a.username });
+  });
+
+  app.post("/api/admin/logout", (_req, res) => {
+    clearAdminCookie(res);
+    return res.json({ success: true });
+  });
+
   // ── Global ownership guard for mutating game endpoints ───────────────────────
   // Single chokepoint: every state-changing game route requires a verified
   // wallet session (when enforced), and any player-identity field in the body
@@ -392,7 +507,7 @@ export async function registerRoutes(
       // here; this is an additive field on an otherwise-public endpoint).
       if (process.env.ADMIN_KEY) {
         const headerKey = req.headers["x-admin-key"];
-        if (typeof headerKey === "string" && headerKey === process.env.ADMIN_KEY) {
+        if (typeof headerKey === "string" && safeEqual(headerKey, process.env.ADMIN_KEY)) {
           const balance = await getAdminBalance();
           body.adminAlgoBalance = balance.algo;
           body.adminFrontierBalance = balance.frontierAsa;
@@ -793,6 +908,31 @@ export async function registerRoutes(
 
   app.get("/nft/images/commander/:tier", serveCommanderImage);
   app.get("/nft/commanders/:tier", serveCommanderImage);
+
+  // ── Plot Biome NFT Image Serving ────────────────────────────────────────────
+  // Serves biome PNGs as stable public URLs baked into on-chain plot ASA metadata
+  // (see /nft/metadata/:plotId `image`). An EXPLICIT, allowlisted route — not the
+  // SPA/static fallback — so an unknown biome returns a clean 404 instead of 200
+  // HTML, path traversal is impossible, and the image resolves identically in dev
+  // (no vite dependency) and production.
+  const VALID_BIOMES = new Set([
+    "forest", "plains", "mountain", "desert", "water", "tundra", "volcanic", "swamp",
+  ]);
+
+  const serveBiomeImage = (req: any, res: any) => {
+    const biome = req.params.biome?.replace(/\.png$/, "");
+    if (!biome || !VALID_BIOMES.has(biome)) return res.status(404).json({ error: "Unknown biome" });
+    const filePath = path.resolve(process.cwd(), "client", "public", "nft", "biomes", `${biome}.png`);
+    res.setHeader("Content-Type", "image/png");
+    // Not `immutable`: the biome→image mapping in metadata is intentionally dynamic
+    // (terraform), and biome art may be refreshed — 1 day lets caches pick that up.
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.sendFile(filePath, (err: any) => {
+      if (err && !res.headersSent) res.status(404).json({ error: "Image not found" });
+    });
+  };
+
+  app.get("/nft/biomes/:biome", serveBiomeImage);
 
   // ── Commander NFT Metadata (ARC-3) ──────────────────────────────────────────
   // GET /nft/metadata/commander/:commanderId
@@ -1570,7 +1710,14 @@ export async function registerRoutes(
       const selectedParcel = await storage.getParcel(action.parcelId);
       if (!selectedParcel) return res.status(404).json({ error: "Parcel not found" });
 
-      const expectedMicroAlgos = Math.round((selectedParcel.purchasePriceAlgo ?? 0) * 1_000_000);
+      // C2: server-authoritative price with a hard per-biome floor. Reject
+      // null / <= 0 / below-floor — NEVER `?? 0` (a 0 floor lets a dust payment buy).
+      const priceAlgo = selectedParcel.purchasePriceAlgo;
+      const floorAlgo = landPriceFloorAlgo(selectedParcel.biome);
+      if (priceAlgo == null || priceAlgo <= 0 || priceAlgo < floorAlgo) {
+        return res.status(400).json({ error: "Plot is not for sale or its price is invalid." });
+      }
+      const expectedMicroAlgos = Math.round(priceAlgo * 1_000_000);
 
       try {
         await verifyAlgoPayment({
@@ -1717,6 +1864,320 @@ export async function registerRoutes(
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Purchase failed" });
+    }
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ATOMIC PLOT PURCHASE (one-signature, no paid-but-undelivered seam)
+  //
+  //   POST /api/actions/purchase/prepare  → server pre-mints the plot ASA (locked),
+  //       builds the 3-txn atomic group, admin pre-signs txn2 (server-held), and
+  //       returns the 3 UNSIGNED txns. Client signs indexes [0,1] in one approval.
+  //   POST /api/actions/purchase/submit   → server validates the client txns by
+  //       txID, splices its admin signature, submits atomically, waits for ALGOD
+  //       confirmation, and records delivery idempotently (C1 = payment txid PK).
+  //
+  // Replaces the legacy pay-then-deliver-later flow (/api/actions/purchase +
+  // /api/nft/deliver). See HARD RULES in CLAUDE.md.
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Ensure the plot's 1-of-1 ASA exists in admin custody, minting it once even
+   * under concurrent /prepare calls. The "right to mint" is claimed via an atomic
+   * sentinel (INSERT … ON CONFLICT DO NOTHING, winner by rowcount); the slow
+   * on-chain mint then runs OUTSIDE any held DB lock. Losers poll for the result.
+   */
+  const ensurePlotAsaMinted = async (plotId: number): Promise<{ assetId: number }> => {
+    if (!db) throw new Error("Database not available");
+
+    // Fast path: already minted.
+    const fast = await db.select().from(plotNftsTable).where(eq(plotNftsTable.plotId, plotId));
+    if (fast[0]?.assetId) return { assetId: fast[0].assetId };
+
+    // Acquire the mint right: fresh sentinel, or reclaim a previously-failed one.
+    const key = `mint:plot:${plotId}`;
+    const now = Date.now();
+    const inserted = await db.insert(mintIdempotencyTable)
+      .values({ key, status: "pending", assetId: null, txId: null, createdAt: now, updatedAt: now })
+      .onConflictDoNothing()
+      .returning({ key: mintIdempotencyTable.key });
+    let holdMintRight = inserted.length > 0;
+
+    if (!holdMintRight) {
+      const reclaimed = await db.update(mintIdempotencyTable)
+        .set({ status: "pending", updatedAt: Date.now() })
+        .where(and(eq(mintIdempotencyTable.key, key), eq(mintIdempotencyTable.status, "failed")))
+        .returning({ key: mintIdempotencyTable.key });
+      holdMintRight = reclaimed.length > 0;
+    }
+
+    if (!holdMintRight) {
+      // Another request is minting — poll for its result (~20s max).
+      for (let i = 0; i < 40 && !holdMintRight; i++) {
+        await new Promise<void>((r) => setTimeout(r, 500));
+        const [row] = await db.select().from(plotNftsTable).where(eq(plotNftsTable.plotId, plotId));
+        if (row?.assetId) return { assetId: row.assetId };
+        const [sent] = await db.select().from(mintIdempotencyTable).where(eq(mintIdempotencyTable.key, key));
+        if (sent?.status === "confirmed" && sent.assetId) return { assetId: sent.assetId };
+        if (sent?.status === "failed") {
+          const reclaim = await db.update(mintIdempotencyTable)
+            .set({ status: "pending", updatedAt: Date.now() })
+            .where(and(eq(mintIdempotencyTable.key, key), eq(mintIdempotencyTable.status, "failed")))
+            .returning({ key: mintIdempotencyTable.key });
+          if (reclaim.length > 0) holdMintRight = true;
+        }
+      }
+      if (!holdMintRight) {
+        throw new Error(`Plot ASA mint is in progress for plot ${plotId}; please retry shortly.`);
+      }
+    }
+
+    // We hold the mint right → mint OUTSIDE any held DB lock.
+    try {
+      const baseUrl = requireMintBaseUrl(getNetwork());
+      const result = await mintLandNft({ plotId, receiverAddress: getAdminAddress(), metadataBaseUrl: baseUrl });
+      await db.insert(plotNftsTable)
+        .values({ plotId, assetId: result.assetId, mintedToAddress: result.mintedToAddress, mintedAt: Date.now() })
+        .onConflictDoUpdate({
+          target: plotNftsTable.plotId,
+          set: { assetId: result.assetId, mintedToAddress: result.mintedToAddress, mintedAt: Date.now() },
+        });
+      await db.update(mintIdempotencyTable)
+        .set({ status: "confirmed", assetId: result.assetId, txId: result.createTxId, updatedAt: Date.now() })
+        .where(eq(mintIdempotencyTable.key, key));
+      console.log(`[purchase/ensure-mint] plot=${plotId} minted asset=${result.assetId}`);
+      return { assetId: result.assetId };
+    } catch (err) {
+      await db.update(mintIdempotencyTable)
+        .set({ status: "failed", updatedAt: Date.now() })
+        .where(eq(mintIdempotencyTable.key, key));
+      throw err;
+    }
+  };
+
+  app.post("/api/actions/purchase/prepare", async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: "Database not available" });
+
+      const verifiedId = await assertPlayerOwnership(req, res);
+      if (!verifiedId) return;
+
+      const player = await storage.getPlayer(verifiedId);
+      if (!player) return res.status(404).json({ error: "Player not found" });
+
+      const buyerAddress = player.address;
+      if (
+        !buyerAddress ||
+        buyerAddress === "PLAYER_WALLET" ||
+        buyerAddress.startsWith("AI_") ||
+        !algosdk.isValidAddress(buyerAddress)
+      ) {
+        return res.status(403).json({ error: "A connected Algorand wallet is required to purchase territory." });
+      }
+
+      const parcelId: string = req.body?.parcelId;
+      if (!parcelId || typeof parcelId !== "string") {
+        return res.status(400).json({ error: "parcelId is required." });
+      }
+
+      const parcel = await storage.getParcel(parcelId);
+      if (!parcel) return res.status(404).json({ error: "Parcel not found" });
+      if (parcel.ownerId) return res.status(409).json({ error: "Territory is already owned." });
+
+      // C2: server-authoritative price with a hard per-biome floor.
+      const priceAlgo = parcel.purchasePriceAlgo;
+      const floorAlgo = landPriceFloorAlgo(parcel.biome);
+      if (priceAlgo == null || priceAlgo <= 0 || priceAlgo < floorAlgo) {
+        return res.status(400).json({ error: "Plot is not for sale or its price is invalid." });
+      }
+      const priceMicroAlgo = Math.round(priceAlgo * 1_000_000);
+
+      // Pre-mint the plot ASA (admin custody), serialized per-plot.
+      const { assetId } = await ensurePlotAsaMinted(parcel.plotId);
+
+      // Build the atomic group; admin pre-signs txn2 (held server-side only).
+      const group = await buildPlotPurchaseGroup({
+        plotId: parcel.plotId,
+        assetId,
+        buyerAddress,
+        priceMicroAlgo,
+      });
+
+      const prepareId = crypto.randomUUID();
+      const now = Date.now();
+      await db.insert(plotPurchasePrepareTable).values({
+        prepareId,
+        plotId: parcel.plotId,
+        parcelId,
+        playerId: verifiedId,
+        buyerAddress,
+        assetId,
+        priceAlgo,
+        priceMicroAlgo,
+        paymentTxId: group.paymentTxId,
+        optInTxId: group.optInTxId,
+        deliveryTxId: group.deliveryTxId,
+        txn0Unsigned: group.txn0Unsigned,
+        txn1Unsigned: group.txn1Unsigned,
+        txn2Unsigned: group.txn2Unsigned,
+        txn2AdminSigned: group.txn2AdminSigned,
+        firstValid: group.firstValid,
+        lastValid: group.lastValid,
+        status: "prepared",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      console.log(`[purchase/prepare] prepareId=${prepareId} plot=${parcel.plotId} asset=${assetId} buyer=${buyerAddress} price=${priceAlgo}ALGO`);
+
+      // Return all THREE unsigned txns; the client signs indexes [0,1] only.
+      return res.json({
+        prepareId,
+        assetId,
+        priceAlgo,
+        priceMicroAlgo,
+        signIndexes: [0, 1],
+        txns: [group.txn0Unsigned, group.txn1Unsigned, group.txn2Unsigned],
+      });
+    } catch (error) {
+      console.error("[purchase/prepare] error:", error);
+      return res.status(400).json({ error: error instanceof Error ? error.message : "Failed to prepare purchase" });
+    }
+  });
+
+  app.post("/api/actions/purchase/submit", async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: "Database not available" });
+
+      const verifiedId = await assertPlayerOwnership(req, res);
+      if (!verifiedId) return;
+
+      const prepareId: string = req.body?.prepareId;
+      const signedTxns: unknown = req.body?.signedTxns;
+      if (!prepareId || !Array.isArray(signedTxns) || signedTxns.length < 2) {
+        return res.status(400).json({ error: "prepareId and signedTxns[0,1] are required." });
+      }
+
+      const [prep] = await db.select().from(plotPurchasePrepareTable).where(eq(plotPurchasePrepareTable.prepareId, prepareId));
+      if (!prep) return res.status(404).json({ error: "Purchase preparation not found or expired." });
+      if (prep.playerId !== verifiedId) {
+        return res.status(403).json({ error: "This preparation belongs to another player." });
+      }
+
+      // Idempotent: a prepare already submitted returns success without re-submitting.
+      if (prep.status === "submitted") {
+        return res.json({
+          success: true,
+          alreadySubmitted: true,
+          plotId: prep.plotId,
+          assetId: prep.assetId,
+          paymentTxId: prep.paymentTxId,
+          deliveryTxId: prep.deliveryTxId,
+        });
+      }
+
+      // Submit on-chain: validates client txn0/txn1 by txID, splices the
+      // server-held admin signature for txn2, idempotent on already-in-ledger.
+      let submitRes;
+      try {
+        submitRes = await submitPlotPurchaseGroup({
+          signedTxn0: String(signedTxns[0]),
+          signedTxn1: String(signedTxns[1]),
+          txn2AdminSigned: prep.txn2AdminSigned,
+          expectedPaymentTxId: prep.paymentTxId,
+          expectedOptInTxId: prep.optInTxId,
+        });
+      } catch (err) {
+        console.error(`[purchase/submit] on-chain submit failed prepareId=${prepareId}:`, err);
+        await db.update(plotPurchasePrepareTable)
+          .set({ status: "failed", updatedAt: Date.now() })
+          .where(eq(plotPurchasePrepareTable.prepareId, prepareId))
+          .catch(() => {});
+        return res.status(402).json({
+          error: "Purchase transaction could not be confirmed on-chain. Your funds were not taken — please retry.",
+        });
+      }
+
+      // On-chain succeeded (irreversible). Persist ALL DB effects in ONE tx,
+      // idempotently — never throw on a re-run.
+      const now = Date.now();
+      await db.transaction(async (tx) => {
+        // C1: payment txid is the PRIMARY KEY → at most one purchase per payment.
+        await tx.insert(plotPurchasesTable).values({
+          paymentTxId: prep.paymentTxId,
+          plotId: prep.plotId,
+          parcelId: prep.parcelId,
+          playerId: prep.playerId,
+          assetId: prep.assetId,
+          priceAlgo: prep.priceAlgo,
+          deliveryTxId: prep.deliveryTxId,
+          status: "delivered",
+          createdAt: now,
+          updatedAt: now,
+        }).onConflictDoNothing();
+
+        // Claim ownership idempotently. Lock the parcel row first.
+        const [parcelRow] = await tx.select().from(parcelsTable).where(eq(parcelsTable.id, prep.parcelId)).for("update");
+        if (parcelRow && !parcelRow.ownerId) {
+          const [playerRow] = await tx.select().from(playersTable).where(eq(playersTable.id, prep.playerId));
+          const ownerType = playerRow?.isAi ? "ai" : "player";
+          await tx.update(parcelsTable)
+            .set({ ownerId: prep.playerId, ownerType, purchasePriceAlgo: null, lastFrontierClaimTs: now })
+            .where(eq(parcelsTable.id, prep.parcelId));
+          if (playerRow) {
+            await tx.update(playersTable)
+              .set({ territoriesCaptured: (playerRow.territoriesCaptured ?? 0) + 1 })
+              .where(eq(playersTable.id, prep.playerId));
+          }
+        } else if (parcelRow && parcelRow.ownerId !== prep.playerId) {
+          // The 1-of-1 ASA was delivered to this buyer, yet the parcel shows a
+          // different owner — should be impossible; flag for admin reconciliation.
+          console.error(`[CRITICAL] plot ${prep.plotId} delivered to ${prep.buyerAddress} but parcel owner=${parcelRow.ownerId}`);
+        }
+
+        // NFT now held by the buyer.
+        await tx.update(plotNftsTable)
+          .set({ mintedToAddress: prep.buyerAddress })
+          .where(eq(plotNftsTable.plotId, prep.plotId));
+
+        // Mark the preparation consumed.
+        await tx.update(plotPurchasePrepareTable)
+          .set({ status: "submitted", updatedAt: now })
+          .where(eq(plotPurchasePrepareTable.prepareId, prepareId));
+      });
+
+      console.log(`[purchase/submit] DELIVERED plot=${prep.plotId} asset=${prep.assetId} buyer=${prep.buyerAddress} payment=${prep.paymentTxId} delivery=${prep.deliveryTxId} alreadyInLedger=${submitRes.alreadyInLedger}`);
+
+      // World event (best-effort, non-blocking).
+      try {
+        const buyerForEvent = await storage.getPlayer(prep.playerId).catch(() => null);
+        const parcelForEvent = await storage.getParcel(prep.parcelId).catch(() => null);
+        if (parcelForEvent) {
+          appendWorldEvent({
+            type: "land_claimed",
+            timestamp: now,
+            lat: parcelForEvent.lat,
+            lng: parcelForEvent.lng,
+            plotId: prep.plotId,
+            playerId: prep.playerId,
+            severity: "medium",
+            metadata: { plotId: prep.plotId, playerName: buyerForEvent?.name ?? "Unknown", biome: parcelForEvent.biome },
+          });
+        }
+      } catch { /* non-blocking */ }
+      markDirty();
+
+      return res.json({
+        success: true,
+        plotId: prep.plotId,
+        assetId: prep.assetId,
+        paymentTxId: prep.paymentTxId,
+        deliveryTxId: prep.deliveryTxId,
+        confirmedRound: submitRes.confirmedRound,
+      });
+    } catch (error) {
+      console.error("[purchase/submit] error:", error);
+      return res.status(400).json({ error: error instanceof Error ? error.message : "Failed to submit purchase" });
     }
   });
 
@@ -2147,7 +2608,7 @@ export async function registerRoutes(
   // would be captured by access logs).
 
   app.post("/api/game/resolve-battles", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     try {
       const resolved = await storage.resolveBattles();
       res.json({ success: true, resolved });
@@ -2157,7 +2618,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/game/ai-turn", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     try {
       const events = await storage.runAITurn();
       res.json({ success: true, events });
@@ -2169,7 +2630,7 @@ export async function registerRoutes(
   // ── Testnet Reset ─────────────────────────────────────────────────────────
   // Wipe all game data and re-seed from scratch. Testnet only.
   app.post("/api/game/reset", async (_req, res) => {
-    if (!requireAdminKey(_req, res)) return;
+    if (!requireAdmin(_req, res)) return;
     try {
       console.log("[RESET] Wiping game data for testnet reset…");
       // Clear all tables in dependency order
@@ -2605,7 +3066,7 @@ export async function registerRoutes(
 
   // Admin-only routes
   app.post("/api/admin/markets", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     try {
       const parsed = createMarketSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -2621,7 +3082,7 @@ export async function registerRoutes(
   // always DERIVED from the market's immutable source. Admin can nudge the timer but
   // cannot choose a winner. Returns "Not yet resolvable" until the fact is knowable.
   app.post("/api/admin/markets/:id/resolve", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     try {
       const result = await withDbRetry(() => storage.resolveMarketTrustlessly(req.params.id), "resolveMarketTrustlessly");
       if ("error" in result) return res.status(400).json({ error: result.error });
@@ -2633,7 +3094,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/mint-status/:plotId", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
 
     const plotId = parseInt(req.params.plotId, 10);
     if (isNaN(plotId)) {
@@ -3105,7 +3566,7 @@ export async function registerRoutes(
 
   /** GET /api/admin/metrics — per-route timing diagnostics (admin-gated) */
   app.get("/api/admin/metrics", (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     const routes = Object.entries(_apiRouteTimings)
       .filter(([, s]) => s.count > 0)
       .map(([route, s]) => ({
@@ -3121,7 +3582,7 @@ export async function registerRoutes(
 
   /** GET /api/admin/battles-live — currently pending battles */
   app.get("/api/admin/battles-live", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     try {
       const pending = await db.select()
         .from(battlesTable)
@@ -3159,7 +3620,7 @@ export async function registerRoutes(
 
   /** GET /api/admin/ai-activity — AI faction status + last action per faction */
   app.get("/api/admin/ai-activity", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     try {
       const factionRows = await db
         .select()
@@ -3211,7 +3672,7 @@ export async function registerRoutes(
 
   /** POST /api/admin/season/start — start a new season (admin only) */
   app.post("/api/admin/season/start", async (req, res) => {
-    if (!requireAdminKey(req, res)) return;
+    if (!requireAdmin(req, res)) return;
     const { name, daysLen } = req.body;
     if (!name) return res.status(400).json({ error: "name required" });
     try {
@@ -3226,7 +3687,7 @@ export async function registerRoutes(
 
   /** POST /api/admin/season/settle — settle the current season */
   app.post("/api/admin/season/settle", async (_req, res) => {
-    if (!requireAdminKey(_req, res)) return;
+    if (!requireAdmin(_req, res)) return;
     try {
       const season = await storage.settleCurrentSeason();
       if (!season) return res.status(404).json({ error: "No active season to settle" });
@@ -3245,7 +3706,7 @@ export async function registerRoutes(
    * Protected by ADMIN_KEY when set; open otherwise (useful for deploy probes).
    */
   app.get("/api/admin/status", async (_req, res) => {
-    if (!requireAdminKey(_req, res)) return;
+    if (!requireAdmin(_req, res)) return;
 
     const startedAt = process.hrtime.bigint();
 

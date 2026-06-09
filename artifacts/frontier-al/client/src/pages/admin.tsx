@@ -1,42 +1,18 @@
 /**
  * Admin dashboard — operational monitoring + safe control surface.
  *
- * Consumes the existing ADMIN_KEY-gated endpoints. The key is entered once and
- * kept in sessionStorage (cleared when the tab closes, not shared across tabs),
- * sent as the `x-admin-key` header on every request.
- *
- * NOTE: sessionStorage is still readable by injected scripts. The proper
- * hardening is a server-side admin session (httpOnly cookie) — tracked under
- * feature/admin-dashboard follow-ups in ROADMAP_90DAY.md.
+ * Gated by a real admin login (username + password + SMS 2FA, see
+ * server/adminAuth.ts). On success the server sets an httpOnly admin session
+ * cookie and returns a bearer token; requests go through adminFetch
+ * (@/lib/adminSession). Unauthenticated → the <AdminLogin/> screen.
  */
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-
-const KEY_STORAGE = "ascendancy_admin_key";
-
-function useAdminKey() {
-  const [key, setKeyState] = useState<string>(() => sessionStorage.getItem(KEY_STORAGE) ?? "");
-  const setKey = (k: string) => {
-    sessionStorage.setItem(KEY_STORAGE, k);
-    setKeyState(k);
-  };
-  const clearKey = () => {
-    sessionStorage.removeItem(KEY_STORAGE);
-    setKeyState("");
-  };
-  return { key, setKey, clearKey };
-}
-
-function adminFetch(path: string, key: string, init?: RequestInit) {
-  return fetch(path, {
-    ...init,
-    headers: { ...(init?.headers ?? {}), "x-admin-key": key, "content-type": "application/json" },
-  });
-}
+import { adminFetch, clearAdminToken } from "@/lib/adminSession";
+import AdminLogin from "./admin-login";
 
 function Panel({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
@@ -60,18 +36,28 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
 }
 
 export default function AdminDashboard() {
-  const { key, setKey, clearKey } = useAdminKey();
-  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-  const enabled = key.length > 0;
+  // Admin session check drives the login gate. 401 → show <AdminLogin/>.
+  const session = useQuery<{ authenticated: boolean; username?: string }>({
+    queryKey: ["/api/admin/session"],
+    queryFn: async () => {
+      const r = await adminFetch("/api/admin/session");
+      if (r.status === 401) return { authenticated: false };
+      if (!r.ok) throw new Error(`session check failed (${r.status})`);
+      return r.json();
+    },
+    refetchOnWindowFocus: false,
+  });
+  const enabled = session.data?.authenticated === true;
+
   const q = <T,>(name: string, path: string, refetchInterval = 10_000) =>
     useQuery<T>({
-      queryKey: [path, key],
+      queryKey: [path],
       queryFn: async () => {
-        const r = await adminFetch(path, key);
-        if (r.status === 403) throw new Error("Invalid admin key");
+        const r = await adminFetch(path);
+        if (r.status === 401 || r.status === 403) throw new Error("Not authorized");
         if (!r.ok) throw new Error(`${name} unavailable (${r.status})`);
         return r.json();
       },
@@ -91,7 +77,7 @@ export default function AdminDashboard() {
       setBusy(label);
       setActionMsg(null);
       try {
-        const r = await adminFetch(path, key, { method: "POST", body: "{}" });
+        const r = await adminFetch(path, { method: "POST", body: "{}" });
         const data = await r.json().catch(() => ({}));
         setActionMsg(r.ok ? `${label}: ok` : `${label}: ${data?.error ?? r.status}`);
       } catch (e) {
@@ -100,29 +86,24 @@ export default function AdminDashboard() {
         setBusy(null);
       }
     },
-    [key],
+    [],
   );
 
-  if (!enabled) {
+  const logout = useCallback(async () => {
+    try { await adminFetch("/api/admin/logout", { method: "POST" }); } catch { /* ignore */ }
+    clearAdminToken();
+    session.refetch();
+  }, [session]);
+
+  if (session.isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Card className="p-6 w-full max-w-sm space-y-3">
-          <h1 className="font-display text-lg uppercase tracking-widest text-primary">Admin Access</h1>
-          <p className="text-xs text-muted-foreground">Enter the ADMIN_KEY to view operations.</p>
-          <Input
-            type="password"
-            placeholder="ADMIN_KEY"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && draft && setKey(draft)}
-            data-testid="input-admin-key"
-          />
-          <Button className="w-full font-display uppercase" disabled={!draft} onClick={() => setKey(draft)}>
-            Unlock
-          </Button>
-        </Card>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-xs font-mono text-muted-foreground">Checking session…</p>
       </div>
     );
+  }
+  if (!enabled) {
+    return <AdminLogin onAuthed={() => session.refetch()} />;
   }
 
   const network = status.data?.algorand?.network ?? "—";
@@ -134,7 +115,7 @@ export default function AdminDashboard() {
         <h1 className="font-display text-xl uppercase tracking-widest text-primary">Ascendancy Ops</h1>
         <div className="flex items-center gap-2">
           <Badge variant={isMainnet ? "destructive" : "secondary"} className="font-mono">{String(network)}</Badge>
-          <Button variant="outline" size="sm" onClick={clearKey} className="font-display uppercase text-[10px]">Lock</Button>
+          <Button variant="outline" size="sm" onClick={logout} className="font-display uppercase text-[10px]">Lock</Button>
         </div>
       </header>
 

@@ -1,201 +1,47 @@
-# CLAUDE.md
-# Agent Context + Token Efficiency Rules
-
-This repository powers a large-scale strategy game with a 3D planetary map, parcel system, AI factions, and blockchain interactions.
-
-Efficient context usage is critical.
-
-Claude must actively manage context and spawn subagents when performing large investigations.
-
----
-
-# Core Principle
-
-Context is the most valuable resource.
-
-Every unnecessary file read wastes tokens.
-
-Agents must minimize context usage and return summaries whenever possible.
-
----
-
-# Default Agent Behavior
-
-Claude should **spawn subagents automatically** when:
-
-• Reading more than 3 files  
-• Investigating architecture  
-• Performing codebase exploration  
-• Debugging systems  
-• Reviewing code patterns  
-• Running research tasks  
-• Producing large analysis output  
-
-Subagents should:
-
-• read files in isolation  
-• inspect architecture  
-• summarize results  
-• return concise conclusions  
-
----
-
-# Stay in Main Context For
-
-Claude should **NOT spawn subagents** when:
-
-• Directly editing a file the user requested  
-• Reading 1–2 files only  
-• Performing quick clarifications  
-• Writing implementation code the user must see  
-
----
-
-# Decision Rule
-
-If a task will:
-
-• read more than 3 files  
-• scan architecture  
-• generate long analysis  
-
-→ spawn a subagent and return a **summary only**
-
----
-
-# Token Efficiency Rules
-
-Claude must minimize token usage.
-
-Always follow:
-
-1. Prefer short explanations
-2. Use bullet points instead of paragraphs
-3. Avoid repeating code already shown
-4. Avoid scanning the entire repo
-5. Only read necessary files
-6. Return summaries when possible
-7. Avoid verbose reasoning unless asked
-8. Prefer full file replacements over large diffs
-9. Do not output unnecessary narrative text
-10. Ask before performing large repo analysis
-
----
-
-# Communication Style
-
-Claude responses should be:
-
-• concise  
-• structured  
-• direct  
-• minimal filler  
-
-Prefer:
-
-✔ bullet lists  
-✔ short summaries  
-✔ code blocks  
-
-Avoid:
-
-✖ long essays  
-✖ repeated explanations  
-✖ verbose reasoning  
-
----
-
-# Code Generation Rules
-
-When modifying files:
-
-• Prefer complete file outputs  
-• Avoid fragmented patches  
-• Ensure code compiles  
-• Maintain modular architecture  
-• Do not refactor unrelated systems  
-
----
-
-# Investigation Workflow
-
-When investigating a system:
-
-1. Spawn subagent
-2. Let agent explore files
-3. Return concise summary including:
-
-• relevant files  
-• architecture overview  
-• issues found  
-• recommended fix  
-
----
-
-# Rule of Thumb
-
-If a task requires:
-
-• reading many files
-• understanding architecture
-• investigating behavior
-
-→ spawn subagent
-
-If the user must see implementation steps
-
-→ stay in main context
-
----
-
-# Expected Outcome
-
-This system should:
-
-• reduce token usage
-• prevent unnecessary file scanning
-• improve code clarity
-• allow efficient architecture exploration
-
----
-
-# Session Notes
-
-> Session logs are stored in [`session-notes/`](session-notes/). See [session-notes/README.md](session-notes/README.md) for the full index.
->
-> Claude must create a new dated file in `session-notes/` at the end of each session instead of appending here.
-
----
-
-# Session close-out workflow (security / feature passes)
-
-How to wrap up and merge a unit of work. Established across the 2026-06-07
-security audit (see `docs/audit/` + `session-notes/`).
-
-**Develop**
-- Work on the designated feature branch (e.g. `claude/security-audit-*`). Never commit straight to `main`.
-- Centralize cross-cutting logic in small modules (e.g. `server/security.ts`, `server/auth.ts`, `server/rateLimitStore.ts`) rather than scattering it.
-
-**Verify BEFORE closing — all must be green:**
-1. `pnpm run check` (tsc)
-2. `pnpm run test:server`
-3. `pnpm run build` (Vite + esbuild)
-- Add unit tests for new logic; for middleware/security wiring add a throwaway `tsx` HTTP/WS integration test (mount the real handler, assert status codes), since the suite is single-process.
-
-**Document** (same commit): update `ENV_VARS.md` + `docs/DEPLOYMENT_ENV_CHECKLIST.md`, the audit report in `docs/audit/`, and a dated `session-notes/` file.
-
-**Merge to main (no-ff, from the real remote head):**
-```
-git fetch origin main
-git checkout main && git reset --hard origin/main   # local main ref is often stale
-git merge --no-ff <feature-branch> -m "Merge …"
-git push origin main                                  # retry w/ backoff on network errors
-git fetch origin main && verify local==origin
-```
-Always `reset --hard origin/main` first — skipping it produces a messy first-parent history.
-
-**When to close out**
-- Only after the three checks are green AND the merge is verified (`local main == origin/main`). Never merge on red.
-- For PR-watch / "babysit" tasks, the task isn't done until the PR is MERGED or CLOSED.
-- Secrets are never committed — document them in the env checklist; real values go in the host dashboard (Railway/Vercel), mnemonic in a secrets manager.
-
+# CLAUDE.md — FRONTIER (Algorand strategy game)
+
+Stable project facts and non-negotiable rules. Multi-step procedures live in
+skills, not here. Keep this concise.
+
+## Stack
+- **Client**: React 18 + Vite 7 + Three.js (react-three-fiber/drei), wouter, TanStack Query, Tailwind.
+- **Server**: Express 5 + TypeScript (run via `tsx`), Drizzle ORM + PostgreSQL, `algosdk`.
+- **Chain**: Algorand. No deployed TEAL — on-chain logic is admin-signed ASA create/transfer/clawback. FRONTIER/FRNTR ASA: total `1_000_000_000`, decimals `6`.
+- **Repo**: pnpm monorepo. This app is the `artifacts/frontier-al` package; the git repo root is `FRONTIERNeXt/`.
+
+## Layout
+- `server/` — Express API (`routes.ts`), auth (`auth.ts`, `adminAuth.ts`), security (`security.ts`), chain services (`server/services/chain/*`), economy (`treasury.ts`, `priceOracle.ts`).
+- `client/src/` — React app. Globe in `components/game/globe/`; pages in `pages/`; libs in `lib/`.
+- `shared/` — `schema.ts` (Drizzle + types), `economy-config.ts`, `fog.ts`.
+- `migrations/` — Drizzle SQL.
+
+## Commands (run from `artifacts/frontier-al`)
+- Install: `pnpm install` (pnpm only; run from repo root).
+- API server (`:5000`): `NODE_ENV=development node_modules/.bin/tsx server/index.ts` (auto-loads `.env`).
+- Client (`:3000`): `node_modules/.bin/vite --port 3000 --strictPort` → open http://localhost:3000.
+- Typecheck: `node_modules/.bin/tsc --noEmit`. Tests: `vitest run` (server: `vitest run --config vitest.server.config.ts`).
+- DB schema: `node_modules/.bin/drizzle-kit push` (needs `DATABASE_URL`). Build: `tsx script/build.ts`.
+
+## Run locally
+- DB: local Postgres `frontier`/`frontier`. `.env` holds `DATABASE_URL`, `SESSION_SECRET`, and a TestNet admin account.
+- Fund the TestNet admin (for on-chain ops): `algokit dispenser login` → `algokit dispenser fund -r <ADMIN_ADDRESS> -a 10 --whole-units`. On WSL this needs a keyring backend: `pipx inject algokit keyrings.alt` and `PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring`.
+- Boot straight into the globe (local testing only): set `VITE_TEST_GLOBE=true` in `.env`.
+- Admin dashboard: real login (username + password + SMS 2FA). Seed: `tsx server/scripts/seedAdmin.ts <user> <pass> <+E164phone>`. Set `TWILIO_*` for real SMS; in dev with no Twilio the code prints to the server console.
+
+## HARD RULES (non-negotiable)
+1. **Pricing is server-authoritative.** The server ALWAYS re-derives the plot price from the oracle (`server/services/priceOracle.ts` + `shared/economy-config.ts`). It NEVER trusts a client-sent amount. Verify the on-chain payment ≥ the server-computed price.
+2. **Payment finality via ALGOD, not the indexer.** Confirm payments with `algod` (`waitForConfirmation` / pending-txn-info). The indexer lags and caused paid-but-no-land 402s — never gate delivery on it.
+3. **Payment + plot delivery are atomic and idempotent.** Use the payment `txid` as the idempotency key. A retry must never double-deliver a plot or double-charge.
+4. **Auth and purchase are SEPARATE flows to SEPARATE endpoints.** Auth challenge note = `FRONTIER-AUTH:v1:<nonce>` → `/api/auth/verify`. Purchase txn note = `FRNTR:{…}` → `/api/actions/purchase`. Each endpoint validates its own note prefix; a note of one type must NEVER be accepted by the other endpoint.
+5. **Wallet signing is serialized.** Never run two wallet signs concurrently — overlap crosses the auth and purchase signatures and is the root cause of the recurring 401.
+
+## algo-auditor gate (MANDATORY)
+Invoke the **algo-auditor** subagent before commit/deploy on any change to: TEAL/PyTeal; ASA config (`server/services/chain/asa.ts`, `commander.ts`, `land.ts`, `factions.ts`); atomic groups (`asa.ts` batcher, `transferQueue.ts`); treasury/staking/pricing (`treasury.ts`, `priceOracle.ts`, `shared/economy-config.ts`, `server/storage/game-rules.ts`); or token supply/decimals. Subagents are NOT scheduled — invoke manually. Address CRITICAL/HIGH findings before shipping.
+
+## Plan-then-execute (economy / contracts / auth)
+Any change touching **economy, contracts, or auth** MUST use the **Plan agent first**: plan in one context → get user approval → execute in a fresh context. Do not edit these paths ad-hoc.
+
+## Conventions
+- TypeScript, ESM, many small files. Run `tsc --noEmit` before declaring work done.
+- Feature branches only; never commit straight to `main`. One feature per commit/PR.
+- Session logs: write a dated file in `session-notes/` at session end (see `session-notes/README.md`).

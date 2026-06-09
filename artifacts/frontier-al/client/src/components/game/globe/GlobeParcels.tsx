@@ -18,6 +18,8 @@ import {
   COLOR_BORDER_UNOWNED,
   COLOR_SUBDIVIDED,
   ARCHETYPE_COLORS,
+  FACTION_COLORS,
+  FACTION_COLOR_FALLBACK,
   FILL_SIZE,
   BORDER_SIZE,
   SUB_FILL_SIZE,
@@ -33,6 +35,8 @@ import {
   latLngToVec3,
   getPlotColor,
   getPlotSizeVariant,
+  ensureVisible,
+  satHashFloat,
   tangentFrame,
 } from "@/lib/globe/globeUtils";
 import { useVisualPrefs } from "@/hooks/useVisualPrefs";
@@ -47,7 +51,7 @@ interface PlotOverlayProps {
   onPlotSelect: (parcelId: string) => void;
 }
 
-export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSelect }: PlotOverlayProps) {
+export function PlotOverlay({ parcels, players, currentPlayerId, selectedPlotId, onPlotSelect }: PlotOverlayProps) {
   const fillMeshRef   = useRef<THREE.InstancedMesh>(null!);
   const borderMeshRef = useRef<THREE.InstancedMesh>(null!);
   const readyRef      = useRef(false);
@@ -67,6 +71,32 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     }),
     [prefs.territoryColor, prefs.enemyColor],
   );
+
+  // ownerId → faction colour, for AI-owned plots. AI players carry their faction
+  // as their `name` (NEXUS-7 / KRONOS / VANGUARD / SPECTRE), not playerFactionId.
+  const factionColorByOwnerId = useMemo(() => {
+    const m = new Map<string, THREE.Color>();
+    for (const p of players) {
+      if (p.isAI) m.set(p.id, FACTION_COLORS[p.name] ?? FACTION_COLOR_FALLBACK);
+    }
+    return m;
+  }, [players]);
+
+  // Base (non-selected/hover/battle) fill for a plot. AI territory gets its
+  // faction colour plus a subtle deterministic per-plot variation so a faction's
+  // holdings read as lived-in and alive rather than a flat block of one colour.
+  const resolveBaseFill = useCallback((parcel: LandParcel | undefined): THREE.Color => {
+    const aiFactionColor =
+      parcel?.ownerType === "ai" && parcel.ownerId
+        ? factionColorByOwnerId.get(parcel.ownerId) ?? null
+        : null;
+    const c = getPlotColor(parcel, currentPlayerId, customColors, aiFactionColor);
+    if (aiFactionColor && parcel) {
+      const variation = 0.84 + 0.32 * satHashFloat(parcel.id, 7); // 0.84–1.16
+      c.multiplyScalar(variation);
+    }
+    return c;
+  }, [factionColorByOwnerId, currentPlayerId, customColors]);
 
   const plotIdToParcel = useMemo(() => {
     const m = new Map<number, LandParcel>();
@@ -238,7 +268,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
-        fillColor = getPlotColor(parcel, currentPlayerId, customColors);
+        fillColor = resolveBaseFill(parcel);
       }
 
       // Your own plots get a breathing border-glow so ownership reads as motion,
@@ -259,6 +289,9 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor.multiplyScalar(FOG_DIM_HIDDEN);
         borderColor.multiplyScalar(FOG_DIM_HIDDEN);
       }
+
+      // No-black guarantee: fills always stay a visible colour (borders exempt).
+      ensureVisible(fillColor);
 
       const fillScale   = isSelected ? 1.12 : isHovered ? 1.06 : isOwned ? 1.0 : 0.85;
       const borderScale = isSelected ? 1.15 : isHovered ? 1.08 : isOwned ? 1.0 : 0.85;
@@ -303,7 +336,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
-        fillColor = getPlotColor(parcel, currentPlayerId, customColors);
+        fillColor = resolveBaseFill(parcel);
       }
 
       const borderColor = isOwned ? COLOR_BORDER_OWNED.clone() : COLOR_BORDER_UNOWNED.clone();
@@ -313,6 +346,9 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor.multiplyScalar(FOG_DIM_HIDDEN);
         borderColor.multiplyScalar(FOG_DIM_HIDDEN);
       }
+
+      // No-black guarantee: fills always stay a visible colour (borders exempt).
+      ensureVisible(fillColor);
 
       const fillScale   = isOwned ? 1.0 : 0.85;
       const borderScale = isOwned ? 1.0 : 0.85;
@@ -327,7 +363,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
     if (idToParcel.size > 0) readyRef.current = true;
   }, [plotVisualFingerprint, currentPlayerId, plotCoords,
-      fillPositions3D, borderPositions3D, fogVisibleSet]);
+      fillPositions3D, borderPositions3D, fogVisibleSet, resolveBaseFill]);
 
   const handlePointerMove = useCallback((e: any) => {
     const p = e.point as THREE.Vector3;

@@ -19,6 +19,7 @@
 import algosdk from "algosdk";
 import { getAlgodClient, getAdminAccount, getNetwork } from "./client";
 import { isAddressOptedIn } from "./asa";
+import { assertMintBaseUrlSafe } from "../../lib/public-base-url";
 import type { MintLandParams, TransferLandParams, MintResult, AssetId } from "./types";
 
 // ── Mint ──────────────────────────────────────────────────────────────────────
@@ -40,6 +41,10 @@ export async function mintLandNft(params: MintLandParams): Promise<MintResult> {
 
   // Strip trailing slash from metadata base URL to avoid double-slash in assetURL.
   const baseUrl = metadataBaseUrl.replace(/\/+$/, "");
+
+  // assetURL is IMMUTABLE once minted — never bake a localhost/non-public URL on
+  // mainnet (throws); warns on testnet/localnet (throwaway assets).
+  assertMintBaseUrlSafe(baseUrl, network);
 
   // ── Create the NFT ASA ─────────────────────────────────────────────────────
   const createSp = await algod.getTransactionParams().do();

@@ -151,6 +151,22 @@ export const players = pgTable("players", {
   darkMatterVault:      integer("dark_matter_vault").notNull().default(0),
 });
 
+// ─── admin_users ────────────────────────────────────────────────────────────────
+// Human admin accounts for the admin dashboard (separate from wallet players and
+// from the static ADMIN_KEY machine gate). Password is scrypt-hashed; phone is
+// E.164 for SMS 2FA. See server/adminAuth.ts.
+export const adminUsers = pgTable("admin_users", {
+  id:               varchar("id", { length: 36 }).primaryKey(),
+  username:         varchar("username", { length: 64 }).notNull().unique(),
+  passwordHash:     text("password_hash").notNull(),            // scrypt$N$salt$hash
+  phone:            varchar("phone", { length: 20 }).notNull(), // E.164, for SMS 2FA
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(true),
+  failedAttempts:   integer("failed_attempts").notNull().default(0),
+  lockedUntil:      bigint("locked_until", { mode: "number" }).notNull().default(0), // ms epoch
+  lastLoginAt:      bigint("last_login_at", { mode: "number" }),
+  createdAt:        bigint("created_at", { mode: "number" }).notNull().default(0),
+});
+
 // ─── parcels ──────────────────────────────────────────────────────────────────
 // One row per land plot (21,000 total).  x/y/z store the unit-sphere
 // cartesian coordinates derived from lat/lng at seed time.
@@ -548,3 +564,58 @@ export const pendingFrontierTransfers = pgTable(
 
 export type PendingFrontierTransferRow    = typeof pendingFrontierTransfers.$inferSelect;
 export type InsertPendingFrontierTransfer = typeof pendingFrontierTransfers.$inferInsert;
+
+// ─── plot_purchases ───────────────────────────────────────────────────────────
+// Purchase ledger: one row per confirmed plot payment, keyed by the on-chain
+// payment txid (PRIMARY KEY = UNIQUE) so a single payment can satisfy AT MOST
+// one purchase (audit C1: replay protection). price_algo is NOT NULL — the
+// audit record of what was actually charged (audit C2). status lifecycle:
+// paid → delivered (admin transfer confirmed) | failed.
+export const plotPurchases = pgTable("plot_purchases", {
+  paymentTxId:  text("payment_tx_id").primaryKey(),                          // UNIQUE: one txid → one purchase
+  plotId:       integer("plot_id").notNull(),
+  parcelId:     varchar("parcel_id", { length: 36 }).notNull(),
+  playerId:     varchar("player_id", { length: 36 }).notNull(),
+  assetId:      bigint("asset_id", { mode: "number" }),                      // the plot ASA delivered
+  priceAlgo:    real("price_algo").notNull(),                                // NOT NULL — actual charge
+  deliveryTxId: text("delivery_tx_id"),                                      // NULL until admin transfer confirms
+  status:       varchar("status", { length: 12 }).notNull().default("paid"), // paid | delivered | failed
+  createdAt:    bigint("created_at", { mode: "number" }).notNull().default(0),
+  updatedAt:    bigint("updated_at", { mode: "number" }).notNull().default(0),
+});
+
+export type PlotPurchaseRow    = typeof plotPurchases.$inferSelect;
+export type InsertPlotPurchase = typeof plotPurchases.$inferInsert;
+
+// ─── plot_purchase_prepare ────────────────────────────────────────────────────
+// Server-side state for an in-flight atomic purchase between /prepare and
+// /submit. The group cannot be re-derived later (firstValid advances every
+// round), so the prepared txns + the SERVER-HELD admin signature for txn2 are
+// persisted here. The client never receives txn2AdminSigned. status lifecycle:
+// prepared → submitted | expired | failed. Rows are short-lived (lastValid bounds
+// validity ~50 min) and may be pruned after submission/expiry.
+export const plotPurchasePrepare = pgTable("plot_purchase_prepare", {
+  prepareId:       text("prepare_id").primaryKey(),
+  plotId:          integer("plot_id").notNull(),
+  parcelId:        varchar("parcel_id", { length: 36 }).notNull(),
+  playerId:        varchar("player_id", { length: 36 }).notNull(),
+  buyerAddress:    text("buyer_address").notNull(),
+  assetId:         bigint("asset_id", { mode: "number" }).notNull(),
+  priceAlgo:       real("price_algo").notNull(),
+  priceMicroAlgo:  bigint("price_micro_algo", { mode: "number" }).notNull(),
+  paymentTxId:     text("payment_tx_id").notNull(),   // txn0 id — C1 key at submit
+  optInTxId:       text("opt_in_tx_id").notNull(),    // txn1 id
+  deliveryTxId:    text("delivery_tx_id").notNull(),  // txn2 id (admin transfer)
+  txn0Unsigned:    text("txn0_unsigned").notNull(),
+  txn1Unsigned:    text("txn1_unsigned").notNull(),
+  txn2Unsigned:    text("txn2_unsigned").notNull(),
+  txn2AdminSigned: text("txn2_admin_signed").notNull(), // SERVER-HELD — never sent to client
+  firstValid:      bigint("first_valid", { mode: "number" }).notNull(),
+  lastValid:       bigint("last_valid", { mode: "number" }).notNull(),
+  status:          varchar("status", { length: 12 }).notNull().default("prepared"), // prepared|submitted|expired|failed
+  createdAt:       bigint("created_at", { mode: "number" }).notNull().default(0),
+  updatedAt:       bigint("updated_at", { mode: "number" }).notNull().default(0),
+});
+
+export type PlotPurchasePrepareRow    = typeof plotPurchasePrepare.$inferSelect;
+export type InsertPlotPurchasePrepare = typeof plotPurchasePrepare.$inferInsert;

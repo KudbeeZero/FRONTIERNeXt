@@ -7,6 +7,7 @@ import {
   BIOME_COLORS,
   COLOR_PLAYER,
   COLOR_ENEMY,
+  MIN_FILL_LUMA,
   SIZE_VARIANTS,
   ARC_LIFT_BASE,
   ARC_LIFT_SCALE,
@@ -64,21 +65,42 @@ export function tangentFrame(normal: THREE.Vector3): { right: THREE.Vector3; up:
   return { right, up };
 }
 
-/** Per-instance fill colour — biome-tinted for unowned, ownership colours for owned. */
+/**
+ * Per-instance fill colour:
+ *   unowned        → biome tint
+ *   owned by you   → your territory colour
+ *   owned by an AI → that faction's colour (when `aiFactionColor` is supplied)
+ *   owned by other → enemy colour
+ * Fallbacks are visible mid-tones — never black (see also ensureVisible).
+ */
 export function getPlotColor(
   parcel: LandParcel | undefined,
   currentPlayerId: string | null,
   colors?: { player: THREE.Color; enemy: THREE.Color },
+  aiFactionColor?: THREE.Color | null,
 ): THREE.Color {
-  if (!parcel) return new THREE.Color(0x1a2a3a); // fallback dark blue-grey
+  if (!parcel) return new THREE.Color("#4a6a85"); // visible neutral fallback
   if (!parcel.ownerId) {
     const biomeCol = BIOME_COLORS[parcel.biome];
-    return biomeCol ? biomeCol.clone() : new THREE.Color(0x1a2a3a);
+    return biomeCol ? biomeCol.clone() : new THREE.Color("#4a6a85");
   }
-  const playerCol = colors?.player ?? COLOR_PLAYER;
-  const enemyCol  = colors?.enemy ?? COLOR_ENEMY;
-  if (currentPlayerId && parcel.ownerId === currentPlayerId) return playerCol.clone();
-  return enemyCol.clone();
+  if (currentPlayerId && parcel.ownerId === currentPlayerId) {
+    return (colors?.player ?? COLOR_PLAYER).clone();
+  }
+  if (aiFactionColor) return aiFactionColor.clone();
+  return (colors?.enemy ?? COLOR_ENEMY).clone();
+}
+
+/**
+ * Guarantee a plot FILL is never black: if luminance is below `minLuma`, scale
+ * the colour up (preserving hue), or substitute a neutral grey for pure black.
+ * Mutates and returns the passed colour. Borders are intentionally exempt.
+ */
+export function ensureVisible(c: THREE.Color, minLuma: number = MIN_FILL_LUMA): THREE.Color {
+  const luma = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  if (luma >= minLuma) return c;
+  if (luma <= 1e-4) return c.setRGB(minLuma, minLuma, minLuma);
+  return c.multiplyScalar(minLuma / luma);
 }
 
 /** Subtle size variant from plotId to avoid monotonous repetition. */

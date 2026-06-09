@@ -18,7 +18,26 @@ export const COLOR_BATTLE         = new THREE.Color("#ff0055"); // hot pink-red 
 export const COLOR_SELECTED       = new THREE.Color("#ffe566"); // bright gold — selected plot highlight
 export const COLOR_BORDER_OWNED   = new THREE.Color("#ffffff"); // white outline on owned
 export const COLOR_BORDER_UNOWNED = new THREE.Color("#4fc3f7"); // bright cyan grid — visible on all terrain
-export const COLOR_SUBDIVIDED     = new THREE.Color(0x1a3a5c); // dark-blue tint for subdivided macro-plots
+export const COLOR_SUBDIVIDED     = new THREE.Color("#3f73a8"); // visible steel-blue for subdivided macro-plots
+
+// ── AI faction tile colors — deliberately "less than neon": muted, balanced,
+// and alive. Keyed by AI player name (which is the faction id: NEXUS-7, etc.).
+// Hues echo the faction badge identity (blue / green / red / yellow) but at a
+// calmer saturation so faction territory reads as lived-in, not arcade-bright.
+export const FACTION_COLORS: Record<string, THREE.Color> = {
+  "NEXUS-7":  new THREE.Color("#5b8dd6"), // azure
+  "KRONOS":   new THREE.Color("#57b06a"), // emerald
+  "VANGUARD": new THREE.Color("#d4685f"), // clay red
+  "SPECTRE":  new THREE.Color("#d4af55"), // antique gold
+};
+/** Fallback for an AI owner whose faction name isn't in the palette. */
+export const FACTION_COLOR_FALLBACK = new THREE.Color("#9aa7b8"); // neutral slate
+
+// ── No-black guarantee ────────────────────────────────────────────────────────
+// Minimum perceived luminance for any plot FILL. Borders are exempt (black is
+// allowed there). Applied after all tinting/fog so a fill can never read as
+// black — every plot stays a visible color for testing and play.
+export const MIN_FILL_LUMA = 0.16;
 
 // ── Biome colors — neon zone aesthetic ───────────────────────────────────────
 // forest   = Storm Belt    | desert   = Canyon Zone  | mountain = AI Nexus

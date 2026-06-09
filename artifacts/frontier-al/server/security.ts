@@ -26,7 +26,7 @@ const isProd = (): boolean => process.env.NODE_ENV === "production";
  * Constant-time string comparison. Avoids leaking the admin key length/prefix
  * through response-timing side channels. Returns false on any length mismatch.
  */
-function safeEqual(a: string, b: string): boolean {
+export function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a, "utf8");
   const bufB = Buffer.from(b, "utf8");
   if (bufA.length !== bufB.length) return false;
