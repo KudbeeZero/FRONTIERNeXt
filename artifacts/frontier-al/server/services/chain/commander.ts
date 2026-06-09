@@ -226,9 +226,12 @@ export async function verifyAlgoPayment(params: {
     throw new Error(`[chain/commander] Payment txn ${txId} is not yet confirmed on-chain`);
   }
 
-  // Type must be pay
-  if (txn["tx-type"] !== "pay") {
-    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${txn["tx-type"]})`);
+  // Type must be pay. algosdk v3's indexer returns camelCase (txType); the raw
+  // REST API uses kebab-case (tx-type). Accept either — mirrors the
+  // confirmed-round read above, whose camelCase fallback is why it already works.
+  const txType = txn["tx-type"] ?? txn.txType;
+  if (txType !== "pay") {
+    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${txType})`);
   }
 
   const payFields = txn["payment-transaction"] ?? txn.paymentTransaction ?? {};
