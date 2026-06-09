@@ -1,4 +1,4 @@
-import { Wallet, LogOut, Loader2, AlertCircle, CheckCircle2, X, ExternalLink, Smartphone, Puzzle } from "lucide-react";
+import { Wallet, LogOut, Loader2, AlertCircle, CheckCircle2, X, ExternalLink, Smartphone, Puzzle, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -90,6 +90,9 @@ export function WalletConnect({ className }: { className?: string }) {
     connect,
     disconnect,
     clearError,
+    isAuthenticated,
+    isAuthenticating,
+    authenticate,
   } = useWallet();
   const [showPicker, setShowPicker] = useState(false);
 
@@ -181,7 +184,7 @@ export function WalletConnect({ className }: { className?: string }) {
 
   const walletName = availableWallets.find((w) => w.id === walletType)?.name ?? walletType ?? "Wallet";
 
-  return (
+  const walletDropdown = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -226,6 +229,29 @@ export function WalletConnect({ className }: { className?: string }) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
+
+  // Connected but no session yet → show a one-click "Sign in" that fires the auth
+  // signature INSIDE this click (gesture-safe for popup wallets like Lute).
+  if (!isAuthenticated) {
+    return (
+      <div className={cn("flex items-center gap-2", className)}>
+        <Button
+          variant="default"
+          onClick={() => { void authenticate(); }}
+          disabled={isAuthenticating}
+          className="gap-2 font-display uppercase tracking-wide text-xs"
+          data-testid="button-wallet-signin"
+          title="Approve a 0-ALGO signature in your wallet to sign in (required to mine, collect, and play)"
+        >
+          {isAuthenticating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+          {isAuthenticating ? "Signing in…" : "Sign in"}
+        </Button>
+        {walletDropdown}
+      </div>
+    );
+  }
+
+  return walletDropdown;
 }
 
 function WalletPickerDialog({

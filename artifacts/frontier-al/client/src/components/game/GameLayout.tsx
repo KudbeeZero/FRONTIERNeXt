@@ -398,6 +398,7 @@ export function GameLayout() {
   };
 
   const [isClaimingCommanderNft, setIsClaimingCommanderNft] = useState(false);
+  const [isDeliveringPlotNftId, setIsDeliveringPlotNftId] = useState<number | null>(null);
   const [isRetryingCommanderMintId, setIsRetryingCommanderMintId] = useState<string | null>(null);
 
   const handleRetryCommanderMint = async (commanderId: string) => {
@@ -553,6 +554,63 @@ export function GameLayout() {
       toast({ title: "Claim Failed", description: err instanceof Error ? err.message : "Unexpected error", variant: "destructive" });
     } finally {
       setIsClaimingCommanderNft(false);
+    }
+  };
+
+  // Deliver a custody-held PLOT NFT to the buyer's wallet. Mirrors the commander
+  // claim flow: try delivery → if not opted in, sign the opt-in (now gesture-safe
+  // for Lute since auto-auth no longer hogs the signing lock) → retry the transfer.
+  const handleDeliverPlotNft = async (plotId: number, assetId: number) => {
+    if (!wallet.address) return;
+    setIsDeliveringPlotNftId(plotId);
+    try {
+      const deliverUrl = `/api/nft/deliver/${plotId}`;
+      const body = JSON.stringify({ address: wallet.address });
+      const headers = { "Content-Type": "application/json" };
+
+      const onDelivered = (txId?: string) => {
+        toast({ title: "Plot NFT Delivered!", description: `Plot #${plotId} is now in your wallet.${txId ? ` TX: ${txId.slice(0, 8)}…` : ""}` });
+        queryClient.invalidateQueries({ queryKey: ["/api/nft/plot"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
+      };
+
+      const attemptPlotDeliver = async (): Promise<boolean> => {
+        const res = await fetch(deliverUrl, { method: "POST", headers, body });
+        const data = await res.json();
+
+        if (data.success) { onDelivered(data.txId); return true; }
+
+        if (data.reason === "not_in_custody") {
+          toast({ title: "Already In Your Wallet", description: data.message || "This Plot NFT has already been delivered." });
+          queryClient.invalidateQueries({ queryKey: ["/api/nft/plot"] });
+          return true;
+        }
+
+        if (data.reason === "not_opted_in") {
+          const optedIn = await signOptInToPlotNft(data.assetId ?? assetId);
+          if (!optedIn) return false;
+          // Algorand block time ~3.3s — retry the transfer a few times to let the
+          // opt-in confirm on-chain.
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 4000));
+            const retryRes = await fetch(deliverUrl, { method: "POST", headers, body });
+            const retryData = await retryRes.json();
+            if (retryData.success) { onDelivered(retryData.txId); return true; }
+            if (retryData.reason !== "not_opted_in") break;
+          }
+          toast({ title: "Opt-In Confirmed", description: "Your opt-in was approved. Click 'Claim NFT' one more time to complete the transfer." });
+          return false;
+        }
+
+        toast({ title: "Claim Info", description: data.message || data.error || "Unexpected state — try again.", variant: "destructive" });
+        return false;
+      };
+
+      await attemptPlotDeliver();
+    } catch (err) {
+      toast({ title: "Claim Failed", description: err instanceof Error ? err.message : "Unexpected error", variant: "destructive" });
+    } finally {
+      setIsDeliveringPlotNftId(null);
     }
   };
 
@@ -965,11 +1023,13 @@ export function GameLayout() {
             onDeploySatellite={handleDeploySatellite}
             onSwitchCommander={handleSwitchCommander}
             onClaimCommanderNft={handleClaimCommanderNft}
+            onDeliverPlotNft={handleDeliverPlotNft}
             onAttack={handleAttackConfirm}
             isMinting={mintAvatarMutation.isPending}
             isDeployingDrone={deployDroneMutation.isPending}
             isDeployingSatellite={deploySatelliteMutation.isPending}
             isClaimingCommanderNft={isClaimingCommanderNft}
+            isDeliveringPlotNftId={isDeliveringPlotNftId}
             isAttacking={attackMutation.isPending}
             selectedParcel={selectedParcel}
             ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
@@ -1027,11 +1087,13 @@ export function GameLayout() {
               onDeploySatellite={handleDeploySatellite}
               onSwitchCommander={handleSwitchCommander}
               onClaimCommanderNft={handleClaimCommanderNft}
+              onDeliverPlotNft={handleDeliverPlotNft}
               onAttack={handleAttackConfirm}
               isMinting={mintAvatarMutation.isPending}
               isDeployingDrone={deployDroneMutation.isPending}
               isDeployingSatellite={deploySatelliteMutation.isPending}
               isClaimingCommanderNft={isClaimingCommanderNft}
+              isDeliveringPlotNftId={isDeliveringPlotNftId}
               isAttacking={attackMutation.isPending}
               selectedParcel={selectedParcel}
               ownedParcels={gameState.parcels.filter(p => p.ownerId === player?.id)}

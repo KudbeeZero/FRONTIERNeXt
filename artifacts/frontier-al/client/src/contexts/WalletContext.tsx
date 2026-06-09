@@ -7,6 +7,7 @@ import {
   registerWalletSigner,
 } from "@/lib/algorand";
 import { authenticateWallet, logoutWallet } from "@/lib/auth";
+import { getAuthToken } from "@/lib/authToken";
 
 type WalletStatus = "restoring" | "connected" | "disconnected";
 
@@ -159,13 +160,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   }, [activeAddress]);
 
-  // Auto-authenticate once per connected address.
-  useEffect(() => {
-    if (!activeAddress || !signTransactions) return;
-    if (authAttemptedFor.current === activeAddress) return;
-    authAttemptedFor.current = activeAddress;
-    void authenticate();
-  }, [activeAddress, signTransactions, authenticate]);
+  // Auth is intentionally NOT auto-fired here. Web wallets like Lute open a
+  // signing popup that the browser BLOCKS unless it originates from a live user
+  // gesture — a signature requested from this effect (no gesture) silently fails
+  // ("User Rejected Request" after a timeout) AND queues behind the signing lock,
+  // so the user's own purchase sign then misses its gesture window too. Auth must
+  // be triggered from a click via the exposed authenticate(). (fix/wallet-sign-auth)
 
   // Reset auth state on disconnect.
   useEffect(() => {
@@ -173,6 +173,16 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setIsAuthenticated(false);
       setAuthError(null);
       authAttemptedFor.current = null;
+    }
+  }, [activeAddress]);
+
+  // Restore an existing session on reconnect: the HMAC session token persists in
+  // localStorage, so a hard refresh (wallet stays connected) should NOT force a
+  // re-sign. If the token is stale the server returns 401 and the "Sign in"
+  // button reappears for an explicit, gesture-triggered re-auth.
+  useEffect(() => {
+    if (activeAddress && getAuthToken()) {
+      setIsAuthenticated(true);
     }
   }, [activeAddress]);
 
