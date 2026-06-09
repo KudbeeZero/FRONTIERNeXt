@@ -23,6 +23,7 @@ import { WalletConnect } from "./WalletConnect";
 import { OrbitalEventToast } from "./OrbitalEventToast";
 import { useOrbitalEngine } from "@/hooks/useOrbitalEngine";
 import { useWallet } from "@/hooks/useWallet";
+import { TEST_GLOBE } from "@/lib/testMode";
 import { useBlockchainActions } from "@/hooks/useBlockchainActions";
 import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
 import { useQuery, useQueries } from "@tanstack/react-query";
@@ -31,14 +32,12 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, BookOpen, Swords } from "lucide-react";
+import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
-import { TutorialOverlay } from "./TutorialOverlay";
 import { SelectedPlotPanel } from "./SelectedPlotPanel";
-import { useTutorial, TUTORIAL_STEPS } from "@/hooks/useTutorial";
 import { sendPaymentTransaction } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
@@ -72,28 +71,10 @@ export function GameLayout() {
   const player = useCurrentPlayer(wallet.address);
   const { toast } = useToast();
   const { events: orbitalEvents, impactEvents } = useOrbitalEngine();
-  const tutorial = useTutorial();
-
-  // When tutorial step changes, update camera coords if the step defines them
-  useEffect(() => {
-    if (!tutorial.isOpen) return;
-    const s = tutorial.currentStepDef;
-    if (s?.cameraLat != null && s?.cameraLng != null) {
-      setTutorialLat(s.cameraLat);
-      setTutorialLng(s.cameraLng);
-      setFlyRequestId((prev) => prev + 1);
-    } else {
-      setTutorialLat(null);
-      setTutorialLng(null);
-    }
-  }, [tutorial.step, tutorial.isOpen, tutorial.currentStepDef]);
-
-  // Notify tutorial when a parcel is selected (any click on the globe)
   const handleParcelSelect = useCallback((id: string) => {
     setSelectedParcelId(id);
     setShowFullLandSheet(false); // Always open lightweight panel first
-    tutorial.notifyEvent("plot_selected");
-  }, [tutorial.notifyEvent]);
+  }, []);
 
   const initializedAddressRef = useRef<string | null>(null);
   const ambienceStartedRef = useRef(false);
@@ -125,10 +106,6 @@ export function GameLayout() {
   const [livePulses, setLivePulses] = useState<LivePulse[]>([]);
   const [flyRequestId, setFlyRequestId] = useState(0);
   const [mapTransitioning, setMapTransitioning] = useState(false);
-
-  // Tutorial-driven camera override — set when a tutorial step has camera coords
-  const [tutorialLat, setTutorialLat] = useState<number | null>(null);
-  const [tutorialLng, setTutorialLng] = useState<number | null>(null);
 
   // ── Stream mode & season countdown ────────────────────────────────────────
   /** Detect ?stream=1 in URL to enable the fullscreen streaming HUD. */
@@ -228,14 +205,6 @@ export function GameLayout() {
   const selectedParcel = gameState?.parcels.find((p) => p.id === selectedParcelId) || null;
   const activeBattleCount = gameState?.battles.filter(b => b.status === "pending").length || 0;
 
-  // Notify tutorial when LandSheet becomes visible (parcel selected on map tab)
-  useEffect(() => {
-    if (selectedParcel && activeTab === "map") {
-      tutorial.notifyEvent("landsheet_opened");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedParcel?.id]);
-
   const handleMine = async () => {
     if (!isConnected) {
       toast({ title: "Authorization Required", description: "Connect your wallet to perform game actions.", variant: "destructive" });
@@ -254,7 +223,6 @@ export function GameLayout() {
             ? `+${yields.iron} Iron, +${yields.fuel} Fuel, +${yields.crystal} Crystal`
             : "Resources extracted successfully.";
           toast({ title: "Mining Complete", description: desc });
-          tutorial.notifyEvent("land_action_completed");
           if (selectedParcel) {
             const pulse: LivePulse = {
               id: `pulse-${Date.now()}-${Math.random()}`,
@@ -406,7 +374,6 @@ export function GameLayout() {
       {
         onSuccess: () => {
           toast({ title: "Territory Acquired", description: "New land is now yours." });
-          tutorial.notifyEvent("plot_purchased");
           setSelectedParcelId(null);
         },
         onError: (error) => toast({ title: "Purchase Failed", description: error.message, variant: "destructive" }),
@@ -744,7 +711,7 @@ export function GameLayout() {
     );
   }
 
-  if (!isConnected) {
+  if (!isConnected && !TEST_GLOBE) {
     return (
       <div className="min-h-screen overflow-y-auto bg-background flex flex-col" data-testid="wallet-gate">
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
@@ -800,7 +767,7 @@ export function GameLayout() {
     <div className="relative h-screen w-screen overflow-hidden bg-black" data-testid="game-layout">
       {gameState ? (
         <>
-          <div className="absolute inset-0 w-full h-full" data-tutorial="map-area">
+          <div className="absolute inset-0 w-full h-full">
             <PlanetGlobe
               parcels={gameState.parcels}
               players={gameState.players}
@@ -820,8 +787,6 @@ export function GameLayout() {
               replayVisibleTypes={replayVisibleTypes}
               streamMode={streamMode}
               flyRequestId={flyRequestId}
-              tutorialLat={tutorialLat}
-              tutorialLng={tutorialLng}
               nftInfo={null}
               onDeliverNft={undefined}
               isDeliveringNft={false}
@@ -929,7 +894,7 @@ export function GameLayout() {
       )}
 
 
-      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 left-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-r border-border overflow-hidden" data-tutorial="buy-plot">
+      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 left-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-r border-border overflow-hidden">
         {isLoading ? (
           <div className="p-4 space-y-3">
             <Skeleton className="h-24 w-full" />
@@ -1129,7 +1094,6 @@ export function GameLayout() {
           isWalletConnected={isWalletConnected}
           onOpenFullSheet={() => {
             setShowFullLandSheet(true);
-            tutorial.notifyEvent("landsheet_opened");
           }}
           onClose={() => setSelectedParcelId(null)}
         />
@@ -1201,45 +1165,6 @@ export function GameLayout() {
           seasonName={seasonName ?? null}
         />
       )}
-
-      {/* Tutorial test button — lower left, always visible for testing */}
-      <button
-        onClick={tutorial.resetAndOpen}
-        className="absolute bottom-20 left-3 z-40 md:bottom-4 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full select-none transition-opacity opacity-60 hover:opacity-100"
-        style={{
-          background: "rgba(4,8,20,0.85)",
-          border: "1px solid rgba(0,229,255,0.3)",
-          backdropFilter: "blur(8px)",
-          fontFamily: "monospace",
-          fontSize: 10,
-          letterSpacing: "0.15em",
-          color: "rgba(0,229,255,0.85)",
-        }}
-        title="Restart Tutorial"
-        data-testid="button-tutorial-restart"
-      >
-        <BookOpen style={{ width: 11, height: 11 }} />
-        TUTORIAL
-      </button>
-
-      {/* Onboarding tutorial — shown to first-time users */}
-      <TutorialOverlay
-        isOpen={tutorial.isOpen}
-        step={tutorial.step}
-        steps={TUTORIAL_STEPS}
-        onNext={tutorial.next}
-        onBack={tutorial.back}
-        onSkip={tutorial.complete}
-        onFinish={tutorial.complete}
-        onClaim={async () => {
-          if (!player || !selectedParcel || !selectedParcelId) return;
-          // Trigger the purchase (which will pop the wallet and sign)
-          handlePurchase();
-          // Wait a bit for the mutation to be called
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }}
-        isClaimingPlot={purchaseMutation.isPending}
-      />
 
       {/* Live Activity Feed overlay — streams world events in real-time */}
       <ActivityFeed />
