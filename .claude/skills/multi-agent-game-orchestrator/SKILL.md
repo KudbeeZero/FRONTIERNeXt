@@ -71,6 +71,9 @@ by pruning L1/L2 of superseded runs.
 
 - Verify before launching: focus area exists; create the run directory first.
 - Cap each night agent at one report file; no agent edits another's file or any code.
+- Night agents share one working tree: they must NEVER run `git checkout`/`stash`/
+  `reset`. To review code on another ref, use `git show <ref>:<path>` or a temp
+  `git worktree` (cleaned up after). The coordinator tells them which ref to pin.
 - After synthesis: feed `final-plan.md`'s top items into `NIGHT_QUEUE.md` as rated
   entries (Highly Recommended / Recommended / Experimental), commit the run directory
   + memory + queue on the working branch, and push.
