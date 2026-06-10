@@ -21,7 +21,7 @@ erroneous copy and have been removed; the README is now a clean hub.
 |---|------|-----------|--------|------------------|---------|
 | a | Plot price — Volcanic / Water | 0.8 / (absent) | 1.0 / 1.5 | **1.0 / 1.5** (`economy-config.ts:65`) | Manual ✅ |
 | b | Mountain iron multiplier | −40% (0.6×) | 2.0× | **2.0×** (`schema.ts:103`) | Manual ✅ |
-| c | Max FRNTR/day per plot | 12 | 6 | **6** (`schema.ts:144`+`economy-config.ts:39`) | Manual ✅ |
+| c | Max ASCEND/day per plot | 12 | 6 | **6** (`schema.ts:144`+`economy-config.ts:39`) | Manual ✅ |
 
 All new hub docs are aligned to these verified values.
 
@@ -43,9 +43,9 @@ All new hub docs are aligned to these verified values.
 | Special attacks (cost/cooldown/multiplier/tier) | ✅ exact | `schema.ts:642-687` |
 | Combat formula (10×/0.5×/0.8×, def×15, 30% pillage, ±10%, hazard −20%) | ✅ exact | `tuning.ts:10-73` |
 | Morale debuff 15% (UI shows 25%) | ✅ matches manual's own note | `tuning.ts` / `schema.ts` |
-| Drones (20 FRNTR, max 5, 15 min) | ✅ exact | `schema.ts:698-700` |
-| Satellites (50 FRNTR, max 2, 1 h, +25%) | ✅ exact | `schema.ts:721-724` |
-| Sub-parcels (4 h hold, 10–100 FRNTR, +50% full control) | ✅ exact | `schema.ts:799-806`, `game-rules.ts:337-341` |
+| Drones (20 ASCEND, max 5, 15 min) | ✅ exact | `schema.ts:698-700` |
+| Satellites (50 ASCEND, max 2, 1 h, +25%) | ✅ exact | `schema.ts:721-724` |
+| Sub-parcels (4 h hold, 10–100 ASCEND, +50% full control) | ✅ exact | `schema.ts:799-806`, `game-rules.ts:337-341` |
 | Rare-mineral vault cap 50/type | ✅ exact | `schema.ts:11` |
 | Token: 1B supply, welcome 500, test 50/prod 1 emission | ✅ exact | `schema.ts:566-567`, `economy-config.ts:36-39` |
 | Sub-parcel 70/30 fee split & treasury settlement | ✅ matches `ECONOMICS.md` | `ECONOMICS.md`, `game-rules.ts` |

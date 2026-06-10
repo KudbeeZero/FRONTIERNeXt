@@ -57,12 +57,12 @@ battle logs.
 Algorand requires every wallet to opt in before it can hold a new asset.
 
 1. Open your wallet app.
-2. Search for Asset ID **`755818217`** (FRONTIER / **FRNTR**).
+2. Search for Asset ID **`755818217`** (FRONTIER / **ASCEND**).
 3. Tap **Opt In** and confirm (holds ~0.1 ALGO as a minimum balance).
-4. Return to FRONTIERNeXt — your wallet can now receive FRNTR.
+4. Return to FRONTIERNeXt — your wallet can now receive ASCEND.
 
 ### 3 · Claim your welcome bonus
-On your first connection you're credited a one-time **500 FRNTR welcome bonus**.
+On your first connection you're credited a one-time **500 ASCEND welcome bonus**.
 It lands instantly in your in-game balance; the matching on-chain transfer fires
 in the background once your opt-in (Step 2) is confirmed.
 
@@ -92,7 +92,7 @@ players, and a unique **ARC-3 Plot NFT** is minted to your wallet.
 ### 5 · Mine, then power up
 1. Tap your owned plot → **Mine**. No signing needed — it's instant and off-chain.
    Iron, Fuel, and Crystal flow from the plot into your inventory.
-2. Build **Electricity** (30 FRNTR) on that plot — it's the prerequisite that
+2. Build **Electricity** (30 ASCEND) on that plot — it's the prerequisite that
    unlocks every advanced FRONTIER facility (Blockchain Node, Data Centre, AI Lab).
 3. Build a **Turret Lv1** (40 Iron / 20 Fuel) for basic defense.
 
@@ -106,7 +106,7 @@ You're now live on the frontier. 🎉
 |---|---|---|
 | 📖 | **[Game Manual](GAME_MANUAL.md)** | Learn every system in depth — facilities, commanders, landmarks, seasons |
 | 🎯 | **[Strategy Guide](STRATEGY_GUIDE.md)** | First-30-minutes checklist, build orders, and how to beat each AI faction |
-| 💰 | **[Economics](ECONOMICS.md)** | Understand FRNTR emission, sinks, and how to grow your treasury |
+| 💰 | **[Economics](ECONOMICS.md)** | Understand ASCEND emission, sinks, and how to grow your treasury |
 | ⚡ | **[Quick Reference](QUICK_REFERENCE.md)** | The one-screen cheat card — every cost, modifier, and formula |
 | 🌌 | **[Lore & Universe Codex](LORE_CODEX.md)** | The story, factions, and artifacts behind the frontier |
 | ❓ | **[FAQ](FAQ.md)** | Stuck on opt-in, balances, or cooldowns? Start here |

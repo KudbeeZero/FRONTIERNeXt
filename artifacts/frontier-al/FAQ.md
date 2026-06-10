@@ -49,16 +49,16 @@ little ALGO for plot purchases and to cover wallet minimum balances.
 </details>
 
 <details>
-<summary><b>I claimed FRNTR but it isn't in my wallet. Why?</b></summary>
+<summary><b>I claimed ASCEND but it isn't in my wallet. Why?</b></summary>
 
 <br/>
 
 You almost certainly haven't **opted in** to the FRONTIER asset yet. Algorand
 requires every wallet to explicitly opt in before it can receive an asset.
 
-1. Open your wallet → search Asset ID **`755818217`** (FRONTIER / FRNTR).
+1. Open your wallet → search Asset ID **`755818217`** (FRONTIER / ASCEND).
 2. Tap **Opt In** and confirm (~0.1 ALGO minimum balance hold).
-3. Your queued FRNTR transfer will then settle on-chain.
+3. Your queued ASCEND transfer will then settle on-chain.
 
 Full walkthrough: **[Getting Started, Step 2](GETTING_STARTED.md)**.
 
@@ -66,10 +66,10 @@ Full walkthrough: **[Getting Started, Step 2](GETTING_STARTED.md)**.
 
 ---
 
-## 💰 Balances & FRNTR
+## 💰 Balances & ASCEND
 
 <details>
-<summary><b>My in-game FRNTR balance doesn't match my wallet balance — is something broken?</b></summary>
+<summary><b>My in-game ASCEND balance doesn't match my wallet balance — is something broken?</b></summary>
 
 <br/>
 
@@ -86,24 +86,24 @@ The on-chain balance catches up shortly after. More in **[Game Manual, Ch. 6 —
 </details>
 
 <details>
-<summary><b>How much FRNTR do I earn per day?</b></summary>
+<summary><b>How much ASCEND do I earn per day?</b></summary>
 
 <br/>
 
-Each owned plot generates **1 FRNTR/day** at base, plus facility bonuses (Electricity
-+1, Blockchain Node up to +4 at Lv3). A fully upgraded plot tops out at **6 FRNTR/day**.
+Each owned plot generates **1 ASCEND/day** at base, plus facility bonuses (Electricity
++1, Blockchain Node up to +4 at Lv3). A fully upgraded plot tops out at **6 ASCEND/day**.
 
-> During partner **testing mode**, emission is intentionally boosted to **50 FRNTR/day**
+> During partner **testing mode**, emission is intentionally boosted to **50 ASCEND/day**
 > per plot. See **[Testing Mode](TESTING_MODE.md)**.
 
 </details>
 
 <details>
-<summary><b>What can I spend FRNTR on, and is it gone forever?</b></summary>
+<summary><b>What can I spend ASCEND on, and is it gone forever?</b></summary>
 
 <br/>
 
-FRNTR is **burned** (permanently removed from your balance) when you build FRONTIER
+ASCEND is **burned** (permanently removed from your balance) when you build FRONTIER
 facilities, mint Commanders, deploy drones/satellites, or fire special attacks. These
 are the token's sinks — see **[Economics](ECONOMICS.md)** for the full table.
 
@@ -196,7 +196,7 @@ The four autonomous **AI factions** that share your world and never stop playing
 | **NEXUS-7** | Blue | Expansionist — grabs adjacent land relentlessly |
 | **KRONOS** | Purple | Defensive — fortress-builder, slow to attack |
 | **VANGUARD** | Red | Raider — weak defense, hits soft targets (great early prey) |
-| **SPECTRE** | Green | Economic — hoards high-value, FRNTR-rich plots |
+| **SPECTRE** | Green | Economic — hoards high-value, ASCEND-rich plots |
 
 Counter-strategies for each are in the **[Strategy Guide](STRATEGY_GUIDE.md)**.
 
@@ -213,7 +213,7 @@ Counter-strategies for each are in the **[Strategy Guide](STRATEGY_GUIDE.md)**.
 | 🎯 | **[Strategy Guide](STRATEGY_GUIDE.md)** | Tactics, build orders, and faction counter-play |
 | ⚡ | **[Quick Reference](QUICK_REFERENCE.md)** | Fast lookup for every cost, modifier, and formula |
 | 🌌 | **[Lore & Universe Codex](LORE_CODEX.md)** | The story and factions behind the frontier |
-| 💰 | **[Economics](ECONOMICS.md)** | FRNTR supply, sinks, and pricing |
+| 💰 | **[Economics](ECONOMICS.md)** | ASCEND supply, sinks, and pricing |
 
 ---
 

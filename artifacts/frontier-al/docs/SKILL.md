@@ -26,7 +26,7 @@ game on the Algorand blockchain. 21,000 on-chain land parcels, sub-parcel owners
 archetype/building system, a deterministic battle engine, four AI factions (NEXUS-7,
 KRONOS, VANGUARD, SPECTRE), biome-aware resources, WebSocket multiplayer, a trade
 station/order book, prediction markets, seasons, and a token economy centered on **$ASCEND**
-(renamed from the legacy FRNTR).
+(renamed from the legacy ASCEND).
 
 Live frontend: `frontierprotocol.app` (Cloudflare Pages). Backend deploys to Railway.
 
@@ -72,8 +72,8 @@ dev-only — never ship it). Shared code in `lib/db`, `lib/api-spec`.
 1. **Minimize DB reliance, maximize determinism.** Visual state and derivable values are
    computed client-side or from seeds. The DB stores only mutable world truth (ownership,
    improvements, active battles).
-1. **$ASCEND is the token.** New work uses $ASCEND. Legacy `FRNTR` / `FRONTIER token`
-   strings are display-layer only — DB column names, tx-note prefixes (`FRNTR:`), and code
+1. **$ASCEND is the token.** New work uses $ASCEND. Legacy `ASCEND` / `FRONTIER token`
+   strings are display-layer only — DB column names, tx-note prefixes (`ASCEND:`), and code
    identifiers (`frontierAsaId`, etc.) are preserved as-is.
 1. **AI_ENABLED guard is opt-in (`=== "true"`)** at BOTH the route scheduler AND inside
    the storage-layer `runAITurn` methods. Never let AI run because a guard was only at the

@@ -25,11 +25,11 @@
 ### A
 
 - **ADR (Adaptive Dominance Regulation)** — Balancing mechanic: if any AI faction exceeds ~2,000 plots (~10% of the map), the others raise aggression to slow it down.
-- **AI Lab** — A FRONTIER facility that reduces mining cooldown (−30s / −60s / −90s by level). Generates no FRNTR itself.
+- **AI Lab** — A FRONTIER facility that reduces mining cooldown (−30s / −60s / −90s by level). Generates no ASCEND itself.
 - **Algorand** — The Layer-1 blockchain FRONTIERNeXt runs on, using **TestNet** (chainId `416002`).
 - **Annihilate** — The Reaper commander's special ability; unlocks Siege Barrage.
 - **ARC-3** — The Algorand NFT metadata standard used for each unique **Plot NFT**.
-- **ASA (Algorand Standard Asset)** — The on-chain asset type. **FRNTR** is an ASA; each plot is also minted as an ASA (NFT). FRNTR Asset ID: **755818217**.
+- **ASA (Algorand Standard Asset)** — The on-chain asset type. **ASCEND** is an ASA; each plot is also minted as an ASA (NFT). ASCEND Asset ID: **755818217**.
 - **Attack Cooldown** — A lockout after losses: 2 min × consecutive losses; resets on a win/successful defense.
 - **Attacker Power** — `(troops × 10) + (iron × 0.5) + (fuel × 0.8) + commanderBonus`, with morale/random modifiers.
 
@@ -38,7 +38,7 @@
 - **Base Upgrade** — A one-time Iron/Fuel improvement (Defense, Yield, Mine, Bunker).
 - **Biome** — One of 8 terrain types (Desert, Plains, Swamp, Tundra, Forest, Mountain, Volcanic, Water), each with its own yields, defense, and price.
 - **Biome Defense Modifier** — A multiplier applied to defender power in battle (e.g. Mountain 1.4×, Water 0.5×).
-- **Blockchain Node** — A FRONTIER facility generating passive FRNTR (+2/+3/+4 per day by level).
+- **Blockchain Node** — A FRONTIER facility generating passive ASCEND (+2/+3/+4 per day by level).
 - **Bunker** — A base upgrade adding +5 influence repair per day.
 
 ### C
@@ -46,20 +46,20 @@
 - **Cascade Defense Penalty** — When a plot is captured, the defender's adjacent plots each lose 1 defense level.
 - **Cloak** — The Phantom commander's ability; reduces enemy detection and enables Sabotage / EMP Blast.
 - **Collect** — Action that gathers stored resources from all owned plots at once.
-- **Commander** — A unique on-chain avatar (Sentinel / Phantom / Reaper) minted by burning FRNTR; boosts combat and unlocks special attacks. Locked 12h after deployment.
+- **Commander** — A unique on-chain avatar (Sentinel / Phantom / Reaper) minted by burning ASCEND; boosts combat and unlocks special attacks. Locked 12h after deployment.
 - **Consecutive Losses** — A counter driving morale-debuff duration and attack cooldown; resets on any successful defense.
 - **Crystal** — A premium resource used for high-level upgrades; richest in Water, Volcanic, and Swamp biomes.
 
 ### D
 
 - **Dark Matter** — The rarest mineral; found in Swamp, Water, and Tundra biomes and boosted by orbital impacts. Used for the Orbital Alien Dome and Legendary loot.
-- **Data Centre** — A FRONTIER facility boosting resource yield (+5/+10/+15% by level). Generates no FRNTR.
+- **Data Centre** — A FRONTIER facility boosting resource yield (+5/+10/+15% by level). Generates no ASCEND.
 - **Deep Space Probe** — A Launchpad ability: every 24h, reveals all enemy plots within 5 plots for 2 hours.
 - **Defender Power** — `(defenseLevel × 15 + improvementBonus) × biomeDefenseMod`.
 
 ### E
 
-- **Electricity** — The prerequisite FRONTIER facility (30 FRNTR); +1 FRNTR/day and unlocks all advanced facilities.
+- **Electricity** — The prerequisite FRONTIER facility (30 ASCEND); +1 ASCEND/day and unlocks all advanced facilities.
 - **EMP Blast** — A special attack (Phantom+) that disables all target improvements for 10 minutes.
 
 ### F
@@ -68,7 +68,7 @@
 - **Fibonacci Sphere** — The deterministic distribution that places all 21,000 plots on the globe.
 - **Fortify** — The Sentinel commander's ability; hardens the home plot's defense.
 - **Fortress** — A high-tier defense improvement (+8 defense, +50 storage).
-- **FRONTIER / FRNTR** — The game's token; an Algorand ASA with a fixed 1,000,000,000 supply (6 decimals).
+- **FRONTIER / ASCEND** — The game's token; an Algorand ASA with a fixed 1,000,000,000 supply (6 decimals).
 - **Full Control Bonus** — Owning all 9 sub-parcels of a plot grants +50% yield.
 
 ### G
@@ -106,8 +106,8 @@
 
 ### O
 
-- **Opt-In** — The Algorand requirement to register a wallet for an asset before receiving it (FRNTR ASA: 755818217).
-- **Orbital Alien Dome** — The server-unique landmark; the Season Nexus that doubles FRNTR in-season.
+- **Opt-In** — The Algorand requirement to register a wallet for an asset before receiving it (ASCEND ASA: 755818217).
+- **Orbital Alien Dome** — The server-unique landmark; the Season Nexus that doubles ASCEND in-season.
 - **Orbital Event** — A sky phenomenon — cosmetic, a Resource Burst (+50% yield), or a Tile Hazard (−40% yield, −20% defense).
 - **Orbital Satellite** — A deployable that grants +25% mining yield on all your plots while active (stacks).
 
@@ -137,8 +137,8 @@
 - **Sentinel** — The entry commander tier (+10% ATK / +10% DEF); ability Fortify.
 - **Shield Generator** — A defense improvement (+5 defense per level, max 2).
 - **Siege Barrage** — A Reaper-only special attack hitting up to 3 nearby plots.
-- **Sink** — Any action that permanently burns FRNTR (facilities, commanders, drones, satellites, special attacks).
-- **SPECTRE** — The economic AI faction; favors high-richness plots and FRNTR accumulation.
+- **Sink** — Any action that permanently burns ASCEND (facilities, commanders, drones, satellites, special attacks).
+- **SPECTRE** — The economic AI faction; favors high-richness plots and ASCEND accumulation.
 - **Storage Depot** — A defense-category improvement adding +200 storage capacity per level.
 - **Sub-Parcel** — One of the 9 cells in a plot's 3×3 subdivision; human-only, 4h hold to create.
 
@@ -147,7 +147,7 @@
 - **TestNet** — The Algorand test network (chainId 416002) the game runs on; uses free faucet ALGO.
 - **Tile Hazard** — A harmful orbital event: −40% yield and −20% battle defense for 8 minutes.
 - **Trading** — Peer-to-peer resource exchange (1–10,000 units/order; can't self-trade).
-- **Treasury Reserve** — Undistributed FRNTR held by the admin wallet.
+- **Treasury Reserve** — Undistributed ASCEND held by the admin wallet.
 - **Turret** — The basic defense improvement (+3 defense per level, max 3).
 - **Two-Layer Model** — Instant authoritative DB balances + batched on-chain ASA transfers.
 
@@ -159,7 +159,7 @@
 ### W
 
 - **Water** — The near-uncapturable ocean biome (0.5× battle defense, Crystal 3.0×).
-- **Welcome Bonus** — A one-time 500 FRNTR grant on first wallet connection (doubled to 1,000 during the Expansion phase).
+- **Welcome Bonus** — A one-time 500 ASCEND grant on first wallet connection (doubled to 1,000 during the Expansion phase).
 
 ### X
 

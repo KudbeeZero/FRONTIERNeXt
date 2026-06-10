@@ -29,7 +29,7 @@ shared/weapons/          pure, imported by client + server
   ballistics.ts          timeOfFlightMs, apexAltitudeKm, positionAt, inRange
   intercept.ts           solveIntercept (radar+geometry+Pk) + rollIntercept (seeded)
   profile.ts             PlayerWeaponProfile, OwnedWeapon, Zod action schemas
-shared/weapon-economy.ts fire/unlock/upgrade/deploy FRNTR cost tables (TEST/PROD)
+shared/weapon-economy.ts fire/unlock/upgrade/deploy ASCEND cost tables (TEST/PROD)
 
 server/weapons/
   engagementStore.ts     RUNTIME layer: in-flight projectiles + batteries; layered
@@ -66,9 +66,9 @@ client/weapon-sandbox.html + src/weapon-sandbox-entry.tsx   dev FX sandbox
 |---|---|---|
 | GET  | `/api/weapons/catalog?playerId=` | full catalog annotated unlock/own + costs |
 | POST | `/api/weapons/build` | set attribute allocation (validated vs budget) |
-| POST | `/api/weapons/unlock` | acquire an unlocked weapon (spends FRNTR) |
+| POST | `/api/weapons/unlock` | acquire an unlocked weapon (spends ASCEND) |
 | POST | `/api/weapons/loadout` | set equipped weapons |
-| POST | `/api/weapons/upgrade` | +1 instance tier (spends FRNTR) |
+| POST | `/api/weapons/upgrade` | +1 instance tier (spends ASCEND) |
 | POST | `/api/weapons/fire` | launch at a target parcel → runtime engagement + WS |
 | POST | `/api/weapons/deploy-defense` | place a battery on an owned parcel |
 | POST | `/api/weapons/mint-nft` | mint an owned weapon as an Algorand NFT |

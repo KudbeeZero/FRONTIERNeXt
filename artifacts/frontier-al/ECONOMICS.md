@@ -25,22 +25,22 @@ Macro-plots are purchased with **ALGO** (Algorand native token), paid directly t
 
 ## 2. Sub-Parcel Prices
 
-Sub-parcels are purchased with **FRONTIER (FRNTR)** tokens. Pricing is derived from the parent biome's ALGO cost:
+Sub-parcels are purchased with **FRONTIER (ASCEND)** tokens. Pricing is derived from the parent biome's ALGO cost:
 
 ```
 price = max(10, min(100, round(algoBase × 50)))  FRONTIER
 ```
 
-| Biome       | Base (ALGO) | Sub-Parcel Price (FRNTR) |
+| Biome       | Base (ALGO) | Sub-Parcel Price (ASCEND) |
 |-------------|------------|--------------------------|
-| Water       | 1.50       | 75 FRNTR                 |
-| Volcanic    | 1.00       | 50 FRNTR                 |
-| Mountain    | 0.80       | 40 FRNTR                 |
-| Forest      | 0.50       | 25 FRNTR                 |
-| Tundra      | 0.40       | 20 FRNTR                 |
-| Plains      | 0.30       | 15 FRNTR                 |
-| Swamp       | 0.30       | 15 FRNTR                 |
-| Desert      | 0.20       | 10 FRNTR (minimum)       |
+| Water       | 1.50       | 75 ASCEND                 |
+| Volcanic    | 1.00       | 50 ASCEND                 |
+| Mountain    | 0.80       | 40 ASCEND                 |
+| Forest      | 0.50       | 25 ASCEND                 |
+| Tundra      | 0.40       | 20 ASCEND                 |
+| Plains      | 0.30       | 15 ASCEND                 |
+| Swamp       | 0.30       | 15 ASCEND                 |
+| Desert      | 0.20       | 10 ASCEND (minimum)       |
 
 **Prerequisites:** A player must hold a macro-plot for **4 hours** before they can subdivide it into 9 sub-parcels.
 
@@ -51,7 +51,7 @@ price = max(10, min(100, round(algoBase × 50)))  FRONTIER
 When a player purchases a sub-parcel:
 
 ```
-Total Cost = purchasePriceFrontier (15–75 FRNTR depending on biome)
+Total Cost = purchasePriceFrontier (15–75 ASCEND depending on biome)
 
   ↓ 70% → Macro-plot owner (FRONTIER credited to their in-game balance)
   ↓ 30% → Protocol treasury (recorded in treasury_ledger DB table)
@@ -60,9 +60,9 @@ Total Cost = purchasePriceFrontier (15–75 FRNTR depending on biome)
   the owner's 70% is also routed to the protocol treasury.
 ```
 
-**Example (Forest plot, 25 FRNTR sub-parcel):**
-- Macro owner receives: 17.50 FRNTR
-- Protocol treasury: 7.50 FRNTR
+**Example (Forest plot, 25 ASCEND sub-parcel):**
+- Macro owner receives: 17.50 ASCEND
+- Protocol treasury: 7.50 ASCEND
 
 ---
 
@@ -81,7 +81,7 @@ The protocol treasury accumulates FRONTIER fees from sub-parcel purchases. This 
 
 Each fee event creates a row:
 - `event_type`: `sub_parcel_purchase` or `sub_parcel_purchase_no_owner`
-- `amount_micro`: FRONTIER amount in micro units (1 FRNTR = 1,000,000 micro)
+- `amount_micro`: FRONTIER amount in micro units (1 ASCEND = 1,000,000 micro)
 - `from_player_id`: buyer
 - `settled`: false until on-chain batch runs
 - `settle_tx_id`: Algorand txId when settled
@@ -93,7 +93,7 @@ Settlement runs automatically every **24 hours** (or manually via admin):
 2. Admin wallet executes a self-transfer recording the amount on-chain
 3. Rows marked `settled = true` with the Algorand txId
 
-**Auto-settle threshold:** If unsettled balance exceeds **1,000 FRNTR**, settlement triggers immediately (on next purchase event).
+**Auto-settle threshold:** If unsettled balance exceeds **1,000 ASCEND**, settlement triggers immediately (on next purchase event).
 
 ---
 
@@ -103,7 +103,7 @@ Settlement runs automatically every **24 hours** (or manually via admin):
 
 | Metric | Value |
 |--------|-------|
-| Total Supply | 1,000,000,000 FRNTR (fixed, on-chain) |
+| Total Supply | 1,000,000,000 ASCEND (fixed, on-chain) |
 | Decimals | 6 |
 | On-chain ID | Algorand Standard Asset (ASA) |
 
@@ -111,28 +111,28 @@ Settlement runs automatically every **24 hours** (or manually via admin):
 
 | Source | Rate |
 |--------|------|
-| Base plot ownership | 1 FRNTR/day per plot |
-| + Electricity facility | +1 FRNTR/day |
-| + Blockchain Node L1 | +2 FRNTR/day |
-| + Blockchain Node L2 | +3 FRNTR/day |
-| + Blockchain Node L3 | +4 FRNTR/day |
-| Welcome bonus | 500 FRNTR (one-time) |
+| Base plot ownership | 1 ASCEND/day per plot |
+| + Electricity facility | +1 ASCEND/day |
+| + Blockchain Node L1 | +2 ASCEND/day |
+| + Blockchain Node L2 | +3 ASCEND/day |
+| + Blockchain Node L3 | +4 ASCEND/day |
+| Welcome bonus | 500 ASCEND (one-time) |
 
 ### Sinks (Burns / Protocol Fees)
 
 | Sink | Cost |
 |------|------|
-| Electricity facility | 30 FRNTR |
-| Blockchain Node L1–L3 | 120 / 270 / 480 FRNTR |
-| Data Centre L1–L3 | 120 / 270 / 480 FRNTR |
-| AI Lab L1–L3 | 120 / 270 / 480 FRNTR |
-| Commander (Sentinel) | 50 FRNTR |
-| Commander (Phantom) | 150 FRNTR |
-| Commander (Reaper) | 400 FRNTR |
-| Special attacks | 10–40 FRNTR |
-| Recon drones | 20 FRNTR each |
-| Orbital satellites | 50 FRNTR each |
-| Landmarks | 400–800 FRNTR + rare minerals |
+| Electricity facility | 30 ASCEND |
+| Blockchain Node L1–L3 | 120 / 270 / 480 ASCEND |
+| Data Centre L1–L3 | 120 / 270 / 480 ASCEND |
+| AI Lab L1–L3 | 120 / 270 / 480 ASCEND |
+| Commander (Sentinel) | 50 ASCEND |
+| Commander (Phantom) | 150 ASCEND |
+| Commander (Reaper) | 400 ASCEND |
+| Special attacks | 10–40 ASCEND |
+| Recon drones | 20 ASCEND each |
+| Orbital satellites | 50 ASCEND each |
+| Landmarks | 400–800 ASCEND + rare minerals |
 | Sub-parcel purchase (treasury) | 30% of purchase price |
 
 ---
@@ -147,8 +147,8 @@ If one player owns **all 9 sub-parcels** of a subdivided plot:
 
 ### Strategy Summary
 
-1. **Own a plot** → earn base 1 FRNTR/day
-2. **Build Blockchain Node L3** → earn up to 4 FRNTR/day (+480 FRNTR cost)
+1. **Own a plot** → earn base 1 ASCEND/day
+2. **Build Blockchain Node L3** → earn up to 4 ASCEND/day (+480 ASCEND cost)
 3. **Hold 4h** → subdivide into 9 sub-parcels
 4. **Other players buy sub-parcels** → you earn 70% of each fee
 5. **Own all 9** → +50% yield bonus on the whole plot
@@ -166,7 +166,7 @@ Real-time token metrics are available at `GET /api/economics`:
   "totalBurned": 1250000,
   "protocolTreasuryUnsettled": 342.5,
   "protocolTreasuryTotal": 1027.5,
-  "unitName": "FRNTR",
+  "unitName": "ASCEND",
   "network": "Algorand TestNet"
 }
 ```
