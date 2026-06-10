@@ -628,3 +628,26 @@ export const plotPurchasePrepare = pgTable("plot_purchase_prepare", {
 
 export type PlotPurchasePrepareRow    = typeof plotPurchasePrepare.$inferSelect;
 export type InsertPlotPurchasePrepare = typeof plotPurchasePrepare.$inferInsert;
+
+// ─── consumed_payment_txids ─────────────────────────────────────────────────────
+// Replay guard (HARD RULE #3: the payment txid is the idempotency key). One
+// confirmed ALGO payment txid may be consumed AT MOST once across the whole
+// economy — plot purchases AND commander mints share this ledger. The legacy
+// /api/actions/purchase + /api/actions/mint-avatar paths verify a payment then
+// claim its txid here (INSERT … ON CONFLICT DO NOTHING); a losing insert means
+// the txid was already spent → reject as a replay. Consumption is permanent and
+// fail-closed: a grant that fails AFTER a verified payment is consumed is logged
+// for admin reconciliation, never released (a released txid is a double-spend).
+// NB: the hardened atomic plot flow uses plot_purchases.payment_tx_id (PK) for
+// the same guarantee; this table covers the flows that don't write that row.
+export const consumedPaymentTxids = pgTable("consumed_payment_txids", {
+  txId:            text("tx_id").primaryKey(),                                  // UNIQUE: one payment → one purchase/mint
+  purpose:         varchar("purpose", { length: 16 }).notNull(),               // "plot" | "commander"
+  refId:           text("ref_id").notNull(),                                   // plotId / parcelId / commanderId (audit)
+  playerId:        varchar("player_id", { length: 36 }).notNull(),
+  amountMicroAlgo: bigint("amount_micro_algo", { mode: "number" }).notNull(),  // verified amount actually paid
+  consumedAt:      bigint("consumed_at", { mode: "number" }).notNull(),
+});
+
+export type ConsumedPaymentTxidRow    = typeof consumedPaymentTxids.$inferSelect;
+export type InsertConsumedPaymentTxid = typeof consumedPaymentTxids.$inferInsert;

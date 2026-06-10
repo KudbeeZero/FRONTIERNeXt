@@ -35,6 +35,7 @@ import { buildPlotPurchaseGroup, submitPlotPurchaseGroup } from "./services/chai
 import { requireMintBaseUrl } from "./lib/public-base-url";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
 import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment, attemptCommanderDelivery } from "./services/chain/commander";
+import { consumePaymentTxid } from "./services/payment-dedup";
 import {
   bootstrapFactionIdentities,
   getAllFactionAsaIds,
@@ -1719,21 +1720,52 @@ export async function registerRoutes(
       }
       const expectedMicroAlgos = Math.round(priceAlgo * 1_000_000);
 
+      let paidMicroAlgo: number;
       try {
-        await verifyAlgoPayment({
+        const verified = await verifyAlgoPayment({
           txId:           action.algoPaymentTxId,
           expectedSender: player.address,
           minMicroAlgo:   expectedMicroAlgos,
         });
+        paidMicroAlgo = verified.amountMicroAlgo;
         console.log(`[purchase] ALGO payment verified txId=${action.algoPaymentTxId} microAlgos=${expectedMicroAlgos} buyer=${player.address}`);
       } catch (payErr) {
         console.warn(`[purchase] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
         return res.status(402).json({ error: "Algo payment not verified" });
       }
+
+      // Replay guard (HARD RULE #3): consume the verified payment txid BEFORE
+      // granting the land. A losing claim means this txid was already spent on a
+      // prior purchase. Consumption is permanent — never released below, even if
+      // the grant fails (a released txid would reopen the double-spend).
+      const claimed = await consumePaymentTxid({
+        txId:            action.algoPaymentTxId,
+        purpose:         "plot",
+        refId:           String(action.parcelId),
+        playerId:        action.playerId,
+        amountMicroAlgo: paidMicroAlgo,
+      });
+      if (!claimed) {
+        console.warn(`[purchase] replay rejected — payment already consumed txId=${action.algoPaymentTxId} parcelId=${action.parcelId}`);
+        return res.status(409).json({ error: "This ALGO payment has already been used for a purchase." });
+      }
       // ─────────────────────────────────────────────────────────────────────────
 
       const buyerAddress = player.address;
-      const parcel = await storage.purchaseLand(action);
+      let parcel: Awaited<ReturnType<typeof storage.purchaseLand>>;
+      try {
+        parcel = await storage.purchaseLand(action);
+      } catch (grantErr) {
+        // Fail-closed: payment verified + txid consumed, but the land grant
+        // failed. Do NOT release the txid (that reopens replay). Flag for admin
+        // reconciliation — a stranded payment is recoverable; a double-spend isn't.
+        console.error(
+          `[CRITICAL] plot grant FAILED after verified+consumed payment ` +
+          `txId=${action.algoPaymentTxId} parcelId=${action.parcelId} player=${action.playerId}:`,
+          grantErr instanceof Error ? grantErr.message : grantErr,
+        );
+        return res.status(500).json({ error: "Payment received but the plot could not be granted. Support has been notified." });
+      }
       // Log the payment txId for audit trail (no dedicated column on parcels table).
       if (action.algoPaymentTxId) {
         console.log(`[purchase-audit] plotId=${parcel.plotId} buyer=${buyerAddress} algoPaymentTxId=${action.algoPaymentTxId}`);
@@ -2262,6 +2294,7 @@ export async function registerRoutes(
       // Human players must send ALGO to the admin wallet before commander minting.
       // Testnet price: 0.5 ALGO per tier. Production: tiered by rarity.
       const commanderAlgoPrice = COMMANDER_ALGO_PRICE_ACTIVE[action.tier] ?? 0.5;
+      let paidMicroAlgo = 0; // verified ALGO amount, consumed before minting (replay guard)
       if (isHumanPlayer) {
         if (!action.algoPaymentTxId) {
           return res.status(400).json({
@@ -2271,11 +2304,12 @@ export async function registerRoutes(
           });
         }
         try {
-          await verifyAlgoPayment({
+          const verified = await verifyAlgoPayment({
             txId:           action.algoPaymentTxId,
             expectedSender: mintPlayer.address!,
             minMicroAlgo:   Math.round(commanderAlgoPrice * 1_000_000),
           });
+          paidMicroAlgo = verified.amountMicroAlgo;
           console.log(`[mint-avatar] ALGO payment verified txId=${action.algoPaymentTxId} tier=${action.tier} price=${commanderAlgoPrice} buyer=${mintPlayer.address}`);
         } catch (payErr) {
           console.warn(`[mint-avatar] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
@@ -2306,8 +2340,40 @@ export async function registerRoutes(
         }
       }
 
+      // ── Replay guard (HARD RULE #3) ────────────────────────────────────────
+      // Consume the verified ALGO payment txid before minting. Placed AFTER the
+      // FRNTR check so an insufficient-FRNTR rejection never burns the buyer's
+      // payment. Consumption is permanent — never released, even if mint fails.
+      if (isHumanPlayer && action.algoPaymentTxId) {
+        const claimed = await consumePaymentTxid({
+          txId:            action.algoPaymentTxId,
+          purpose:         "commander",
+          refId:           action.tier,
+          playerId:        action.playerId,
+          amountMicroAlgo: paidMicroAlgo,
+        });
+        if (!claimed) {
+          console.warn(`[mint-avatar] replay rejected — payment already consumed txId=${action.algoPaymentTxId} player=${action.playerId}`);
+          return res.status(409).json({ error: "This ALGO payment has already been used for a commander mint." });
+        }
+      }
+
       // ── Mint in-game avatar ────────────────────────────────────────────────
-      const avatar = await storage.mintAvatar(action);
+      let avatar: Awaited<ReturnType<typeof storage.mintAvatar>>;
+      try {
+        avatar = await storage.mintAvatar(action);
+      } catch (grantErr) {
+        // Fail-closed: payment verified + txid consumed but mint failed. Do NOT
+        // release the txid. Flag for admin reconciliation.
+        if (isHumanPlayer && action.algoPaymentTxId) {
+          console.error(
+            `[CRITICAL] commander mint FAILED after verified+consumed payment ` +
+            `txId=${action.algoPaymentTxId} tier=${action.tier} player=${action.playerId}:`,
+            grantErr instanceof Error ? grantErr.message : grantErr,
+          );
+        }
+        throw grantErr;
+      }
 
       // ── Deduct FRNTR cost via on-chain clawback (fire-and-forget) ─────────
       if (frntrCost > 0 && mintPlayer.address) {

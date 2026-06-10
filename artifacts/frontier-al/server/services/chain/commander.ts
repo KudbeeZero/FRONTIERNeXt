@@ -13,7 +13,7 @@
  */
 
 import algosdk from "algosdk";
-import { getAlgodClient, getAdminAccount, getNetwork, getIndexerClient } from "./client";
+import { getAlgodClient, getAdminAccount, getAdminAddress, getNetwork, getIndexerClient } from "./client";
 import { isAddressOptedIn } from "./asa";
 import { assertMintBaseUrlSafe } from "../../lib/public-base-url";
 import type { AssetId, MintResult } from "./types";
@@ -195,15 +195,112 @@ export async function attemptCommanderDelivery(
 
 // ── Payment Verification ──────────────────────────────────────────────────────
 
+/** Normalized view of a confirmed payment, read from algod OR the indexer. */
+interface ConfirmedPaymentFields {
+  type:             string;            // "pay" for a payment txn
+  sender:           string;            // payer address
+  receiver:         string | undefined;
+  amountMicroAlgo:  number;
+  closeRemainderTo: string | undefined;
+  rekeyTo:          string | undefined;
+}
+
+/** Stringify an algod `Address` object | plain string | undefined uniformly. */
+function addrToString(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string") return value;
+  if (typeof (value as { toString?: () => string }).toString === "function") {
+    return (value as { toString: () => string }).toString();
+  }
+  return undefined;
+}
+
 /**
- * Verify an ALGO payment transaction via the Algorand Indexer.
- * Returns the amount (in microAlgo) if valid, throws otherwise.
+ * Read a CONFIRMED payment straight from algod (HARD RULE #2 — finality via
+ * algod, never the indexer, which lags and caused false paid-but-no-land 402s).
+ * algod retains a just-confirmed txn for a short window; returns `null` when the
+ * txn is no longer in that window (the caller then falls back to the indexer for
+ * older txns, where lag can no longer matter). Throws if the txn exists in the
+ * pool but is not yet confirmed ("posted too early").
  *
- * Checks:
- *  - txn is confirmed on-chain
- *  - sender matches expectedSender
- *  - receiver matches admin wallet
- *  - amount >= minMicroAlgo
+ * algod's pending-txn shape differs from the indexer: nested under `txn.txn`,
+ * with `Address` OBJECTS for sender/receiver (not strings) — see the
+ * algosdk-v3-indexer-shape auditor note.
+ */
+async function readConfirmedPaymentFromAlgod(txId: string): Promise<ConfirmedPaymentFields | null> {
+  const algod = getAlgodClient();
+
+  let pending: any;
+  try {
+    pending = await algod.pendingTransactionInformation(txId).do();
+  } catch {
+    return null; // flushed from algod's window (404) — defer to the indexer fallback
+  }
+
+  const confirmedRound = Number(pending?.confirmedRound ?? 0);
+  if (!confirmedRound || confirmedRound <= 0) {
+    // In the pool but not yet committed. The indexer cannot help (it only holds
+    // confirmed txns), so this is terminal for this attempt — the client retries.
+    throw new Error(`[chain/commander] Payment txn ${txId} is not yet confirmed on-chain`);
+  }
+
+  const t = pending?.txn?.txn;
+  if (!t) throw new Error(`[chain/commander] Malformed algod pending-txn response for txId=${txId}`);
+
+  return {
+    type:             String(t.type ?? ""),
+    sender:           addrToString(t.sender) ?? "",
+    receiver:         addrToString(t.payment?.receiver),
+    amountMicroAlgo:  Number(t.payment?.amount ?? 0),
+    closeRemainderTo: addrToString(t.payment?.closeRemainderTo),
+    rekeyTo:          addrToString(t.rekeyTo),
+  };
+}
+
+/**
+ * Indexer fallback for txns already flushed from algod's window. Only reached
+ * for OLD txns, so indexer lag is a non-issue here. Indexer `.do()` returns
+ * typed camelCase instances with STRING sender/receiver (algosdk-v3-indexer-shape).
+ */
+async function readConfirmedPaymentFromIndexer(txId: string): Promise<ConfirmedPaymentFields> {
+  const indexer = getIndexerClient();
+
+  let info: any;
+  try {
+    info = await indexer.lookupTransactionByID(txId).do();
+  } catch {
+    throw new Error(`[chain/commander] Payment txn not found (algod + indexer): ${txId}`);
+  }
+
+  const txn = info?.transaction ?? info;
+  if (!txn) throw new Error(`[chain/commander] Empty txn response for txId=${txId}`);
+
+  const confirmedRound = Number(txn.confirmedRound ?? 0);
+  if (!confirmedRound || confirmedRound <= 0) {
+    throw new Error(`[chain/commander] Payment txn ${txId} is not yet confirmed on-chain`);
+  }
+
+  const pay = txn.paymentTransaction ?? {};
+  return {
+    type:             String(txn.txType ?? ""),
+    sender:           addrToString(txn.sender) ?? "",
+    receiver:         addrToString(pay.receiver),
+    amountMicroAlgo:  Number(pay.amount ?? 0),
+    closeRemainderTo: addrToString(pay.closeRemainderTo),
+    rekeyTo:          addrToString(txn.rekeyTo),
+  };
+}
+
+/**
+ * Verify an ALGO payment is final, addressed to the admin wallet, and ≥ the
+ * server-derived price. Returns the amount (microAlgo) if valid, throws otherwise.
+ *
+ * Finality is confirmed via ALGOD (HARD RULE #2); the indexer is only a fallback
+ * for older txns. Does NOT enforce single-use — callers consume the txid via
+ * payment-dedup (HARD RULE #3) after this returns.
+ *
+ * Checks: confirmed on-chain · type === "pay" · sender === expectedSender ·
+ * receiver === admin · no closeRemainderTo/rekeyTo rider · amount >= minMicroAlgo.
  */
 export async function verifyAlgoPayment(params: {
   txId:            string;
@@ -211,49 +308,32 @@ export async function verifyAlgoPayment(params: {
   minMicroAlgo:    number;
 }): Promise<{ amountMicroAlgo: number }> {
   const { txId, expectedSender, minMicroAlgo } = params;
-  const indexer   = getIndexerClient();
-  const adminAddr = (await import("./client")).getAdminAddress();
+  const adminAddr = getAdminAddress();
 
-  let txnInfo: any;
-  try {
-    txnInfo = await indexer.lookupTransactionByID(txId).do();
-  } catch (err) {
-    throw new Error(`[chain/commander] Payment txn not found on indexer: ${txId}`);
+  const fields =
+    (await readConfirmedPaymentFromAlgod(txId)) ?? (await readConfirmedPaymentFromIndexer(txId));
+
+  if (fields.type !== "pay") {
+    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${fields.type})`);
   }
-
-  const txn = txnInfo.transaction ?? txnInfo;
-  if (!txn) throw new Error(`[chain/commander] Empty txn response for txId=${txId}`);
-
-  // Confirmed check: confirmed-round must be set and > 0
-  const confirmedRound = txn["confirmed-round"] ?? txn.confirmedRound ?? 0;
-  if (!confirmedRound || confirmedRound === 0) {
-    throw new Error(`[chain/commander] Payment txn ${txId} is not yet confirmed on-chain`);
+  if (fields.sender !== expectedSender) {
+    throw new Error(`[chain/commander] Payment sender mismatch: got ${fields.sender}, expected ${expectedSender}`);
   }
-
-  // Type must be pay. algosdk v3's indexer returns camelCase (txType); the raw
-  // REST API uses kebab-case (tx-type). Accept either — mirrors the
-  // confirmed-round read above, whose camelCase fallback is why it already works.
-  const txType = txn["tx-type"] ?? txn.txType;
-  if (txType !== "pay") {
-    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${txType})`);
+  if (fields.receiver !== adminAddr) {
+    throw new Error(`[chain/commander] Payment receiver mismatch: got ${fields.receiver}, expected admin ${adminAddr}`);
   }
-
-  const payFields = txn["payment-transaction"] ?? txn.paymentTransaction ?? {};
-  const receiver  = payFields.receiver ?? payFields["receiver"];
-  const amount    = Number(payFields.amount ?? 0);
-  const sender    = txn.sender;
-
-  if (sender !== expectedSender) {
-    throw new Error(`[chain/commander] Payment sender mismatch: got ${sender}, expected ${expectedSender}`);
+  // Reject balance-draining / account-hijack riders on the inbound payment.
+  if (fields.closeRemainderTo) {
+    throw new Error(`[chain/commander] Payment txn ${txId} carries a closeRemainderTo — rejected`);
   }
-  if (receiver !== adminAddr) {
-    throw new Error(`[chain/commander] Payment receiver mismatch: got ${receiver}, expected admin ${adminAddr}`);
+  if (fields.rekeyTo) {
+    throw new Error(`[chain/commander] Payment txn ${txId} carries a rekeyTo — rejected`);
   }
-  if (amount < minMicroAlgo) {
+  if (fields.amountMicroAlgo < minMicroAlgo) {
     throw new Error(
-      `[chain/commander] Insufficient payment: got ${amount} microAlgo, required ${minMicroAlgo}`
+      `[chain/commander] Insufficient payment: got ${fields.amountMicroAlgo} microAlgo, required ${minMicroAlgo}`
     );
   }
 
-  return { amountMicroAlgo: amount };
+  return { amountMicroAlgo: fields.amountMicroAlgo };
 }
