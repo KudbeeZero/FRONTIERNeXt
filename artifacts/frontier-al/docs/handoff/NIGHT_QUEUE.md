@@ -16,6 +16,17 @@ Rated backlog for the autonomous night shift. Written by `/handoff`, consumed by
 | 5 | Chat backend (global + faction) | R | unstarted | WS chat channels on existing `wsServer.ts`: Redis ring buffers, sanitization, rate-limit stubs. Backend only. Soft dependency on wallet auth — use `req.session?.playerId` with graceful null-fail. | LIVING WORLD §1 | `claude/night/chat-backend` |
 | 6 | Globe color fix + lighting pass 1 | EXP | unstarted | Three fixes from GLOBE LUT §5–6 (fingerprint dep, three-point lighting, emissive fill). **Verify first:** commit `b48f6f6` (fingerprint hardening) may have already fixed item 1 of 3 — re-scope before building. Three.js judgment required; visual result not machine-verifiable. | GLOBE §5–6 · PM §4 Pri 8 | `claude/night/globe-visual` |
 
+## Weapon-system items (from agent-run 2026-06-10, see agent-runs/2026-06-10-weapon-system/final-plan.md)
+
+| # | Item | Rating | Status | Description | Source | Branch |
+|---|------|--------|--------|-------------|--------|--------|
+| W1 | Funds-loss/double-charge fixes | HR | unstarted | deploy debit-before-cap-check, unlock/upgrade race, lost defender intercept credit | WPN-1 (H1/I2, H2, C3) | `claude/night/weapons-funds` |
+| W2 | Weapon route hardening | HR | unstarted | rate-limit `/api/weapons/*` lane, fix unauthenticated metadata full-table scan, trim WS intel broadcast | WPN-2 (D1, D2, F4) | `claude/night/weapons-ratelimit` |
+| W3 | Migration + test expansion | HR | unstarted | write-only migration 0005; HTTP tests for 8 weapon routes; fireWeapon success-path tests | WPN-3 (C1, C2) | `claude/night/weapons-tests` |
+| W4 | Combat integrity | R | unstarted | self-fire badge farming, cooldown enforcement; damage-scope needs a design decision first | WPN-4 (H3) | `claude/night/weapons-integrity` |
+| W5 | Mint hardening | R | unstarted | persistent idempotency table, FRNTR mint cost, address validation, delivery-retry endpoint | WPN-5 (B1, B2, B4, D3) | `claude/night/weapons-mint` |
+| W9 | Un-dark-launch Armory | EXP | **GATED** | nav entry + fire/deploy client callers + mutation error toasts — HARD-GATED behind W1/W2/W4/W5 (every server hole goes live with it) | WPN-9 (E1, E4, I1, A2/E2) | `claude/night/weapons-launch` |
+
 ## Not queued (and why)
 
 - **Railway deploy, Neon/SESSION_SECRET rotation** (PM §4 Pri 1–2): infra + secrets — guardrail-excluded, day shift only.

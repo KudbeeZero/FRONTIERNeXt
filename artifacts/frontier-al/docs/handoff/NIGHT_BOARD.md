@@ -36,6 +36,7 @@
 - 06:46 — main moved to `d9bbab5` during handoff (day shift merged weapon-system PR #9); night branches now base off it
 - 06:46 — lesson: non-frozen `pnpm install` into empty node_modules perturbs type hoisting → 253 phantom tsc errors (main was never broken). Rule adopted: pristine `--frozen-lockfile` install FIRST, then edit deps.
 - 07:15 — #2 gameConfig.ts — done & verified (tsc 0 errors, 163/163 tests incl. 3 new pinning tests, build green); composes canonical exports from shared/schema + shared/economy-config, stable shape for later DB-backed tuning — `claude/night/game-config`
+- 09:30 — ORCHESTRATOR RUN (owner request): 10-agent weapon-system review complete — 9 night reports + audit-report.md + final-plan.md in agent-runs/2026-06-10-weapon-system/. 85 findings → 28 verified (1 Crit + 11 High). Queue gained W1-W5 + gated W9. Headline: all server holes are curl-only until the Armory is un-dark-launched — keep W9 gated.
 - 08:00 — SHIFT END (owner request) — loop stopped, audit written (`SHIFT_AUDIT_2026-06-10.md`), all branches pushed & in sync, tree clean
 - 08:10 — #3 markets nav wire-up — verified ALREADY COMPLETE on main: desktop tab (GameLayout.tsx:953), mobile BottomNav (BottomNav.tsx:28), 60s resolver interval (routes.ts:2739). No branch needed. DORMANT LUT §1.2 is stale — flag for LUT cleanup.
 - 07:15 — note: LUT §7's sample numbers (parcel 100/250/500, commander 200/500/1200) conflict with live values in economy-config.ts; live values won. scan{25,5,3} + season{90d} adopted from LUT as reserved shape (no live consumer yet).
@@ -46,6 +47,10 @@
 
 ## DECISIONS WAITING FOR YOU
 
+0a. **Weapon damage-scope design call (W4)** — kills/precision are credited at launch
+   and impact damage is never settled. Options: settle real damage server-side
+   (Highly Recommended) / keep cosmetic but gate stats on valid hostile targets
+   (Recommended) / leave as-is until Phase 2 (Experimental).
 0. **Review & merge the night branches** — `claude/night/wallet-update` and
    `claude/night/game-config`, both verified green, small diffs (2 lines / 98 lines).
 1. **Sub-parcel UI (PM §4 Pri 7, highest ROI)** — too big/design-heavy for a full
