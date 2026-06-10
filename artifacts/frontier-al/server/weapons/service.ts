@@ -7,6 +7,7 @@
  * + weapon-economy costs), and runtime combat (engagementStore + shared sim).
  */
 
+import { randomUUID } from "crypto";
 import type { IStorage } from "../storage/interface";
 import type { EngagementStore, Engagement, DefenseBattery } from "./engagementStore";
 import {
@@ -89,7 +90,7 @@ export async function unlockWeapon(
   }
   await storage.spendFrontier(playerId, unlockCostFrntr(spec));
   const owned: OwnedWeapon = {
-    id: `${specId}-${Date.now().toString(36)}`,
+    id: randomUUID(),
     specId,
     upgradeTier: 1,
     acquiredAt: Date.now(),

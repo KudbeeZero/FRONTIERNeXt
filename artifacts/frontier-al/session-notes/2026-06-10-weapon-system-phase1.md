@@ -57,14 +57,38 @@ layer. Built to grow every "season."
   animates on the live globe.
 - All green: tsc, 156 server tests, production build.
 
-## NOT yet done (next units)
-1. **Phase 2**: weapon-NFT mint (`server/services/chain/weapon.ts`, mirrors
-   commander.ts), Armory UI (Radix/Tailwind: attribute allocation, archetype
-   picker, badge wall, catalog/fire controls), badge-earning surfaced in UI,
-   AI factions firing weapons, upgrade route.
-2. Run `pnpm run db:push` against a dev DB to apply the `weapon_profile` column.
-3. Optional: a `tsx` HTTP integration test mounting the real `/api/weapons/fire`
-   handler end-to-end (suite is single-process).
+### 5. Phase 2 — upgrades, NFT minting, Armory UI (shipped)
+- **Upgrade**: `POST /api/weapons/upgrade` + `service.upgradeWeapon` (per-instance
+  tier to `MAX_WEAPON_UPGRADE_TIER`, spends FRNTR).
+- **NFT mint**: `server/services/chain/weapon.ts` (custody mint, mirrors
+  commander.ts) + `POST /api/weapons/mint-nft` + `GET /nft/metadata/weapon/:id`
+  (ARC-3). `nftAssetId` recorded on the owned weapon.
+- **Armory UI**: `client/src/components/game/armory/ArmoryPanel.tsx` (TanStack
+  Query vs live API): attribute allocation with live tradeoff/effective preview,
+  derived archetype + badge wall, catalog with unlock/upgrade/equip. Authenticated
+  `/armory` route (`pages/armory.tsx`) wired into `App.tsx`.
+
+### 6. Security pass (done)
+- Independent agent review of the full branch diff (routes/service/storage/chain):
+  **no high-confidence vulnerabilities.** Auth/ownership enforced on every mutating
+  route via `assertPlayerOwnership` (uses verified playerId, not body); drizzle
+  `eq()` params (no SQLi); spend paths clamped positive; custody-safe NFT mint; no
+  PII/secret exposure. Cleanup applied: owned-weapon id now `randomUUID()` (was a
+  collidable timestamp).
+
+## HANDOFF — for the next chat
+- **State**: weapon system feature-complete through Phase 2 on
+  `claude/weapons-system-architecture-hl2jhs`. 7 commits, all individually green
+  (tsc + 158 server tests + production build). PR opened (see branch).
+- **One-time op before live use**: `pnpm run db:push` to apply the `weapon_profile`
+  column on the real DB (nullable; no backfill).
+- **Try it**: `pnpm run sandbox:weapons` (FX), or `/armory` route in-game
+  (authenticated); fire from the game animates on the live globe via WS.
+- **Next ideas**: surface an in-game nav link to `/armory` (GameLayout header);
+  wire "fire from selected plot" into the map UI; AI factions firing weapons;
+  weapon images for NFT metadata (`/images/weapons/<category>.png`); optional
+  `tsx` HTTP integration test for `/api/weapons/fire`; refund FRNTR if a future
+  `store.launch` can throw (currently non-throwing post-validation).
 
 ## Verify
 `pnpm run check` · `pnpm run test:server` · `pnpm run build` (all green) ·
