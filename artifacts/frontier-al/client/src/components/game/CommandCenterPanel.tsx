@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   MapPin, Pickaxe, Fuel, Gem, Shield, Zap, TrendingUp,
   Search, Clock, CheckCircle, Swords, Hammer, ChevronDown, ChevronUp,
-  FlaskConical, ArrowDownToLine,
+  FlaskConical, ArrowDownToLine, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import type { LandParcel, Player } from "@shared/schema";
 import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS } from "@shared/schema";
+import { usePlotNftStatus } from "@/hooks/usePlotNftStatus";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,10 @@ function PlotRow({
   onMineParcel,
   isMiningThisParcel,
   now,
+  nftStatus,
+  assetId,
+  onDeliverPlotNft,
+  isDeliveringPlotNft,
 }: {
   parcel: LandParcel;
   isSelected: boolean;
@@ -44,7 +49,12 @@ function PlotRow({
   onMineParcel: (parcelId: string) => void;
   isMiningThisParcel: boolean;
   now: number;
+  nftStatus: "delivered" | "not_delivered";
+  assetId?: number;
+  onDeliverPlotNft?: (plotId: number, assetId: number) => void;
+  isDeliveringPlotNft?: boolean;
 }) {
+  const notDelivered = nftStatus === "not_delivered" && !!assetId;
   const elapsed = now - parcel.lastMineTs;
   const remaining = Math.max(0, MINE_COOLDOWN_MS - elapsed);
   const mineReady = remaining === 0;
@@ -59,7 +69,8 @@ function PlotRow({
         "w-full rounded-lg border transition-colors overflow-hidden",
         isSelected
           ? "border-primary/60 bg-primary/10"
-          : "border-border bg-muted/20 hover:bg-muted/40"
+          : "border-border bg-muted/20 hover:bg-muted/40",
+        notDelivered && "opacity-60 grayscale-[40%]" // grayed until the NFT is minted to the owner
       )}
       data-testid={`plot-row-${parcel.plotId}`}
     >
@@ -122,8 +133,24 @@ function PlotRow({
         )}
       </button>
 
-      {/* Mine Resources button — only shown when plot is ready; per-parcel disabled state */}
-      {mineReady && (
+      {/* Not delivered → "Mint NFT" (grayed, not yet producing). Delivered → "Mine". */}
+      {notDelivered ? (
+        <div className="px-3 pb-2 border-t border-border/50">
+          <Button
+            onClick={(e) => { e.stopPropagation(); onDeliverPlotNft?.(parcel.plotId, assetId!); }}
+            disabled={isDeliveringPlotNft}
+            size="sm"
+            className="w-full h-7 font-display uppercase tracking-wide text-xs bg-primary/90 hover:bg-primary transition-all active:scale-95"
+            data-testid={`button-mint-nft-${parcel.plotId}`}
+          >
+            <Sparkles className={cn("w-3 h-3 mr-1.5", isDeliveringPlotNft && "animate-spin")} />
+            {isDeliveringPlotNft ? "Minting…" : "Mint NFT"}
+          </Button>
+          <p className="text-[8px] text-muted-foreground text-center mt-1 uppercase tracking-wide">
+            Mint to your wallet to activate
+          </p>
+        </div>
+      ) : mineReady ? (
         <div className="px-3 pb-2 border-t border-border/50">
           <Button
             onClick={(e) => {
@@ -139,7 +166,7 @@ function PlotRow({
             {isMiningThisParcel ? "Extracting..." : "Mine Resources"}
           </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -358,6 +385,9 @@ interface CommandCenterPanelProps {
   isMining: boolean;
   isUpgrading: boolean;
   isCollecting: boolean;
+  onDeliverPlotNft?: (plotId: number, assetId: number) => void;
+  isDeliveringPlotNftId?: number | null;
+  walletAddress?: string | null;
   className?: string;
 }
 
@@ -375,6 +405,9 @@ export function CommandCenterPanel({
   isMining,
   isUpgrading,
   isCollecting,
+  onDeliverPlotNft,
+  isDeliveringPlotNftId,
+  walletAddress,
   className,
 }: CommandCenterPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -390,6 +423,9 @@ export function CommandCenterPanel({
     () => parcels.filter((p) => player && p.ownerId === player.id),
     [parcels, player]
   );
+
+  // Per-plot NFT delivery state — drives the grayed "Mint NFT" vs active "Mine" UI.
+  const nftStatusByPlot = usePlotNftStatus(ownedParcels, walletAddress);
 
   const filteredParcels = useMemo(() => {
     const q = searchQuery.trim();
@@ -542,6 +578,10 @@ export function CommandCenterPanel({
                 onMineParcel={onMineParcel || (() => {})}
                 isMiningThisParcel={isMiningParcel ? isMiningParcel(p.id) : false}
                 now={now}
+                nftStatus={nftStatusByPlot[p.plotId]?.status ?? "delivered"}
+                assetId={nftStatusByPlot[p.plotId]?.assetId}
+                onDeliverPlotNft={onDeliverPlotNft}
+                isDeliveringPlotNft={isDeliveringPlotNftId === p.plotId}
               />
             ))
           )}

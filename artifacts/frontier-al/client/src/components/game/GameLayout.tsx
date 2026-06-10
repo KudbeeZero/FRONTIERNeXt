@@ -103,6 +103,7 @@ export function GameLayout() {
   const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [miningParcelIds, setMiningParcelIds] = useState<Set<string>>(new Set());
+  const miningInFlightRef = useRef<Set<string>>(new Set()); // synchronous spam-click guard (state lags a render)
   const [livePulses, setLivePulses] = useState<LivePulse[]>([]);
   const [flyRequestId, setFlyRequestId] = useState(0);
   const [mapTransitioning, setMapTransitioning] = useState(false);
@@ -205,13 +206,37 @@ export function GameLayout() {
   const selectedParcel = gameState?.parcels.find((p) => p.id === selectedParcelId) || null;
   const activeBattleCount = gameState?.battles.filter(b => b.status === "pending").length || 0;
 
-  const handleMine = async () => {
+  // P0: gameplay actions need a signed-in session (not just a connected wallet).
+  // If connected-but-not-authed, fire the sign-in INSIDE this click (gesture-safe
+  // for Lute) and ask them to tap again — instead of a silent 401.
+  const ensureAuthedForAction = (verb: string): boolean => {
     if (!isConnected) {
       toast({ title: "Authorization Required", description: "Connect your wallet to perform game actions.", variant: "destructive" });
+      return false;
+    }
+    if (!wallet.isAuthenticated) {
+      toast({ title: `Sign in to ${verb}`, description: "Approve the sign-in in your wallet, then tap again." });
+      void wallet.authenticate();
+      return false;
+    }
+    return true;
+  };
+
+  const handleMineError = (error: unknown) => {
+    const msg = (error as Error).message;
+    if (msg.includes("401")) {
+      toast({ title: "Sign in to mine", description: "Your session expired — approve the sign-in in your wallet, then tap Mine again." });
+      void wallet.authenticate();
       return;
     }
+    toast({ title: "Mining Failed", description: msg, variant: "destructive" });
+  };
+
+  const handleMine = async () => {
+    if (!ensureAuthedForAction("mine")) return;
     if (!player || !selectedParcelId || !selectedParcel) return;
-    if (miningParcelIds.has(selectedParcelId)) return;
+    if (miningInFlightRef.current.has(selectedParcelId)) return; // synchronous double-click guard
+    miningInFlightRef.current.add(selectedParcelId);
     setMiningParcelIds((prev) => new Set([...prev, selectedParcelId]));
     mineMutation.mutate(
       { playerId: player.id, parcelId: selectedParcelId },
@@ -233,8 +258,9 @@ export function GameLayout() {
             setLivePulses(prev => [...prev, pulse]);
           }
         },
-        onError: (error: unknown) => toast({ title: "Mining Failed", description: (error as Error).message, variant: "destructive" }),
+        onError: (error: unknown) => handleMineError(error),
         onSettled: () => {
+          miningInFlightRef.current.delete(selectedParcelId);
           setMiningParcelIds((prev) => {
             const next = new Set(prev);
             next.delete(selectedParcelId);
@@ -246,14 +272,12 @@ export function GameLayout() {
   };
 
   const handleMineParcel = async (parcelId: string) => {
-    if (!isConnected) {
-      toast({ title: "Authorization Required", description: "Connect your wallet to perform game actions.", variant: "destructive" });
-      return;
-    }
+    if (!ensureAuthedForAction("mine")) return;
     if (!player) return;
-    if (miningParcelIds.has(parcelId)) return;
+    if (miningInFlightRef.current.has(parcelId)) return; // synchronous double-click guard
     const parcel = gameState?.parcels.find(p => p.id === parcelId);
     if (!parcel) return;
+    miningInFlightRef.current.add(parcelId);
     setMiningParcelIds((prev) => new Set([...prev, parcelId]));
     mineMutation.mutate(
       { playerId: player.id, parcelId },
@@ -273,8 +297,9 @@ export function GameLayout() {
           };
           setLivePulses(prev => [...prev, pulse]);
         },
-        onError: (error: unknown) => toast({ title: "Mining Failed", description: (error as Error).message, variant: "destructive" }),
+        onError: (error: unknown) => handleMineError(error),
         onSettled: () => {
+          miningInFlightRef.current.delete(parcelId);
           setMiningParcelIds((prev) => {
             const next = new Set(prev);
             next.delete(parcelId);
@@ -813,6 +838,9 @@ export function GameLayout() {
     isMining: mineMutation.isPending,
     isUpgrading: upgradeMutation.isPending,
     isCollecting: collectMutation.isPending,
+    onDeliverPlotNft: handleDeliverPlotNft,
+    isDeliveringPlotNftId,
+    walletAddress: wallet.address ?? null,
   };
 
   const mobileMenuContent = (

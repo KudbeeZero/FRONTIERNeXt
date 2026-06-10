@@ -35,18 +35,13 @@ export function useMine() {
       const response = await apiRequest("POST", "/api/actions/mine", action);
       return response.json();
     },
-    onMutate: async (action: MineAction) => {
+    onMutate: async (_action: MineAction) => {
+      // Do NOT optimistically set lastMineTs here. It flips `mineReady` false and
+      // UNMOUNTS the mine button mid-click (the button lives inside `{mineReady && …}`),
+      // so the user never sees the disabled "Extracting…" state and it feels broken.
+      // Let the server response set the real cooldown; snapshot only for error rollback.
       await queryClient.cancelQueries({ queryKey: ["/api/game/state"] });
       const previous = queryClient.getQueryData<GameState>(["/api/game/state"]);
-      queryClient.setQueryData<GameState>(["/api/game/state"], (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          parcels: old.parcels.map(p =>
-            p.id === action.parcelId ? { ...p, lastMineTs: Date.now() } : p
-          ),
-        };
-      });
       return { previous };
     },
     onSuccess: (data: any, action: MineAction) => {

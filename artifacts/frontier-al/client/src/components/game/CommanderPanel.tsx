@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Shield, Swords, Zap, Target, Radio, Crosshair, Skull, Radar, Clock,
   Satellite, Gift, Loader2, Lock, ChevronDown, ChevronUp, Pickaxe, Fuel,
-  AlertTriangle, MapPin, CheckCircle2, XCircle, ChevronsRight, PackageCheck, ExternalLink,
+  AlertTriangle, MapPin, CheckCircle2, XCircle, ChevronsRight,
   ChevronLeft, ChevronRight, Crosshair as AimIcon, Activity, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
-import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
 import {
@@ -473,28 +473,6 @@ export function CommanderPanel({
     staleTime: 10_000,
   });
 
-  // Fetch NFT status for all owned parcels (lazy — only when user opens Commander tab)
-  const plotNftQueries = useQueries({
-    queries: ownedParcels.slice(0, 25).map(parcel => ({
-      queryKey: ["nft-plot", parcel.plotId],
-      queryFn: async () => {
-        const res = await fetch(`/api/nft/plot/${parcel.plotId}`);
-        if (res.status === 404) return null;
-        if (!res.ok) return null;
-        return res.json() as Promise<{ plotId: number; assetId: number | null; mintedToAddress: string | null } | null>;
-      },
-      staleTime: 30_000,
-    })),
-  });
-
-  const pendingNftPlots = ownedParcels.slice(0, 25).flatMap((parcel, idx) => {
-    const d = plotNftQueries[idx]?.data;
-    if (!d?.assetId) return [];
-    const inCustody = !!d.mintedToAddress && d.mintedToAddress !== wallet?.address;
-    if (!inCustody) return [];
-    return [{ plotId: parcel.plotId, assetId: d.assetId, biome: parcel.biome as string }];
-  });
-
   // Sub-parcel attack mutation
   const subParcelAttackMutation = useMutation({
     mutationFn: async (params: { subParcelId: string; attackerId: string; attackerParcelId: string; commanderId?: string; troops: number; iron: number; fuel: number; crystal: number }) => {
@@ -697,55 +675,7 @@ export function CommanderPanel({
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-4">
 
-          {/* ── Pending NFT Claims ── */}
-          {pendingNftPlots.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/40">
-                <PackageCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-display uppercase tracking-wide text-amber-400 font-bold">
-                    {pendingNftPlots.length} NFT{pendingNftPlots.length > 1 ? "s" : ""} Awaiting Claim
-                  </p>
-                  <p className="text-[9px] text-amber-300/70">Mining and upgrades are locked until you claim your NFT</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {pendingNftPlots.map(plot => (
-                  <div
-                    key={plot.plotId}
-                    className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-xs font-mono font-bold text-amber-300">Plot #{plot.plotId}</span>
-                        <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/40 text-amber-400 capitalize">{plot.biome}</Badge>
-                      </div>
-                      <a
-                        href={`https://explorer.perawallet.app/assets/${plot.assetId}/`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[9px] text-muted-foreground font-mono hover:text-amber-300 transition-colors flex items-center gap-0.5"
-                      >
-                        ASA {plot.assetId} <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => onDeliverPlotNft?.(plot.plotId, plot.assetId)}
-                      disabled={isDeliveringPlotNftId === plot.plotId}
-                      className="h-8 px-3 text-[10px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
-                    >
-                      {isDeliveringPlotNftId === plot.plotId ? (
-                        <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Claiming…</>
-                      ) : (
-                        <><PackageCheck className="w-3 h-3 mr-1" />Claim NFT</>
-                      )}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Plot NFT claims moved inline to the plot cards (the "Mint NFT" button on the left menu). */}
 
           {/* ── Avatar Gallery (2-column grid + pagination) ── */}
           {hasCommander ? (
