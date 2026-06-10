@@ -31,3 +31,29 @@ All chain interaction mocked; no migration executed.
 weapon-mint caller-supplied receiver address; enforce
 `WALLET_AUTH_REQUIRED` in prod at boot. Full list + long-term
 recommendations in the night report.
+
+### Recon dossier for the NEXT shift — `night-reports/RECON-DOSSIER-2026-06-10.md`
+
+After the three defusals I ran a read-only recon pass (5 parallel agents,
+every CRITICAL/HIGH hand-verified against current code — several subagent
+findings were wrong and are listed as REFUTED so they aren't chased). No code
+changed. It organizes the remaining work into target *packages*:
+
+- **A — economic-writer concurrency (HIGH):** the SAME non-atomic
+  read-modify-write class as tonight's resolveBattles fix recurs in
+  `claimWinnings` (double payout), `placeBet`, `purchaseSubParcel`,
+  `fillTradeOrder`. One cut pattern fixes all.
+- **B — missing fail-closed boot guards (HIGH):** `SESSION_SECRET`,
+  `WALLET_AUTH_REQUIRED`, `PUBLIC_BASE_URL` all degrade silently instead of
+  refusing to boot in prod.
+- **C — authz coverage gaps (CRITICAL):** `MUTATION_PATH_RE` doesn't cover
+  `/api/orbital|weapons|nft|game`; orbital ungated, weapons mint receiver,
+  retry-commander body playerId.
+- **D — stuck-NFT / transfer-queue recovery gaps (HIGH):** manual-recovery-only
+  failure paths in the fire-and-forget mint/deliver/transfer lifecycle.
+- **E — tokenomics (MED, mainnet-gating):** no FRNTR supply cap, non-atomic
+  treasury settlement, listing route bypasses its `min(1)` schema.
+
+Verified SAFE (don't re-investigate): WS per-viewer scoping, economy-mode
+read-once, welcome-bonus/claimFrontier atomicity, EdDSA, auth address handling.
+Suggested next-shift order is at the bottom of the dossier.
