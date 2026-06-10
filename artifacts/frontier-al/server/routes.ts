@@ -67,7 +67,7 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit } from "./security";
+import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim } from "./security";
 import {
   getAuth,
   isWalletAuthRequired,
@@ -760,6 +760,24 @@ export async function registerRoutes(
         return res.json({ success: false, reason: "not_in_custody", message: "NFT already delivered to buyer", assetId });
       }
 
+      // ── Ownership gate ────────────────────────────────────────────────────
+      // Custody + opt-in alone are attacker-satisfiable (opt-in is
+      // permissionless), so the NFT may only ever go to the registered wallet
+      // of the parcel's current in-game owner.
+      const [parcelRow] = await db
+        .select({ ownerId: parcelsTable.ownerId })
+        .from(parcelsTable)
+        .where(eq(parcelsTable.plotId, plotId));
+      const ownerId = parcelRow?.ownerId ?? null;
+      const [ownerRow] = ownerId
+        ? await db.select({ address: playersTable.address }).from(playersTable).where(eq(playersTable.id, ownerId))
+        : [];
+      const claim = evaluateNftDeliveryClaim({ ownerAddress: ownerRow?.address ?? null, requestedAddress: address });
+      if (!claim.allow) {
+        console.warn(`[nft/deliver] DENIED plotId=${plotId} assetId=${assetId} requested=${address} reason=${claim.reason}`);
+        return res.status(403).json({ error: "Delivery address does not match the plot owner's registered wallet", reason: claim.reason });
+      }
+
       // Verify the caller's wallet has opted into this specific plot NFT ASA
       const optedIn = await isAddressOptedIn(address, assetId);
       if (!optedIn) {
@@ -1037,6 +1055,20 @@ export async function registerRoutes(
       const adminAddr = getAdminAddress();
       if (row.mintedToAddress !== adminAddr) {
         return res.json({ success: false, reason: "not_in_custody", message: "NFT already delivered to buyer", assetId });
+      }
+
+      // ── Ownership gate ────────────────────────────────────────────────────
+      // Same rule as plot delivery: only the registered wallet of the player
+      // who owns this commander may take delivery (opt-in is permissionless,
+      // so it is not an ownership proof).
+      const [cmdrOwnerRow] = await db
+        .select({ address: playersTable.address })
+        .from(playersTable)
+        .where(sql`${playersTable.commanders} @> ${JSON.stringify([{ id: commanderId }])}::jsonb`);
+      const claim = evaluateNftDeliveryClaim({ ownerAddress: cmdrOwnerRow?.address ?? null, requestedAddress: address });
+      if (!claim.allow) {
+        console.warn(`[nft/deliver-commander] DENIED commanderId=${commanderId} assetId=${assetId} requested=${address} reason=${claim.reason}`);
+        return res.status(403).json({ error: "Delivery address does not match the commander owner's registered wallet", reason: claim.reason });
       }
 
       const optedIn = await isAddressOptedIn(address, assetId);

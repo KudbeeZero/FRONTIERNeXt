@@ -125,6 +125,46 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Decide whether a caller-supplied delivery address is entitled to receive a
+ * custody-held NFT.
+ *
+ * The public delivery endpoints (/api/nft/deliver/:plotId,
+ * /api/nft/deliver-commander/:commanderId) previously transferred the asset to
+ * ANY address that had opted into the ASA — custody + opt-in were the only
+ * guards, and both are satisfiable by an attacker (opt-in is permissionless).
+ * A 1-of-1 plot/commander NFT could therefore be stolen out of admin custody
+ * before the paying buyer opted in.
+ *
+ * Rule: the asset may only be delivered to the EXACT wallet address registered
+ * for the in-game owner of the plot/commander. Placeholder identities
+ * ("PLAYER_WALLET", AI_* bots, unowned parcels) can never take delivery.
+ *
+ * Pure decision function — no DB, no chain. Callers resolve `ownerAddress`
+ * (parcels.ownerId → players.address, or commanders JSONB → players.address)
+ * and must run this BEFORE any on-chain interaction.
+ */
+export function evaluateNftDeliveryClaim(params: {
+  /** Registered wallet of the in-game owner; null/undefined when unresolvable. */
+  ownerAddress: string | null | undefined;
+  /** Address the caller asked us to deliver to. */
+  requestedAddress: string;
+}): { allow: true } | { allow: false; reason: "no_registered_owner" | "not_owner" } {
+  const { ownerAddress, requestedAddress } = params;
+
+  if (
+    !ownerAddress ||
+    ownerAddress === "PLAYER_WALLET" ||
+    ownerAddress.startsWith("AI_")
+  ) {
+    return { allow: false, reason: "no_registered_owner" };
+  }
+  if (!safeEqual(requestedAddress, ownerAddress)) {
+    return { allow: false, reason: "not_owner" };
+  }
+  return { allow: true };
+}
+
+/**
  * Bound a caller-supplied `limit` query parameter so an attacker cannot turn a
  * paginated feed into a full-table dump with `?limit=999999`.
  *
