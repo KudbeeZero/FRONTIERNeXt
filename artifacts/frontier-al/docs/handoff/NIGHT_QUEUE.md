@@ -9,7 +9,7 @@ Rated backlog for the autonomous night shift. Written by `/handoff`, consumed by
 
 | # | Item | Rating | Status | Description | Source | Branch |
 |---|------|--------|--------|-------------|--------|--------|
-| 1 | Pera wallet 1.4.2 → 1.5.2 | HR | unstarted | Bump `@perawallet/connect` in package.json; `pnpm check` verifies. Mechanical, supply-chain age gate already passed. | MASTER LUT P1 · PM §4 Pri 3 | `claude/night/wallet-update` |
+| 1 | Pera wallet 1.4.2 → 1.5.2 | HR | ✅ done (`claude/night/wallet-update`) | Bump `@perawallet/connect` in package.json; `pnpm check` verifies. Mechanical, supply-chain age gate already passed. | MASTER LUT P1 · PM §4 Pri 3 | `claude/night/wallet-update` |
 | 2 | gameConfig.ts tunables module | HR | unstarted | Create `server/config/gameConfig.ts` exporting typed `GAME_CONFIG` (parcel/sub-parcel costs, scan, fees, archetype build costs). Additive only — wire new consumers, no refactor, no DB. | DORMANT §7 + MASTER A3 · PM §4 Pri 9 | `claude/night/game-config` |
 | 3 | Prediction markets nav wire-up | HR | unstarted | Verify `PredictionMarkets.tsx` is reachable from the game menu (add nav entry if missing) and that `resolveExpiredMarkets()` runs on a timer. Plumbing only; backend is 100% done. | DORMANT §1.2 | `claude/night/markets-nav` |
 | 4 | Season HUD banner | R | unstarted | `client/src/components/game/SeasonBanner.tsx`: season name, time remaining, prize pool, top-3 — consuming existing `getCurrentSeason()` via TanStack Query. UI only. | DORMANT §1.3 | `claude/night/seasons-hud` |

@@ -5,9 +5,9 @@
 
 ## STATUS
 
-**Last check-in:** — (no cycles yet — loop armed, first cycle ~30 min after handoff)
-**Current item:** — · **Branch:** — · **State:** idle
-**Handoff base:** `98680a7` (main, 2026-06-07)
+**Last check-in:** 06:46 UTC · loop armed (30 min cadence)
+**Current item:** #1 Pera wallet bump — **DONE** · **Branch:** `claude/night/wallet-update` · **State:** verified ✅
+**Handoff base:** `d9bbab5` (main, 2026-06-10 — moved during handoff: weapon-system PR #9 merged)
 
 ## DAY SUMMARY (what the day shift shipped, since last handoff)
 
@@ -20,7 +20,7 @@
 
 ## QUEUE SNAPSHOT (full table in NIGHT_QUEUE.md)
 
-1. **HR** Pera wallet 1.4.2 → 1.5.2
+1. **HR** Pera wallet 1.4.2 → 1.5.2 — ✅ done, on `claude/night/wallet-update`
 2. **HR** gameConfig.ts tunables module
 3. **HR** Prediction markets nav wire-up
 4. **R** Season HUD banner
@@ -30,6 +30,10 @@
 ## CYCLE LOG
 
 *(one line per cycle: `HH:MM — item — what happened — branch`)*
+
+- 06:46 — #1 Pera wallet 1.4.2→1.5.2 — done & verified (tsc 0 errors, 160/160 server tests, build green); pushed — `claude/night/wallet-update`
+- 06:46 — main moved to `d9bbab5` during handoff (day shift merged weapon-system PR #9); night branches now base off it
+- 06:46 — lesson: non-frozen `pnpm install` into empty node_modules perturbs type hoisting → 253 phantom tsc errors (main was never broken). Rule adopted: pristine `--frozen-lockfile` install FIRST, then edit deps.
 
 ## BLOCKERS
 

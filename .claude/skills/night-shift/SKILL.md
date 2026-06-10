@@ -28,7 +28,10 @@ context for the edits themselves.
    Experimental). If the queue is empty, update the board's status line and end the cycle.
 
 2. **Branch.** `git fetch origin`, then create or check out the item's
-   `claude/night/<item>` branch from `origin/main`.
+   `claude/night/<item>` branch from `origin/main`. Before touching dependencies,
+   establish a clean baseline: `pnpm install --frozen-lockfile` (pristine
+   node_modules if in doubt — a non-frozen install into an empty node_modules can
+   perturb type hoisting and produce hundreds of phantom tsc errors).
 
 3. **Build.** Implement the item as specced in its source LUT/doc. Resolve small
    ambiguities sensibly and note the choice on the board; if the ambiguity is
