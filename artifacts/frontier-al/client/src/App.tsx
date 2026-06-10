@@ -17,6 +17,7 @@ import LandingFeatures from "@/pages/landing-features";
 import LandingUpdates from "@/pages/landing-updates";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import BattlesPage from "@/pages/battles";
+import ArmoryPage from "@/pages/armory";
 import AdminDashboard from "@/pages/admin";
 
 function App() {
@@ -65,6 +66,11 @@ function App() {
               <Route path="/battles">
                 <WalletProvider>
                   <BattlesPage />
+                </WalletProvider>
+              </Route>
+              <Route path="/armory">
+                <WalletProvider>
+                  <ArmoryPage />
                 </WalletProvider>
               </Route>
               <Route path="/admin">

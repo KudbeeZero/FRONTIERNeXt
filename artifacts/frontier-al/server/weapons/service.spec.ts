@@ -66,6 +66,23 @@ describe("weapon service · unlock", () => {
   });
 });
 
+describe("weapon service · upgrade", () => {
+  it("raises the upgrade tier and spends FRNTR", async () => {
+    const { storage, playerId, player } = await setup();
+    const owned = (await svc.unlockWeapon(storage, playerId, "msl_ballistic_1")).ownedWeapons[0];
+    const before = player.frontier;
+    const profile = await svc.upgradeWeapon(storage, playerId, owned.id);
+    const upgraded = profile.ownedWeapons.find((w) => w.id === owned.id)!;
+    expect(upgraded.upgradeTier).toBe(2);
+    expect(player.frontier).toBeLessThan(before);
+  });
+
+  it("won't upgrade an unknown instance", async () => {
+    const { storage, playerId } = await setup();
+    await expect(svc.upgradeWeapon(storage, playerId, "ghost")).rejects.toThrow(/not in your armory/i);
+  });
+});
+
 describe("weapon service · fire + deploy guards", () => {
   it("won't fire a weapon that isn't in the armory", async () => {
     const { storage, store, playerId } = await setup();

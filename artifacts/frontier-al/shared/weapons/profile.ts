@@ -117,8 +117,24 @@ export const deployDefenseActionSchema = z.object({
   parcelId: z.string(),
 });
 
+export const upgradeWeaponActionSchema = z.object({
+  playerId: z.string(),
+  ownedWeaponId: z.string(),
+});
+
+export const mintWeaponNftActionSchema = z.object({
+  playerId: z.string(),
+  ownedWeaponId: z.string(),
+  receiverAddress: z.string().min(1),
+});
+
+/** Max per-instance upgrade level a weapon can reach. */
+export const MAX_WEAPON_UPGRADE_TIER = 5;
+
 export type BuildWeaponProfileAction = z.infer<typeof buildWeaponProfileActionSchema>;
 export type UnlockWeaponAction = z.infer<typeof unlockWeaponActionSchema>;
 export type SetLoadoutAction = z.infer<typeof setLoadoutActionSchema>;
 export type FireWeaponAction = z.infer<typeof fireWeaponActionSchema>;
 export type DeployDefenseAction = z.infer<typeof deployDefenseActionSchema>;
+export type UpgradeWeaponAction = z.infer<typeof upgradeWeaponActionSchema>;
+export type MintWeaponNftAction = z.infer<typeof mintWeaponNftActionSchema>;

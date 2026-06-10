@@ -18,6 +18,7 @@ import {
   inRange,
   greatCircleKm,
   ALL_WEAPONS,
+  MAX_WEAPON_UPGRADE_TIER,
   type AttributeBuild,
   type OwnedWeapon,
   type PlayerWeaponProfile,
@@ -27,6 +28,7 @@ import {
   fireCostFrntr,
   unlockCostFrntr,
   deployCostFrntr,
+  upgradeCostFrntr,
 } from "@shared/weapon-economy";
 
 async function parcelGeo(storage: IStorage, parcelId: string) {
@@ -108,6 +110,43 @@ export async function setLoadout(
     if (!ownedIds.has(id)) throw new Error(`Cannot equip ${id} — not in your armory.`);
   }
   return storage.updateWeaponProfile(playerId, { loadout });
+}
+
+export async function upgradeWeapon(
+  storage: IStorage,
+  playerId: string,
+  ownedWeaponId: string,
+): Promise<PlayerWeaponProfile> {
+  const profile = await storage.getWeaponProfile(playerId);
+  const owned = profile.ownedWeapons.find((w) => w.id === ownedWeaponId);
+  if (!owned) throw new Error("That weapon is not in your armory.");
+  const spec = getWeapon(owned.specId);
+  if (!spec) throw new Error("Unknown weapon");
+  if (owned.upgradeTier >= MAX_WEAPON_UPGRADE_TIER) {
+    throw new Error(`${spec.name} is already at max upgrade tier (${MAX_WEAPON_UPGRADE_TIER}).`);
+  }
+  const nextTier = owned.upgradeTier + 1;
+  await storage.spendFrontier(playerId, upgradeCostFrntr(spec, nextTier));
+  const ownedWeapons = profile.ownedWeapons.map((w) =>
+    w.id === ownedWeaponId ? { ...w, upgradeTier: nextTier } : w,
+  );
+  return storage.updateWeaponProfile(playerId, { ownedWeapons });
+}
+
+/** Record a minted NFT's asset id against an owned weapon instance. */
+export async function recordWeaponNft(
+  storage: IStorage,
+  playerId: string,
+  ownedWeaponId: string,
+  nftAssetId: number,
+): Promise<PlayerWeaponProfile> {
+  const profile = await storage.getWeaponProfile(playerId);
+  const owned = profile.ownedWeapons.find((w) => w.id === ownedWeaponId);
+  if (!owned) throw new Error("That weapon is not in your armory.");
+  const ownedWeapons = profile.ownedWeapons.map((w) =>
+    w.id === ownedWeaponId ? { ...w, nftAssetId } : w,
+  );
+  return storage.updateWeaponProfile(playerId, { ownedWeapons });
 }
 
 // ── Fire / deploy (runtime) ───────────────────────────────────────────────────
