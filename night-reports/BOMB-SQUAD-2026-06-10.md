@@ -147,3 +147,80 @@ nothing errors when a replay succeeds.
 
 Long-term recommendation: dedicated payments ledger with amount/round
 recorded, owner-facing receipts, and route-level integration tests.
+
+### Status: 💣 DEFUSED — tripwires `a98c32f`, cut `90c4616`, suite green (188).
+
+**Deploy-order constraint:** migration `0005_redeemed_payments.sql` MUST be
+applied before this code reaches production. The guard fails closed: with
+the table missing, all paid purchases return 503 (no replay risk, but no
+sales either).
+
+---
+
+## TARGET 3 — resolveBattles CONCURRENCY
+
+### Device Diagram (Phase 1)
+
+**Mechanism** (`server/storage/db.ts:1600` resolveBattles, `:1115`
+purchaseLand, `:1167` deployAttack; callers `routes.ts` admin endpoint
+`/api/game/resolve-battles` + 15-second background interval):
+
+- `resolveBattles()` fetches pending battles OUTSIDE any transaction, then
+  resolves each in its own transaction with plain reads (no FOR UPDATE) and
+  **unconditional** updates.
+- `purchaseLand()` checks `ownerId == null` then blind-writes ownership; it
+  never checks `activeBattleId`.
+- `deployAttack()` checks `activeBattleId == null` then blind-writes it.
+
+**Trigger paths:**
+- R1 double-resolution: the 15s interval, the admin endpoint, and any second
+  server instance can all pick up the same pending battle. Both transactions
+  run the full effect set: defender `attacksLost`/`consecutiveLosses` SQL
+  increments apply TWICE, defense halves twice, pillage/cascade effects
+  duplicate, events duplicate.
+- R2 purchase-vs-resolve: a buyer can pay real ALGO for a parcel that is
+  mid-battle (purchase has no under-attack check); when the battle resolves
+  attacker-wins, the resolution snapshot blind-writes ownership and the paid
+  purchase is erased. Reverse interleaving silently reverts a capture.
+- R3 double-deploy: two concurrent deployAttack calls both pass the
+  activeBattleId pre-check → two pending battles on one parcel → R1-style
+  double effects at resolution.
+
+**Why feared:** corrupted ownership/resource state across 21,000 plots is
+unrecoverable trust damage, and R2 is a money path (ALGO paid, plot gone).
+
+### Blast radius (must be provably unchanged)
+
+- Deterministic resolution outcomes for fixed fixtures (`resolve.spec.ts`,
+  already in suite) — resolution math untouched.
+- Storage contract encoded in `battle-concurrency.spec.ts` (passes on
+  current code): under-attack deploy rejection, exactly-once sequential
+  resolution, activeBattleId lifecycle, ownership transfer on attacker win,
+  purchase accept/reject semantics.
+
+### The Cut (Phase 3)
+
+Claim-based conditional writes — every failure mode degrades to "skip and
+retry/refuse", never to a double effect:
+
+1. resolveBattles: battle status update becomes the atomic claim
+   (`WHERE id = ? AND status = 'pending'` + RETURNING); zero rows ⇒ another
+   resolver owns this battle ⇒ skip all effects.
+2. deployAttack: `SET active_battle_id WHERE active_battle_id IS NULL` +
+   RETURNING; zero rows ⇒ "already under attack" (transaction rolls back).
+3. purchaseLand: reject parcels with `activeBattleId` set (a battle's
+   outcome is already locked — selling mid-battle strands someone); owner
+   write becomes `WHERE owner_id IS NULL` + RETURNING; zero rows ⇒ "already
+   owned". The purchase route releases the payment-replay claim on throw, so
+   the buyer's ALGO stays redeemable.
+4. mem.ts purchaseLand gets the same under-attack rejection (storage parity).
+
+**Honest testability note:** the conditional-WHERE semantics are PostgreSQL
+behavior; CI has no postgres and new deps (pg-mem/testcontainers) are
+forbidden tonight. The mem-storage contract tests + tsc + the
+skip-not-corrupt failure analysis are the containment; a real-PG integration
+test is the explicit daytime work order.
+
+Long-term recommendation: SELECT … FOR UPDATE on parcel rows in all three
+writers, single-flight resolveBattles (advisory lock), and idempotent event
+emission.
