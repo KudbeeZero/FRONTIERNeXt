@@ -83,7 +83,8 @@ export function solveIntercept(input: InterceptInput): InterceptResult {
     if (sampleTimeMs < env.reactionMs) continue;
 
     // Can the interceptor physically reach this point before the track passes it?
-    const interceptorFlyoutMs = (slantKm * 1000 / env.interceptorSpeedMps) * 1000;
+    // slantKm·1000 = metres; /speed(m/s) = seconds; ·1000 = ms ⇒ km·1e6/speed.
+    const interceptorFlyoutMs = (slantKm * 1_000_000) / env.interceptorSpeedMps;
     if (env.reactionMs + interceptorFlyoutMs > sampleTimeMs) continue;
 
     // Feasible engagement at the earliest such sample.

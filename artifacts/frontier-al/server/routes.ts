@@ -2041,6 +2041,17 @@ export async function registerRoutes(
   });
 
   // ── Weapon System ──────────────────────────────────────────────────────────
+  // Per-weapon mint lock: the check-then-mint-then-record sequence below spans a
+  // multi-second on-chain call, so concurrent mint requests for the same weapon
+  // could each pass the nftAssetId guard and mint duplicate 1-of-1 ASAs (draining
+  // admin ALGO). The server is single-process, so an in-process claim suffices.
+  const weaponMintInFlight = new Set<string>();
+
+  // Reap faded engagements so the runtime store can't grow unbounded if play goes
+  // quiet (launch() also prunes opportunistically). unref() so it never holds the
+  // process open (tests / graceful shutdown).
+  setInterval(() => engagementStore.prune(), 30_000).unref();
+
   // Read a player's armory: full catalog annotated with unlock/own state + costs.
   app.get("/api/weapons/catalog", async (req, res) => {
     try {
@@ -2113,8 +2124,12 @@ export async function registerRoutes(
         targetParcelId: action.targetParcelId,
       });
       res.json({ success: true, engagement });
-      broadcastRaw({ type: "weapon_engagement", payload: engagement });
-      markDirty();
+      // Post-response side effects must never re-enter the error path (would try
+      // to set headers on an already-sent response).
+      try {
+        broadcastRaw({ type: "weapon_engagement", payload: engagement });
+        markDirty();
+      } catch { /* broadcast best-effort */ }
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Fire failed" });
@@ -2132,8 +2147,11 @@ export async function registerRoutes(
         specId: action.specId,
         parcelId: action.parcelId,
       });
+      // NOTE: intentionally NOT broadcast — a deployed battery is concealed intel
+      // (position / type / ammo). Other players only learn of it when it actually
+      // intercepts, which is revealed via the weapon_engagement event. Broadcasting
+      // it here would bypass the game's fog-of-war / EPI model (see stateScope.ts).
       res.json({ success: true, battery });
-      broadcastRaw({ type: "weapon_battery", payload: battery });
       markDirty();
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
@@ -2171,17 +2189,25 @@ export async function registerRoutes(
       const baseUrl = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "");
       if (!baseUrl) return res.status(503).json({ error: "PUBLIC_BASE_URL not configured — cannot mint" });
 
-      const mint = await mintWeaponNft({
-        ownedWeaponId: owned.id,
-        specId: owned.specId,
-        receiverAddress: action.receiverAddress,
-        metadataBaseUrl: baseUrl,
-      });
-      await weaponService.recordWeaponNft(storage, playerId, owned.id, mint.assetId);
-      const delivery = await attemptWeaponDelivery(mint.assetId, action.receiverAddress, owned.id);
-
-      res.json({ success: true, assetId: mint.assetId, createTxId: mint.createTxId, delivered: delivery.delivered, reason: delivery.reason });
-      markDirty();
+      // Claim the weapon for minting; reject concurrent duplicate requests.
+      if (weaponMintInFlight.has(owned.id)) {
+        return res.status(409).json({ error: "Mint already in progress for this weapon" });
+      }
+      weaponMintInFlight.add(owned.id);
+      try {
+        const mint = await mintWeaponNft({
+          ownedWeaponId: owned.id,
+          specId: owned.specId,
+          receiverAddress: action.receiverAddress,
+          metadataBaseUrl: baseUrl,
+        });
+        await weaponService.recordWeaponNft(storage, playerId, owned.id, mint.assetId);
+        const delivery = await attemptWeaponDelivery(mint.assetId, action.receiverAddress, owned.id);
+        res.json({ success: true, assetId: mint.assetId, createTxId: mint.createTxId, delivered: delivery.delivered, reason: delivery.reason });
+        markDirty();
+      } finally {
+        weaponMintInFlight.delete(owned.id);
+      }
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Mint failed" });

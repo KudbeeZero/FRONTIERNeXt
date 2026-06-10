@@ -73,6 +73,12 @@ export function altitudeAt(profile: FlightProfile, apexKm: number, t: number): n
     case "cruise_low":
       // stays low the whole way, lifting only slightly off the deck
       return apexKm * Math.sin(Math.PI * u);
+    default: {
+      // Exhaustiveness guard: a new FlightProfile becomes a compile error here
+      // rather than silently returning undefined → NaN altitudes downstream.
+      const _exhaustive: never = profile;
+      return _exhaustive;
+    }
   }
 }
 

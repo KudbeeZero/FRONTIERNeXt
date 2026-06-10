@@ -70,6 +70,9 @@ export interface LaunchParams {
 /** How long a resolved engagement stays queryable (for fade-out FX). */
 export const ENGAGEMENT_FADE_MS = 8_000;
 
+/** Max simultaneous defensive batteries one player may have deployed. */
+export const MAX_BATTERIES_PER_PLAYER = 12;
+
 function hashSeed(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -89,6 +92,10 @@ export class EngagementStore {
     const spec = getWeapon(params.specId);
     if (!spec || !isDefenseSpec(spec)) {
       throw new Error(`deployDefense: ${params.specId} is not a defensive weapon`);
+    }
+    const owned = this.listBatteries().filter((b) => b.ownerId === params.ownerId).length;
+    if (owned >= MAX_BATTERIES_PER_PLAYER) {
+      throw new Error(`Battery limit reached (${MAX_BATTERIES_PER_PLAYER}). Decommission one first.`);
     }
     const battery: DefenseBattery = {
       id: randomUUID(),
@@ -122,6 +129,8 @@ export class EngagementStore {
     if (!spec) throw new Error(`launch: unknown weapon ${params.weaponSpecId}`);
 
     const now = params.now ?? Date.now();
+    // Opportunistic GC so the engagement map can't grow unbounded under play.
+    this.prune(now);
     const distanceKm = greatCircleKm(params.from, params.to);
     const tof = timeOfFlightMs(spec, distanceKm);
 
@@ -167,8 +176,10 @@ export class EngagementStore {
 
     for (const { battery, res } of candidates) {
       battery.magazineRemaining -= 1; // an interceptor is expended on the attempt
-      const seed = hashSeed(engagement.id + battery.id);
-      if (rollIntercept(res.pk, seed)) {
+      const hit = rollIntercept(res.pk, hashSeed(engagement.id + battery.id));
+      // A spent battery is removed so it can't accumulate or be re-walked forever.
+      if (battery.magazineRemaining <= 0) this.batteries.delete(battery.id);
+      if (hit) {
         engagement.status = "intercepted";
         engagement.interceptedByBatteryId = battery.id;
         engagement.interceptedBySpecId = battery.specId;

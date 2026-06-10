@@ -192,7 +192,10 @@ export async function fireWeapon(
     const distanceKm = greatCircleKm(from, to);
     const stats = { ...profile.stats };
     stats.shotsFired += 1;
-    if (engagement.status === "impacted") {
+    // A shot that wasn't intercepted reaches its target — credit the hit. (The
+    // engagement is resolved synchronously at launch: it is either "intercepted"
+    // or "in_flight" en route to impact; there is no later server tick.)
+    if (engagement.status !== "intercepted") {
       stats.kills += 1;
       if (distanceKm > spec.rangeKm * 0.6) stats.longRangeHits += 1;
       if (spec.cepM <= 10) stats.precisionHits += 1;

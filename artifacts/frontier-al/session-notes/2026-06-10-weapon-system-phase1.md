@@ -68,13 +68,36 @@ layer. Built to grow every "season."
   derived archetype + badge wall, catalog with unlock/upgrade/equip. Authenticated
   `/armory` route (`pages/armory.tsx`) wired into `App.tsx`.
 
-### 6. Security pass (done)
-- Independent agent review of the full branch diff (routes/service/storage/chain):
-  **no high-confidence vulnerabilities.** Auth/ownership enforced on every mutating
-  route via `assertPlayerOwnership` (uses verified playerId, not body); drizzle
-  `eq()` params (no SQLi); spend paths clamped positive; custody-safe NFT mint; no
-  PII/secret exposure. Cleanup applied: owned-weapon id now `randomUUID()` (was a
-  collidable timestamp).
+### 6. Audit pass (3 independent agents) + fixes (done)
+Security pass #1: no high-confidence vulns (auth/ownership enforced via
+`assertPlayerOwnership` w/ verified playerId; drizzle `eq()` params; clamped spend;
+custody-safe mint). Then two deeper auditors (correctness/efficiency + security)
+found real issues — **all fixed in commit `weapons(audit)`**:
+
+- **HIGH** engagement store grew unbounded (`prune()` never called) → now prunes
+  opportunistically on `launch()` + a 30s `setInterval(...).unref()` reaper.
+- **HIGH** batteries leaked → depleted batteries auto-removed on use; per-player
+  cap `MAX_BATTERIES_PER_PLAYER`.
+- **HIGH** `kills`/`longRangeHits`/`precisionHits` were dead (status never
+  `"impacted"`) → service now credits on `status !== "intercepted"`.
+- **HIGH** client/server clock skew broke FX → `LiveWeaponLayer` rebases launch
+  time to client receipt (preserves tof + intercept fraction); timers cleaned up.
+- **HIGH (security)** `weapon_battery` broadcast leaked enemy battery position/
+  type/ammo to all clients (fog bypass) → broadcast removed (batteries are
+  concealed; revealed only when they intercept, via the engagement event).
+- **HIGH (security)** non-atomic mint-nft could double-mint ASAs under concurrency
+  → per-weapon in-process mint lock + existing `nftAssetId` guard.
+- **MED/LOW** `altitudeAt` exhaustiveness guard; `slerpGeo` antipodal NaN guard;
+  intercept flyout units clarified; fire post-response broadcast can't re-enter the
+  error path; particle trail stops per-frame work once faded; owned-weapon id →
+  `randomUUID()`.
+
+Known/accepted (not fixed; documented): `/nft/metadata/weapon/:id` does a full
+players scan per request (matches existing commander/land metadata pattern; add a
+reverse index or `weapon_nfts` table if it gets hammered); `solveIntercept` uses a
+64-sample scan (coarse intercept timing — fine for FX, refine with bisection if
+needed); cross-fire `stats`/`ownedWeapons` JSON writes are last-write-wins
+lost-updates (only ever a player loss, never a free asset).
 
 ## HANDOFF — for the next chat
 - **State**: weapon system feature-complete through Phase 2 on
@@ -86,9 +109,11 @@ layer. Built to grow every "season."
   (authenticated); fire from the game animates on the live globe via WS.
 - **Next ideas**: surface an in-game nav link to `/armory` (GameLayout header);
   wire "fire from selected plot" into the map UI; AI factions firing weapons;
-  weapon images for NFT metadata (`/images/weapons/<category>.png`); optional
-  `tsx` HTTP integration test for `/api/weapons/fire`; refund FRNTR if a future
-  `store.launch` can throw (currently non-throwing post-validation).
+  weapon images for NFT metadata (`/images/weapons/<category>.png`); a
+  `weapon_nfts` reverse-index table for the metadata route; battery decommission
+  UI/route (the cap exists; add a way to remove one); optional `tsx` HTTP
+  integration test for `/api/weapons/fire`.
+- **Docs**: `docs/WEAPON_SYSTEM.md` is the durable architecture/API reference.
 
 ## Verify
 `pnpm run check` · `pnpm run test:server` · `pnpm run build` (all green) ·

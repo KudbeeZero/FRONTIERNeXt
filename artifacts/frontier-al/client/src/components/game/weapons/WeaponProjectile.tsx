@@ -39,6 +39,8 @@ export function WeaponProjectile({ shot }: { shot: WeaponShot }) {
   const projRef = useRef<THREE.Mesh>(null!);
   const geoRef = useRef<THREE.BufferGeometry>(null!);
   const writeIdx = useRef(0);
+  const settledRef = useRef(false); // once trail has fully faded, stop per-frame work
+  const postFrames = useRef(0);
   const sprite = useMemo(() => getParticleSprite(), []);
 
   const positions = useMemo(() => new Float32Array(POOL * 3), []);
@@ -53,7 +55,7 @@ export function WeaponProjectile({ shot }: { shot: WeaponShot }) {
   const headColor = spec?.flightProfile === "cruise_low" ? new THREE.Color("#9fe8ff") : FIRE_HOT;
 
   useFrame(() => {
-    if (!spec) return;
+    if (!spec || settledRef.current) return;
     const now = Date.now();
     const rawT = (now - shot.launchTs) / shot.tof;
     const t = clamp01(Math.min(rawT, endProgress));
@@ -90,6 +92,11 @@ export function WeaponProjectile({ shot }: { shot: WeaponShot }) {
       geoRef.current.attributes.position.needsUpdate = true;
       geoRef.current.attributes.color.needsUpdate = true;
     }
+
+    // Once the warhead is down and the additive trail has decayed to black
+    // (~0.9^70 ≈ 0), stop doing per-frame fades + buffer uploads for this shot.
+    if (inFlight) postFrames.current = 0;
+    else if (++postFrames.current > 70) settledRef.current = true;
   });
 
   if (!spec) return null;

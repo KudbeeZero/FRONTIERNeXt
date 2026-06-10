@@ -88,7 +88,10 @@ export function slerpGeo(a: GeoPoint, b: GeoPoint, t: number): GeoPoint {
   const vb = geoToUnitVec(b);
   const dot = Math.max(-1, Math.min(1, va[0] * vb[0] + va[1] * vb[1] + va[2] * vb[2]));
   const omega = Math.acos(dot);
-  if (omega < 1e-6) {
+  // Degenerate when the points are near-identical (omega→0) OR near-antipodal
+  // (omega→π): sin(omega)→0 makes the slerp weights 0/0 → NaN. Fall back to a
+  // plain lerp in both cases (the great circle is ill-defined at antipodes anyway).
+  if (omega < 1e-6 || omega > Math.PI - 1e-6) {
     return {
       lat: a.lat + (b.lat - a.lat) * t,
       lng: a.lng + (b.lng - a.lng) * t,

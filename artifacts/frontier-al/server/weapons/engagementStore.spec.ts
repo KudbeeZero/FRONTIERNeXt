@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { EngagementStore, ENGAGEMENT_FADE_MS } from "./engagementStore";
+import { EngagementStore, ENGAGEMENT_FADE_MS, MAX_BATTERIES_PER_PLAYER } from "./engagementStore";
 import type { GeoPoint } from "@shared/weapons";
 
 const FROM: GeoPoint = { lat: 0, lng: 0 };
@@ -83,5 +83,24 @@ describe("EngagementStore", () => {
   it("rejects deploying an offensive weapon as a defense", () => {
     expect(() => store.deployDefense({ specId: "msl_ballistic_1", ownerId: "p2", parcelId: "x", at: TARGET }))
       .toThrow();
+  });
+
+  it("prunes faded engagements on launch so the store stays bounded", () => {
+    const e1 = launchCruise(store, "p1", 1000);
+    // A much-later launch triggers the opportunistic prune of the faded e1.
+    const e2 = launchCruise(store, "p1", e1.impactTs + ENGAGEMENT_FADE_MS + 1000);
+    expect(store.get(e1.id)).toBeUndefined();
+    expect(store.get(e2.id)).toBeDefined();
+  });
+
+  it("caps deployed batteries per player", () => {
+    for (let i = 0; i < MAX_BATTERIES_PER_PLAYER; i++) {
+      store.deployDefense({ specId: "def_aegis", ownerId: "p2", parcelId: `p${i}`, at: TARGET });
+    }
+    expect(() => store.deployDefense({ specId: "def_aegis", ownerId: "p2", parcelId: "over", at: TARGET }))
+      .toThrow(/limit/i);
+    // a different player is unaffected
+    expect(() => store.deployDefense({ specId: "def_aegis", ownerId: "p3", parcelId: "ok", at: TARGET }))
+      .not.toThrow();
   });
 });
