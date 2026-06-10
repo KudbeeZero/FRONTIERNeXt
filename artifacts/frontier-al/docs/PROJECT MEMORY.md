@@ -69,6 +69,15 @@ correct, env block prepared. Server binds `0.0.0.0:$PORT`.
   testnet routes, 1mb body caps, prod log-leak fix, WS connection caps, CI workflow
 - ✅ Test coverage: battle engine, tuning, rng, economy, biome
 
+### Merged to main (commit 98680a7, 2026-06-07 — globe + site pass)
+
+- ✅ Globe E4–E9: customizable territory/enemy colors, sub-parcel archetype colors
+  (LOD-gated), archetype-gated sub-parcel building, opt-in fog of war, scoped
+  Observer mode prototype
+- ✅ Globe fingerprint hardening + pulsing ownership border + debug cleanup
+- ✅ Site accuracy pass + SEO/sitemap + link fixes
+- ✅ Global header Pera wallet integration + connect-flash fix
+
 ### Built earlier, confirmed present
 
 - ✅ Sub-parcel archetype/building/marketplace — FULL backend, routes live, no UI yet
@@ -99,6 +108,10 @@ Ordered. When you finish one, move it to §3 and update the date.
 
 **The biggest single win available right now:** Sub-parcel UI (task 7) — the entire backend
 is already built, so one day of frontend unlocks the deepest gameplay layer.
+
+**Night shift:** tasks 3, 8, 9 plus dormant-system activations are queued for autonomous
+overnight work in `docs/handoff/NIGHT_QUEUE.md` (see the Overnight Handoff Protocol,
+repo-root `docs/protocols/`). Night work lands on `claude/night/*` branches, never main.
 
 **The thing that must happen before mainnet:** tasks 5+6 (wallet auth). No real value goes
 live on body-trust identity.

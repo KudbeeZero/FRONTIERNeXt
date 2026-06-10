@@ -19,3 +19,6 @@ Use these notes to track decisions, context, and progress across sessions.
 - [2026-03-18-commander-mint-delivery](./2026-03-18-commander-mint-delivery.md) — Commander mint delivery fix; ghost mint resolved; NFT status polling + claim UI
 - [2026-06-07-provably-fair-markets](./2026-06-07-provably-fair-markets.md) — Provably-fair prediction markets: deleted admin-chosen outcome; derived/hashed resolution + proof endpoint
 - [2026-06-07-veritas-grind-engine](./2026-06-07-veritas-grind-engine.md) — VERITAS verification grind engine (first increment): in-repo CLI harness; market flow re-verifies the trustless resolver
+- [2026-06-07-ascendancy-lut-blockers](./2026-06-07-ascendancy-lut-blockers.md) — ASCENDANCY LUT blockers + WEEK 1 roadmap worked in priority order
+- [2026-06-07-site-accuracy-and-globe-visual](./2026-06-07-site-accuracy-and-globe-visual.md) — Site accuracy pass + SEO/sitemap/links; globe visual upgrades (E4–E9)
+- [2026-06-10-overnight-handoff-protocol](./2026-06-10-overnight-handoff-protocol.md) — Overnight Handoff Protocol adopted: night queue/board, /handoff /night-shift /morning skills

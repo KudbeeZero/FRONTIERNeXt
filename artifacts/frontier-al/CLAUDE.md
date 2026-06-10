@@ -159,6 +159,17 @@ This system should:
 
 ---
 
+# Overnight Handoff Protocol
+
+> Two shifts, one codebase. Day shift ends with `/handoff`; the night shift runs
+> `/loop 30m /night-shift`, building rated queue items on `claude/night/*` branches
+> (never main, never deploys, never secrets); mornings start with `/morning` — a
+> five-line brief plus multiple-choice decisions. Live state lives in
+> `docs/handoff/NIGHT_BOARD.md` (status) and `docs/handoff/NIGHT_QUEUE.md` (rated
+> backlog). Full spec: repo-root `docs/protocols/OVERNIGHT_HANDOFF_PROTOCOL.md`.
+
+---
+
 # Session Notes
 
 > Session logs are stored in [`session-notes/`](session-notes/). See [session-notes/README.md](session-notes/README.md) for the full index.
