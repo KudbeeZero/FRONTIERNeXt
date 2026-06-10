@@ -224,3 +224,108 @@ test is the explicit daytime work order.
 Long-term recommendation: SELECT … FOR UPDATE on parcel rows in all three
 writers, single-flight resolveBattles (advisory lock), and idempotent event
 emission.
+
+### Status: 💣 DEFUSED — tripwires `827717d`, cut `64e18bc`, suite green (194).
+
+---
+
+## BOMB SQUAD REPORT — 2026-06-10
+
+> ⚠️ FOR THE MAINNET-GATE AGENT: items 1–3 below were all live money-path
+> defects on the launch surface. Item 2's staged migration has a hard
+> deploy-order constraint. The STILL ARMED list contains one ungated admin
+> surface (orbital) that should be a one-line daytime fix.
+
+### 💣 DEFUSED
+
+1. **NFT delivery hijack** (`/api/nft/deliver/:plotId`,
+   `/api/nft/deliver-commander/:commanderId`) — public endpoints transferred
+   custody-held, paid-for 1-of-1 NFTs to any caller-supplied address; the
+   only guards (admin custody + ASA opt-in) are both attacker-satisfiable.
+   Cut: `evaluateNftDeliveryClaim()` ownership gate in `security.ts` — exact
+   match against the in-game owner's registered wallet, before any chain
+   call. Tripwires: txn-construction snapshots for mint/transfer +
+   `attemptDelivery` semantics (`land.spec.ts`), delivery decision table
+   (`security.spec.ts`). Attacker trace: opt-in + POST now dies at 403
+   `not_owner` with zero chain interaction. Commits `cf33592` → `2d7ab83`.
+
+2. **Payment replay** (`/api/actions/purchase`, `/api/actions/mint-avatar`)
+   — `verifyAlgoPayment` is a stateless indexer read; one confirmed payment
+   could buy unlimited plots/commanders, concurrently and across purposes.
+   Cut: `redeemed_payments` table (tx_id PK, staged migration 0005) +
+   `createPaymentReplayGuard` (claim-once via INSERT-ON-CONFLICT, release on
+   failed mutation, fail-CLOSED on store errors). Also fixed in-boundary:
+   the tx-type check now accepts algosdk v3 camelCase models — against a
+   real v3 indexer response the old check threw on ALL payments (fail-closed
+   outage of every paid flow; we are pinned to algosdk ^3.5.2). Tripwires:
+   9-case acceptance decision table (`commander.spec.ts`), replay-guard
+   semantics incl. concurrent single-winner (`security.spec.ts`). Attacker
+   trace: second redemption → 409 before any state mutation. Commits
+   `a98c32f` → `90c4616`.
+
+3. **resolveBattles concurrency** (`storage/db.ts`) — pending battles
+   fetched outside any transaction + unconditional writes ⇒ the 15 s
+   interval / admin endpoint / second instance double-apply all resolution
+   effects; purchase had no under-attack check and could be erased by a
+   resolving battle after the buyer paid ALGO. Cut: claim-based conditional
+   writes in resolveBattles / deployAttack / purchaseLand (every lost race
+   degrades to skip/refuse, never double effects) + mem parity. Tripwires:
+   storage battle/purchase contract (`battle-concurrency.spec.ts`) +
+   existing deterministic-outcome fixtures. Commits `827717d` → `64e18bc`.
+
+Verification: `tsc` clean, full server suite green (194 tests, 28 new
+tonight), production build green. All chain interaction in tests is mocked;
+no migration was executed.
+
+### 🧨 ATTEMPTED — REVERTED
+
+None. Three targets, three cuts, zero tripwire failures.
+
+### 🚧 STILL ARMED (untouched, priority order)
+
+1. **`POST /api/orbital/trigger` + `/api/orbital/resolve/:id` are ungated**
+   (`routes.ts:2457–2480` pre-shift numbering) — any client can force or
+   cancel orbital impact events (economy/gameplay disruption, not direct
+   theft). One-line fix: `requireAdminKey` on both. Found by tonight's admin
+   recon; deliberately left to stay within the 3-target cap.
+2. **`/api/weapons/mint-nft` delivers to `action.receiverAddress`**
+   (`routes.ts:2237` area) — session-gated, but the receiver address is
+   caller-supplied rather than the session wallet. Same device class as
+   Target 1, lower severity. Apply the `evaluateNftDeliveryClaim` pattern.
+3. **`WALLET_AUTH_REQUIRED=false` accepted in production** — body-supplied
+   playerId is trusted when the flag is off; add startup enforcement
+   (fail boot if prod && !walletAuthRequired).
+4. **`/api/nft/retry-commander/:commanderId`** requires only knowledge of
+   playerId+commanderId (no session binding) — can grief by resetting
+   idempotency keys. Low severity, session-bind it.
+5. Standing list items not reached: auth session edges around the flow,
+   ECONOMY_MODE flip harness (below).
+
+### 📐 LONG-TERM FIXES RECOMMENDED
+
+- Delivery endpoints should require the authenticated wallet session
+  (`getAuth`) instead of address-matching, once WALLET_AUTH_REQUIRED is
+  enforced; extract route handlers into testable modules for HTTP-level
+  tripwires.
+- Dedicated payments ledger (amount, round, receipt) instead of the minimal
+  `redeemed_payments` row; UNIQUE index on `commander_nfts.algo_payment_tx_id`
+  as belt-and-braces.
+- Real-postgres integration tests (testcontainers) for the conditional-WHERE
+  claims in db.ts — tonight's verification is mem-contract + analysis only.
+- `SELECT … FOR UPDATE` row locking + advisory-lock single-flight for
+  resolveBattles; idempotent event emission.
+- NFT-follows-capture semantics: after a battle capture, the previous owner's
+  delivered NFT no longer matches in-game ownership — decide and document the
+  canonical rule (clawback on testnet? in-game-state-is-truth disclaimer?).
+
+### 🌅 MAINNET-DAY RUNBOOKS AUTHORED
+
+- **Migration 0005 (`redeemed_payments`)** — staged, NOT executed. Apply
+  BEFORE deploying any build containing these commits:
+  `psql "$DATABASE_URL" -f migrations/0005_redeemed_payments.sql` (or
+  `pnpm run db:push`). If the table is missing the replay guard fails
+  CLOSED: all paid purchases return 503 (no replay risk, but no sales).
+  Verify post-deploy: a repeated `algoPaymentTxId` purchase returns 409.
+  If a buyer's purchase fails after claiming (crash window), their txid may
+  be stranded in `redeemed_payments` — recover with a manual row delete
+  after verifying they received nothing.
