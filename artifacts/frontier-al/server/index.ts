@@ -246,8 +246,8 @@ app.use((req, res, next) => {
   initSeasonManager(storage);
   console.log("[startup] Season manager initialised ✓");
   // Start persistent FRONTIER transfer retry worker (SEV2 #6 + #7 fix)
-  const { startFrontierTransferWorker } = await import("./services/chain/transferQueue");
-  startFrontierTransferWorker();
+  const { startAscendTransferWorker } = await import("./services/chain/transferQueue");
+  startAscendTransferWorker();
   console.log("[startup] FRONTIER transfer retry worker started ✓");
 
   // Surface whether security state (auth nonces + enumeration/auth rate limits)

@@ -4,7 +4,7 @@ import { getBattleReplay, recordSubParcelWorldEvent, recordArchetypeWorldEvent }
 import { createServer, type Server } from "http";
 import algosdk from "algosdk";
 import { storage } from "./storage";
-import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimFrontierActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, terraformActionSchema } from "@shared/schema";
+import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimAscendActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, terraformActionSchema } from "@shared/schema";
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
@@ -40,8 +40,8 @@ import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./world
 // ── Chain Service ─────────────────────────────────────────────────────────────
 // All algosdk usage is now isolated in server/services/chain/*.
 // Routes import ONLY from the service layer — never from algosdk directly.
-import { getFrontierAsaId, getOrCreateFrontierAsa, isAddressOptedIn, setFrontierAsaId, batchedTransferFrontierAsa, clawbackFrontierAsa } from "./services/chain/asa";
-import { enqueueFrontierTransfer } from "./services/chain/transferQueue";
+import { getAscendAsaId, getOrCreateAscendAsa, isAddressOptedIn, setAscendAsaId, batchedTransferAscendAsa, clawbackAscendAsa } from "./services/chain/asa";
+import { enqueueAscendTransfer } from "./services/chain/transferQueue";
 import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient } from "./services/chain/client";
 import { mintLandNft, transferLandNft, attemptDelivery } from "./services/chain/land";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
@@ -52,15 +52,15 @@ import {
   getFactionAsaId,
   FACTION_DEFINITIONS,
 } from "./services/chain/factions";
-import { fromMicroFRNTR } from "./storage/game-rules";
+import { fromMicroASCEND } from "./storage/game-rules";
 import {
   ECONOMY_MODE,
-  LAND_DAILY_FRNTR_RATE,
-  LAND_DAILY_FRNTR_RATE_TEST,
-  LAND_DAILY_FRNTR_RATE_PROD,
+  LAND_DAILY_ASCEND_RATE,
+  LAND_DAILY_ASCEND_RATE_TEST,
+  LAND_DAILY_ASCEND_RATE_PROD,
   EMISSION_CHECK_PARCEL_COUNTS,
   projectedDailyEmissions,
-  COMMANDER_MINT_FRNTR_ACTIVE,
+  COMMANDER_MINT_ASCEND_ACTIVE,
   COMMANDER_ALGO_NETWORK_FEE,
   COMMANDER_ALGO_PRICE_ACTIVE,
   LAND_PURCHASE_ALGO_ACTIVE,
@@ -183,7 +183,7 @@ const indexerClient  = getIndexerClient();
  * Game action is never blocked if this fails — DB is source of truth.
  */
 function fireBurn(walletAddress: string, amount: number, note: string): void {
-  const asaId = getFrontierAsaId();
+  const asaId = getAscendAsaId();
   const isRealWallet =
     walletAddress &&
     walletAddress !== 'PLAYER_WALLET' &&
@@ -192,7 +192,7 @@ function fireBurn(walletAddress: string, amount: number, note: string): void {
 
   if (!asaId || !isRealWallet || amount <= 0) return;
 
-  clawbackFrontierAsa(walletAddress, amount, note)
+  clawbackAscendAsa(walletAddress, amount, note)
     .then(txId => { if (txId) console.log(`[burn] ${amount} FRONTIER from ${walletAddress} txId=${txId}`); })
     .catch(err => console.error('[burn] clawback failed:', err));
 }
@@ -207,8 +207,8 @@ export async function registerRoutes(
   (async () => {
     try {
       const forceNew = process.env.FORCE_NEW_FRONTIER_ASA === "true" || process.env.FORCE_NEW_ASA === "true";
-      const asaId    = await getOrCreateFrontierAsa({ forceNew });
-      setFrontierAsaId(asaId);
+      const asaId    = await getOrCreateAscendAsa({ forceNew });
+      setAscendAsaId(asaId);
       blockchainReady = true;
       const adminAddr = getAdminAddress();
       const balance   = await getAdminBalance();
@@ -270,7 +270,7 @@ export async function registerRoutes(
   }
 
   /**
-   * Grant the 500 FRONTIER welcome bonus once, gated by on-chain Sybil
+   * Grant the 500 ASCEND welcome bonus once, gated by on-chain Sybil
    * heuristics (minimum ALGO balance). Safe to call on every login: it no-ops
    * if the bonus was already received or the wallet is ineligible, so the bonus
    * is effectively granted on the first *eligible* login.
@@ -289,7 +289,7 @@ export async function registerRoutes(
 
     await storage.grantWelcomeBonus(playerId);
     // Enqueue regardless of asaId / opt-in state; the worker retries.
-    enqueueFrontierTransfer({
+    enqueueAscendTransfer({
       recipientAddress: address,
       recipientPlayerId: playerId,
       amount: 500,
@@ -408,7 +408,7 @@ export async function registerRoutes(
 
   app.get("/api/blockchain/status", async (req, res) => {
     try {
-      const asaId      = getFrontierAsaId();
+      const asaId      = getAscendAsaId();
       const adminAddress = getAdminAddress();
       const forceNew   = process.env.FORCE_NEW_FRONTIER_ASA === "true" || process.env.FORCE_NEW_ASA === "true";
       const network    = process.env.ALGORAND_NETWORK ?? "testnet";
@@ -416,7 +416,7 @@ export async function registerRoutes(
 
       const body: Record<string, unknown> = {
         ready: blockchainReady,
-        frontierAsaId: asaId,
+        ascendAsaId: asaId,
         adminAddress, // payment target — clients need this; it is public on-chain anyway
         network,
         forceNewAsaEnabled: forceNew,
@@ -432,19 +432,19 @@ export async function registerRoutes(
         if (typeof headerKey === "string" && headerKey === process.env.ADMIN_KEY) {
           const balance = await getAdminBalance();
           body.adminAlgoBalance = balance.algo;
-          body.adminFrontierBalance = balance.frontierAsa;
+          body.adminAscendBalance = balance.ascendAsa;
         }
       }
 
       res.json(body);
     } catch (error) {
-      res.json({ ready: false, frontierAsaId: null, adminAddress: null });
+      res.json({ ready: false, ascendAsaId: null, adminAddress: null });
     }
   });
 
   app.get("/api/economics", async (_req, res) => {
     try {
-      const asaId = getFrontierAsaId();
+      const asaId = getAscendAsaId();
       const adminAddr = getAdminAddress();
       const ASA_DECIMALS = 6;
       const divisor = Math.pow(10, ASA_DECIMALS);
@@ -497,8 +497,8 @@ export async function registerRoutes(
       try {
         const [metrics] = await db
           .select({
-            burned:  sql<number>`COALESCE(SUM(${playersTable.totalFrontierBurned}), 0)`,
-            balanceMicro: sql<number>`COALESCE(SUM(${playersTable.frntrBalanceMicro}), 0)`,
+            burned:  sql<number>`COALESCE(SUM(${playersTable.totalAscendBurned}), 0)`,
+            balanceMicro: sql<number>`COALESCE(SUM(${playersTable.ascendBalanceMicro}), 0)`,
           })
           .from(playersTable);
         totalBurned       = Math.round(Number(metrics?.burned       ?? 0) * 100) / 100;
@@ -519,23 +519,23 @@ export async function registerRoutes(
       let protocolTreasuryTotal     = 0;
       try {
         const bal = await storage.getTreasuryBalance();
-        protocolTreasuryUnsettled = Math.round(fromMicroFRNTR(bal.unsettledMicro) * 100) / 100;
-        protocolTreasuryTotal     = Math.round(fromMicroFRNTR(bal.totalMicro)     * 100) / 100;
+        protocolTreasuryUnsettled = Math.round(fromMicroASCEND(bal.unsettledMicro) * 100) / 100;
+        protocolTreasuryTotal     = Math.round(fromMicroASCEND(bal.totalMicro)     * 100) / 100;
       } catch (_e) { /* non-fatal */ }
 
-      // ── Payout safety: projected daily emissions vs admin FRNTR balance ──────
+      // ── Payout safety: projected daily emissions vs admin ASCEND balance ──────
       const projections = Object.fromEntries(
         EMISSION_CHECK_PARCEL_COUNTS.map(n => [n, projectedDailyEmissions(n)])
       ) as Record<number, number>;
 
       const currentDailyDemand = projectedDailyEmissions(ownedParcelCount);
 
-      // Warn when current demand (base rate only) exceeds 10% of admin FRNTR balance per day
+      // Warn when current demand (base rate only) exceeds 10% of admin ASCEND balance per day
       if (treasury > 0 && currentDailyDemand > treasury * 0.1) {
         console.warn(
           `[/api/economics] ⚠ Payout warning: current daily base emission demand ` +
-          `(${currentDailyDemand.toFixed(0)} FRNTR/day for ${ownedParcelCount} parcels) ` +
-          `exceeds 10% of admin treasury balance (${treasury.toFixed(0)} FRNTR). ` +
+          `(${currentDailyDemand.toFixed(0)} ASCEND/day for ${ownedParcelCount} parcels) ` +
+          `exceeds 10% of admin treasury balance (${treasury.toFixed(0)} ASCEND). ` +
           `At this rate the treasury covers ~${(treasury / Math.max(currentDailyDemand, 1)).toFixed(1)} days.`
         );
       }
@@ -551,14 +551,14 @@ export async function registerRoutes(
         protocolTreasuryUnsettled,
         protocolTreasuryTotal,
         network: "Algorand TestNet",
-        unitName: "FRNTR",
-        assetName: "FRONTIER",
+        unitName: "ASCEND",
+        assetName: "ASCEND",
         decimals: ASA_DECIMALS,
         // ── Emission config (centralized from shared/economy-config.ts) ──────
         economyMode: ECONOMY_MODE,
-        emissionRatePerDay: LAND_DAILY_FRNTR_RATE,
-        emissionRateTest:   LAND_DAILY_FRNTR_RATE_TEST,
-        emissionRateProd:   LAND_DAILY_FRNTR_RATE_PROD,
+        emissionRatePerDay: LAND_DAILY_ASCEND_RATE,
+        emissionRateTest:   LAND_DAILY_ASCEND_RATE_TEST,
+        emissionRateProd:   LAND_DAILY_ASCEND_RATE_PROD,
         // ── Payout projections (base rate × parcel count) ────────────────────
         ownedParcelCount,
         currentDailyBaseEmission: Math.round(currentDailyDemand * 100) / 100,
@@ -576,9 +576,9 @@ export async function registerRoutes(
     try {
       const queryAsaId = req.query.assetId ? Number(req.query.assetId) : undefined;
       const optedIn = await isAddressOptedIn(req.params.address, queryAsaId);
-      res.json({ optedIn, asaId: getFrontierAsaId() });
+      res.json({ optedIn, asaId: getAscendAsaId() });
     } catch (error) {
-      res.json({ optedIn: false, asaId: getFrontierAsaId() });
+      res.json({ optedIn: false, asaId: getAscendAsaId() });
     }
   });
 
@@ -913,29 +913,29 @@ export async function registerRoutes(
 
   // ── Commander NFT Price ─────────────────────────────────────────────────────
   // GET /api/nft/commander-price/:tier
-  // Returns the FRNTR cost and minimal ALGO network fee for commander minting.
-  // In testing mode: FRNTR costs are low, ALGO is network fee only (~0.001).
-  // In production mode: FRNTR costs are standard, same minimal ALGO network fee.
+  // Returns the ASCEND cost and minimal ALGO network fee for commander minting.
+  // In testing mode: ASCEND costs are low, ALGO is network fee only (~0.001).
+  // In production mode: ASCEND costs are standard, same minimal ALGO network fee.
   app.get("/api/nft/commander-price/:tier", (req, res) => {
     const { tier } = req.params;
-    const frntrCost = COMMANDER_MINT_FRNTR_ACTIVE[tier];
-    if (frntrCost === undefined) return res.status(400).json({ error: "Unknown tier" });
+    const ascendCost = COMMANDER_MINT_ASCEND_ACTIVE[tier];
+    if (ascendCost === undefined) return res.status(400).json({ error: "Unknown tier" });
 
     const adminAddress = getAdminAddress();
 
     const algoGamePrice = COMMANDER_ALGO_PRICE_ACTIVE[tier] ?? 0.5;
     res.json({
       tier,
-      frntrCost,
+      ascendCost,
       algoGamePrice,
       algoNetworkFee: COMMANDER_ALGO_NETWORK_FEE,
       algoTotal: algoGamePrice + COMMANDER_ALGO_NETWORK_FEE,
       adminAddress,
       economyMode: ECONOMY_MODE,
-      currency: "FRNTR+ALGO",
+      currency: "ASCEND+ALGO",
       note: ECONOMY_MODE === "testing"
-        ? `Testing mode: ${frntrCost} FRNTR + ${algoGamePrice} ALGO to mint.`
-        : `${frntrCost} FRNTR + ${algoGamePrice} ALGO to mint.`,
+        ? `Testing mode: ${ascendCost} ASCEND + ${algoGamePrice} ALGO to mint.`
+        : `${ascendCost} ASCEND + ${algoGamePrice} ALGO to mint.`,
     });
   });
 
@@ -1135,11 +1135,11 @@ export async function registerRoutes(
       if (player && !player.welcomeBonusReceived) {
         await storage.grantWelcomeBonus(playerId);
         welcomeBonus = true;
-        console.log(`Welcome bonus of 500 FRONTIER granted to player ${player.name} (${address})`);
+        console.log(`Welcome bonus of 500 ASCEND granted to player ${player.name} (${address})`);
 
         // SEV2 #7 fix: enqueue regardless of asaId / opt-in state; worker retries.
         if (address && !address.startsWith("AI_")) {
-          enqueueFrontierTransfer({
+          enqueueAscendTransfer({
             recipientAddress:  address,
             recipientPlayerId: playerId,
             amount:            500,
@@ -1204,7 +1204,7 @@ export async function registerRoutes(
    * Wallet-based player lookup / auto-creation.
    * Called by the client immediately after a wallet connects.
    * Returns the existing player for that address, or creates a fresh one.
-   * Also grants the 500 FRONTIER welcome bonus on first login.
+   * Also grants the 500 ASCEND welcome bonus on first login.
    */
   app.get("/api/game/player-by-address/:address", async (req, res) => {
     try {
@@ -1270,7 +1270,7 @@ export async function registerRoutes(
           totalIronMined: player.totalIronMined,
           totalFuelMined: player.totalFuelMined,
           totalCrystalMined: player.totalCrystalMined,
-          totalFrontierEarned: player.totalFrontierEarned,
+          totalAscendEarned: player.totalAscendEarned,
           attacksWon: player.attacksWon,
           attacksLost: player.attacksLost,
           hasCommander: player.commanders.length > 0,
@@ -1600,7 +1600,7 @@ export async function registerRoutes(
         const info = FACILITY_INFO[action.improvementType as keyof typeof FACILITY_INFO];
         const built = parcel.improvements?.find((i: any) => i.type === action.improvementType);
         const level = built?.level ?? 1;
-        const cost = info?.costFrontier?.[level - 1] ?? 0;
+        const cost = info?.costAscend?.[level - 1] ?? 0;
         if (cost > 0) fireBurn(buildPlayer.address, cost, `Build improvement plotId=${parcel.plotId}`);
       }
       res.json({ success: true, parcel });
@@ -1829,7 +1829,7 @@ export async function registerRoutes(
 
   app.post("/api/actions/claim-frontier", async (req, res) => {
     try {
-      const action = claimFrontierActionSchema.parse(req.body);
+      const action = claimAscendActionSchema.parse(req.body);
 
       const player = await storage.getPlayer(action.playerId);
       if (!player) return res.status(404).json({ error: "Player not found" });
@@ -1843,7 +1843,7 @@ export async function registerRoutes(
       // Step 1: Check opt-in BEFORE crediting the DB balance.
       // We only gate on opt-in when the ASA ID is known; if it's null (race condition
       // on startup / re-mint), we proceed and let the queue handle it (SEV2 #6 fix).
-      const asaId = getFrontierAsaId();
+      const asaId = getAscendAsaId();
       if (asaId && isRealWallet) {
         const optedIn = await isAddressOptedIn(walletAddress);
         if (!optedIn) {
@@ -1852,16 +1852,16 @@ export async function registerRoutes(
       }
 
       // Step 2: Credit the DB balance.
-      const result = await storage.claimFrontier(action.playerId);
+      const result = await storage.claimAscend(action.playerId);
 
       // Step 3: Enqueue on-chain transfer (SEV2 #6 fix: no asaId guard — worker resolves
       // the id lazily at drain time so a null asaId at request time is not a silent drop).
       if (result.amount > 0 && isRealWallet) {
-        enqueueFrontierTransfer({
+        enqueueAscendTransfer({
           recipientAddress:  walletAddress,
           recipientPlayerId: action.playerId,
           amount:            result.amount,
-          reason:            "claim_frontier",
+          reason:            "claim_ascend",
         }).catch((err) =>
           console.error("claim-frontier enqueue failed (in-game balance preserved):", err)
         );
@@ -1919,21 +1919,21 @@ export async function registerRoutes(
         }
       }
 
-      // ── FRNTR cost check ───────────────────────────────────────────────────
-      // Commander minting is now FRNTR-based. ALGO is NOT charged at game level.
+      // ── ASCEND cost check ───────────────────────────────────────────────────
+      // Commander minting is now ASCEND-based. ALGO is NOT charged at game level.
       // The minimal Algorand network fee for the NFT mint transaction is handled
       // automatically by the admin wallet during the post-response fire-and-forget.
       const { COMMANDER_INFO } = await import('@shared/schema');
-      const frntrCost = COMMANDER_INFO[action.tier as keyof typeof COMMANDER_INFO]?.mintCostFrontier ?? 0;
+      const ascendCost = COMMANDER_INFO[action.tier as keyof typeof COMMANDER_INFO]?.mintCostAscend ?? 0;
 
-      if (frntrCost > 0 && isHumanPlayer) {
-        const playerFrntr = mintPlayer.frontier ?? 0;
-        if (playerFrntr < frntrCost) {
+      if (ascendCost > 0 && isHumanPlayer) {
+        const playerAscend = mintPlayer.ascend ?? 0;
+        if (playerAscend < ascendCost) {
           return res.status(402).json({
-            error: `Insufficient FRNTR. Required: ${frntrCost} FRNTR, you have: ${playerFrntr.toFixed(2)} FRNTR.`,
-            frntrRequired: frntrCost,
-            frntrAvailable: playerFrntr,
-            currency: "FRNTR",
+            error: `Insufficient ASCEND. Required: ${ascendCost} ASCEND, you have: ${playerAscend.toFixed(2)} ASCEND.`,
+            ascendRequired: ascendCost,
+            ascendAvailable: playerAscend,
+            currency: "ASCEND",
           });
         }
       }
@@ -1969,16 +1969,16 @@ export async function registerRoutes(
         throw mintErr;
       }
 
-      // ── Deduct FRNTR cost via on-chain clawback (fire-and-forget) ─────────
-      if (frntrCost > 0 && mintPlayer.address) {
-        fireBurn(mintPlayer.address, frntrCost, `Commander mint tier=${action.tier}`);
+      // ── Deduct ASCEND cost via on-chain clawback (fire-and-forget) ─────────
+      if (ascendCost > 0 && mintPlayer.address) {
+        fireBurn(mintPlayer.address, ascendCost, `Commander mint tier=${action.tier}`);
       }
 
       res.json({
         success: true,
         avatar,
-        frntrCost,
-        currency: "FRNTR",
+        ascendCost,
+        currency: "ASCEND",
         nft: isHumanPlayer && db
           ? { status: "minting", message: "Your Commander NFT is being minted. Check back shortly for the on-chain asset ID." }
           : undefined,
@@ -2188,7 +2188,7 @@ export async function registerRoutes(
     }
   });
 
-  // Acquire an unlocked weapon into the armory (spends FRNTR).
+  // Acquire an unlocked weapon into the armory (spends ASCEND).
   app.post("/api/weapons/unlock", async (req, res) => {
     try {
       const playerId = await assertPlayerOwnership(req, res);
@@ -2218,7 +2218,7 @@ export async function registerRoutes(
     }
   });
 
-  // Fire a weapon at a target parcel: spends FRNTR, creates a runtime engagement
+  // Fire a weapon at a target parcel: spends ASCEND, creates a runtime engagement
   // (with layered interception resolved), and streams it to the live globe.
   app.post("/api/weapons/fire", async (req, res) => {
     try {
@@ -2244,7 +2244,7 @@ export async function registerRoutes(
     }
   });
 
-  // Deploy a defensive battery onto an owned parcel (spends FRNTR).
+  // Deploy a defensive battery onto an owned parcel (spends ASCEND).
   app.post("/api/weapons/deploy-defense", async (req, res) => {
     try {
       const playerId = await assertPlayerOwnership(req, res);
@@ -2267,7 +2267,7 @@ export async function registerRoutes(
     }
   });
 
-  // Upgrade an owned weapon instance one tier (spends FRNTR).
+  // Upgrade an owned weapon instance one tier (spends ASCEND).
   app.post("/api/weapons/upgrade", async (req, res) => {
     try {
       const playerId = await assertPlayerOwnership(req, res);
@@ -2380,8 +2380,8 @@ export async function registerRoutes(
       const drone = await storage.deployDrone(action);
       const dronePlayer = await storage.getPlayer(action.playerId);
       if (dronePlayer) {
-        const { DRONE_MINT_COST_FRONTIER } = await import('@shared/schema');
-        fireBurn(dronePlayer.address, DRONE_MINT_COST_FRONTIER, `Drone deploy`);
+        const { DRONE_MINT_COST_ASCEND } = await import('@shared/schema');
+        fireBurn(dronePlayer.address, DRONE_MINT_COST_ASCEND, `Drone deploy`);
       }
       try {
         const dronePlayerEvt = await storage.getPlayer(action.playerId).catch(() => null);
@@ -2411,8 +2411,8 @@ export async function registerRoutes(
       const satellite = await storage.deploySatellite(action);
       const satPlayer = await storage.getPlayer(action.playerId);
       if (satPlayer) {
-        const { SATELLITE_DEPLOY_COST_FRONTIER } = await import('@shared/schema');
-        fireBurn(satPlayer.address, SATELLITE_DEPLOY_COST_FRONTIER, `Satellite deploy`);
+        const { SATELLITE_DEPLOY_COST_ASCEND } = await import('@shared/schema');
+        fireBurn(satPlayer.address, SATELLITE_DEPLOY_COST_ASCEND, `Satellite deploy`);
       }
       res.json({ success: true, satellite });
       try {
@@ -3135,7 +3135,7 @@ export async function registerRoutes(
           subIndex: sp.subIndex,
           biome,
           playerId,
-          price:    sp.purchasePriceFrontier,
+          price:    sp.purchasePriceAscend,
         }).catch(() => {});
       }).catch(() => {});
 
@@ -3303,12 +3303,12 @@ export async function registerRoutes(
 
   /** POST /api/sub-parcels/listings — create a listing */
   app.post("/api/sub-parcels/listings", async (req, res) => {
-    const { sellerId, subParcelId, askPriceFrontier } = req.body;
+    const { sellerId, subParcelId, askPriceAscend } = req.body;
     if (!sellerId)         return res.status(400).json({ error: "sellerId required" });
     if (!subParcelId)      return res.status(400).json({ error: "subParcelId required" });
-    if (!askPriceFrontier) return res.status(400).json({ error: "askPriceFrontier required" });
+    if (!askPriceAscend) return res.status(400).json({ error: "askPriceAscend required" });
     try {
-      const result = await storage.createSubParcelListing(sellerId, subParcelId, Number(askPriceFrontier));
+      const result = await storage.createSubParcelListing(sellerId, subParcelId, Number(askPriceAscend));
       if (result.error) return res.status(400).json({ error: result.error });
       broadcastRaw({ type: "sub_parcel_listed", listing: result.listing });
       res.json({ success: true, listing: result.listing });
@@ -3675,7 +3675,7 @@ export async function registerRoutes(
       env: {
         nodeEnv: process.env.NODE_ENV ?? "development",
         network: process.env.ALGORAND_NETWORK ?? "testnet",
-        asaId: getFrontierAsaId() ?? null,
+        asaId: getAscendAsaId() ?? null,
       },
     });
   });

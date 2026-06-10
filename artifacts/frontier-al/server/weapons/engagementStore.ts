@@ -8,7 +8,7 @@
  * tick-state the globe renders and the battle resolution reads.
  *
  * Pure of any DB/HTTP imports so it can be unit-tested in isolation. Routes wire
- * it to storage (deduct FRNTR, settle damage, bump stats) at the edges.
+ * it to storage (deduct ASCEND, settle damage, bump stats) at the edges.
  */
 
 import { randomUUID } from "crypto";

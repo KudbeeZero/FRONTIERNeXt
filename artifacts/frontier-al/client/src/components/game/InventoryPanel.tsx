@@ -27,8 +27,8 @@ interface InventoryPanelProps {
   isMiningParcel?: (parcelId: string) => boolean;
   isCollecting: boolean;
   className?: string;
-  onClaimFrontier?: () => void;
-  isClaimingFrontier?: boolean;
+  onClaimAscend?: () => void;
+  isClaimingAscend?: boolean;
 }
 
 function LandCard({
@@ -45,9 +45,9 @@ function LandCard({
   now: number;
 }) {
   const liveAccum =
-    parcel.frontierAccumulated +
-    Math.max(0, (now - parcel.lastFrontierClaimTs) / (1000 * 60 * 60 * 24)) *
-      parcel.frontierPerDay;
+    parcel.ascendAccumulated +
+    Math.max(0, (now - parcel.lastAscendClaimTs) / (1000 * 60 * 60 * 24)) *
+      parcel.ascendPerDay;
   const totalStored = parcel.ironStored + parcel.fuelStored + parcel.crystalStored;
   const storagePercent = (totalStored / parcel.storageCapacity) * 100;
 
@@ -103,7 +103,7 @@ function LandCard({
             <Gem className="w-3 h-3" /> {parcel.crystalStored}
           </span>
           <span className="flex items-center gap-1 text-primary ml-auto">
-            <Zap className="w-3 h-3" /> {parcel.frontierPerDay.toFixed(1)}/day
+            <Zap className="w-3 h-3" /> {parcel.ascendPerDay.toFixed(1)}/day
           </span>
         </div>
 
@@ -142,12 +142,12 @@ export function InventoryPanel({
   player,
   parcels,
   onCollectAll,
-  onClaimFrontier,
+  onClaimAscend,
   onSelectParcel,
   onMineParcel,
   isMiningParcel,
   isCollecting,
-  isClaimingFrontier,
+  isClaimingAscend,
   className,
 }: InventoryPanelProps) {
   if (!player) {
@@ -183,11 +183,11 @@ export function InventoryPanel({
   const totalStoredCrystal = ownedParcels.reduce((s, p) => s + p.crystalStored, 0);
   const hasStored = totalStoredIron > 0 || totalStoredFuel > 0 || totalStoredCrystal > 0;
 
-  const totalFrontierPending = ownedParcels.reduce((s, p) => {
-    const days = Math.max(0, (now - p.lastFrontierClaimTs) / (1000 * 60 * 60 * 24));
-    return s + p.frontierAccumulated + days * p.frontierPerDay;
+  const totalAscendPending = ownedParcels.reduce((s, p) => {
+    const days = Math.max(0, (now - p.lastAscendClaimTs) / (1000 * 60 * 60 * 24));
+    return s + p.ascendAccumulated + days * p.ascendPerDay;
   }, 0);
-  const hasPending = totalFrontierPending > 0.01;
+  const hasPending = totalAscendPending > 0.01;
 
   return (
     <div className={cn("flex flex-col h-full", className)} data-testid="inventory-panel">
@@ -220,7 +220,7 @@ export function InventoryPanel({
           </div>
           <div className="p-2.5 rounded-md bg-muted/50 text-center">
             <Zap className="w-4 h-4 mx-auto mb-1 text-primary" />
-            <span className="font-mono text-lg font-bold block" data-testid="text-wallet-frontier">{player.frontier.toFixed(1)}</span>
+            <span className="font-mono text-lg font-bold block" data-testid="text-wallet-frontier">{player.ascend.toFixed(1)}</span>
             <span className="text-[10px] text-muted-foreground font-display uppercase">ASCEND</span>
           </div>
         </div>

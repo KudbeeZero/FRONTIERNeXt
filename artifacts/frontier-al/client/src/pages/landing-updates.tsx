@@ -108,7 +108,7 @@ export default function LandingUpdates() {
     staleTime: 30_000, refetchInterval: 30_000,
   });
 
-  const { data: leaderboard } = useQuery<{ name: string; territories: number; totalFrontierEarned: number }[]>({
+  const { data: leaderboard } = useQuery<{ name: string; territories: number; totalAscendEarned: number }[]>({
     queryKey: ["/api/game/leaderboard"],
     queryFn: () => fetch("/api/game/leaderboard").then(r => r.json()),
     staleTime: 60_000,

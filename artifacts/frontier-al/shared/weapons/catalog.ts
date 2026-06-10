@@ -62,7 +62,7 @@ export function validateCatalog(): CatalogIssue[] {
     if (w.rangeKm <= 0) issues.push({ weaponId: w.id, problem: "rangeKm must be positive" });
     if (w.speedMps <= 0) issues.push({ weaponId: w.id, problem: "speedMps must be positive" });
     if (w.damage <= 0) issues.push({ weaponId: w.id, problem: "damage must be positive" });
-    if (w.costFrntr <= 0) issues.push({ weaponId: w.id, problem: "costFrntr must be positive" });
+    if (w.costAscend <= 0) issues.push({ weaponId: w.id, problem: "costAscend must be positive" });
     if (w.cooldownMs <= 0) issues.push({ weaponId: w.id, problem: "cooldownMs must be positive" });
 
     const defensive = w.category === "anti_air" || w.category === "missile_defense";

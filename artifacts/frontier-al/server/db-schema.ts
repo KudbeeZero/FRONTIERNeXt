@@ -129,14 +129,14 @@ export const players = pgTable("players", {
   iron:                 integer("iron").notNull().default(0),
   fuel:                 integer("fuel").notNull().default(0),
   crystal:              integer("crystal").notNull().default(0),
-  frontier:             integer("frontier").notNull().default(0),
+  ascend:             integer("frontier").notNull().default(0),
   isAi:                 boolean("is_ai").notNull().default(false),
   aiBehavior:           varchar("ai_behavior", { length: 20 }),
   totalIronMined:       integer("total_iron_mined").notNull().default(0),
   totalFuelMined:       integer("total_fuel_mined").notNull().default(0),
   totalCrystalMined:    real("total_crystal_mined").notNull().default(0),
-  totalFrontierEarned:  real("total_frontier_earned").notNull().default(0),
-  totalFrontierBurned:  real("total_frontier_burned").notNull().default(0),
+  totalAscendEarned:  real("total_frontier_earned").notNull().default(0),
+  totalAscendBurned:  real("total_frontier_burned").notNull().default(0),
   attacksWon:           integer("attacks_won").notNull().default(0),
   attacksLost:          integer("attacks_lost").notNull().default(0),
   territoriesCaptured:  integer("territories_captured").notNull().default(0),
@@ -148,9 +148,9 @@ export const players = pgTable("players", {
   /** Weapon-system progression (archetype/attributes/badges/loadout/stats). NULL until first built. */
   weaponProfile:        jsonb("weapon_profile").$type<import("../shared/weapons").PlayerWeaponProfile>(),
   welcomeBonusReceived: boolean("welcome_bonus_received").notNull().default(false),
-  frntrBalanceMicro:    bigint("frntr_balance_micro", { mode: "number" }).notNull().default(0),
-  frntrReadyMicro:      bigint("frntr_ready_micro",   { mode: "number" }).notNull().default(0),
-  frntrClaimedMicro:    bigint("frntr_claimed_micro",  { mode: "number" }).notNull().default(0),
+  ascendBalanceMicro:    bigint("frntr_balance_micro", { mode: "number" }).notNull().default(0),
+  ascendReadyMicro:      bigint("frntr_ready_micro",   { mode: "number" }).notNull().default(0),
+  ascendClaimedMicro:    bigint("frntr_claimed_micro",  { mode: "number" }).notNull().default(0),
   /** Timestamp (ms) until which morale debuff is active — reduces attack power. */
   moraleDebuffUntil:    bigint("morale_debuff_until", { mode: "number" }).notNull().default(0),
   /** Timestamp (ms) until which new attacks cannot be launched (cooldown). */
@@ -200,9 +200,9 @@ export const parcels = pgTable(
     yieldMultiplier:      real("yield_multiplier").notNull().default(1.0),
     improvements:         jsonb("improvements").$type<object[]>().notNull().default([]),
     purchasePriceAlgo:    real("purchase_price_algo"),
-    frontierAccumulated:  real("frontier_accumulated").notNull().default(0),
-    lastFrontierClaimTs:  bigint("last_frontier_claim_ts", { mode: "number" }).notNull().default(0),
-    frontierPerDay:       real("frontier_per_day").notNull().default(1),
+    ascendAccumulated:  real("frontier_accumulated").notNull().default(0),
+    lastAscendClaimTs:  bigint("last_frontier_claim_ts", { mode: "number" }).notNull().default(0),
+    ascendPerDay:       real("frontier_per_day").notNull().default(1),
 
     // ── Reconquest Tracking ────────────────────────────────────────────────
     // Set when a human player captures a plot previously owned by an AI faction.
@@ -352,7 +352,7 @@ export const subParcels = pgTable(
     ownerType:             varchar("owner_type", { length: 10 }),
     improvements:          jsonb("improvements").$type<object[]>().notNull().default([]),
     resourceYieldFraction: real("resource_yield_fraction").notNull().default(1.0 / 9.0),
-    purchasePriceFrontier: real("purchase_price_frontier").notNull().default(50),
+    purchasePriceAscend: real("purchase_price_frontier").notNull().default(50),
     acquiredAt:            bigint("acquired_at", { mode: "number" }),
     activeBattleId:        varchar("active_battle_id", { length: 36 }),
     createdAt:             bigint("created_at", { mode: "number" }).notNull(),
@@ -386,7 +386,7 @@ export const subParcelListings = pgTable(
     subIndex:            integer("sub_index").notNull(),
     sellerId:            varchar("seller_id", { length: 36 }).notNull(),
     sellerName:          varchar("seller_name", { length: 100 }).notNull(),
-    askPriceFrontier:    real("ask_price_frontier").notNull(),
+    askPriceAscend:    real("ask_price_frontier").notNull(),
     status:              varchar("status", { length: 20 }).notNull().default("open"),
     createdAt:           bigint("created_at", { mode: "number" }).notNull(),
     buyerId:             varchar("buyer_id", { length: 36 }),
@@ -453,7 +453,7 @@ export type TreasuryLedgerRow    = typeof treasuryLedger.$inferSelect;
 export type InsertTreasuryLedger = typeof treasuryLedger.$inferInsert;
 
 // ─── prediction_markets ───────────────────────────────────────────────────────
-// Binary outcome prediction markets where players wager FRONTIER tokens.
+// Binary outcome prediction markets where players wager ASCEND tokens.
 // Status lifecycle: open → closed → resolved | cancelled
 // All payouts remain as in-game FRONTIER balance (no on-chain settlement in v1).
 
@@ -545,14 +545,14 @@ export type InsertLootBoxInventory = typeof lootBoxInventory.$inferInsert;
 //
 // Status lifecycle: pending → sent | failed (failed after MAX_ATTEMPTS)
 
-export const pendingFrontierTransfers = pgTable(
+export const pendingAscendTransfers = pgTable(
   "pending_frontier_transfers",
   {
     id:                 text("id").primaryKey(),                                    // UUID
     recipientAddress:   text("recipient_address").notNull(),                        // Algorand wallet address
     recipientPlayerId:  text("recipient_player_id"),                               // nullable — populated for known players
-    amount:             bigint("amount", { mode: "number" }).notNull(),             // FRONTIER tokens (whole units, not micro)
-    reason:             text("reason").notNull(),                                   // 'welcome_bonus' | 'claim_frontier' | 'mining_yield'
+    amount:             bigint("amount", { mode: "number" }).notNull(),             // ASCEND tokens (whole units, not micro)
+    reason:             text("reason").notNull(),                                   // 'welcome_bonus' | 'claim_ascend' | 'mining_yield'
     status:             varchar("status", { length: 10 }).notNull().default("pending"), // pending | sent | failed
     attempts:           integer("attempts").notNull().default(0),
     lastError:          text("last_error"),
@@ -565,5 +565,5 @@ export const pendingFrontierTransfers = pgTable(
   })
 );
 
-export type PendingFrontierTransferRow    = typeof pendingFrontierTransfers.$inferSelect;
-export type InsertPendingFrontierTransfer = typeof pendingFrontierTransfers.$inferInsert;
+export type PendingAscendTransferRow    = typeof pendingAscendTransfers.$inferSelect;
+export type InsertPendingAscendTransfer = typeof pendingAscendTransfers.$inferInsert;

@@ -3,7 +3,7 @@
  *
  * Orchestration for the /api/weapons/* routes. Pure of Express — takes an IStorage
  * and an EngagementStore so it is unit-testable against MemStorage. Bridges the
- * three pieces: persisted profile (storage), FRNTR economy (storage.spendFrontier
+ * three pieces: persisted profile (storage), ASCEND economy (storage.spendAscend
  * + weapon-economy costs), and runtime combat (engagementStore + shared sim).
  */
 
@@ -26,10 +26,10 @@ import {
   type WeaponSpec,
 } from "@shared/weapons";
 import {
-  fireCostFrntr,
-  unlockCostFrntr,
-  deployCostFrntr,
-  upgradeCostFrntr,
+  fireCostAscend,
+  unlockCostAscend,
+  deployCostAscend,
+  upgradeCostAscend,
 } from "@shared/weapon-economy";
 
 async function parcelGeo(storage: IStorage, parcelId: string) {
@@ -68,8 +68,8 @@ export async function getCatalog(storage: IStorage, playerId: string): Promise<{
     spec,
     unlocked: isWeaponUnlocked(spec, profile.badges),
     owned: ownedIds.has(spec.id),
-    fireCost: fireCostFrntr(spec),
-    unlockCost: unlockCostFrntr(spec),
+    fireCost: fireCostAscend(spec),
+    unlockCost: unlockCostAscend(spec),
   }));
   return { profile, entries };
 }
@@ -88,7 +88,7 @@ export async function unlockWeapon(
   if (profile.ownedWeapons.some((w) => w.specId === specId)) {
     throw new Error(`${spec.name} is already in your armory.`);
   }
-  await storage.spendFrontier(playerId, unlockCostFrntr(spec));
+  await storage.spendAscend(playerId, unlockCostAscend(spec));
   const owned: OwnedWeapon = {
     id: randomUUID(),
     specId,
@@ -127,7 +127,7 @@ export async function upgradeWeapon(
     throw new Error(`${spec.name} is already at max upgrade tier (${MAX_WEAPON_UPGRADE_TIER}).`);
   }
   const nextTier = owned.upgradeTier + 1;
-  await storage.spendFrontier(playerId, upgradeCostFrntr(spec, nextTier));
+  await storage.spendAscend(playerId, upgradeCostAscend(spec, nextTier));
   const ownedWeapons = profile.ownedWeapons.map((w) =>
     w.id === ownedWeaponId ? { ...w, upgradeTier: nextTier } : w,
   );
@@ -176,7 +176,7 @@ export async function fireWeapon(
     throw new Error(`Target out of range (${Math.round(greatCircleKm(from, to))}km > ${spec.rangeKm}km).`);
   }
 
-  await storage.spendFrontier(playerId, fireCostFrntr(spec));
+  await storage.spendAscend(playerId, fireCostAscend(spec));
 
   const engagement = store.launch({
     weaponSpecId: specId,
@@ -236,6 +236,6 @@ export async function deployDefense(
   const { parcel, geo } = await parcelGeo(storage, parcelId);
   if (parcel.ownerId !== playerId) throw new Error("You can only deploy on a parcel you own.");
 
-  await storage.spendFrontier(playerId, deployCostFrntr(spec));
+  await storage.spendAscend(playerId, deployCostAscend(spec));
   return store.deployDefense({ specId, ownerId: playerId, parcelId, at: geo });
 }

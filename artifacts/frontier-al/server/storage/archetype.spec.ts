@@ -13,7 +13,7 @@ function mk(partial: Partial<SubParcel> & { id: string }): SubParcel {
     ownerType: partial.ownerType ?? null,
     improvements: partial.improvements ?? [],
     resourceYieldFraction: partial.resourceYieldFraction ?? 1 / 9,
-    purchasePriceFrontier: partial.purchasePriceFrontier ?? 50,
+    purchasePriceAscend: partial.purchasePriceAscend ?? 50,
     acquiredAt: partial.acquiredAt ?? null,
     activeBattleId: partial.activeBattleId ?? null,
     archetype: partial.archetype ?? null,

@@ -213,9 +213,9 @@ export async function seedDatabase(db: DB): Promise<void> {
         yieldMultiplier:     1.0,
         improvements:        [] as object[],
         purchasePriceAlgo:   LAND_PURCHASE_ALGO[biome],
-        frontierAccumulated: 0,
-        lastFrontierClaimTs: now,
-        frontierPerDay:      1,
+        ascendAccumulated: 0,
+        lastAscendClaimTs: now,
+        ascendPerDay:      1,
         // reconquest fields default to null/0 in DB via schema defaults
       };
     });
@@ -247,7 +247,7 @@ export async function seedDatabase(db: DB): Promise<void> {
       });
       await tx
         .update(parcelsTable)
-        .set({ ownerId: aiId, ownerType: "ai", defenseLevel: 2, purchasePriceAlgo: null, lastFrontierClaimTs: now })
+        .set({ ownerId: aiId, ownerType: "ai", defenseLevel: 2, purchasePriceAlgo: null, lastAscendClaimTs: now })
         .where(eq(parcelsTable.plotId, AI_PLOTS[i]));
     }
 

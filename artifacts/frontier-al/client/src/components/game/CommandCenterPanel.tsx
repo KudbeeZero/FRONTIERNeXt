@@ -23,9 +23,9 @@ function formatCooldown(ms: number): string {
 }
 
 /** Live accumulated ASCEND = stored amount + time-based earnings since last claim. */
-function liveFrontierAccumulated(parcel: LandParcel, now: number): number {
-  const days = Math.max(0, (now - parcel.lastFrontierClaimTs) / (1000 * 60 * 60 * 24));
-  return parcel.frontierAccumulated + days * parcel.frontierPerDay;
+function liveAscendAccumulated(parcel: LandParcel, now: number): number {
+  const days = Math.max(0, (now - parcel.lastAscendClaimTs) / (1000 * 60 * 60 * 24));
+  return parcel.ascendAccumulated + days * parcel.ascendPerDay;
 }
 
 // ─── PlotRow ─────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ function PlotRow({
           </span>
           <span className="flex items-center gap-0.5 text-primary ml-auto">
             <Zap className="w-2.5 h-2.5" />
-            {parcel.frontierPerDay.toFixed(1)}/day
+            {parcel.ascendPerDay.toFixed(1)}/day
           </span>
           <span className="flex items-center gap-0.5 text-muted-foreground">
             <Shield className="w-2.5 h-2.5" /> Lv{parcel.defenseLevel}
@@ -115,9 +115,9 @@ function PlotRow({
         </div>
 
         {/* Pending ASCEND — live computed */}
-        {liveFrontierAccumulated(parcel, now) > 0.001 && (
+        {liveAscendAccumulated(parcel, now) > 0.001 && (
           <div className="mt-1.5 text-[9px] text-yellow-400 font-mono">
-            {liveFrontierAccumulated(parcel, now).toFixed(4)} ASCEND accumulated
+            {liveAscendAccumulated(parcel, now).toFixed(4)} ASCEND accumulated
           </div>
         )}
       </button>
@@ -399,19 +399,19 @@ export function CommandCenterPanel({
     );
   }, [ownedParcels, searchQuery]);
 
-  const totalFrontierRate = useMemo(
-    () => ownedParcels.reduce((s, p) => s + p.frontierPerDay, 0),
+  const totalAscendRate = useMemo(
+    () => ownedParcels.reduce((s, p) => s + p.ascendPerDay, 0),
     [ownedParcels]
   );
-  const totalFrontierPending = useMemo(
-    () => ownedParcels.reduce((s, p) => s + liveFrontierAccumulated(p, now), 0),
+  const totalAscendPending = useMemo(
+    () => ownedParcels.reduce((s, p) => s + liveAscendAccumulated(p, now), 0),
     [ownedParcels, now]
   );
   const totalStoredIron = ownedParcels.reduce((s, p) => s + p.ironStored, 0);
   const totalStoredFuel = ownedParcels.reduce((s, p) => s + p.fuelStored, 0);
   const totalStoredCrystal = ownedParcels.reduce((s, p) => s + p.crystalStored, 0);
   const hasStored = totalStoredIron > 0 || totalStoredFuel > 0 || totalStoredCrystal > 0;
-  const hasPending = totalFrontierPending > 0.01;
+  const hasPending = totalAscendPending > 0.01;
 
   return (
     <div
@@ -426,8 +426,8 @@ export function CommandCenterPanel({
         {player && (
           <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
             {ownedParcels.length} plot{ownedParcels.length !== 1 ? "s" : ""} owned
-            {player.totalFrontierEarned > 0 && (
-              <> · {player.totalFrontierEarned.toFixed(1)} ASCEND earned lifetime</>
+            {player.totalAscendEarned > 0 && (
+              <> · {player.totalAscendEarned.toFixed(1)} ASCEND earned lifetime</>
             )}
           </p>
         )}

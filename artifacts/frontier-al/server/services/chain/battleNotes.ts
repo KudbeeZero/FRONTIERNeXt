@@ -17,7 +17,7 @@
  * format to reconstruct the full battle history without trusting FRONTIER's
  * own database.
  *
- * Note format (prefix: "FRNTR:"):
+ * Note format (prefix: "ASCEND:"):
  * {
  *   "game":        "FRONTIER",
  *   "v":           2,
@@ -28,7 +28,7 @@
  *   "humanAddr":   "ALGO...",
  *   "factionName": "NEXUS-7",
  *   "factionAsaId": 12345678,     ← on-chain faction identity reference
- *   "amt":         50.5,          ← FRONTIER tokens transferred
+ *   "amt":         50.5,          ← ASCEND tokens transferred
  *   "network":     "testnet",
  *   "ts":          1710000000000
  * }
@@ -46,7 +46,7 @@ export interface BattleNoteParams {
   outcome:     "attacker_wins" | "defender_wins";
   humanAddr:   string;
   factionName: string;       // AI faction name — used to resolve assetId
-  amount:      number;       // FRONTIER tokens in this transfer
+  amount:      number;       // ASCEND tokens in this transfer
 }
 
 /**
@@ -72,18 +72,24 @@ export function buildBattleNote(params: BattleNoteParams): Uint8Array {
     ts:           Date.now(),
   };
 
-  return new TextEncoder().encode(`FRNTR:${JSON.stringify(payload)}`);
+  return new TextEncoder().encode(`ASCEND:${JSON.stringify(payload)}`);
 }
 
 /**
  * Parse a raw Algorand transaction note back into a battle note.
- * Returns null if the note is not a FRONTIER battle note.
+ * Returns null if the note is not an ASCEND battle note.
+ *
+ * Accepts both the current "ASCEND:" prefix and the legacy "FRNTR:" prefix so
+ * notes posted on-chain before the token rename still parse (on-chain history
+ * is immutable — we can't rewrite already-submitted notes).
  */
+const NOTE_PREFIXES = ["ASCEND:", "FRNTR:"] as const;
 export function parseBattleNote(noteBytes: Uint8Array): ReturnType<typeof JSON.parse> | null {
   try {
     const raw = new TextDecoder().decode(noteBytes);
-    if (!raw.startsWith("FRNTR:")) return null;
-    const parsed = JSON.parse(raw.slice(6));
+    const prefix = NOTE_PREFIXES.find((p) => raw.startsWith(p));
+    if (!prefix) return null;
+    const parsed = JSON.parse(raw.slice(prefix.length));
     if (parsed?.v !== 2 || !parsed?.type?.startsWith("battle")) return null;
     return parsed;
   } catch {

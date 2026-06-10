@@ -1,5 +1,21 @@
 # ASCEND RENAME MAP — FRNTR / FRONTIER (token) → ASCEND
 
+> **STATUS: EXECUTED 2026-06-10.** The full code rename is done and verified
+> (tsc clean · 194 server tests · 31 client tests · build green), 53 files.
+> Decisions applied: full code rename; **SQL columns kept** (Drizzle fields
+> renamed, column-name strings pinned — NO data migration); **on-chain prefix
+> now `ASCEND:`** with the parser dual-accepting legacy `FRNTR:`; **auth prefix
+> `FRONTIER-AUTH:v1:`, `frontier_*` localStorage keys, and `/api/actions/...`
+> route paths KEPT** (infra/contract). Pending: ASCEND-branded ASA re-mint
+> before mainnet (testnet ASA #755818217 keeps its on-chain name).
+>
+> **Data caveats (testnet, pre-mainnet — acceptable):** the trade-resource
+> literal and `claim_frontier` event/action value were renamed to `ascend` /
+> `claim_ascend` in code; any pre-existing open trade-order rows or logged
+> events carrying the old string values are stale (no behavior keys off them).
+> The original inventory below is retained for reference.
+
+
 **Prepared:** 2026-06-10 · 10 read-only scanner agents across the whole repo (716 tracked files).
 **Status of the rename: PARTIAL / IN-PROGRESS.** The user-facing UI display layer was
 already flipped to "ASCEND"; the structural layer underneath is still FRNTR/Frontier.

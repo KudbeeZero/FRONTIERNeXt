@@ -175,7 +175,7 @@ export function getAdminAddress(): string {
   }
 }
 
-export async function getAdminBalance(frontierAsaId?: number | null): Promise<{ algo: number; frontierAsa: number }> {
+export async function getAdminBalance(ascendAsaId?: number | null): Promise<{ algo: number; ascendAsa: number }> {
   try {
     const account     = getAdminAccount();
     const algod       = getAlgodClient();
@@ -184,20 +184,20 @@ export async function getAdminBalance(frontierAsaId?: number | null): Promise<{ 
     );
     const algoBalance = Number(accountInfo.amount) / 1_000_000;
 
-    let frontierAsa = 0;
-    if (frontierAsaId) {
+    let ascendAsa = 0;
+    if (ascendAsaId) {
       const assets: any[] = (accountInfo as any).assets ?? [];
       const assetEntry = Array.isArray(assets)
-        ? assets.find((a: any) => Number(a.assetId ?? a["asset-id"] ?? a.assetIndex) === frontierAsaId)
+        ? assets.find((a: any) => Number(a.assetId ?? a["asset-id"] ?? a.assetIndex) === ascendAsaId)
         : undefined;
       if (assetEntry) {
-        frontierAsa = Number(assetEntry.amount ?? 0) / 1_000_000;
+        ascendAsa = Number(assetEntry.amount ?? 0) / 1_000_000;
       }
     }
 
-    return { algo: algoBalance, frontierAsa };
+    return { algo: algoBalance, ascendAsa };
   } catch (err) {
     console.error("[chain/client] getAdminBalance failed:", err);
-    return { algo: 0, frontierAsa: 0 };
+    return { algo: 0, ascendAsa: 0 };
   }
 }

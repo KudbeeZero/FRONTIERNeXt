@@ -31,7 +31,7 @@ export async function recordUpgradeOnChain(params: UpgradeNoteParams): Promise<s
   const sp     = await algod.getTransactionParams().do();
 
   const noteStr = JSON.stringify({
-    frontier: "sub_parcel_upgrade",
+    ascend: "sub_parcel_upgrade",
     ...params,
     ts: Date.now(),
   });

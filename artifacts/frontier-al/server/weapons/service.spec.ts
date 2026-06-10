@@ -11,7 +11,7 @@ async function setup(funded = 100_000) {
   );
   // MemStorage returns the live object reference — fund it for spend tests.
   const p = await storage.getPlayer(player.id);
-  if (p) p.frontier = funded;
+  if (p) p.ascend = funded;
   return { storage, store: new EngagementStore(), playerId: player.id, player: p! };
 }
 
@@ -47,12 +47,12 @@ describe("weapon service · build + catalog", () => {
 });
 
 describe("weapon service · unlock", () => {
-  it("acquires an unlocked weapon and spends FRNTR", async () => {
+  it("acquires an unlocked weapon and spends ASCEND", async () => {
     const { storage, playerId, player } = await setup(1000);
-    const before = player.frontier;
+    const before = player.ascend;
     const profile = await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
     expect(profile.ownedWeapons.some((w) => w.specId === "msl_ballistic_1")).toBe(true);
-    expect(player.frontier).toBeLessThan(before);
+    expect(player.ascend).toBeLessThan(before);
   });
 
   it("refuses a locked weapon", async () => {
@@ -60,21 +60,21 @@ describe("weapon service · unlock", () => {
     await expect(svc.unlockWeapon(storage, playerId, "msl_hyper_4")).rejects.toThrow(/locked/i);
   });
 
-  it("refuses when FRNTR is insufficient", async () => {
+  it("refuses when ASCEND is insufficient", async () => {
     const { storage, playerId } = await setup(0);
     await expect(svc.unlockWeapon(storage, playerId, "msl_ballistic_1")).rejects.toThrow(/insufficient/i);
   });
 });
 
 describe("weapon service · upgrade", () => {
-  it("raises the upgrade tier and spends FRNTR", async () => {
+  it("raises the upgrade tier and spends ASCEND", async () => {
     const { storage, playerId, player } = await setup();
     const owned = (await svc.unlockWeapon(storage, playerId, "msl_ballistic_1")).ownedWeapons[0];
-    const before = player.frontier;
+    const before = player.ascend;
     const profile = await svc.upgradeWeapon(storage, playerId, owned.id);
     const upgraded = profile.ownedWeapons.find((w) => w.id === owned.id)!;
     expect(upgraded.upgradeTier).toBe(2);
-    expect(player.frontier).toBeLessThan(before);
+    expect(player.ascend).toBeLessThan(before);
   });
 
   it("won't upgrade an unknown instance", async () => {

@@ -110,8 +110,8 @@ export interface WeaponSpec {
   /** Splash radius in game units (see scale.ts). */
   splashRadius: number;
   cooldownMs: number;
-  /** FRNTR cost to fire one shot. */
-  costFrntr: number;
+  /** ASCEND cost to fire one shot. */
+  costAscend: number;
 
   // ── progression gating ──
   /** Which attribute powers/upgrades this weapon. */

@@ -35,7 +35,7 @@ beforeEach(async () => {
   currentBiome = bought.biome;
 
   const p = await storage.getPlayer(ownerId);
-  if (p) p.frontier = 100;
+  if (p) p.ascend = 100;
 });
 
 /** A prototype target whose mapped server biome differs from the current one. */
@@ -65,28 +65,28 @@ describe("terraformParcel — convert_biome drives the metadata biome", () => {
 
   it("deducts the convert_biome cost from the owner", async () => {
     const { proto } = differentTarget(currentBiome);
-    const before = (await storage.getPlayer(ownerId))!.frontier;
+    const before = (await storage.getPlayer(ownerId))!.ascend;
     await storage.terraformParcel(plotId, ownerId, { type: "convert_biome", targetBiome: proto } as any);
-    const after = (await storage.getPlayer(ownerId))!.frontier;
+    const after = (await storage.getPlayer(ownerId))!.ascend;
     expect(before - after).toBe(TERRAFORM_COSTS["convert_biome"]);
   });
 
   it("rejects converting to the biome it already is (no charge)", async () => {
-    const before = (await storage.getPlayer(ownerId))!.frontier;
+    const before = (await storage.getPlayer(ownerId))!.ascend;
     const res = await storage.terraformParcel(plotId, ownerId, {
       type: "convert_biome",
       targetBiome: currentBiome,
     } as any);
     expect(res.error).toContain("already has that biome");
-    expect((await storage.getPlayer(ownerId))!.frontier).toBe(before);
+    expect((await storage.getPlayer(ownerId))!.ascend).toBe(before);
   });
 
   it("rejects when the owner cannot afford it", async () => {
     const p = await storage.getPlayer(ownerId);
-    if (p) p.frontier = 1;
+    if (p) p.ascend = 1;
     const { proto } = differentTarget(currentBiome);
     const res = await storage.terraformParcel(plotId, ownerId, { type: "convert_biome", targetBiome: proto } as any);
-    expect(res.error).toContain("Insufficient FRONTIER");
+    expect(res.error).toContain("Insufficient ASCEND");
   });
 
   it("rejects a non-owner", async () => {
