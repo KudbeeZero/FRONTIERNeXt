@@ -30,6 +30,7 @@ import type {
   RareMineralType,
 } from "@shared/schema";
 import type { TradeOrder, InsertTradeOrder } from "../db-schema";
+import type { PlayerWeaponProfile } from "@shared/weapons";
 
 export interface IStorage {
   /** Initialize storage (run seeder if needed). */
@@ -176,4 +177,20 @@ export interface IStorage {
   getSeasonHistory(): Promise<Season[]>;
   /** Get protocol treasury balance from the economics ledger. */
   getTreasuryBalance(): Promise<{ unsettledMicro: number; totalMicro: number }>;
+
+  // ── Weapon System (persisted progression "memory layer") ──────────────────
+  /**
+   * Get a player's weapon profile, creating (but not yet persisting) a default
+   * one if they have none. The returned profile always has consistent derived
+   * fields (archetype/badges/animations).
+   */
+  getWeaponProfile(playerId: string): Promise<PlayerWeaponProfile>;
+  /**
+   * Merge a patch into a player's weapon profile, recompute derived fields, and
+   * persist. Returns the updated profile.
+   */
+  updateWeaponProfile(
+    playerId: string,
+    patch: Partial<PlayerWeaponProfile>,
+  ): Promise<PlayerWeaponProfile>;
 }
