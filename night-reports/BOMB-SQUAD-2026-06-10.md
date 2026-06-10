@@ -79,3 +79,71 @@ Long-term recommendation: deliveries should require the authenticated wallet
 session (`getAuth`) rather than address matching, once WALLET_AUTH_REQUIRED
 is enforced everywhere; and route handlers should be extracted to a testable
 module so HTTP-level tripwires are possible.
+
+### Status: 💣 DEFUSED — tripwires `cf33592`, cut `2d7ab83`, suite green (171).
+
+---
+
+## TARGET 2 — PAYMENT REPLAY (verifyAlgoPayment trust boundary)
+
+### Device Diagram (Phase 1)
+
+**Mechanism** (`server/services/chain/commander.ts:204`, consumed by
+`/api/actions/purchase` at `routes.ts:1589` and `/api/actions/mint-avatar`
+at `routes.ts:1826`):
+
+`verifyAlgoPayment({txId, expectedSender, minMicroAlgo})` is a **stateless**
+indexer lookup. It checks confirmed-round > 0, tx-type == "pay", sender ==
+buyer, receiver == admin wallet, amount >= price — and then forgets the txid
+forever. No table records redemption; `plot_nfts` has no payment column at
+all; `commander_nfts.algo_payment_tx_id` is written post-mint with no unique
+constraint and is never read back.
+
+**Trigger paths:**
+- T1: one payment ≥ plot price → POST purchase for plot A, then plot B, C…
+  Same txid passes verification every time. Free plots, bounded only by the
+  21,000-plot supply.
+- T2: one payment ≥ commander price → mint N commanders (idempotency key is
+  `(playerId, commanderId)` which changes per avatar — never blocks).
+- T3: cross-purpose — same payment for a plot AND a commander.
+- T4: concurrent duplicates of the same request (both verify before either
+  mutates).
+
+**Secondary defect found in the same boundary:** the type check reads
+`txn["tx-type"]` with no camelCase fallback. algosdk v3 (3.5.2 pinned)
+indexer clients return camelCase models (`txType`), so against a real v3
+response every verification THROWS — fail-closed (not exploitable) but a
+launch-blocking outage of all paid flows. The surrounding fields already
+have dual-shape fallbacks (`confirmed-round` ?? `confirmedRound`, etc.);
+this one was missed.
+
+**Why feared:** this is the front door of the revenue path. One missing
+check = free plots / double-spends on day one, and the bug class is silent —
+nothing errors when a replay succeeds.
+
+### Blast radius (must be provably unchanged)
+
+- The acceptance decision table for the recorded matrix: confirmed exact
+  payment / overpayment accepted; not-found / unconfirmed / non-pay /
+  wrong-sender / wrong-receiver / underpayment rejected with the same error
+  classes. Encoded in `commander.spec.ts` (passes on current code).
+- A first-use (legitimate) payment must still purchase exactly as before.
+- No change to mint/transfer construction (Target 1 tripwires still guard).
+
+### The Cut (Phase 3)
+
+1. `redeemed_payments` table (txId PRIMARY KEY = atomic global uniqueness),
+   authored as staged migration `0005_redeemed_payments.sql` + db-schema —
+   **not executed tonight** (morning runbook below).
+2. `createPaymentReplayGuard(store)` in `security.ts` — dependency-injected,
+   fully unit-testable: claim-once semantics, release-on-failed-purchase,
+   fail-CLOSED when the store errors (block sales rather than allow replay),
+   in-memory fallback only when no store exists (dev/mem mode).
+3. Wire into both routes: claim AFTER chain verification succeeds, BEFORE
+   any state mutation; 409 on already-redeemed; release the claim if the
+   downstream mutation throws (a failed purchase must not burn the buyer's
+   payment).
+4. `tx-type` camelCase fallback in verifyAlgoPayment (in-boundary fix).
+
+Long-term recommendation: dedicated payments ledger with amount/round
+recorded, owner-facing receipts, and route-level integration tests.
