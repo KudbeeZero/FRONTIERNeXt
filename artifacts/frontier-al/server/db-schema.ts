@@ -128,6 +128,8 @@ export const players = pgTable("players", {
   specialAttacks:       jsonb("special_attacks").$type<object[]>().notNull().default([]),
   drones:               jsonb("drones").$type<object[]>().notNull().default([]),
   satellites:           jsonb("satellites").$type<object[]>().notNull().default([]),
+  /** Weapon-system progression (archetype/attributes/badges/loadout/stats). NULL until first built. */
+  weaponProfile:        jsonb("weapon_profile").$type<import("../shared/weapons").PlayerWeaponProfile>(),
   welcomeBonusReceived: boolean("welcome_bonus_received").notNull().default(false),
   frntrBalanceMicro:    bigint("frntr_balance_micro", { mode: "number" }).notNull().default(0),
   frntrReadyMicro:      bigint("frntr_ready_micro",   { mode: "number" }).notNull().default(0),

@@ -22,6 +22,19 @@ const adviceLimiter = rateLimit({
   message: { error: "Too many advice requests — try again shortly." },
 });
 import { broadcastGameState, broadcastRaw, markDirty } from "./wsServer";
+import * as weaponService from "./weapons/service";
+import { engagementStore } from "./weapons/engagementStore";
+import { mintWeaponNft, attemptWeaponDelivery } from "./services/chain/weapon";
+import {
+  buildWeaponProfileActionSchema,
+  unlockWeaponActionSchema,
+  setLoadoutActionSchema,
+  fireWeaponActionSchema,
+  deployDefenseActionSchema,
+  upgradeWeaponActionSchema,
+  mintWeaponNftActionSchema,
+  getWeapon as getWeaponSpec,
+} from "@shared/weapons";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 
 // ── Chain Service ─────────────────────────────────────────────────────────────
@@ -2024,6 +2037,232 @@ export async function registerRoutes(
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Special attack failed" });
+    }
+  });
+
+  // ── Weapon System ──────────────────────────────────────────────────────────
+  // Per-weapon mint lock: the check-then-mint-then-record sequence below spans a
+  // multi-second on-chain call, so concurrent mint requests for the same weapon
+  // could each pass the nftAssetId guard and mint duplicate 1-of-1 ASAs (draining
+  // admin ALGO). The server is single-process, so an in-process claim suffices.
+  const weaponMintInFlight = new Set<string>();
+
+  // Reap faded engagements so the runtime store can't grow unbounded if play goes
+  // quiet (launch() also prunes opportunistically). unref() so it never holds the
+  // process open (tests / graceful shutdown).
+  setInterval(() => engagementStore.prune(), 30_000).unref();
+
+  // Read a player's armory: full catalog annotated with unlock/own state + costs.
+  app.get("/api/weapons/catalog", async (req, res) => {
+    try {
+      const queryId = typeof req.query.playerId === "string" ? req.query.playerId : undefined;
+      const playerId = await assertPlayerOwnership(req, res, queryId);
+      if (!playerId) return;
+      const result = await weaponService.getCatalog(storage, playerId);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Catalog failed" });
+    }
+  });
+
+  // Set the attribute build (validated against budget + tradeoff curve).
+  app.post("/api/weapons/build", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = buildWeaponProfileActionSchema.parse(req.body);
+      const profile = await weaponService.buildProfile(storage, playerId, action.attributes);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Build failed" });
+    }
+  });
+
+  // Acquire an unlocked weapon into the armory (spends FRNTR).
+  app.post("/api/weapons/unlock", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = unlockWeaponActionSchema.parse(req.body);
+      const profile = await weaponService.unlockWeapon(storage, playerId, action.specId);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Unlock failed" });
+    }
+  });
+
+  // Set the equipped loadout (the active "sub-shots").
+  app.post("/api/weapons/loadout", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = setLoadoutActionSchema.parse(req.body);
+      const profile = await weaponService.setLoadout(storage, playerId, action.loadout);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Loadout failed" });
+    }
+  });
+
+  // Fire a weapon at a target parcel: spends FRNTR, creates a runtime engagement
+  // (with layered interception resolved), and streams it to the live globe.
+  app.post("/api/weapons/fire", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = fireWeaponActionSchema.parse(req.body);
+      const engagement = await weaponService.fireWeapon(storage, engagementStore, {
+        playerId,
+        specId: action.specId,
+        sourceParcelId: action.sourceParcelId,
+        targetParcelId: action.targetParcelId,
+      });
+      res.json({ success: true, engagement });
+      // Post-response side effects must never re-enter the error path (would try
+      // to set headers on an already-sent response).
+      try {
+        broadcastRaw({ type: "weapon_engagement", payload: engagement });
+        markDirty();
+      } catch { /* broadcast best-effort */ }
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Fire failed" });
+    }
+  });
+
+  // Deploy a defensive battery onto an owned parcel (spends FRNTR).
+  app.post("/api/weapons/deploy-defense", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = deployDefenseActionSchema.parse(req.body);
+      const battery = await weaponService.deployDefense(storage, engagementStore, {
+        playerId,
+        specId: action.specId,
+        parcelId: action.parcelId,
+      });
+      // NOTE: intentionally NOT broadcast — a deployed battery is concealed intel
+      // (position / type / ammo). Other players only learn of it when it actually
+      // intercepts, which is revealed via the weapon_engagement event. Broadcasting
+      // it here would bypass the game's fog-of-war / EPI model (see stateScope.ts).
+      res.json({ success: true, battery });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Deploy failed" });
+    }
+  });
+
+  // Upgrade an owned weapon instance one tier (spends FRNTR).
+  app.post("/api/weapons/upgrade", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = upgradeWeaponActionSchema.parse(req.body);
+      const profile = await weaponService.upgradeWeapon(storage, playerId, action.ownedWeaponId);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Upgrade failed" });
+    }
+  });
+
+  // Mint an owned weapon as a 1-of-1 Algorand NFT (custody model, mirrors commander).
+  app.post("/api/weapons/mint-nft", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = mintWeaponNftActionSchema.parse(req.body);
+
+      const profile = await storage.getWeaponProfile(playerId);
+      const owned = profile.ownedWeapons.find((w) => w.id === action.ownedWeaponId);
+      if (!owned) return res.status(404).json({ error: "Weapon not in your armory" });
+      if (owned.nftAssetId) return res.status(409).json({ error: "Weapon already minted", assetId: owned.nftAssetId });
+
+      const baseUrl = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "");
+      if (!baseUrl) return res.status(503).json({ error: "PUBLIC_BASE_URL not configured — cannot mint" });
+
+      // Claim the weapon for minting; reject concurrent duplicate requests.
+      if (weaponMintInFlight.has(owned.id)) {
+        return res.status(409).json({ error: "Mint already in progress for this weapon" });
+      }
+      weaponMintInFlight.add(owned.id);
+      try {
+        const mint = await mintWeaponNft({
+          ownedWeaponId: owned.id,
+          specId: owned.specId,
+          receiverAddress: action.receiverAddress,
+          metadataBaseUrl: baseUrl,
+        });
+        await weaponService.recordWeaponNft(storage, playerId, owned.id, mint.assetId);
+        const delivery = await attemptWeaponDelivery(mint.assetId, action.receiverAddress, owned.id);
+        res.json({ success: true, assetId: mint.assetId, createTxId: mint.createTxId, delivered: delivery.delivered, reason: delivery.reason });
+        markDirty();
+      } finally {
+        weaponMintInFlight.delete(owned.id);
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Mint failed" });
+    }
+  });
+
+  // ARC-3 metadata for a minted Weapon NFT.
+  app.get("/nft/metadata/weapon/:ownedWeaponId", async (req, res) => {
+    const { ownedWeaponId } = req.params;
+    if (!ownedWeaponId || ownedWeaponId.length < 8) {
+      return res.status(400).json({ error: "Invalid ownedWeaponId" });
+    }
+    if (!db) return res.status(503).json({ error: "Database not available" });
+    try {
+      const baseUrl = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "");
+      if (!baseUrl) return res.status(503).json({ error: "PUBLIC_BASE_URL not configured" });
+
+      const players = await db
+        .select({ weaponProfile: playersTable.weaponProfile })
+        .from(playersTable);
+      let owned: any = null;
+      for (const p of players) {
+        const wp = p.weaponProfile as any;
+        const found = wp?.ownedWeapons?.find((w: any) => w.id === ownedWeaponId);
+        if (found) { owned = found; break; }
+      }
+      if (!owned) return res.status(404).json({ error: "Weapon not found" });
+
+      const spec = getWeaponSpec(owned.specId);
+      if (!spec) return res.status(404).json({ error: "Weapon spec not found" });
+
+      const displayId = owned.nftAssetId ?? owned.id.slice(0, 8);
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.json({
+        name: `Frontier ${spec.name} #${displayId}`,
+        description: `${spec.name} — a tier-${spec.tier} ${spec.category.replace(/_/g, " ")} weapon (ref: ${spec.realWorldRef}).`,
+        image: `${baseUrl}/images/weapons/${spec.category}.png`,
+        external_url: `${baseUrl}/weapon/${owned.nftAssetId ?? owned.id}`,
+        properties: {
+          nftId: owned.nftAssetId ?? null,
+          ownedWeaponId: owned.id,
+          specId: spec.id,
+          category: spec.category,
+          tier: spec.tier,
+          upgradeTier: owned.upgradeTier,
+          rangeKm: spec.rangeKm,
+          damage: spec.damage,
+          realWorldRef: spec.realWorldRef,
+          version: 1,
+        },
+      });
+    } catch (error) {
+      console.error("[/nft/metadata/weapon] error:", error);
+      res.status(500).json({ error: "Failed to fetch Weapon NFT metadata" });
     }
   });
 

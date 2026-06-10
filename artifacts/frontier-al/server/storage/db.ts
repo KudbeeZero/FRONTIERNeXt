@@ -138,6 +138,7 @@ import { runAITurn as runAITurnFn } from "./ai-engine";
 import { buildBattleNote } from "../services/chain/battleNotes";
 import { buildNarrative, detectMilestone } from "../engine/narrative/commentator";
 import type { IStorage } from "./interface";
+import { createDefaultProfile, recomputeDerived, type PlayerWeaponProfile } from "@shared/weapons";
 
 type DB = typeof db;
 
@@ -826,6 +827,58 @@ export class DbStorage implements IStorage {
       .update(playersTable)
       .set({ testnetProgress: completedMissions })
       .where(eq(playersTable.id, playerId));
+  }
+
+  async getWeaponProfile(playerId: string): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    const [row] = await this.db
+      .select({ weaponProfile: playersTable.weaponProfile })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+    if (!row) throw new Error("Player not found");
+    return row.weaponProfile ? recomputeDerived(row.weaponProfile) : createDefaultProfile();
+  }
+
+  async updateWeaponProfile(
+    playerId: string,
+    patch: Partial<PlayerWeaponProfile>,
+  ): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ weaponProfile: playersTable.weaponProfile })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const base = row.weaponProfile ?? createDefaultProfile();
+      const merged = recomputeDerived({ ...base, ...patch, updatedAt: Date.now() });
+      await tx
+        .update(playersTable)
+        .set({ weaponProfile: merged })
+        .where(eq(playersTable.id, playerId));
+      return merged;
+    });
+  }
+
+  async spendFrontier(playerId: string, amountFrntr: number): Promise<void> {
+    await this.initialize();
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const micro = toMicroFRNTR(amountFrntr);
+      if (row.frntrBalanceMicro < micro) {
+        throw new Error(
+          `Insufficient FRONTIER. Need ${amountFrntr}, have ${fromMicroFRNTR(row.frntrBalanceMicro).toFixed(2)}`,
+        );
+      }
+      await tx
+        .update(playersTable)
+        .set({
+          frntrBalanceMicro: row.frntrBalanceMicro - micro,
+          totalFrontierBurned: row.totalFrontierBurned + amountFrntr,
+        })
+        .where(eq(playersTable.id, playerId));
+    });
   }
 
   async grantWelcomeBonus(playerId: string): Promise<void> {
