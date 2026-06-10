@@ -552,7 +552,7 @@ export const TERRAFORM_COSTS: Record<string, number> = {
   corrupt_land:       8,
 };
 
-export const MINE_COOLDOWN_MS = 5 * 60 * 1000;
+export const MINE_COOLDOWN_MS = 15 * 60 * 1000; // 15 min between mines
 export const BATTLE_DURATION_MS = 10 * 60 * 1000;
 export const BASE_YIELD = { iron: 20, fuel: 12, crystal: 4 };
 export const BASE_STORAGE_CAPACITY = 800;

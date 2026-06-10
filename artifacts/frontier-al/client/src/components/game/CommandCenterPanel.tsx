@@ -150,23 +150,23 @@ function PlotRow({
             Mint to your wallet to activate
           </p>
         </div>
-      ) : mineReady ? (
+      ) : (
         <div className="px-3 pb-2 border-t border-border/50">
           <Button
             onClick={(e) => {
               e.stopPropagation();
-              onMineParcel(parcel.id);
+              if (mineReady) onMineParcel(parcel.id);
             }}
-            disabled={isMiningThisParcel}
+            disabled={isMiningThisParcel || !mineReady}
             size="sm"
             className="w-full h-7 font-display uppercase tracking-wide text-xs transition-all active:scale-95"
             data-testid={`button-mine-resources-${parcel.plotId}`}
           >
             <Pickaxe className={cn("w-3 h-3 mr-1.5", isMiningThisParcel && "animate-spin")} />
-            {isMiningThisParcel ? "Extracting..." : "Mine Resources"}
+            {isMiningThisParcel ? "Extracting..." : mineReady ? "Mine Resources" : `Cooldown ${formatCooldown(remaining)}`}
           </Button>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
