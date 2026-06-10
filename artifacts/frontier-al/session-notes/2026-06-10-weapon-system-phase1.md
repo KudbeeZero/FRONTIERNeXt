@@ -42,17 +42,29 @@ layer. Built to grow every "season."
   Pick weapon/defense, Fire, watch arc + trail + interception. Bundles cleanly
   (646 modules); isolated from live app routing.
 
+### 4. Live API + globe wiring (added same session)
+- `server/weapons/service.ts`: orchestrates storage + economy + engagement store
+  (build / catalog / unlock / loadout / fire / deploy-defense). FRNTR spend via a
+  new `IStorage.spendFrontier` (mirrors each backend: DbStorage burns
+  `frntrBalanceMicro`, MemStorage burns `player.frontier`). Fire bumps combat
+  stats (feeds badges) and credits intercepting defenders. 9 service tests.
+- `server/routes.ts`: `GET /api/weapons/catalog` + `POST /api/weapons/{build,
+  unlock,loadout,fire,deploy-defense}`, behind `assertPlayerOwnership`, Zod-
+  validated, `markDirty()` + `broadcastRaw({type:"weapon_engagement"|"weapon_battery"})`.
+- Client: `useGameSocket` gains an `onWeaponEngagement` bus + `weapon_engagement`
+  handler; `globe/LiveWeaponLayer.tsx` maps engagements → WeaponShots and is
+  mounted in `PlanetGlobe` alongside `<GlobeEvents/>`. Fire from anywhere now
+  animates on the live globe.
+- All green: tsc, 156 server tests, production build.
+
 ## NOT yet done (next units)
-1. **API routes** `/api/weapons/*` (build/catalog/unlock/fire/deploy-defense) in
-   `server/routes.ts` behind `assertPlayerOwnership`, with a `server/weapons/service.ts`
-   (FRNTR deduction via economy, stat bumps, calls engagementStore) + `markDirty()`/
-   WS broadcast of launch/intercept/impact. Add a `tsx` HTTP integration test.
-2. **Live globe FX**: mount `<WeaponScene>` inside `PlanetGlobe` alongside
-   `<GlobeEvents/>`, fed by server engagements over WS.
-3. **Phase 2**: weapon-NFT mint (`server/services/chain/weapon.ts`, mirrors
-   commander.ts), Armory UI (Radix/Tailwind), badge-earning from real combat,
-   AI factions firing.
-4. Run `pnpm run db:push` against a dev DB to apply the `weapon_profile` column.
+1. **Phase 2**: weapon-NFT mint (`server/services/chain/weapon.ts`, mirrors
+   commander.ts), Armory UI (Radix/Tailwind: attribute allocation, archetype
+   picker, badge wall, catalog/fire controls), badge-earning surfaced in UI,
+   AI factions firing weapons, upgrade route.
+2. Run `pnpm run db:push` against a dev DB to apply the `weapon_profile` column.
+3. Optional: a `tsx` HTTP integration test mounting the real `/api/weapons/fire`
+   handler end-to-end (suite is single-process).
 
 ## Verify
 `pnpm run check` · `pnpm run test:server` · `pnpm run build` (all green) ·

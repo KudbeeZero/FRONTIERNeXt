@@ -22,6 +22,15 @@ const adviceLimiter = rateLimit({
   message: { error: "Too many advice requests — try again shortly." },
 });
 import { broadcastGameState, broadcastRaw, markDirty } from "./wsServer";
+import * as weaponService from "./weapons/service";
+import { engagementStore } from "./weapons/engagementStore";
+import {
+  buildWeaponProfileActionSchema,
+  unlockWeaponActionSchema,
+  setLoadoutActionSchema,
+  fireWeaponActionSchema,
+  deployDefenseActionSchema,
+} from "@shared/weapons";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 
 // ── Chain Service ─────────────────────────────────────────────────────────────
@@ -2024,6 +2033,107 @@ export async function registerRoutes(
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Special attack failed" });
+    }
+  });
+
+  // ── Weapon System ──────────────────────────────────────────────────────────
+  // Read a player's armory: full catalog annotated with unlock/own state + costs.
+  app.get("/api/weapons/catalog", async (req, res) => {
+    try {
+      const queryId = typeof req.query.playerId === "string" ? req.query.playerId : undefined;
+      const playerId = await assertPlayerOwnership(req, res, queryId);
+      if (!playerId) return;
+      const result = await weaponService.getCatalog(storage, playerId);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Catalog failed" });
+    }
+  });
+
+  // Set the attribute build (validated against budget + tradeoff curve).
+  app.post("/api/weapons/build", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = buildWeaponProfileActionSchema.parse(req.body);
+      const profile = await weaponService.buildProfile(storage, playerId, action.attributes);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Build failed" });
+    }
+  });
+
+  // Acquire an unlocked weapon into the armory (spends FRNTR).
+  app.post("/api/weapons/unlock", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = unlockWeaponActionSchema.parse(req.body);
+      const profile = await weaponService.unlockWeapon(storage, playerId, action.specId);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Unlock failed" });
+    }
+  });
+
+  // Set the equipped loadout (the active "sub-shots").
+  app.post("/api/weapons/loadout", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = setLoadoutActionSchema.parse(req.body);
+      const profile = await weaponService.setLoadout(storage, playerId, action.loadout);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Loadout failed" });
+    }
+  });
+
+  // Fire a weapon at a target parcel: spends FRNTR, creates a runtime engagement
+  // (with layered interception resolved), and streams it to the live globe.
+  app.post("/api/weapons/fire", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = fireWeaponActionSchema.parse(req.body);
+      const engagement = await weaponService.fireWeapon(storage, engagementStore, {
+        playerId,
+        specId: action.specId,
+        sourceParcelId: action.sourceParcelId,
+        targetParcelId: action.targetParcelId,
+      });
+      res.json({ success: true, engagement });
+      broadcastRaw({ type: "weapon_engagement", payload: engagement });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Fire failed" });
+    }
+  });
+
+  // Deploy a defensive battery onto an owned parcel (spends FRNTR).
+  app.post("/api/weapons/deploy-defense", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = deployDefenseActionSchema.parse(req.body);
+      const battery = await weaponService.deployDefense(storage, engagementStore, {
+        playerId,
+        specId: action.specId,
+        parcelId: action.parcelId,
+      });
+      res.json({ success: true, battery });
+      broadcastRaw({ type: "weapon_battery", payload: battery });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Deploy failed" });
     }
   });
 

@@ -464,6 +464,18 @@ export class MemStorage implements IStorage {
     return merged;
   }
 
+  async spendFrontier(playerId: string, amountFrntr: number): Promise<void> {
+    await this.initialize();
+    const player = this.players.get(playerId);
+    if (!player) throw new Error("Player not found");
+    if (player.frontier < amountFrntr) {
+      throw new Error(`Insufficient FRONTIER. Need ${amountFrntr}, have ${player.frontier.toFixed(2)}`);
+    }
+    player.frontier -= amountFrntr;
+    player.totalFrontierBurned += amountFrntr;
+    this.frontierCirculating -= amountFrntr;
+  }
+
   async getOrCreatePlayerByAddress(address: string): Promise<Player> {
     await this.initialize();
     const trimmed = address.trim();

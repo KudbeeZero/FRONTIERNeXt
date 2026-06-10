@@ -193,4 +193,10 @@ export interface IStorage {
     playerId: string,
     patch: Partial<PlayerWeaponProfile>,
   ): Promise<PlayerWeaponProfile>;
+  /**
+   * Deduct FRNTR from a player (game currency burn), throwing if the balance is
+   * insufficient. Mirrors the existing special-attack/mint spend mechanics in
+   * each storage backend. Used by weapon fire/unlock/deploy costs.
+   */
+  spendFrontier(playerId: string, amountFrntr: number): Promise<void>;
 }

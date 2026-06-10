@@ -860,6 +860,27 @@ export class DbStorage implements IStorage {
     });
   }
 
+  async spendFrontier(playerId: string, amountFrntr: number): Promise<void> {
+    await this.initialize();
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const micro = toMicroFRNTR(amountFrntr);
+      if (row.frntrBalanceMicro < micro) {
+        throw new Error(
+          `Insufficient FRONTIER. Need ${amountFrntr}, have ${fromMicroFRNTR(row.frntrBalanceMicro).toFixed(2)}`,
+        );
+      }
+      await tx
+        .update(playersTable)
+        .set({
+          frntrBalanceMicro: row.frntrBalanceMicro - micro,
+          totalFrontierBurned: row.totalFrontierBurned + amountFrntr,
+        })
+        .where(eq(playersTable.id, playerId));
+    });
+  }
+
   async grantWelcomeBonus(playerId: string): Promise<void> {
     await this.initialize();
     await this.db.transaction(async (tx) => {

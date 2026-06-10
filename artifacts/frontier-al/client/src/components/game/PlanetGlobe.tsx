@@ -20,6 +20,7 @@ import { PlotOverlay, SubParcelOverlay } from "./globe/GlobeParcels";
 import { ObserverLayer } from "./globe/ObserverLayer";
 import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 import { BattleArcs, MiningPulseLayer, OrbitalZoneLayer, SatelliteOrbitLayer } from "./globe/GlobeEvents";
+import { LiveWeaponLayer } from "./globe/LiveWeaponLayer";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
@@ -116,6 +117,7 @@ function Scene({
       <MiningPulseLayer pulses={livePulses} />
       <OrbitalZoneLayer events={orbitalEvents} />
       <SatelliteOrbitLayer players={players} />
+      <LiveWeaponLayer />
       <OrbitControls
         ref={controlsRef as any}
         enablePan={false}
