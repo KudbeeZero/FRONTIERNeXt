@@ -121,6 +121,17 @@ describe("purchaseLand", () => {
     expect(bought.purchasePriceAlgo).toBeNull();
   });
 
+  it("rejects purchase of a parcel that is under active attack", async () => {
+    const parcel = await freshParcel();
+    await deploy(parcel.id);
+    const buyer = await storage.getOrCreatePlayerByAddress(
+      "TESTWALLETCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+    );
+    await expect(
+      storage.purchaseLand({ playerId: buyer.id, parcelId: parcel.id } as any)
+    ).rejects.toThrow(/under attack/);
+  });
+
   it("rejects purchase of an owned parcel", async () => {
     const parcel = await freshParcel();
     await storage.purchaseLand({ playerId: human.id, parcelId: parcel.id } as any);

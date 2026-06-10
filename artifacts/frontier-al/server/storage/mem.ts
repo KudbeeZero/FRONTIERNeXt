@@ -672,6 +672,9 @@ export class MemStorage implements IStorage {
     if (!parcel || !player) throw new Error("Invalid parcel or player");
     if (parcel.ownerId) throw new Error("Territory is already owned");
     if (parcel.purchasePriceAlgo === null) throw new Error("Territory is not for sale");
+    // Parity with DbStorage: a battle's outcome is locked at deploy time, so
+    // selling a parcel mid-battle robs the buyer or the attacker at resolution.
+    if (parcel.activeBattleId) throw new Error("Territory is under attack and cannot be purchased");
 
     parcel.ownerId = player.id;
     parcel.ownerType = player.isAI ? "ai" : "player";

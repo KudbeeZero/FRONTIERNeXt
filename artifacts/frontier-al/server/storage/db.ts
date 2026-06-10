@@ -89,7 +89,7 @@ import {
   MIN_INFLUENCE_DAMAGE,
   INFLUENCE_YIELD_THRESHOLD,
 } from "../engine/battle/tuning.js";
-import { eq, and, desc, lt, sql, sum } from "drizzle-orm";
+import { eq, and, desc, lt, sql, sum, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
   gameMeta,
@@ -1122,17 +1122,32 @@ export class DbStorage implements IStorage {
       if (!parcelRow || !playerRow) throw new Error("Invalid parcel or player");
       if (parcelRow.ownerId) throw new Error("Territory is already owned");
       if (parcelRow.purchasePriceAlgo === null) throw new Error("Territory is not for sale");
+      // A battle on this parcel already has a locked outcome — selling it
+      // mid-battle guarantees either the buyer or the attacker gets robbed
+      // when resolution lands. Refuse up front; the purchase route releases
+      // the payment claim so the buyer's ALGO stays redeemable.
+      if (parcelRow.activeBattleId) throw new Error("Territory is under attack and cannot be purchased");
 
       const now      = Date.now();
       const ownerType = playerRow.isAi ? "ai" : "player";
-      await Promise.all([
-        tx.update(parcelsTable)
-          .set({ ownerId: playerRow.id, ownerType, purchasePriceAlgo: null, lastFrontierClaimTs: now })
-          .where(eq(parcelsTable.id, parcelRow.id)),
-        tx.update(playersTable)
-          .set({ territoriesCaptured: playerRow.territoriesCaptured + 1 })
-          .where(eq(playersTable.id, playerRow.id)),
-      ]);
+      // Conditional claim: the ownership pre-check above read an unlocked
+      // snapshot, so a concurrent purchase or battle resolution may have
+      // taken the parcel since. Exactly one owner-write wins; losers roll
+      // back rather than silently overwriting.
+      const claimedParcel = await tx.update(parcelsTable)
+        .set({ ownerId: playerRow.id, ownerType, purchasePriceAlgo: null, lastFrontierClaimTs: now })
+        .where(and(
+          eq(parcelsTable.id, parcelRow.id),
+          isNull(parcelsTable.ownerId),
+          // also refuse if a deploy claimed the parcel since our pre-check
+          isNull(parcelsTable.activeBattleId),
+        ))
+        .returning({ id: parcelsTable.id });
+      if (claimedParcel.length === 0) throw new Error("Territory is no longer available for purchase");
+
+      await tx.update(playersTable)
+        .set({ territoriesCaptured: playerRow.territoriesCaptured + 1 })
+        .where(eq(playersTable.id, playerRow.id));
 
       await this.addEvent({
         type:        "purchase",
@@ -1289,9 +1304,24 @@ export class DbStorage implements IStorage {
       const playerUpdates: Record<string, any> = { iron: attackerRow.iron - iron, fuel: attackerRow.fuel - fuel, crystal: attackerRow.crystal - crystal };
       if (commanderId) playerUpdates.commanders = commanders;
 
+      // Atomically claim the parcel for this battle. The activeBattleId
+      // pre-check above read an unlocked snapshot — two concurrent deploys can
+      // both pass it. The conditional write lets exactly one through; the
+      // loser's transaction rolls back (resources refunded implicitly).
+      const claimedParcel = await tx.update(parcelsTable)
+        .set({ activeBattleId: battleId })
+        .where(and(
+          eq(parcelsTable.id, target.id),
+          isNull(parcelsTable.activeBattleId),
+          // the battle's defenderId snapshot is only valid if ownership hasn't
+          // changed since our read (e.g. a concurrent purchase)
+          target.ownerId ? eq(parcelsTable.ownerId, target.ownerId) : isNull(parcelsTable.ownerId),
+        ))
+        .returning({ id: parcelsTable.id });
+      if (claimedParcel.length === 0) throw new Error("Territory is already under attack");
+
       await Promise.all([
         tx.insert(battlesTable).values(battleValues),
-        tx.update(parcelsTable).set({ activeBattleId: battleId }).where(eq(parcelsTable.id, target.id)),
         tx.update(playersTable).set(playerUpdates).where(eq(playersTable.id, attacker.id)),
       ]);
 
@@ -1652,9 +1682,19 @@ export class DbStorage implements IStorage {
           ? Math.max(0, currentInfluence - rawInfluenceDamage)
           : currentInfluence;
 
-        await tx.update(battlesTable)
+        // ── Atomic claim ──────────────────────────────────────────────────────
+        // The pending fetch above runs OUTSIDE any transaction, so the 15 s
+        // interval, the admin /api/game/resolve-battles endpoint, and any
+        // second server instance can all hold this same battle row. The
+        // conditional status flip is the claim: exactly one resolver gets a
+        // row back; everyone else skips ALL effects (no double pillage,
+        // double defender penalties, or duplicated events). Worst case of a
+        // lost claim is a no-op, never a double effect.
+        const claimedBattle = await tx.update(battlesTable)
           .set({ status: "resolved", outcome, randFactor, influenceDamage: rawInfluenceDamage })
-          .where(eq(battlesTable.id, battleRow.id));
+          .where(and(eq(battlesTable.id, battleRow.id), eq(battlesTable.status, "pending")))
+          .returning({ id: battlesTable.id });
+        if (claimedBattle.length === 0) return;
 
         await tx.update(parcelsTable)
           .set({ activeBattleId: null })
