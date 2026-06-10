@@ -226,9 +226,12 @@ export async function verifyAlgoPayment(params: {
     throw new Error(`[chain/commander] Payment txn ${txId} is not yet confirmed on-chain`);
   }
 
-  // Type must be pay
-  if (txn["tx-type"] !== "pay") {
-    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${txn["tx-type"]})`);
+  // Type must be pay. Dual-shape like the other fields: raw indexer JSON is
+  // kebab-case ("tx-type"); algosdk v3 client models are camelCase (txType) —
+  // without the fallback every real v3 verification throws here.
+  const txType = txn["tx-type"] ?? txn.txType;
+  if (txType !== "pay") {
+    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${txType})`);
   }
 
   const payFields = txn["payment-transaction"] ?? txn.paymentTransaction ?? {};

@@ -67,7 +67,31 @@ import {
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim } from "./security";
+import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, type PaymentRedemption } from "./security";
+import { redeemedPayments as redeemedPaymentsTable } from "./db-schema";
+
+// One ALGO payment txid buys exactly one thing. Backed by the
+// redeemed_payments table (tx_id PRIMARY KEY) so the first claim wins
+// atomically across instances; falls back to an in-process Set only when the
+// DB is unavailable (dev/mem mode). See createPaymentReplayGuard for the
+// claim → mutate → release-on-failure contract.
+const paymentReplayGuard = createPaymentReplayGuard(
+  db
+    ? {
+        async tryInsert(txId: string, meta: PaymentRedemption): Promise<boolean> {
+          const inserted = await db
+            .insert(redeemedPaymentsTable)
+            .values({ txId, purpose: meta.purpose, refId: meta.refId, playerId: meta.playerId, redeemedAt: Date.now() })
+            .onConflictDoNothing()
+            .returning({ txId: redeemedPaymentsTable.txId });
+          return inserted.length > 0;
+        },
+        async remove(txId: string): Promise<void> {
+          await db.delete(redeemedPaymentsTable).where(eq(redeemedPaymentsTable.txId, txId));
+        },
+      }
+    : null
+);
 import {
   getAuth,
   isWalletAuthRequired,
@@ -1630,8 +1654,32 @@ export async function registerRoutes(
       }
       // ─────────────────────────────────────────────────────────────────────────
 
+      // ── Replay protection ────────────────────────────────────────────────
+      // The verification above is a stateless indexer read; claim the txid
+      // atomically so the same payment can never buy a second plot.
+      const paymentClaim = await paymentReplayGuard.claim(action.algoPaymentTxId, {
+        purpose:  "plot_purchase",
+        refId:    String(action.parcelId),
+        playerId: action.playerId,
+      });
+      if (!paymentClaim.ok) {
+        if (paymentClaim.reason === "already_redeemed") {
+          console.warn(`[purchase] REPLAY DENIED txId=${action.algoPaymentTxId} parcelId=${action.parcelId} player=${action.playerId}`);
+          return res.status(409).json({ error: "This payment transaction has already been redeemed." });
+        }
+        return res.status(503).json({ error: "Payment ledger unavailable — purchase refused. Your ALGO was not consumed; try again shortly." });
+      }
+
       const buyerAddress = player.address;
-      const parcel = await storage.purchaseLand(action);
+      let parcel;
+      try {
+        parcel = await storage.purchaseLand(action);
+      } catch (purchaseErr) {
+        // The purchase did not happen — give the buyer their payment back
+        // for a retry instead of leaving the txid burned.
+        await paymentReplayGuard.release(action.algoPaymentTxId);
+        throw purchaseErr;
+      }
       // Log the payment txId for audit trail (no dedicated column on parcels table).
       if (action.algoPaymentTxId) {
         console.log(`[purchase-audit] plotId=${parcel.plotId} buyer=${buyerAddress} algoPaymentTxId=${action.algoPaymentTxId}`);
@@ -1890,8 +1938,36 @@ export async function registerRoutes(
         }
       }
 
+      // ── Replay protection ──────────────────────────────────────────────────
+      // Claim the payment txid atomically before mutating state — the same
+      // payment must never mint a second commander (or anything else).
+      if (isHumanPlayer && action.algoPaymentTxId) {
+        const paymentClaim = await paymentReplayGuard.claim(action.algoPaymentTxId, {
+          purpose:  "commander_mint",
+          refId:    action.tier,
+          playerId: action.playerId,
+        });
+        if (!paymentClaim.ok) {
+          if (paymentClaim.reason === "already_redeemed") {
+            console.warn(`[mint-avatar] REPLAY DENIED txId=${action.algoPaymentTxId} tier=${action.tier} player=${action.playerId}`);
+            return res.status(409).json({ error: "This payment transaction has already been redeemed." });
+          }
+          return res.status(503).json({ error: "Payment ledger unavailable — mint refused. Your ALGO was not consumed; try again shortly." });
+        }
+      }
+
       // ── Mint in-game avatar ────────────────────────────────────────────────
-      const avatar = await storage.mintAvatar(action);
+      let avatar;
+      try {
+        avatar = await storage.mintAvatar(action);
+      } catch (mintErr) {
+        // The mint did not happen — release the claim so the buyer's payment
+        // is not burned by a failed mint.
+        if (isHumanPlayer && action.algoPaymentTxId) {
+          await paymentReplayGuard.release(action.algoPaymentTxId);
+        }
+        throw mintErr;
+      }
 
       // ── Deduct FRNTR cost via on-chain clawback (fire-and-forget) ─────────
       if (frntrCost > 0 && mintPlayer.address) {

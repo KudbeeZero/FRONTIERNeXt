@@ -75,6 +75,23 @@ export const commanderMintIdempotency = pgTable("commander_mint_idempotency", {
   updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
 
+// ─── redeemed_payments ────────────────────────────────────────────────────────
+// Replay protection for ALGO payment transactions. A payment txid may be
+// redeemed for EXACTLY ONE purchase (plot or commander) — the PRIMARY KEY on
+// tx_id is the atomic guard: the first INSERT wins, every later attempt
+// conflicts. verifyAlgoPayment() alone is a stateless indexer read and must
+// never be the only gate.
+// Rows are deleted only when the downstream mutation fails after claiming
+// (so a failed purchase does not burn the buyer's payment).
+
+export const redeemedPayments = pgTable("redeemed_payments", {
+  txId:       text("tx_id").primaryKey(),                    // Algorand payment txid
+  purpose:    varchar("purpose", { length: 20 }).notNull(),  // 'plot_purchase' | 'commander_mint'
+  refId:      text("ref_id"),                                // parcelId / commander tier
+  playerId:   varchar("player_id", { length: 36 }),
+  redeemedAt: bigint("redeemed_at", { mode: "number" }).notNull(),
+});
+
 // ─── ai_faction_identities ────────────────────────────────────────────────────
 // One row per AI faction. Records the on-chain Algorand ASA that serves as
 // that faction's permanent identity token. Minted once at world init.

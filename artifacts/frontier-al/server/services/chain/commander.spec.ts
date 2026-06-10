@@ -114,4 +114,30 @@ describe("verifyAlgoPayment — acceptance decision table", () => {
     indexerState.response = paymentTxn({ "payment-transaction": { receiver: ADMIN } });
     await expect(verifyAlgoPayment(params)).rejects.toThrow(/Insufficient payment/);
   });
+
+  // algosdk v3 indexer clients return camelCase models, not raw kebab-case
+  // JSON. The verifier must accept both shapes (and reject both shapes).
+  it("accepts a valid payment in algosdk v3 camelCase model shape", async () => {
+    indexerState.response = {
+      transaction: {
+        txType: "pay",
+        confirmedRound: 12345n,
+        sender: BUYER,
+        paymentTransaction: { receiver: ADMIN, amount: 500_000n },
+      },
+    };
+    await expect(verifyAlgoPayment(params)).resolves.toEqual({ amountMicroAlgo: 500_000 });
+  });
+
+  it("rejects a camelCase non-payment txn", async () => {
+    indexerState.response = {
+      transaction: {
+        txType: "axfer",
+        confirmedRound: 12345n,
+        sender: BUYER,
+        paymentTransaction: { receiver: ADMIN, amount: 500_000n },
+      },
+    };
+    await expect(verifyAlgoPayment(params)).rejects.toThrow(/not a payment txn/);
+  });
 });
