@@ -199,3 +199,15 @@ Always `reset --hard origin/main` first — skipping it produces a messy first-p
 - For PR-watch / "babysit" tasks, the task isn't done until the PR is MERGED or CLOSED.
 - Secrets are never committed — document them in the env checklist; real values go in the host dashboard (Railway/Vercel), mnemonic in a secrets manager.
 
+
+---
+
+# Session Handoff Protocol
+
+This repo runs the universal **Session Handoff Protocol** — day/night shifts,
+rated queue, live board, multi-agent reviews, and PR shepherding. Spec:
+`docs/protocols/SESSION_HANDOFF_PROTOCOL.md` (repo root). Per-repo settings
+(paths, verify commands, branch prefix, PR policy): `docs/protocols/handoff.config.md`.
+Verbs: `/handoff` (end of day) · `/night-shift` (looped autonomous cycle) ·
+`/morning` (pickup) · `/shift-audit` (shift end) · `/agent-review <target>` ·
+`/pr-shepherd <pr>`. Live queue/board: `artifacts/frontier-al/docs/handoff/`.
