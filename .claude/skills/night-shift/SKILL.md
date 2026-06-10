@@ -1,6 +1,6 @@
 ---
 name: night-shift
-description: One autonomous night-shift cycle — read NIGHT_BOARD and NIGHT_QUEUE, build the top-rated item on a dedicated branch, verify, push, and update the board. Designed to run on a loop (/loop 30m /night-shift).
+description: One autonomous night-shift cycle — build the top-rated NIGHT_QUEUE item on a dedicated branch, verify, push, update the NIGHT_BOARD. Run via /loop 30m /night-shift.
 ---
 
 # /night-shift — Autonomous Build Cycle
@@ -13,6 +13,9 @@ repo-specific hard rules. Spawn subagents for investigation; stay in main contex
 for the edits themselves.
 
 ## Hard guardrails — never violated, no exceptions
+
+*(Mirror of protocol §4, duplicated so a cycle enforces them without loading the
+spec. Any change must update both.)*
 
 - **Never** merge to `main` or any shared branch. All work stays on `<branch_prefix>/*`.
 - **Never** deploy, release, or touch production infrastructure.
@@ -33,9 +36,10 @@ for the edits themselves.
    (HR → R → EXP) and mark it in-progress on the board **before** building. Empty
    queue: update the status line and end the cycle.
 
-2. **Verify-first.** Check the item's claim against the actual code — plans go
-   stale. If the work already shipped, mark the item done ("verified already
-   shipped, no code needed") with `file:line` evidence and pick the next item.
+2. **Verify-first** (protocol §5.4). Check the item's claim against the actual
+   code — plans go stale. If the work already shipped, mark the item done
+   ("verified already shipped, no code needed") with `file:line` evidence and
+   pick the next item.
 
 3. **Branch.** `git fetch origin`, then create or check out `<branch_prefix>/<item>`
    from `origin/main`. Before touching dependencies, run `baseline_command` to

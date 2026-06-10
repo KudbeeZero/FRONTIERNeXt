@@ -1,6 +1,6 @@
 ---
 name: shift-audit
-description: Formal end-of-shift audit — verify every guardrail held, list review-ready deliverables with verification evidence, capture incidents as durable lessons, and write SHIFT_AUDIT_<date>.md. Run at shift end or on owner request.
+description: End-of-shift audit — verify guardrails held with evidence, list review-ready deliverables, capture lessons, write SHIFT_AUDIT_<date>.md. Run at shift end or on owner request.
 ---
 
 # /shift-audit — End-of-Shift Audit

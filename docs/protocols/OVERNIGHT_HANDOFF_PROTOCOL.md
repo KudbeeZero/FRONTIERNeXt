@@ -1,8 +1,11 @@
 # Overnight Handoff Protocol (v1 — superseded)
 
-> **Superseded by `SESSION_HANDOFF_PROTOCOL.md` (v2).** Kept for reference: v2
-> generalizes this protocol by moving every repo-specific path, command, and policy
-> into `handoff.config.md`, and adds the PR layer (`/pr-shepherd`), the formal
+> **Superseded by `SESSION_HANDOFF_PROTOCOL.md` (v2) — do not follow this document
+> for new repos; use v2 §8 to replicate.** In particular, ignore this file's
+> "Replicating to Another Repo" section (it predates the config file and tells you
+> to edit paths inside the skills). Kept for reference: v2 generalizes this
+> protocol by moving every repo-specific path, command, and policy into
+> `handoff.config.md`, and adds the PR layer (`/pr-shepherd`), the formal
 > `/shift-audit`, and the universalized `/agent-review` roster.
 
 A repo-agnostic protocol for running two shifts on one codebase: a **day shift**

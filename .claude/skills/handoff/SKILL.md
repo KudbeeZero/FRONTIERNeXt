@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: End-of-day handoff — summarize the day's commits, update the project memory, populate the rated NIGHT_QUEUE, and reset the NIGHT_BOARD for tonight's autonomous shift. Run once when the day shift wraps.
+description: End-of-day handoff — summarize the day, refresh project memory, populate the rated NIGHT_QUEUE, reset the NIGHT_BOARD. Run once when the day shift wraps.
 ---
 
 # /handoff — End-of-Day Handoff

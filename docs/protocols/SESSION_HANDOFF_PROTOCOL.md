@@ -14,9 +14,10 @@ multiple-choice decisions.
 ## 0. The one rule that makes it universal
 
 **Skills never hardcode paths, commands, or stack details.** Every skill's first
-step is to read `docs/protocols/handoff.config.md` in the repo it is running in.
-That file declares where the artifacts live, how to verify a change, what branch
-prefix to use, and the PR policy. Port the protocol to a new repo by copying two
+step is to read `docs/protocols/handoff.config.md` — that path is the one fixed
+convention of the protocol, identical in every repo, so skills can find it with
+zero repo-specific knowledge. The config declares where the artifacts live, how
+to verify a change, what branch prefix to use, and the PR policy. Port the protocol to a new repo by copying two
 directories and filling in one config file (§8).
 
 ## 1. The layer stack
@@ -26,13 +27,16 @@ every cycle.
 
 | Layer | Artifact | Changes | Purpose |
 |---|---|---|---|
-| L0 Rules | `CLAUDE.md` / repo conventions | rarely | Hard rules, stack, context discipline |
-| L1 Memory | project memory file (config: `memory_file`) | per handoff | Current state + working queue, edited in place |
-| L2 Plans | LUTs / plan docs / backlog (config: `plan_sources`) | per feature | Specced work the queue draws from |
-| L3 Queue | `NIGHT_QUEUE.md` | per handoff | Rated, self-contained work items |
-| L4 Board | `NIGHT_BOARD.md` | per cycle | Single live status board, <30s read |
-| L5 Runs | `agent-runs/<date>-<focus>/` + `agent-memory.md` | per review | Multi-agent review evidence + layered memory |
-| L6 Audit | `SHIFT_AUDIT_<date>.md` | per shift end | Deliverables, guardrail compliance, lessons |
+| Rules | `CLAUDE.md` / repo conventions | rarely | Hard rules, stack, context discipline |
+| Memory | project memory file (config: `memory_file`) | per handoff | Current state + working queue, edited in place |
+| Plans | LUTs / plan docs / backlog (config: `plan_sources`) | per feature | Specced work the queue draws from |
+| Queue | `NIGHT_QUEUE.md` | per handoff | Rated, self-contained work items |
+| Board | `NIGHT_BOARD.md` | per cycle | Single live status board, <30s read |
+| Runs | `agent-runs/<date>-<focus>/` + `agent-memory.md` | per review | Multi-agent review evidence + layered memory |
+| Audit | `SHIFT_AUDIT_<date>.md` | per shift end | Deliverables, guardrail compliance, lessons |
+
+(The L1–L4 numbering you'll see in `agent-memory.md` is that file's own internal
+layering — unrelated to this table.)
 
 ## 2. The verbs
 

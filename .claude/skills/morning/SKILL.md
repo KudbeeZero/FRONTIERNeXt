@@ -1,6 +1,6 @@
 ---
 name: morning
-description: Day-shift pickup — read the NIGHT_BOARD, deliver a five-line brief of what the night shift built, and surface each waiting decision as a multiple-choice question with rated options. Run once when the day shift returns.
+description: Day-shift pickup — read the NIGHT_BOARD, give a five-line brief, surface waiting decisions as rated multiple-choice questions. Run once when the day shift returns.
 ---
 
 # /morning — Day-Shift Pickup

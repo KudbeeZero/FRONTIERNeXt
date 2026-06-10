@@ -1,6 +1,6 @@
 ---
 name: pr-shepherd
-description: Own a pull request until it's merged or closed — subscribe to PR activity, fix CI failures on the PR branch, apply unambiguous review feedback, escalate ambiguous or architectural comments as multiple-choice decisions, and report when green. Invoke with a PR, e.g. "/pr-shepherd #12".
+description: Own a pull request until merged or closed — subscribe to activity, fix CI, apply clear review feedback, escalate ambiguity as rated questions. E.g. "/pr-shepherd #12".
 ---
 
 # /pr-shepherd — PR Babysitting

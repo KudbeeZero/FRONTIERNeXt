@@ -1,6 +1,6 @@
 ---
 name: agent-review
-description: Multi-agent Night → Audit → Synthesis review of a focus area or pull request. Launches a parallel specialist roster, audits findings against real code, and produces table-driven artifacts (night-*.md, audit-report.md, final-plan.md) plus rated queue items. Invoke with a target, e.g. "/agent-review the payment flow" or "/agent-review PR #12".
+description: Multi-agent review of a focus area or pull request — parallel specialist roster, findings audited against real code, rated items into the queue. E.g. "/agent-review the payment flow" or "/agent-review PR #12".
 ---
 
 # /agent-review — Multi-Agent Review Cycle
@@ -63,7 +63,7 @@ predictions, L4 lessons; prune to ~150 lines).
 
 ## Coordinator rules
 
-- Agents share one working tree: NEVER `git checkout`/`stash`/`reset`. Inspect
+- Agents share one working tree (protocol §5.6): NEVER `git checkout`/`stash`/`reset`. Inspect
   other refs via `git show <ref>:<path>` or a temp `git worktree` (cleaned up).
   Pin the ref for everyone.
 - One report file per agent; no agent edits another's file or any code.
