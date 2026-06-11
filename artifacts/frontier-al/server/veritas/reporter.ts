@@ -31,9 +31,32 @@ export function formatReport(run: RunResult): string {
   return lines.join("\n");
 }
 
+/**
+ * Incident severity for the first-responder tiers (see ops/kestra/README.md).
+ *  - SEV1 : any DRIFT — DB and chain disagree, the on-chain-game nightmare case.
+ *  - SEV2 : any FAIL — a flow assertion broke; player-visible breakage likely.
+ *  - OK   : nothing alertable (PASS/SKIP only).
+ * SEV3 (degraded-but-working) is assigned by the health-check flows, not veritas.
+ */
+export type Severity = "OK" | "SEV3" | "SEV2" | "SEV1";
+
+export function severityOf(run: RunResult): Severity {
+  if (run.totals.DRIFT > 0) return "SEV1";
+  if (run.totals.FAIL > 0) return "SEV2";
+  return "OK";
+}
+
 /** True when the run contains anything worth alerting on. */
 export function shouldAlert(run: RunResult): boolean {
-  return run.totals.FAIL > 0 || run.totals.DRIFT > 0;
+  return severityOf(run) !== "OK";
+}
+
+/**
+ * Machine-readable report for orchestrators (Kestra parses this off stdout).
+ * Shape is stable: { severity, startedAt, ms, totals, flows }.
+ */
+export function toJsonReport(run: RunResult): { severity: Severity } & RunResult {
+  return { severity: severityOf(run), ...run };
 }
 
 /** Post an alert to a Discord webhook. No-op (returns false) if no URL is configured. */

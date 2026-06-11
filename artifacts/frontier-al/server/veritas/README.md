@@ -44,6 +44,7 @@ pnpm run veritas
 | `VERITAS_FLOWS` | optional comma list to filter flows (e.g. `market`) |
 | `VERITAS_INTERVAL_MS` | if set, loop every N ms instead of a single pass |
 | `VERITAS_DISCORD_WEBHOOK` | optional alert webhook (posts the report on FAIL/DRIFT) |
+| `VERITAS_JSON` | `1` (or `--json` flag): JSON report on stdout (`{ severity, totals, flows }`, `severity` ∈ `OK`/`SEV2`/`SEV1`), text report on stderr — for Kestra/orchestrators, see `ops/kestra/` |
 | `VERITAS_TEST_MNEMONIC` | testnet test-wallet 25-word mnemonic (the player the chain flows act as) |
 | `VERITAS_FUNDER_MNEMONIC` | optional funded account used to auto top-up the test wallet |
 | `VERITAS_FRONTIER_ASA_ID` | $FRNTR ASA id, for the token flow |

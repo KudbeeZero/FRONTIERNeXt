@@ -14,13 +14,15 @@
  *   VERITAS_FLOWS          optional comma list to filter flows (e.g. "market")
  *   VERITAS_INTERVAL_MS    if set, loop every N ms instead of running once
  *   VERITAS_DISCORD_WEBHOOK  optional alert webhook
+ *   VERITAS_JSON           "1" (or --json flag): machine-readable JSON report on
+ *                          stdout, text report on stderr (for Kestra/orchestrators)
  *
  * Usage:  tsx server/veritas/run.ts        (or: pnpm run veritas)
  */
 
 import type { FlowContext, FlowResult, RunResult, StepResult } from "./types.js";
 import { toFlowResult, tally } from "./assert.js";
-import { formatReport, shouldAlert, postDiscordAlert } from "./reporter.js";
+import { formatReport, shouldAlert, postDiscordAlert, toJsonReport } from "./reporter.js";
 import { FLOWS } from "./flows/index.js";
 import { TestWallet } from "./wallet.js";
 
@@ -63,11 +65,21 @@ async function runOnce(): Promise<RunResult> {
   return { startedAt, ms: Date.now() - startedAt, flows: results, totals: tally(results) };
 }
 
+/** JSON mode: stdout carries only the machine-readable report (for Kestra et al). */
+const JSON_MODE = process.env.VERITAS_JSON === "1" || process.argv.includes("--json");
+
 async function report(run: RunResult): Promise<void> {
-  console.log(formatReport(run));
+  if (JSON_MODE) {
+    // Humans (and Kestra task logs) still get the text report — on stderr,
+    // so stdout stays parseable.
+    console.error(formatReport(run));
+    console.log(JSON.stringify(toJsonReport(run)));
+  } else {
+    console.log(formatReport(run));
+  }
   if (shouldAlert(run)) {
     const sent = await postDiscordAlert(process.env.VERITAS_DISCORD_WEBHOOK, run);
-    if (sent) console.log("[veritas] alert sent");
+    if (sent) console.error("[veritas] alert sent");
   }
 }
 

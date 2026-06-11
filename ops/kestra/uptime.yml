@@ -1,0 +1,86 @@
+# uptime — the heartbeat. Polls GET /health every minute.
+#
+# Escalation is on CONSECUTIVE failures (a KV-store streak counter), so one
+# blip never pages anyone:
+#   2 in a row → SEV2 (first responders)
+#   5 in a row → SEV1 (@here — sustained outage)
+# Each tier fires exactly once per streak (== comparison, not >=), and a
+# recovery note goes to the SEV3 digest when a streak ≥2 ends.
+#
+# Edit `variables.targetUrl` after import (testnet deployment — never mainnet).
+id: uptime
+namespace: frontier.ops
+
+variables:
+  targetUrl: "https://YOUR-REPLIT-DEPLOYMENT.replit.app"
+
+tasks:
+  - id: ping
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.targetUrl }}/health"
+    method: GET
+    options:
+      allowFailed: true
+
+  - id: get_streak
+    type: io.kestra.plugin.core.kv.Get
+    key: uptime_fail_streak
+    errorOnMissing: false
+
+  - id: route
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ outputs.ping.code != 200 }}"
+    then:
+      - id: bump_streak
+        type: io.kestra.plugin.core.kv.Set
+        key: uptime_fail_streak
+        value: "{{ (outputs.get_streak.value ?? 0) + 1 }}"
+      - id: sev2_at_two
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{ (outputs.get_streak.value ?? 0) + 1 == 2 }}"
+        then:
+          - id: dispatch_sev2
+            type: io.kestra.plugin.core.flow.Subflow
+            flowId: severity-router
+            namespace: frontier.ops
+            wait: true
+            inputs:
+              severity: "SEV2"
+              title: "/health down (2 consecutive checks)"
+              detail: "GET {{ vars.targetUrl }}/health → HTTP {{ outputs.ping.code }}"
+      - id: sev1_at_five
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{ (outputs.get_streak.value ?? 0) + 1 == 5 }}"
+        then:
+          - id: dispatch_sev1
+            type: io.kestra.plugin.core.flow.Subflow
+            flowId: severity-router
+            namespace: frontier.ops
+            wait: true
+            inputs:
+              severity: "SEV1"
+              title: "/health down ≥5 minutes — sustained outage"
+              detail: "GET {{ vars.targetUrl }}/health → HTTP {{ outputs.ping.code }} (5 consecutive failures)"
+    else:
+      - id: recovery_note
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{ (outputs.get_streak.value ?? 0) >= 2 }}"
+        then:
+          - id: dispatch_recovery
+            type: io.kestra.plugin.core.flow.Subflow
+            flowId: severity-router
+            namespace: frontier.ops
+            wait: true
+            inputs:
+              severity: "SEV3"
+              title: "recovered — /health is green again"
+              detail: "Outage lasted ~{{ outputs.get_streak.value }} minute(s)."
+      - id: reset_streak
+        type: io.kestra.plugin.core.kv.Set
+        key: uptime_fail_streak
+        value: "0"
+
+triggers:
+  - id: every_minute
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "* * * * *"

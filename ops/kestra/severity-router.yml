@@ -1,0 +1,61 @@
+# severity-router — the first-responder dispatcher.
+#
+# Every monitoring flow funnels incidents through this subflow so escalation
+# lives in exactly one place. Tiers (see README.md):
+#   SEV3 → quiet post to the digest channel (no ping)
+#   SEV2 → first-responders channel + role ping (the ambulance crew)
+#   SEV1 → emergency channel + @here (all hands)
+#
+# Later units bolt remediation (Replit restart) and Claude auto-triage (GitHub
+# issue) onto the SEV2/SEV1 branches — that's why they're separate cases even
+# where the webhook body is similar.
+#
+# Required Kestra secrets: DISCORD_WEBHOOK_SEV3, DISCORD_WEBHOOK_SEV2,
+# DISCORD_WEBHOOK_SEV1. Edit `variables.firstResponderRoleId` after import.
+id: severity-router
+namespace: frontier.ops
+
+variables:
+  # Discord role id for the first-responder crew (Server Settings → Roles →
+  # Copy ID). Leave empty to skip the role mention.
+  firstResponderRoleId: ""
+
+inputs:
+  - id: severity
+    type: SELECT
+    values: ["SEV3", "SEV2", "SEV1"]
+  - id: title
+    type: STRING
+  - id: detail
+    type: STRING
+    defaults: ""
+
+tasks:
+  - id: route
+    type: io.kestra.plugin.core.flow.Switch
+    value: "{{ inputs.severity }}"
+    cases:
+      SEV3:
+        - id: notify_sev3
+          type: io.kestra.plugin.core.http.Request
+          uri: "{{ secret('DISCORD_WEBHOOK_SEV3') }}"
+          method: POST
+          contentType: application/json
+          body: |
+            {"content": {{ ("🟡 SEV3 — " ~ inputs.title ~ "\n```\n" ~ inputs.detail ~ "\n```") | toJson }}}
+      SEV2:
+        - id: notify_sev2
+          type: io.kestra.plugin.core.http.Request
+          uri: "{{ secret('DISCORD_WEBHOOK_SEV2') }}"
+          method: POST
+          contentType: application/json
+          body: |
+            {"content": {{ ((vars.firstResponderRoleId != "" ? "<@&" ~ vars.firstResponderRoleId ~ "> " : "") ~ "🟠 SEV2 — first responders needed: " ~ inputs.title ~ "\n```\n" ~ inputs.detail ~ "\n```") | toJson }}}
+      SEV1:
+        - id: notify_sev1
+          type: io.kestra.plugin.core.http.Request
+          uri: "{{ secret('DISCORD_WEBHOOK_SEV1') }}"
+          method: POST
+          contentType: application/json
+          body: |
+            {"content": {{ ("@here 🔴 SEV1 — " ~ inputs.title ~ "\n```\n" ~ inputs.detail ~ "\n```") | toJson }}}
