@@ -4,46 +4,49 @@
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
 ## Current baton
-- **Branch:** `session-relay-protocol`
-- **PR:** [#8](https://github.com/KudbeeZero/FRONTIERNeXt/pull/8)
+- **Branch:** `claude/night-shift-01b8vc`
+- **PR:** [#15](https://github.com/KudbeeZero/FRONTIERNeXt/pull/15) (docs-only: review report + baton)
 - **Audit status:** `AWAITING_AUDIT`
 
 ## What this chat did (for the auditor)
-Bootstrapped the Session Relay Protocol. Added (all new, repo root):
-- `docs/SESSION_PROTOCOL.md`, `docs/HANDOFF.md` (this baton), `docs/audits/README.md`
-- `.claude/skills/handoff-audit/SKILL.md`, `.claude/skills/closeout/SKILL.md`
-- `.claude/hooks/session-start.sh`, `.claude/settings.json`
-- root `CLAUDE.md` (chat-loop standing instructions; defers to
-  `artifacts/frontier-al/CLAUDE.md` for app rules)
-
-`.github/workflows/ci.yml` already existed and already satisfies the CI
-requirement (typecheck + full vitest suite on push + PR) — **preserved intact,
-not modified.** No application code changed. Docs/skills/hooks only.
+Flattened the PR pileup into `main` at the owner's explicit request, then ran a
+7-angle code review of everything that landed:
+- **Merged** #11 (admin boot failfast), #7 (tutorial removal + test-globe),
+  #12 (Bomb Squad security fixes + ASCEND rename), #8 (this protocol) →
+  `main` = `24c4184`, push verified.
+- **Closed unmerged:** #10 (competing replay guard; its algod-finality check
+  should be ported — see risks) and #6 (superseded hook). Conflict resolution:
+  `.claude/hooks/session-start.sh` now does deps-install (remote) + baton print.
+- **Verified on `24c4184`:** server suite 194/194 green, client 31/31 green,
+  build green. **`pnpm run check` is RED — 255 pre-existing client tsc errors**
+  (identical before/after the merges; `@types/react` 18/19 workspace split).
+- **Review:** 9 findings, full report in
+  [docs/audits/2026-06-11-merge-flatten-review.md](./audits/2026-06-11-merge-flatten-review.md).
 
 ## NEXT chat
-- **Proposed branch:** `feat/delivery-worker` (continue the phased delivery worker)
-- **Scope (one line):** finish the "worker backbone + instant-when-it-can" plot
-  delivery — buy-path enrolls `paid` rows, then the FUNDS-gated `DELIVERED`
-  (admin→buyer transfer) + `STAMPED` phases behind an `algo-auditor` gate, plus a
-  status UI and migrating the stuck custody plots into the pipeline.
-  (See memory [[frontier-delivery-worker-design]].)
-- **Done since the protocol shipped** (all on `wip/atomic-purchase`, pushed):
-  - `f6af3c8` — Lute gesture-safe signing + wired plot CLAIM delivery
-    (**verified live**: purchase prompt opens; plot 3042 delivered). This closes
-    the old `fix/wallet-sign-auth` item — the sign step works now.
-  - `8bfa563` — phased delivery-worker **foundation**: `plot_purchases` phase
-    columns + the on-chain-verifying worker (safe core `PAID → OPTED_IN`, no funds).
+- **Proposed branch:** `fix/client-typecheck-ci`
+- **Scope (one line):** make `pnpm --filter @workspace/frontier-al run check`
+  green (255 errors; `@types/react` 18 vs 19 split across the workspace) — the
+  CI typecheck step is red on `main`, which breaks this protocol's audit gate
+  until fixed.
+- **Right after that (separate unit):** `fix/endpoint-gating` — gate
+  `/api/orbital/trigger` + `/api/orbital/resolve/:id` (admin key) and
+  session-bind `/api/nft/retry-commander/:commanderId` (review findings #1),
+  plus the one-line `frontier:`→`ascend:` fix at
+  `client/src/hooks/useGameState.ts:166` (finding #2).
 - **Open risks (read these):**
-  - ⚠️ `wip/atomic-purchase` is the unreviewed WIP snapshot (Steps 1-4 + held
-    admin/globe/foundation + the two commits above). NOT for merge — awaits the
-    planned 3-branch reorg. The wallet-sign + worker-foundation commits are
-    cleanly cherry-pickable.
-  - ⚠️ **Audit findings** (see [[frontier-step4-audit-findings]]): the false-402 +
-    recovery-window HIGHs are addressed BY the worker design (on-chain reconcile) —
-    verify when the funds phases land. The **mint-on-prepare DoS** (no rate limit
-    on `/api/actions/*`) is still open.
-  - ⚠️ PRs **#7** (test-globe) and **#6** (a SessionStart hook superseded by this
-    protocol — recommend closing #6) still open.
+  - ⚠️ **CI is red on `main`** (typecheck step) — pre-existing, not from the
+    merges. Until fixed, `/handoff-audit` cannot confirm green from CI alone;
+    use the vitest suites + build as the interim bar.
+  - ⚠️ **Before any deploy:** apply `migrations/0005_redeemed_payments.sql`
+    (e.g. `drizzle-kit push`). The replay guard fails closed — without the
+    table, every paid purchase 503s. No boot-time check exists (finding #3).
+  - ⚠️ Ungated endpoints above are a **live attack surface** (finding #1).
+  - ⚠️ `wip/atomic-purchase` remains unmerged (history contains a "do NOT
+    merge" snapshot). Closed PR #10's algod-first finality check +
+    `closeRemainderTo`/`rekeyTo` rider rejection are worth porting to `main`'s
+    `verifyAlgoPayment`.
+  - ⚠️ Mint-on-prepare DoS (no rate limit on `/api/actions/*`) still open.
 - **Off-limits:** do not merge `wip/atomic-purchase`; no funds/ASA/transfer code
-  to mainnet without `mainnet-gate`; no funds-moving phase (DELIVERED/STAMP)
-  ships without an `algo-auditor` pass first.
+  to mainnet without `mainnet-gate`; no funds-moving phase ships without an
+  `algo-auditor` pass first.
