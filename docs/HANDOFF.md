@@ -5,7 +5,7 @@
 
 ## Current baton
 - **Branch:** `claude/night-shift-01b8vc`
-- **PR:** see latest open PR from this branch (docs-only: review report + baton)
+- **PR:** [#15](https://github.com/KudbeeZero/FRONTIERNeXt/pull/15) (docs-only: review report + baton)
 - **Audit status:** `AWAITING_AUDIT`
 
 ## What this chat did (for the auditor)
