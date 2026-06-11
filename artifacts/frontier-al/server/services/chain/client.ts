@@ -101,6 +101,25 @@ export function assertChainConfig(): void {
       throw new Error(`[FRONTIER] Missing required secrets: ${missingChain.join(', ')}`);
     }
     console.warn(`[FRONTIER] WARNING: Missing chain secrets (blockchain features disabled): ${missingChain.join(', ')}`);
+  } else {
+    // Fail fast: chain creds are present, so the admin account MUST derive. A
+    // malformed ALGORAND_ADMIN_MNEMONIC otherwise leaves getAdminAddress() empty
+    // and the payment verifier silently rejects every payment (receiver !== "").
+    // Surface it at boot instead of as confusing 402s in production.
+    let derivedAdmin = '';
+    try {
+      derivedAdmin = getAdminAccount().addr.toString();
+    } catch (err) {
+      const msg = `[FRONTIER] ALGORAND_ADMIN_MNEMONIC is set but the admin account could not be derived: ${err instanceof Error ? err.message : String(err)}`;
+      if (isProd) throw new Error(msg);
+      console.warn(`WARNING: ${msg}`);
+    }
+    const expectedAdmin = process.env.ALGORAND_ADMIN_ADDRESS;
+    if (derivedAdmin && expectedAdmin && derivedAdmin !== expectedAdmin) {
+      const msg = `[FRONTIER] Derived admin address ${derivedAdmin} does not match ALGORAND_ADMIN_ADDRESS ${expectedAdmin}`;
+      if (isProd) throw new Error(msg);
+      console.warn(`WARNING: ${msg}`);
+    }
   }
 
   const network = process.env.ALGORAND_NETWORK;
