@@ -4,49 +4,45 @@
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
 ## Current baton
-- **Branch:** `claude/night-shift-01b8vc`
-- **PR:** [#15](https://github.com/KudbeeZero/FRONTIERNeXt/pull/15) (docs-only: review report + baton)
+- **Branch:** `fix/client-typecheck-ci`
+- **PR:** [#16](https://github.com/KudbeeZero/FRONTIERNeXt/pull/16)
 - **Audit status:** `AWAITING_AUDIT`
 
 ## What this chat did (for the auditor)
-Flattened the PR pileup into `main` at the owner's explicit request, then ran a
-7-angle code review of everything that landed:
-- **Merged** #11 (admin boot failfast), #7 (tutorial removal + test-globe),
-  #12 (Bomb Squad security fixes + ASCEND rename), #8 (this protocol) →
-  `main` = `24c4184`, push verified.
-- **Closed unmerged:** #10 (competing replay guard; its algod-finality check
-  should be ported — see risks) and #6 (superseded hook). Conflict resolution:
-  `.claude/hooks/session-start.sh` now does deps-install (remote) + baton print.
-- **Verified on `24c4184`:** server suite 194/194 green, client 31/31 green,
-  build green. **`pnpm run check` is RED — 255 pre-existing client tsc errors**
-  (identical before/after the merges; `@types/react` 18/19 workspace split).
-- **Review:** 9 findings, full report in
-  [docs/audits/2026-06-11-merge-flatten-review.md](./audits/2026-06-11-merge-flatten-review.md).
+Fixed the red CI typecheck step (the previous baton's designated unit):
+- `pnpm run check` was red on `main` with **255 errors** — two React type
+  graphs (`@types/react` 18 + 19) mixed into one tsc program via pnpm's hidden
+  hoist (libs without an `@types/react` peer: wouter, @tanstack/react-query,
+  lucide-react, framer-motion). React 19 types drop global `JSX`, breaking the
+  R3F augmentation; the two `ReactNode`s are incompatible.
+- Fix is **tsconfig-only**: pin react/react-dom type entry points in
+  `artifacts/frontier-al/tsconfig.json` `paths` to package-local
+  `./node_modules/@types/*`. No dependency/lockfile changes.
+- **Verified:** check 0 errors · test:server 194/194 · client test 31/31 ·
+  build green. Details: `artifacts/frontier-al/session-notes/2026-06-11-client-typecheck-ci.md`.
+- Also this chat: audited + merged PR #15 (docs: merge-flatten review report).
 
 ## NEXT chat
-- **Proposed branch:** `fix/client-typecheck-ci`
-- **Scope (one line):** make `pnpm --filter @workspace/frontier-al run check`
-  green (255 errors; `@types/react` 18 vs 19 split across the workspace) — the
-  CI typecheck step is red on `main`, which breaks this protocol's audit gate
-  until fixed.
-- **Right after that (separate unit):** `fix/endpoint-gating` — gate
-  `/api/orbital/trigger` + `/api/orbital/resolve/:id` (admin key) and
-  session-bind `/api/nft/retry-commander/:commanderId` (review findings #1),
-  plus the one-line `frontier:`→`ascend:` fix at
-  `client/src/hooks/useGameState.ts:166` (finding #2).
+- **Proposed branch:** `fix/endpoint-gating`
+- **Scope (one line):** gate `POST /api/orbital/trigger` + `POST
+  /api/orbital/resolve/:id` (admin key) and session-bind
+  `POST /api/nft/retry-commander/:commanderId` (assertPlayerOwnership), plus the
+  one-line `frontier:`→`ascend:` fix at `client/src/hooks/useGameState.ts:166`
+  — review findings #1 and #2 in
+  [docs/audits/2026-06-11-merge-flatten-review.md](./audits/2026-06-11-merge-flatten-review.md).
 - **Open risks (read these):**
-  - ⚠️ **CI is red on `main`** (typecheck step) — pre-existing, not from the
-    merges. Until fixed, `/handoff-audit` cannot confirm green from CI alone;
-    use the vitest suites + build as the interim bar.
   - ⚠️ **Before any deploy:** apply `migrations/0005_redeemed_payments.sql`
     (e.g. `drizzle-kit push`). The replay guard fails closed — without the
     table, every paid purchase 503s. No boot-time check exists (finding #3).
-  - ⚠️ Ungated endpoints above are a **live attack surface** (finding #1).
-  - ⚠️ `wip/atomic-purchase` remains unmerged (history contains a "do NOT
-    merge" snapshot). Closed PR #10's algod-first finality check +
-    `closeRemainderTo`/`rekeyTo` rider rejection are worth porting to `main`'s
+  - ⚠️ Ungated endpoints above are a **live attack surface** until
+    `fix/endpoint-gating` lands (finding #1).
+  - ⚠️ `wip/atomic-purchase` remains unmerged ("do NOT merge" snapshot in its
+    history). Closed PR #10's algod-first finality check + rider rejection
+    (`closeRemainderTo`/`rekeyTo`) are worth porting to `main`'s
     `verifyAlgoPayment`.
   - ⚠️ Mint-on-prepare DoS (no rate limit on `/api/actions/*`) still open.
+  - Longer-term: converge the workspace on one React major so the type pin
+    becomes unnecessary; remaining review findings #4–#9 are cleanups.
 - **Off-limits:** do not merge `wip/atomic-purchase`; no funds/ASA/transfer code
   to mainnet without `mainnet-gate`; no funds-moving phase ships without an
   `algo-auditor` pass first.
