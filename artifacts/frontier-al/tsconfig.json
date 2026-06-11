@@ -18,7 +18,17 @@
     "types": ["node", "vite/client"],
     "paths": {
       "@/*": ["./client/src/*"],
-      "@shared/*": ["./shared/*"]
+      "@shared/*": ["./shared/*"],
+      // Pin every `import "react"` in the program (including third-party .d.ts
+      // without an @types/react peer) to THIS package's React 18 types. Other
+      // workspace packages use @types/react 19, and pnpm's hidden hoist can let
+      // 19 win, mixing two React type graphs into one program (breaks the R3F
+      // global JSX augmentation and ReactNode compatibility).
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "react/jsx-dev-runtime": ["./node_modules/@types/react/jsx-dev-runtime"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/client": ["./node_modules/@types/react-dom/client"]
     }
   }
 }
