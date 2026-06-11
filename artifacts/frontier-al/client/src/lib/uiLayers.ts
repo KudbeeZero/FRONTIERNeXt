@@ -18,10 +18,6 @@ export const Z = {
   toast: 60,
   /** Full-screen modals and dialogs */
   modal: 100,
-  /** Tutorial overlay — must be above everything */
-  tutorial: 9000,
-  tutorialHighlight: 9001,
-  tutorialCard: 9002,
 } as const;
 
 export type ZLayer = keyof typeof Z;
@@ -32,5 +28,4 @@ export const ZClass = {
   plotSheet: "z-[55]",
   selectedPlotPanel: "z-[55]",
   modal: "z-[100]",
-  tutorial: "z-[9000]",
 } as const;

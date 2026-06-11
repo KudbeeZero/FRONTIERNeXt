@@ -167,9 +167,6 @@ interface PlanetGlobeProps {
   streamMode?: boolean;
   /** Increment to force a camera re-fly even when coordinates haven't changed. */
   flyRequestId?: number;
-  /** Tutorial-driven camera override (used when no parcel is selected) */
-  tutorialLat?: number | null;
-  tutorialLng?: number | null;
   /** NFT claim props forwarded to ParcelHUD */
   nftInfo?: { assetId: number; inCustody: boolean } | null;
   onDeliverNft?: () => void;
@@ -196,8 +193,6 @@ export default function PlanetGlobe({
   activeBattleCount = 0,
   streamMode = false,
   flyRequestId,
-  tutorialLat,
-  tutorialLng,
   nftInfo,
   onDeliverNft,
   isDeliveringNft,
@@ -231,8 +226,8 @@ export default function PlanetGlobe({
           selectedPlotId={selectedParcelId}
           onPlotSelect={onParcelSelect}
           controlsRef={controlsRef}
-          targetLat={selectedParcel?.lat ?? tutorialLat ?? null}
-          targetLng={selectedParcel?.lng ?? tutorialLng ?? null}
+          targetLat={selectedParcel?.lat ?? null}
+          targetLng={selectedParcel?.lng ?? null}
           battles={battles}
           livePulses={livePulses}
           orbitalEvents={orbitalEvents}

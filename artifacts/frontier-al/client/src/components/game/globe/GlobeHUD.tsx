@@ -363,7 +363,6 @@ export function ParcelHUD({ parcel, currentPlayerId, playerMap, onAttack, onMine
           ) : (
             <button
               onClick={onPurchase}
-              data-tutorial="acquire-territory"
               className="col-span-2 flex flex-col items-center justify-center gap-0.5 h-12 rounded-lg text-[11px] font-mono uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95"
               style={{ background: "#4fc3f712", border: "1px solid #4fc3f740", color: "#4fc3f7" }}
             >

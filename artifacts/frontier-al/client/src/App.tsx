@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { WalletProvider as UseWalletProvider } from "@txnlab/use-wallet-react";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { walletManager } from "@/lib/walletManager";
+import { TEST_GLOBE } from "@/lib/testMode";
 import NotFound from "@/pages/not-found";
 import GamePage from "@/pages/game";
 import TestnetPage from "@/pages/testnet";
@@ -35,7 +36,7 @@ function App() {
               </Route>
               <Route path="/">
                 <WalletProvider>
-                  <LandingPage />
+                  {TEST_GLOBE ? <GamePage /> : <LandingPage />}
                 </WalletProvider>
               </Route>
               <Route path="/info/economics">
