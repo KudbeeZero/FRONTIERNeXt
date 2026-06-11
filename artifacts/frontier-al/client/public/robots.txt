@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Keep app-only / non-marketing routes out of the index
+Disallow: /admin
+Disallow: /game
+
+Sitemap: https://ascendancyalgo.xyz/sitemap.xml

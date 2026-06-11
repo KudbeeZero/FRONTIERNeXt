@@ -841,7 +841,7 @@ ${completedList}`;
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <a
-              href="https://github.com/KudbeeZero/Frontier-Al/issues/new"
+              href="https://github.com/KudbeeZero/FRONTIERNeXt/issues/new"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-4 p-4 bg-card border border-border rounded-md hover:border-primary/50 transition-all group"

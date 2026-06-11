@@ -35,6 +35,15 @@ export const BIOME_COLORS: Record<string, THREE.Color> = {
   swamp:    new THREE.Color("#ff4dca"), // Arena District → neon magenta
 };
 
+// ── Sub-parcel archetype colors ───────────────────────────────────────────────
+// resource = industrial orange | trade = gold | energy = electric cyan | fortress = military red
+export const ARCHETYPE_COLORS: Record<string, THREE.Color> = {
+  resource: new THREE.Color("#ff8a00"),
+  trade:    new THREE.Color("#ffd700"),
+  energy:   new THREE.Color("#00e5ff"),
+  fortress: new THREE.Color("#ff3366"),
+};
+
 // ── Plot size variants — subtle natural variety without overlap artifacts ─────
 export const SIZE_VARIANTS = [1.0, 1.04, 0.96, 1.06, 0.98, 1.02, 0.95, 1.05];
 
@@ -83,3 +92,8 @@ export const SUB_FILL_SIZE   = GLOBE_RADIUS * 0.018;  // visible 3×3 cell fill
 export const SUB_BORDER_SIZE = GLOBE_RADIUS * 0.020;  // slightly larger for outline
 export const SUB_SPACING     = GLOBE_RADIUS * 0.019;  // gap between cell centers
 export const MAX_SUB_TILES   = 9 * 500;
+/** Sub-parcel 3×3 grids only render when the camera is closer than this (LOD). */
+export const SUB_PARCEL_LOD_DISTANCE = GLOBE_RADIUS * 2.6;
+
+/** Fog of war: reveal radius around each owned plot (euclidean, globe units). */
+export const FOG_REVEAL_RADIUS = GLOBE_RADIUS * 0.085;

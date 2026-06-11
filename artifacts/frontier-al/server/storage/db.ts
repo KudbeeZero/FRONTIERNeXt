@@ -74,7 +74,7 @@ import type {
   BiomeType as EngineBiomeType,
   ImprovementType as EngineImprovementType,
 } from "../engine/battle/types.js";
-import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP } from "@shared/schema";
+import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP, isImprovementAllowedForArchetype } from "@shared/schema";
 import type { RareMineralType } from "@shared/schema";
 import { sphereDistance } from "../sphereUtils";
 import {
@@ -138,6 +138,7 @@ import { runAITurn as runAITurnFn } from "./ai-engine";
 import { buildBattleNote } from "../services/chain/battleNotes";
 import { buildNarrative, detectMilestone } from "../engine/narrative/commentator";
 import type { IStorage } from "./interface";
+import { createDefaultProfile, recomputeDerived, type PlayerWeaponProfile } from "@shared/weapons";
 
 type DB = typeof db;
 
@@ -464,17 +465,21 @@ export class DbStorage implements IStorage {
         parentPlotId: subParcelsTable.parentPlotId,
         subIndex:     subParcelsTable.subIndex,
         ownerId:      subParcelsTable.ownerId,
+        archetype:    subParcelsTable.archetype,
       }).from(subParcelsTable),
       this.getCurrentSeason(),
     ]);
 
-    // Build sub-parcel map: parentPlotId → array of 9 owner ids
+    // Build sub-parcel maps: parentPlotId → array of 9 owner ids / archetypes
     const subParcelMap = new Map<number, (string | null)[]>();
+    const subParcelArchetypeMap = new Map<number, (SubParcelArchetype | null)[]>();
     for (const sp of allSubParcels) {
       if (!subParcelMap.has(sp.parentPlotId)) {
         subParcelMap.set(sp.parentPlotId, new Array(9).fill(null));
+        subParcelArchetypeMap.set(sp.parentPlotId, new Array(9).fill(null));
       }
       subParcelMap.get(sp.parentPlotId)![sp.subIndex] = sp.ownerId ?? null;
+      subParcelArchetypeMap.get(sp.parentPlotId)![sp.subIndex] = (sp.archetype as SubParcelArchetype | null) ?? null;
     }
 
     // Build ownedParcels arrays from the parcel rows (avoids a separate join).
@@ -496,6 +501,7 @@ export class DbStorage implements IStorage {
         if (ownerIds) {
           parcel.isSubdivided = true;
           parcel.subParcelOwnerIds = ownerIds;
+          parcel.subParcelArchetypes = subParcelArchetypeMap.get(r.plotId);
         }
         return parcel;
       }),
@@ -821,6 +827,58 @@ export class DbStorage implements IStorage {
       .update(playersTable)
       .set({ testnetProgress: completedMissions })
       .where(eq(playersTable.id, playerId));
+  }
+
+  async getWeaponProfile(playerId: string): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    const [row] = await this.db
+      .select({ weaponProfile: playersTable.weaponProfile })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+    if (!row) throw new Error("Player not found");
+    return row.weaponProfile ? recomputeDerived(row.weaponProfile) : createDefaultProfile();
+  }
+
+  async updateWeaponProfile(
+    playerId: string,
+    patch: Partial<PlayerWeaponProfile>,
+  ): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ weaponProfile: playersTable.weaponProfile })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const base = row.weaponProfile ?? createDefaultProfile();
+      const merged = recomputeDerived({ ...base, ...patch, updatedAt: Date.now() });
+      await tx
+        .update(playersTable)
+        .set({ weaponProfile: merged })
+        .where(eq(playersTable.id, playerId));
+      return merged;
+    });
+  }
+
+  async spendFrontier(playerId: string, amountFrntr: number): Promise<void> {
+    await this.initialize();
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const micro = toMicroFRNTR(amountFrntr);
+      if (row.frntrBalanceMicro < micro) {
+        throw new Error(
+          `Insufficient FRONTIER. Need ${amountFrntr}, have ${fromMicroFRNTR(row.frntrBalanceMicro).toFixed(2)}`,
+        );
+      }
+      await tx
+        .update(playersTable)
+        .set({
+          frntrBalanceMicro: row.frntrBalanceMicro - micro,
+          totalFrontierBurned: row.totalFrontierBurned + amountFrntr,
+        })
+        .where(eq(playersTable.id, playerId));
+    });
   }
 
   async grantWelcomeBonus(playerId: string): Promise<void> {
@@ -2184,6 +2242,11 @@ export class DbStorage implements IStorage {
       const isFacility = improvementType in FACILITY_INFO;
       const isDefense  = improvementType in DEFENSE_IMPROVEMENT_INFO;
       if (!isFacility && !isDefense) return { subParcel: null as any, error: "Invalid improvement type" };
+
+      // Archetype gating — the assigned archetype determines buildable structures.
+      if (!isImprovementAllowedForArchetype(spRow.archetype as SubParcelArchetype | null, improvementType)) {
+        return { subParcel: null as any, error: `${improvementType} can't be built on a ${spRow.archetype} sub-parcel` };
+      }
 
       const level = existing ? existing.level + 1 : 1;
       let playerUpdates: Partial<typeof playerRow> = {};

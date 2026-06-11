@@ -73,6 +73,7 @@ import type { FacilityType, DefenseImprovementType } from "@shared/schema";
 import { generateFibonacciSphere, sphereDistance, type PlotCoord } from "../sphereUtils";
 import { biomeFromLatitude } from "./game-rules";
 import type { IStorage } from "./interface";
+import { createDefaultProfile, recomputeDerived, type PlayerWeaponProfile } from "@shared/weapons";
 
 const AI_NAMES = ["NEXUS-7", "KRONOS", "VANGUARD", "SPECTRE"];
 const AI_BEHAVIORS: Player["aiBehavior"][] = ["expansionist", "defensive", "raider", "economic"];
@@ -81,6 +82,8 @@ export class MemStorage implements IStorage {
   private parcels: Map<string, LandParcel>;
   private parcelByPlotId: Map<number, string>;
   private players: Map<string, Player>;
+  /** Persisted weapon-system progression, keyed by playerId (the "memory layer"). */
+  private weaponProfiles: Map<string, PlayerWeaponProfile> = new Map();
   private battles: Map<string, Battle>;
   private events: GameEvent[];
   private currentTurn: number;
@@ -211,6 +214,7 @@ export class MemStorage implements IStorage {
     this.parcels.clear();
     this.parcelByPlotId.clear();
     this.players.clear();
+    this.weaponProfiles.clear();
     this.battles.clear();
     this.events = [];
     this.currentTurn = 1;
@@ -439,6 +443,37 @@ export class MemStorage implements IStorage {
     const player = this.players.get(playerId);
     if (!player) throw new Error("Player not found");
     player.testnetProgress = completedMissions;
+  }
+
+  async getWeaponProfile(playerId: string): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    if (!this.players.has(playerId)) throw new Error("Player not found");
+    const existing = this.weaponProfiles.get(playerId);
+    return existing ? recomputeDerived(existing) : createDefaultProfile();
+  }
+
+  async updateWeaponProfile(
+    playerId: string,
+    patch: Partial<PlayerWeaponProfile>,
+  ): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    if (!this.players.has(playerId)) throw new Error("Player not found");
+    const base = this.weaponProfiles.get(playerId) ?? createDefaultProfile();
+    const merged = recomputeDerived({ ...base, ...patch, updatedAt: Date.now() });
+    this.weaponProfiles.set(playerId, merged);
+    return merged;
+  }
+
+  async spendFrontier(playerId: string, amountFrntr: number): Promise<void> {
+    await this.initialize();
+    const player = this.players.get(playerId);
+    if (!player) throw new Error("Player not found");
+    if (player.frontier < amountFrntr) {
+      throw new Error(`Insufficient FRONTIER. Need ${amountFrntr}, have ${player.frontier.toFixed(2)}`);
+    }
+    player.frontier -= amountFrntr;
+    player.totalFrontierBurned += amountFrntr;
+    this.frontierCirculating -= amountFrntr;
   }
 
   async getOrCreatePlayerByAddress(address: string): Promise<Player> {

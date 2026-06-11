@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { LandParcel, Player, ImprovementType, SpecialAttackType, DefenseImprovementType, FacilityType, SubParcel, BiomeType, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
-import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS, DEFENSE_IMPROVEMENT_INFO, FACILITY_INFO, IMPROVEMENT_INFO, SPECIAL_ATTACK_INFO, SUB_PARCEL_HOLD_HOURS, BASE_YIELD, SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, ARCHETYPE_FACTION_BONUSES, TERRAFORM_COSTS, TERRAFORM_BIOME_MAP } from "@shared/schema";
+import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS, DEFENSE_IMPROVEMENT_INFO, FACILITY_INFO, IMPROVEMENT_INFO, SPECIAL_ATTACK_INFO, SUB_PARCEL_HOLD_HOURS, BASE_YIELD, SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, ARCHETYPE_FACTION_BONUSES, TERRAFORM_COSTS, TERRAFORM_BIOME_MAP, isImprovementAllowedForArchetype } from "@shared/schema";
 
 // ── SubParcelGrid ─────────────────────────────────────────────────────────────
 // Shows the 3×3 sub-parcel ownership grid for subdivided plots.
@@ -126,8 +126,11 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
 
   const improvements = sp.improvements ?? [];
 
-  const facilityTypes: FacilityType[] = ["electricity", "blockchain_node", "data_centre", "ai_lab"];
-  const defenseTypes: DefenseImprovementType[] = ["turret", "shield_gen", "storage_depot", "radar", "fortress"];
+  // Archetype gates which structures are buildable; unassigned = all.
+  const facilityTypes: FacilityType[] = (["electricity", "blockchain_node", "data_centre", "ai_lab"] as FacilityType[])
+    .filter(t => isImprovementAllowedForArchetype(sp.archetype, t));
+  const defenseTypes: DefenseImprovementType[] = (["turret", "shield_gen", "storage_depot", "radar", "fortress"] as DefenseImprovementType[])
+    .filter(t => isImprovementAllowedForArchetype(sp.archetype, t));
   const biomeColor = biomeColors[biome];
 
   return (
@@ -243,6 +246,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
         </div>
       )}
 
+      {facilityTypes.length > 0 && (
       <div>
         <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1">Facilities (ASCEND)</p>
         <div className="grid grid-cols-2 gap-1">
@@ -285,7 +289,9 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
           })}
         </div>
       </div>
+      )}
 
+      {defenseTypes.length > 0 && (
       <div>
         <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1">Defense (Iron/Fuel)</p>
         <div className="grid grid-cols-2 gap-1">
@@ -326,6 +332,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
           })}
         </div>
       </div>
+      )}
 
       {/* Trade Section */}
       <div className="border-t border-border/30 pt-2">

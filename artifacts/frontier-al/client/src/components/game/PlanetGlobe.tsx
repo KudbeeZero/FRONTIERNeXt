@@ -5,7 +5,7 @@
  */
 
 import * as THREE from "three";
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -17,8 +17,12 @@ import { StarField }           from "./globe/StarField";
 import { GlobeAtmosphere }     from "./globe/GlobeAtmosphere";
 import { GlobeTerrain }        from "./globe/GlobeTerrain";
 import { PlotOverlay, SubParcelOverlay } from "./globe/GlobeParcels";
+import { ObserverLayer } from "./globe/ObserverLayer";
+import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 import { BattleArcs, MiningPulseLayer, OrbitalZoneLayer, SatelliteOrbitLayer } from "./globe/GlobeEvents";
+import { LiveWeaponLayer } from "./globe/LiveWeaponLayer";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
+import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
 
 export type { LivePulse } from "@/lib/globe/globeTypes";
@@ -44,6 +48,7 @@ interface SceneProps {
   replayVisibleTypes?: Set<string>;
   streamMode?: boolean;
   flyRequestId?: number;
+  onObserverOffset?: (ms: number) => void;
 }
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
@@ -52,7 +57,9 @@ function Scene({
   parcels, players, currentPlayerId, selectedPlotId, onPlotSelect,
   controlsRef, targetLat, targetLng, battles, livePulses, orbitalEvents,
   replayEvents, replayTime, replayVisibleTypes, streamMode, flyRequestId,
+  onObserverOffset,
 }: SceneProps) {
+  const prefs = useVisualPrefs();
   const battleHotspots = useMemo(() => {
     if (!streamMode) return [];
     const parcelMap = new Map(parcels.map(p => [p.id, p]));
@@ -86,19 +93,31 @@ function Scene({
           selectedPlotId={selectedPlotId}
           onPlotSelect={onPlotSelect}
         />
-        {/* SubParcelOverlay disabled: sub-parcel data shown in table only */}
-        {replayEvents && replayEvents.length > 0 && replayVisibleTypes && replayTime !== undefined && (
-          <GlobeEventOverlays
-            events={replayEvents}
-            replayTime={replayTime}
-            visibleTypes={replayVisibleTypes}
+        {/* Sub-parcel 3×3 grids — archetype-colored, LOD-gated (only visible when zoomed in) */}
+        {!streamMode && (
+          <SubParcelOverlay
+            parcels={parcels}
+            players={players}
+            currentPlayerId={currentPlayerId}
           />
+        )}
+        {prefs.observerMode ? (
+          <ObserverLayer events={replayEvents ?? []} onOffsetChange={onObserverOffset} />
+        ) : (
+          replayEvents && replayEvents.length > 0 && replayVisibleTypes && replayTime !== undefined && (
+            <GlobeEventOverlays
+              events={replayEvents}
+              replayTime={replayTime}
+              visibleTypes={replayVisibleTypes}
+            />
+          )
         )}
       </group>
       <BattleArcs battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
       <MiningPulseLayer pulses={livePulses} />
       <OrbitalZoneLayer events={orbitalEvents} />
       <SatelliteOrbitLayer players={players} />
+      <LiveWeaponLayer />
       <OrbitControls
         ref={controlsRef as any}
         enablePan={false}
@@ -113,6 +132,15 @@ function Scene({
       />
     </>
   );
+}
+
+/** Formats an observer look-back offset (ms) as "LIVE" / "T-MINUS Xh Ym". */
+function formatLookback(offsetMs: number): string {
+  if (offsetMs < 60_000) return "LIVE";
+  const totalMin = Math.round(offsetMs / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `T-MINUS ${h > 0 ? `${h}h ` : ""}${m}m`;
 }
 
 // ── PlanetGlobe ───────────────────────────────────────────────────────────────
@@ -175,6 +203,8 @@ export default function PlanetGlobe({
   isDeliveringNft,
 }: PlanetGlobeProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null!);
+  const prefs = useVisualPrefs();
+  const [observerOffset, setObserverOffset] = useState(0);
 
   const playerMap = useMemo(() => {
     const m = new Map<string, Player>();
@@ -211,8 +241,23 @@ export default function PlanetGlobe({
           replayVisibleTypes={replayVisibleTypes}
           streamMode={streamMode}
           flyRequestId={flyRequestId}
+          onObserverOffset={setObserverOffset}
         />
       </Canvas>
+
+      {prefs.observerMode && !streamMode && (
+        <div style={{
+          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+          zIndex: 30, pointerEvents: "none",
+          background: "rgba(4,8,20,0.72)", border: "1px solid rgba(167,139,250,0.4)",
+          borderRadius: 6, padding: "5px 12px", fontFamily: "monospace",
+          fontSize: 11, letterSpacing: "0.15em", color: "rgba(190,170,255,0.95)",
+          textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span style={{ color: "#a78bfa" }}>◎ OBSERVER</span>
+          <span style={{ color: "rgba(190,170,255,0.7)" }}>{formatLookback(observerOffset)}</span>
+        </div>
+      )}
 
       <GlobeHUD activeBattleCount={activeBattleCount} replayTime={replayTime} />
 
@@ -250,6 +295,8 @@ export default function PlanetGlobe({
       </div>
 
       <PlayerLegend />
+
+      {!streamMode && <GlobeColorSettings />}
 
       {selectedParcel && (
         <ParcelHUD
