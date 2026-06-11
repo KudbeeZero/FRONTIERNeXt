@@ -32,8 +32,8 @@ export type SubParcelRow  = typeof subParcelsTable.$inferSelect;
 // ── Micro-FRONTIER helpers ───────────────────────────────────────────────────
 
 export const MICRO = 1_000_000;
-export function toMicroFRNTR(frntr: number): number { return Math.round(frntr * MICRO); }
-export function fromMicroFRNTR(micro: number): number { return Math.floor(micro / MICRO * 100) / 100; }
+export function toMicroASCEND(ascend: number): number { return Math.round(ascend * MICRO); }
+export function fromMicroASCEND(micro: number): number { return Math.floor(micro / MICRO * 100) / 100; }
 
 // ── Biome assignment ─────────────────────────────────────────────────────────
 
@@ -91,9 +91,9 @@ export function rowToParcel(row: ParcelRow): LandParcel {
     yieldMultiplier:      row.yieldMultiplier,
     improvements:         (row.improvements ?? []) as Improvement[],
     purchasePriceAlgo:   row.purchasePriceAlgo ?? null,
-    frontierAccumulated: row.frontierAccumulated,
-    lastFrontierClaimTs: Number(row.lastFrontierClaimTs),
-    frontierPerDay:      row.frontierPerDay,
+    ascendAccumulated: row.ascendAccumulated,
+    lastAscendClaimTs: Number(row.lastAscendClaimTs),
+    ascendPerDay:      row.ascendPerDay,
     influence:           row.influence,
     influenceRepairRate: row.influenceRepairRate,
     capturedFromFaction: (row as any).capturedFromFaction ?? null,
@@ -119,15 +119,15 @@ export function rowToPlayer(row: PlayerRow, ownedParcelIds: string[]): Player {
     iron:                 row.iron,
     fuel:                 row.fuel,
     crystal:              row.crystal,
-    frontier:             fromMicroFRNTR(row.frntrBalanceMicro),
+    ascend:             fromMicroASCEND(row.ascendBalanceMicro),
     ownedParcels:         ownedParcelIds,
     isAI:                 row.isAi,
     aiBehavior:           (row.aiBehavior ?? undefined) as Player["aiBehavior"],
     totalIronMined:       row.totalIronMined,
     totalFuelMined:       row.totalFuelMined,
     totalCrystalMined:    row.totalCrystalMined,
-    totalFrontierEarned:  row.totalFrontierEarned,
-    totalFrontierBurned:  row.totalFrontierBurned,
+    totalAscendEarned:  row.totalAscendEarned,
+    totalAscendBurned:  row.totalAscendBurned,
     attacksWon:           row.attacksWon,
     attacksLost:          row.attacksLost,
     territoriesCaptured:  row.territoriesCaptured,
@@ -200,12 +200,12 @@ export function computeLeaderboard(playerRows: PlayerRow[], parcelRows: Pick<Par
       totalIronMined:      r.totalIronMined,
       totalFuelMined:      r.totalFuelMined,
       totalCrystalMined:   r.totalCrystalMined,
-      totalFrontierEarned: r.totalFrontierEarned,
+      totalAscendEarned: r.totalAscendEarned,
       attacksWon:          r.attacksWon,
       attacksLost:         r.attacksLost,
       isAI:                r.isAi,
     }))
-    .sort((a, b) => b.territories - a.territories || b.totalFrontierEarned - a.totalFrontierEarned);
+    .sort((a, b) => b.territories - a.territories || b.totalAscendEarned - a.totalAscendEarned);
 }
 
 // ── Sub-Parcel Helpers ───────────────────────────────────────────────────────
@@ -219,7 +219,7 @@ export function rowToSubParcel(row: SubParcelRow): SubParcel {
     ownerType:             (row.ownerType ?? null) as "player" | "ai" | null,
     improvements:          (row.improvements ?? []) as Improvement[],
     resourceYieldFraction: row.resourceYieldFraction,
-    purchasePriceFrontier: row.purchasePriceFrontier,
+    purchasePriceAscend: row.purchasePriceAscend,
     acquiredAt:            row.acquiredAt ? Number(row.acquiredAt) : null,
     activeBattleId:        row.activeBattleId ?? null,
     archetype:             (row.archetype ?? null) as import("../../shared/schema").SubParcelArchetype | null,
@@ -321,7 +321,7 @@ export function canSubdivideParcel(
   if (alreadySubdivided) return "This plot is already subdivided";
 
   const holdMs = SUB_PARCEL_HOLD_HOURS * 60 * 60 * 1000;
-  const heldSince = parcel.capturedAt ?? parcel.lastFrontierClaimTs;
+  const heldSince = parcel.capturedAt ?? parcel.lastAscendClaimTs;
   if (nowMs - heldSince < holdMs) {
     const remainingHours = ((holdMs - (nowMs - heldSince)) / 3_600_000).toFixed(1);
     return `Must hold this plot for ${SUB_PARCEL_HOLD_HOURS}h before subdividing (${remainingHours}h remaining)`;
@@ -358,7 +358,7 @@ export function buildSubParcelRows(
     ownerType:             i === 4 ? ("player" as const) : null,
     improvements:          [],
     resourceYieldFraction: SUB_PARCEL_YIELD_FRACTION,
-    purchasePriceFrontier: price,
+    purchasePriceAscend: price,
     acquiredAt:            i === 4 ? nowMs : null,
     activeBattleId:        null,
     createdAt:             nowMs,

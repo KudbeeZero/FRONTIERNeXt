@@ -71,7 +71,7 @@ export const marketFlow = {
         title: "VERITAS self-check market",
         description: "Automated provably-fair verification probe. Safe to ignore.",
         category: "economy",
-        resolutionCriteria: "Resolves from total $FRNTR burned (>=1 by turn 1).",
+        resolutionCriteria: "Resolves from total $ASCEND burned (>=1 by turn 1).",
         resolvesAt: now + 60_000,
         resolutionSource: source,
         resolutionCutoffTs: cutoffTs,

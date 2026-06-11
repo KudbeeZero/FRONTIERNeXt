@@ -24,7 +24,7 @@ interface TopBarProps {
     iron: number;
     fuel: number;
     crystal: number;
-    frontier: number;
+    ascend: number;
   } | null;
 }
 
@@ -100,7 +100,7 @@ export function TopBar({ isConnected, className, mobileMenuContent, mobileResour
           </span>
           <span className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums">
             <Zap className="w-3 h-3 text-primary" />
-            <span className="text-primary">{mobileResources.frontier.toFixed(1)}</span>
+            <span className="text-primary">{mobileResources.ascend.toFixed(1)}</span>
           </span>
         </div>
       )}

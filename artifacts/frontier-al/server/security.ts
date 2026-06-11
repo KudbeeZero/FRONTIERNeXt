@@ -125,6 +125,124 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Decide whether a caller-supplied delivery address is entitled to receive a
+ * custody-held NFT.
+ *
+ * The public delivery endpoints (/api/nft/deliver/:plotId,
+ * /api/nft/deliver-commander/:commanderId) previously transferred the asset to
+ * ANY address that had opted into the ASA — custody + opt-in were the only
+ * guards, and both are satisfiable by an attacker (opt-in is permissionless).
+ * A 1-of-1 plot/commander NFT could therefore be stolen out of admin custody
+ * before the paying buyer opted in.
+ *
+ * Rule: the asset may only be delivered to the EXACT wallet address registered
+ * for the in-game owner of the plot/commander. Placeholder identities
+ * ("PLAYER_WALLET", AI_* bots, unowned parcels) can never take delivery.
+ *
+ * Pure decision function — no DB, no chain. Callers resolve `ownerAddress`
+ * (parcels.ownerId → players.address, or commanders JSONB → players.address)
+ * and must run this BEFORE any on-chain interaction.
+ */
+export function evaluateNftDeliveryClaim(params: {
+  /** Registered wallet of the in-game owner; null/undefined when unresolvable. */
+  ownerAddress: string | null | undefined;
+  /** Address the caller asked us to deliver to. */
+  requestedAddress: string;
+}): { allow: true } | { allow: false; reason: "no_registered_owner" | "not_owner" } {
+  const { ownerAddress, requestedAddress } = params;
+
+  if (
+    !ownerAddress ||
+    ownerAddress === "PLAYER_WALLET" ||
+    ownerAddress.startsWith("AI_")
+  ) {
+    return { allow: false, reason: "no_registered_owner" };
+  }
+  if (!safeEqual(requestedAddress, ownerAddress)) {
+    return { allow: false, reason: "not_owner" };
+  }
+  return { allow: true };
+}
+
+// ── Payment replay protection ────────────────────────────────────────────────
+
+export interface PaymentRedemption {
+  purpose: "plot_purchase" | "commander_mint";
+  /** What the payment bought (parcelId, commander tier, …) — audit only. */
+  refId: string;
+  playerId: string;
+}
+
+/**
+ * Persistence behind the replay guard. The production implementation is an
+ * INSERT … ON CONFLICT DO NOTHING against redeemed_payments (tx_id PRIMARY
+ * KEY), so "tryInsert returns false" === "txid already redeemed", atomically,
+ * across all server instances.
+ */
+export interface PaymentRedemptionStore {
+  /** Atomically record txId as redeemed. Returns false if it already was. */
+  tryInsert(txId: string, meta: PaymentRedemption): Promise<boolean>;
+  /** Forget a claim (used when the purchase fails AFTER claiming). */
+  remove(txId: string): Promise<void>;
+}
+
+export type PaymentClaimResult =
+  | { ok: true }
+  | { ok: false; reason: "already_redeemed" | "store_unavailable" };
+
+/**
+ * Replay guard for on-chain ALGO payments.
+ *
+ * verifyAlgoPayment() proves "this confirmed txn paid the admin enough" but is
+ * a stateless indexer read — without this guard the SAME payment txid can be
+ * redeemed for unlimited plots/commanders (sequentially or concurrently).
+ *
+ * Usage contract (both purchase routes):
+ *   1. verify the payment on-chain,
+ *   2. claim() the txid — reject with 409 unless { ok: true },
+ *   3. run the state mutation; if it throws, release() the claim so the
+ *      buyer's payment is not burned by a failed purchase.
+ *
+ * Failure policy is CLOSED: if the store errors we refuse the purchase rather
+ * than risk a replay. The in-memory fallback exists only for store-less
+ * dev/mem deployments (single process — a Set is sufficient there).
+ */
+export function createPaymentReplayGuard(store: PaymentRedemptionStore | null) {
+  const memRedeemed = new Set<string>();
+
+  return {
+    async claim(txId: string, meta: PaymentRedemption): Promise<PaymentClaimResult> {
+      if (!store) {
+        if (memRedeemed.has(txId)) return { ok: false, reason: "already_redeemed" };
+        memRedeemed.add(txId);
+        return { ok: true };
+      }
+      try {
+        const inserted = await store.tryInsert(txId, meta);
+        return inserted ? { ok: true } : { ok: false, reason: "already_redeemed" };
+      } catch (err) {
+        console.error(`[payments] replay-guard claim failed txId=${txId} — refusing purchase (fail closed):`, err instanceof Error ? err.message : err);
+        return { ok: false, reason: "store_unavailable" };
+      }
+    },
+
+    async release(txId: string): Promise<void> {
+      if (!store) {
+        memRedeemed.delete(txId);
+        return;
+      }
+      try {
+        await store.remove(txId);
+      } catch (err) {
+        // Worst case the txid stays redeemed and the buyer needs admin help —
+        // strictly safer than the reverse. Log loudly for follow-up.
+        console.error(`[payments] CRITICAL: failed to release claim txId=${txId} after failed purchase — manual row delete needed:`, err instanceof Error ? err.message : err);
+      }
+    },
+  };
+}
+
+/**
  * Bound a caller-supplied `limit` query parameter so an attacker cannot turn a
  * paginated feed into a full-table dump with `?limit=999999`.
  *

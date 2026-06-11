@@ -1,15 +1,15 @@
 /**
  * server/services/chain/transferQueue.ts
  *
- * Persistent retry queue for on-chain FRONTIER (FRNTR) ASA transfers.
+ * Persistent retry queue for on-chain FRONTIER (ASCEND) ASA transfers.
  *
  * Design:
- *  - `enqueueFrontierTransfer` inserts a row into `pending_frontier_transfers`.
- *  - `drainFrontierTransfers`  picks all `pending` rows and attempts each.
+ *  - `enqueueAscendTransfer` inserts a row into `pending_frontier_transfers`.
+ *  - `drainAscendTransfers`  picks all `pending` rows and attempts each.
  *    The ASA ID is resolved lazily at drain time (fixes SEV2 #6 race condition).
  *    If the recipient is not opted-in, `last_error` is set to "not_opted_in"
  *    and the row stays `pending` for the next drain cycle.
- *  - `startFrontierTransferWorker` schedules `drainFrontierTransfers` on a
+ *  - `startAscendTransferWorker` schedules `drainAscendTransfers` on a
  *    fixed interval. `.unref()` ensures it does not keep the process alive.
  *
  * Constraints:
@@ -19,9 +19,9 @@
 
 import { randomUUID } from "crypto";
 import { db } from "../../db";
-import { pendingFrontierTransfers } from "../../db-schema";
+import { pendingAscendTransfers } from "../../db-schema";
 import { eq } from "drizzle-orm";
-import { getFrontierAsaId, isAddressOptedIn, transferAsa } from "./asa";
+import { getAscendAsaId, isAddressOptedIn, transferAsa } from "./asa";
 
 const MAX_ATTEMPTS = 20;
 
@@ -30,19 +30,19 @@ const MAX_ATTEMPTS = 20;
 export interface EnqueueParams {
   recipientAddress:  string;
   recipientPlayerId?: string;
-  /** Whole FRONTIER tokens (not micro-units). */
+  /** Whole ASCEND tokens (not micro-units). */
   amount:            number;
-  /** Descriptive tag, e.g. "welcome_bonus" | "claim_frontier" | "mining_yield" */
+  /** Descriptive tag, e.g. "welcome_bonus" | "claim_ascend" | "mining_yield" */
   reason:            string;
 }
 
 /**
  * Insert a pending FRONTIER transfer row.
- * The transfer is NOT sent immediately — `drainFrontierTransfers` will pick it up.
+ * The transfer is NOT sent immediately — `drainAscendTransfers` will pick it up.
  */
-export async function enqueueFrontierTransfer(params: EnqueueParams): Promise<void> {
+export async function enqueueAscendTransfer(params: EnqueueParams): Promise<void> {
   const now = Date.now();
-  await db.insert(pendingFrontierTransfers).values({
+  await db.insert(pendingAscendTransfers).values({
     id:                randomUUID(),
     recipientAddress:  params.recipientAddress,
     recipientPlayerId: params.recipientPlayerId ?? null,
@@ -56,7 +56,7 @@ export async function enqueueFrontierTransfer(params: EnqueueParams): Promise<vo
     updatedAt:         now,
   });
   console.log(
-    `[transferQueue] enqueued ${params.amount} FRNTR → ${params.recipientAddress} (${params.reason})`
+    `[transferQueue] enqueued ${params.amount} ASCEND → ${params.recipientAddress} (${params.reason})`
   );
 }
 
@@ -72,20 +72,20 @@ export async function enqueueFrontierTransfer(params: EnqueueParams): Promise<vo
  *  - On success, `status` is set to `sent` and `tx_id` is recorded.
  *  - After MAX_ATTEMPTS failures, `status` is set to `failed`.
  */
-export async function drainFrontierTransfers(): Promise<void> {
+export async function drainAscendTransfers(): Promise<void> {
   // Lazily resolve ASA ID at drain time — this is the SEV2 #6 fix.
-  const asaId = getFrontierAsaId();
+  const asaId = getAscendAsaId();
   if (!asaId) {
     // ASA not yet bootstrapped; try again next cycle.
     return;
   }
 
-  let rows: typeof pendingFrontierTransfers.$inferSelect[];
+  let rows: typeof pendingAscendTransfers.$inferSelect[];
   try {
     rows = await db
       .select()
-      .from(pendingFrontierTransfers)
-      .where(eq(pendingFrontierTransfers.status, "pending"));
+      .from(pendingAscendTransfers)
+      .where(eq(pendingAscendTransfers.status, "pending"));
   } catch (err) {
     console.error("[transferQueue] Failed to query pending transfers:", err);
     return;
@@ -103,7 +103,7 @@ export async function drainFrontierTransfers(): Promise<void> {
       const optedIn = await isAddressOptedIn(row.recipientAddress, asaId);
       if (!optedIn) {
         await db
-          .update(pendingFrontierTransfers)
+          .update(pendingAscendTransfers)
           .set({
             attempts,
             lastError: "not_opted_in",
@@ -111,7 +111,7 @@ export async function drainFrontierTransfers(): Promise<void> {
             // Escalate to failed only after MAX_ATTEMPTS
             ...(attempts >= MAX_ATTEMPTS ? { status: "failed" } : {}),
           })
-          .where(eq(pendingFrontierTransfers.id, row.id));
+          .where(eq(pendingAscendTransfers.id, row.id));
 
         if (attempts >= MAX_ATTEMPTS) {
           console.warn(
@@ -133,12 +133,12 @@ export async function drainFrontierTransfers(): Promise<void> {
       });
 
       await db
-        .update(pendingFrontierTransfers)
+        .update(pendingAscendTransfers)
         .set({ status: "sent", txId, attempts, lastError: null, updatedAt: now })
-        .where(eq(pendingFrontierTransfers.id, row.id));
+        .where(eq(pendingAscendTransfers.id, row.id));
 
       console.log(
-        `[transferQueue] sent ${row.amount} FRNTR → ${row.recipientAddress} ` +
+        `[transferQueue] sent ${row.amount} ASCEND → ${row.recipientAddress} ` +
         `(${row.reason}) txId=${txId}`
       );
     } catch (err) {
@@ -150,14 +150,14 @@ export async function drainFrontierTransfers(): Promise<void> {
       );
 
       await db
-        .update(pendingFrontierTransfers)
+        .update(pendingAscendTransfers)
         .set({
           attempts,
           lastError: errMsg.slice(0, 500),
           updatedAt: now,
           ...(attempts >= MAX_ATTEMPTS ? { status: "failed" } : {}),
         })
-        .where(eq(pendingFrontierTransfers.id, row.id));
+        .where(eq(pendingAscendTransfers.id, row.id));
 
       if (attempts >= MAX_ATTEMPTS) {
         console.warn(
@@ -174,15 +174,15 @@ export async function drainFrontierTransfers(): Promise<void> {
  * @param intervalMs  Poll interval in ms (default 30 s).
  * @returns The interval handle (already `.unref()`-ed).
  */
-export function startFrontierTransferWorker(intervalMs = 30_000): ReturnType<typeof setInterval> {
+export function startAscendTransferWorker(intervalMs = 30_000): ReturnType<typeof setInterval> {
   console.log(`[transferQueue] worker started (interval=${intervalMs}ms)`);
   // Run one immediate drain so any queued transfers from startup are sent quickly.
-  drainFrontierTransfers().catch((err) =>
+  drainAscendTransfers().catch((err) =>
     console.error("[transferQueue] Initial drain failed:", err)
   );
 
   const handle = setInterval(() => {
-    drainFrontierTransfers().catch((err) =>
+    drainAscendTransfers().catch((err) =>
       console.error("[transferQueue] Drain failed:", err)
     );
   }, intervalMs);

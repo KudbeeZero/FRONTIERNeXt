@@ -1,7 +1,7 @@
 /**
  * server/veritas/flows/token.ts
  *
- * TOKEN FLOW — exercises the test wallet against the $FRNTR ASA on testnet:
+ * TOKEN FLOW — exercises the test wallet against the $ASCEND ASA on testnet:
  *   1. the wallet is funded enough to transact (auto top-up if a funder is set),
  *   2. opt-in to the ASA is idempotent (opt-in, then assert a second opt-in is a no-op),
  *   3. the on-chain ASA balance is readable (the foundation for DB↔chain reconciliation).
@@ -22,7 +22,7 @@ export const tokenFlow = {
     const steps: StepResult[] = [];
     const wallet = ctx.wallet;
     if (!wallet) return [skip("token flow", "no test wallet (set VERITAS_TEST_MNEMONIC)")];
-    if (!ctx.frontierAsaId) return [skip("token flow", "no FRONTIER ASA id (set VERITAS_FRONTIER_ASA_ID)")];
+    if (!ctx.ascendAsaId) return [skip("token flow", "no FRONTIER ASA id (set VERITAS_FRONTIER_ASA_ID)")];
 
     // 1. Funded enough to transact.
     let t = Date.now();
@@ -42,8 +42,8 @@ export const tokenFlow = {
     // 2. Opt-in is idempotent.
     t = Date.now();
     try {
-      await wallet.optIn(ctx.frontierAsaId);
-      const second = await wallet.optIn(ctx.frontierAsaId);
+      await wallet.optIn(ctx.ascendAsaId);
+      const second = await wallet.optIn(ctx.ascendAsaId);
       steps.push(assert(
         "opt-in idempotent",
         second.alreadyOptedIn && second.txId === null,
@@ -58,7 +58,7 @@ export const tokenFlow = {
     // 3. On-chain ASA balance readable (basis for reconciliation).
     t = Date.now();
     try {
-      const bal = await wallet.getAsaBalance(ctx.frontierAsaId);
+      const bal = await wallet.getAsaBalance(ctx.ascendAsaId);
       steps.push(assert(
         "on-chain ASA balance readable",
         bal !== null && bal >= 0n,

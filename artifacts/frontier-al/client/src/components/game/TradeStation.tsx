@@ -17,27 +17,27 @@ interface TradeStationPanelProps {
   className?: string;
 }
 
-const RESOURCES: TradeResource[] = ["iron", "fuel", "crystal", "frontier"];
+const RESOURCES: TradeResource[] = ["iron", "fuel", "crystal", "ascend"];
 
 const RESOURCE_COLORS: Record<TradeResource, string> = {
   iron:     "text-slate-300",
   fuel:     "text-amber-400",
   crystal:  "text-cyan-400",
-  frontier: "text-emerald-400",
+  ascend: "text-emerald-400",
 };
 
 const RESOURCE_LABELS: Record<TradeResource, string> = {
   iron:     "Iron",
   fuel:     "Fuel",
   crystal:  "Crystal",
-  frontier: "ASCEND",
+  ascend: "ASCEND",
 };
 
 const RESOURCE_ICONS: Record<string, string> = {
   iron:     "⚙️",
   fuel:     "⛽",
   crystal:  "💎",
-  frontier: "⚡",
+  ascend: "⚡",
 };
 
 function relTime(ms: number): string {
@@ -462,7 +462,7 @@ function ParcelsTab({ currentPlayerId }: { currentPlayerId: string }) {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <span className="font-mono font-bold text-sm text-emerald-400">{listing.askPriceFrontier.toLocaleString()} ⚡</span>
+                      <span className="font-mono font-bold text-sm text-emerald-400">{listing.askPriceAscend.toLocaleString()} ⚡</span>
                       {isOwn ? (
                         <Button size="sm" variant="outline" className="h-6 text-[9px] px-2 border-destructive/50 text-destructive hover:bg-destructive/10"
                           onClick={() => cancelMutation.mutate(listing.id)}

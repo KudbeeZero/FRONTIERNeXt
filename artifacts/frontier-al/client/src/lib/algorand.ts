@@ -131,7 +131,7 @@ export async function createGameActionTransaction(
     sender: fromAddress,
     receiver: fromAddress,
     amount: 0,
-    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    note: new TextEncoder().encode(`ASCEND:${actionData}`),
     suggestedParams,
   });
 
@@ -170,7 +170,7 @@ export async function createPurchaseWithAlgoTransaction(
     sender: fromAddress,
     receiver: treasuryAddress,
     amount: microAlgos,
-    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    note: new TextEncoder().encode(`ASCEND:${actionData}`),
     suggestedParams,
   });
 
@@ -184,18 +184,18 @@ export async function createPurchaseWithAlgoTransaction(
   return txId;
 }
 
-export async function createClaimFrontierTransaction(
+export async function createClaimAscendTransaction(
   fromAddress: string,
-  frontierAmount: number
+  ascendAmount: number
 ): Promise<string> {
-  dbg(`[TXN-DEBUG] createClaimFrontierTransaction triggered | amount: ${frontierAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  dbg(`[TXN-DEBUG] createClaimAscendTransaction triggered | amount: ${ascendAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
   const suggestedParams = await getTransactionParams();
   
   const actionData = JSON.stringify({
     game: "FRONTIER",
     v: 1,
-    action: "claim_frontier",
-    amount: frontierAmount,
+    action: "claim_ascend",
+    amount: ascendAmount,
     player: fromAddress.slice(0, 8),
     ts: Date.now(),
     network: "testnet",
@@ -205,16 +205,16 @@ export async function createClaimFrontierTransaction(
     sender: fromAddress,
     receiver: fromAddress,
     amount: 0,
-    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    note: new TextEncoder().encode(`ASCEND:${actionData}`),
     suggestedParams,
   });
 
   const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
-  dbg(`[TXN-DEBUG] createClaimFrontierTransaction submitting | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createClaimAscendTransaction submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
   const txId = response.txid || txn.txID();
   await algosdk.waitForConfirmation(algodClient, txId, 4);
-  dbg(`[TXN-DEBUG] createClaimFrontierTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
+  dbg(`[TXN-DEBUG] createClaimAscendTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
   return txId;
 }
@@ -222,9 +222,9 @@ export async function createClaimFrontierTransaction(
 export async function createCommanderMintTransaction(
   fromAddress: string,
   tier: string,
-  frntrCost: number
+  ascendCost: number
 ): Promise<string> {
-  dbg(`[TXN-DEBUG] createCommanderMintTransaction triggered | tier: ${tier} | frntrCost: ${frntrCost} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
+  dbg(`[TXN-DEBUG] createCommanderMintTransaction triggered | tier: ${tier} | ascendCost: ${ascendCost} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}...`);
   const suggestedParams = await getTransactionParams();
 
   const actionData = JSON.stringify({
@@ -232,7 +232,7 @@ export async function createCommanderMintTransaction(
     v: 1,
     action: "mint_commander",
     tier,
-    frntrCost,
+    ascendCost,
     player: fromAddress.slice(0, 8),
     ts: Date.now(),
     network: "testnet",
@@ -243,7 +243,7 @@ export async function createCommanderMintTransaction(
     sender: fromAddress,
     receiver: adminAddress,
     amount: 500000,
-    note: new TextEncoder().encode(`FRNTR:${actionData}`),
+    note: new TextEncoder().encode(`ASCEND:${actionData}`),
     suggestedParams,
   });
 
@@ -262,14 +262,14 @@ export function formatAddress(address: string, startChars = 6, endChars = 4): st
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
-export const FRONTIER_ASSETS = {
+export const ASCEND_ASSETS = {
   iron: { name: "FRONTIER-IRON", unitName: "IRON", decimals: 0 },
   fuel: { name: "FRONTIER-FUEL", unitName: "FUEL", decimals: 0 },
   crystal: { name: "FRONTIER-CRYSTAL", unitName: "CRYSTAL", decimals: 0 },
-  frontier: { name: "FRONTIER", unitName: "FRNTR", decimals: 6 },
+  ascend: { name: "ASCEND", unitName: "ASCEND", decimals: 6 },
 } as const;
 
-export type FrontierResourceType = keyof typeof FRONTIER_ASSETS;
+export type AscendResourceType = keyof typeof ASCEND_ASSETS;
 
 export async function getASABalance(address: string, assetId: number): Promise<number> {
   try {
@@ -355,17 +355,17 @@ let _cachedAsaId: number | null = null;
 
 export async function fetchBlockchainStatus(): Promise<{
   ready: boolean;
-  frontierAsaId: number | null;
+  ascendAsaId: number | null;
   adminAddress: string | null;
 }> {
   try {
     const res = await fetch("/api/blockchain/status");
     const data = await res.json();
     if (data.adminAddress) _cachedTreasuryAddress = data.adminAddress;
-    if (data.frontierAsaId) _cachedAsaId = data.frontierAsaId;
+    if (data.ascendAsaId) _cachedAsaId = data.ascendAsaId;
     return data;
   } catch {
-    return { ready: false, frontierAsaId: null, adminAddress: null };
+    return { ready: false, ascendAsaId: null, adminAddress: null };
   }
 }
 
@@ -457,7 +457,7 @@ function _buildActionNote(action: BatchedAction, fromAddress: string): Uint8Arra
     ...(action.x || {}),
     ...(action.m ? { minerals: action.m } : {}),
   });
-  return new TextEncoder().encode(`FRNTR:${data}`);
+  return new TextEncoder().encode(`ASCEND:${data}`);
 }
 
 export function enqueueGameAction(

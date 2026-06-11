@@ -136,7 +136,7 @@ export function useCollectAll() {
   });
 }
 
-export function useClaimFrontier() {
+export function useClaimAscend() {
   return useMutation({
     mutationFn: async (playerId: string) => {
       const response = await apiRequest("POST", "/api/actions/claim-frontier", { playerId });
@@ -163,7 +163,7 @@ export function useMintAvatar() {
           ...old,
           players: old.players.map(p =>
             p.id === action.playerId
-              ? { ...p, frontier: Math.max(0, p.frontier - 50) } // Optimistic: reduce by sentinel cost (minimum)
+              ? { ...p, frontier: Math.max(0, p.ascend - 50) } // Optimistic: reduce by sentinel cost (minimum)
               : p
           ),
         };

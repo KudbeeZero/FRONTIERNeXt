@@ -2,7 +2,7 @@
 //
 // Wallet-signature auth proves a caller *controls* an address, but Algorand
 // addresses are free to generate — so a bot can mint unlimited wallets, each
-// passing auth, and farm the 500 FRONTIER welcome bonus. This module gates the
+// passing auth, and farm the 500 ASCEND welcome bonus. This module gates the
 // bonus behind a cheap on-chain heuristic: the wallet must hold a minimum ALGO
 // balance. Funding thousands of addresses with real ALGO has a real cost
 // (especially on mainnet), which is what raises the Sybil bar.

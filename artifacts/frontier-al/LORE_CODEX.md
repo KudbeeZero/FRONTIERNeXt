@@ -207,7 +207,7 @@ The orbital nerve center. Halves the cost of drones and satellites, grants extra
 deployment slots (3 satellites, 7 drones), and unlocks the **Deep Space Probe** —
 a 24-hour scan revealing every enemy plot within a 5-plot radius for two hours.
 
-- **Cost:** 500 FRNTR + 50 Xenorite + 30 Plasma Core
+- **Cost:** 500 ASCEND + 50 Xenorite + 30 Plasma Core
 - **Requires:** 10+ plots, Electricity on the host plot
 
 </details>
@@ -222,7 +222,7 @@ whoever builds it first. It houses the Season Leaderboard hologram and, during t
 Domination phase, **doubles FRONTIER generation** while granting its owner a bonus
 **5% of the season reward pool**.
 
-- **Cost:** 800 FRNTR + 40 Void Shard + 20 Dark Matter
+- **Cost:** 800 ASCEND + 40 Void Shard + 20 Dark Matter
 - **Requires:** 25+ plots, an active season
 
 </details>
@@ -235,7 +235,7 @@ Domination phase, **doubles FRONTIER generation** while granting its owner a bon
 The artisan's wonder. Refines rare minerals (10 of one → 3 of another), forges a
 **Legendary loot box every 48 hours**, and boosts Crystal yield on its host plot by 30%.
 
-- **Cost:** 600 FRNTR + 30 Xenorite + 25 Void Shard + 10 Plasma Core
+- **Cost:** 600 ASCEND + 30 Xenorite + 25 Void Shard + 10 Plasma Core
 - **Requires:** 15+ plots, Data Centre Lv2+ on the host plot
 
 </details>
@@ -246,10 +246,10 @@ The artisan's wonder. Refines rare minerals (10 of one → 3 of another), forges
 > *"A network node from a forgotten civilization."*
 
 Logistics from a lost age. Teleports resources instantly between all your plots
-(no manual collection), adds +2 FRNTR/day, cuts attack cooldown 25% for strikes
+(no manual collection), adds +2 ASCEND/day, cuts attack cooldown 25% for strikes
 launched from it, and exposes cloaked Phantoms within 4 plots.
 
-- **Cost:** 400 FRNTR + 20 Plasma Core + 15 Void Shard
+- **Cost:** 400 ASCEND + 20 Plasma Core + 15 Void Shard
 - **Requires:** 20+ plots, AI Lab Lv2+ on the host plot
 
 </details>
@@ -300,9 +300,9 @@ reward pool over the eternal map.
 
 | Act | Days | The Mood |
 |-----|------|----------|
-| 🌱 **Expansion** | 1–30 | Land is cheap (−20%), welcome bonuses double to 1,000 FRNTR, AI starts small. The great land rush. |
+| 🌱 **Expansion** | 1–30 | Land is cheap (−20%), welcome bonuses double to 1,000 ASCEND, AI starts small. The great land rush. |
 | ⚔️ **Conflict** | 31–60 | Cooldowns shorten (−25%), pillage swells to 40%, the sky doubles its fury. The age of war. |
-| 👑 **Domination** | 61–90 | FRNTR generation surges +50%, the Alien Dome blazes, and the leaderboard **locks in the final 24 hours.** The reckoning. |
+| 👑 **Domination** | 61–90 | ASCEND generation surges +50%, the Alien Dome blazes, and the leaderboard **locks in the final 24 hours.** The reckoning. |
 
 At season's end the **top 10** divide the FRONTIER reward pool — 30% to the victor,
 descending to 4% for tenth — plus exclusive titles and badges. Then the cycle begins
@@ -310,9 +310,9 @@ anew, atop everything you built.
 
 ---
 
-## 🪙 The FRONTIER Standard — FRNTR
+## 🪙 The FRONTIER Standard — ASCEND
 
-The lifeblood of the economy is **FRONTIER (FRNTR)** — a real Algorand Standard Asset,
+The lifeblood of the economy is **FRONTIER (ASCEND)** — a real Algorand Standard Asset,
 **1,000,000,000** strong and immutable. It flows from owned land, pools in treasuries,
 and burns away into the structures and armies of ambitious commanders.
 

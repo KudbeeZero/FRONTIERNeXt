@@ -11,8 +11,8 @@ const parcel = (id: string, ownerId: string | null, isAi = false): LandParcel =>
     ironStored: 100,
     fuelStored: 200,
     crystalStored: 300,
-    frontierAccumulated: 50,
-    frontierPerDay: 10,
+    ascendAccumulated: 50,
+    ascendPerDay: 10,
     biome: "plains",
   }) as unknown as LandParcel;
 
@@ -25,7 +25,7 @@ const player = (id: string, isAI = false): Player =>
     iron: 11,
     fuel: 22,
     crystal: 33,
-    frontier: 44,
+    ascend: 44,
     treasury: 999,
     lootBoxes: [{ tier: "common" }],
     testnetProgress: ["m1"],
@@ -42,8 +42,8 @@ const baseState = (): GameState =>
     lastUpdateTs: 0,
     totalPlots: 4,
     claimedPlots: 3,
-    frontierTotalSupply: 0,
-    frontierCirculating: 0,
+    ascendTotalSupply: 0,
+    ascendCirculating: 0,
     currentSeason: null,
   }) as unknown as GameState;
 
@@ -61,7 +61,7 @@ describe("scopeGameStateFor", () => {
       expect(p.ironStored).toBe(0);
       expect(p.fuelStored).toBe(0);
       expect(p.crystalStored).toBe(0);
-      expect(p.frontierAccumulated).toBe(0);
+      expect(p.ascendAccumulated).toBe(0);
     }
     // Non-economic fields are preserved (map still renders).
     expect(enemy.ownerId).toBe("enemy");
@@ -74,11 +74,11 @@ describe("scopeGameStateFor", () => {
     const enemy = s.players.find((p) => p.id === "enemy")!;
     const ai = s.players.find((p) => p.id === "ai1")!;
 
-    expect(me.frontier).toBe(44);
+    expect(me.ascend).toBe(44);
     expect(me.iron).toBe(11);
 
     expect(enemy.iron).toBe(0);
-    expect(enemy.frontier).toBe(0);
+    expect(enemy.ascend).toBe(0);
     expect(enemy.treasury).toBe(0);
     expect(enemy.lootBoxes).toEqual([]);
     expect(enemy.testnetProgress).toEqual([]);
@@ -94,8 +94,8 @@ describe("scopeGameStateFor", () => {
   it("redacts everything for an unauthenticated viewer", () => {
     const s = scopeGameStateFor(baseState(), null);
     expect(s.parcels.every((p) => p.ironStored === 0)).toBe(true);
-    expect(s.players.find((p) => p.id === "me")!.frontier).toBe(0);
-    expect(s.players.find((p) => p.id === "enemy")!.frontier).toBe(0);
+    expect(s.players.find((p) => p.id === "me")!.ascend).toBe(0);
+    expect(s.players.find((p) => p.id === "enemy")!.ascend).toBe(0);
     // AI still intact.
     expect(s.players.find((p) => p.id === "ai1")!.iron).toBe(11);
   });
@@ -104,6 +104,6 @@ describe("scopeGameStateFor", () => {
     const original = baseState();
     scopeGameStateFor(original, "me");
     expect(original.parcels.find((p) => p.id === "p2")!.ironStored).toBe(100);
-    expect(original.players.find((p) => p.id === "enemy")!.frontier).toBe(44);
+    expect(original.players.find((p) => p.id === "enemy")!.ascend).toBe(44);
   });
 });

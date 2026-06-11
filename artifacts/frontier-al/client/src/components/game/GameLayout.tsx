@@ -27,7 +27,7 @@ import { TEST_GLOBE } from "@/lib/testMode";
 import { useBlockchainActions } from "@/hooks/useBlockchainActions";
 import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
 import { useQuery, useQueries } from "@tanstack/react-query";
-import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimFrontier, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite } from "@/hooks/useGameState";
+import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimAscend, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite } from "@/hooks/useGameState";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,7 +47,7 @@ export function GameLayout() {
   const { isConnected, balance, walletStatus } = wallet;
   const {
     signPurchaseAction,
-    signOptInToFrontier,
+    signOptInToAscend,
     signOptInToPlotNft,
     signCommanderMintAction,
     queueMineAction,
@@ -60,8 +60,8 @@ export function GameLayout() {
     queueDeployDroneAction,
     queueDeploySatelliteAction,
     isWalletConnected,
-    frontierAsaId,
-    isOptedInToFrontier,
+    ascendAsaId,
+    isOptedInToAscend,
     treasuryAddress,
   } = useBlockchainActions();
   // Reconnect the socket (with the session token) once wallet auth completes,
@@ -171,7 +171,7 @@ export function GameLayout() {
   const buildMutation = useBuild();
   const purchaseMutation = usePurchase();
   const collectMutation = useCollectAll();
-  const claimFrontierMutation = useClaimFrontier();
+  const claimAscendMutation = useClaimAscend();
   const mintAvatarMutation = useMintAvatar();
   const specialAttackMutation = useSpecialAttack();
   const switchCommanderMutation = useSwitchCommander();
@@ -429,18 +429,18 @@ export function GameLayout() {
   const handleMintAvatar = async (tier: CommanderTier) => {
     if (!player) return;
 
-    // Fetch pricing — response now returns frntrCost (primary currency) and
+    // Fetch pricing — response now returns ascendCost (primary currency) and
     // algoNetworkFee (unavoidable Algorand tx fee, ~0.001 ALGO, wallet handles automatically).
-    let frntrCost = 0;
+    let ascendCost = 0;
     try {
       const priceRes = await fetch(`/api/nft/commander-price/${tier}`);
       if (!priceRes.ok) throw new Error("Could not fetch commander price");
-      const priceData: { frntrCost: number; algoNetworkFee: number; note: string; economyMode: string } = await priceRes.json();
-      frntrCost = priceData.frntrCost;
+      const priceData: { ascendCost: number; algoNetworkFee: number; note: string; economyMode: string } = await priceRes.json();
+      ascendCost = priceData.ascendCost;
 
       toast({
         title: "Minting Commander",
-        description: `Cost: ${frntrCost} ASCEND${priceData.economyMode === "testing" ? " (testing price)" : ""}. The Algorand network fee (~${priceData.algoNetworkFee} ALGO) is handled by your wallet automatically.`,
+        description: `Cost: ${ascendCost} ASCEND${priceData.economyMode === "testing" ? " (testing price)" : ""}. The Algorand network fee (~${priceData.algoNetworkFee} ALGO) is handled by your wallet automatically.`,
       });
     } catch (fetchErr) {
       toast({
@@ -458,7 +458,7 @@ export function GameLayout() {
       return;
     }
     let algoPaymentTxId: string | undefined;
-    const txResult = await signCommanderMintAction(tier, frntrCost);
+    const txResult = await signCommanderMintAction(tier, ascendCost);
     if (!txResult || txResult === "cancelled") return; // wallet rejected or closed
     if (typeof txResult === "string") algoPaymentTxId = txResult;
 
@@ -471,7 +471,7 @@ export function GameLayout() {
           if (nft?.assetId) {
             toast({
               title: "Commander Minted + NFT Created!",
-              description: `${data.avatar?.name || tier} Commander is ready. ${frntrCost} ASCEND spent. NFT ASA ${nft.assetId} held in custody — open Commander Panel to claim.`,
+              description: `${data.avatar?.name || tier} Commander is ready. ${ascendCost} ASCEND spent. NFT ASA ${nft.assetId} held in custody — open Commander Panel to claim.`,
             });
           } else {
             toast({
@@ -880,15 +880,15 @@ export function GameLayout() {
         </div>
       )}
 
-      {isConnected && frontierAsaId && isOptedInToFrontier === false && (
+      {isConnected && ascendAsaId && isOptedInToAscend === false && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30" data-testid="opt-in-banner">
           <Button
-            onClick={signOptInToFrontier}
+            onClick={signOptInToAscend}
             className="gap-2 font-display uppercase tracking-wide text-xs animate-pulse"
             data-testid="button-opt-in-frontier"
           >
             <Coins className="w-4 h-4" />
-            Opt-In to ASCEND Token (ASA #{frontierAsaId})
+            Opt-In to ASCEND Token (ASA #{ascendAsaId})
           </Button>
         </div>
       )}
@@ -954,7 +954,7 @@ export function GameLayout() {
         ) : desktopRightTab === "markets" ? (
           <PredictionMarketsPanel
             currentPlayerId={player?.id ?? ""}
-            currentPlayerFrontier={player?.frontier ?? 0}
+            currentPlayerAscend={player?.ascend ?? 0}
             className="flex-1 border-0 rounded-none overflow-hidden"
           />
         ) : desktopRightTab === "commander" ? (
@@ -1063,7 +1063,7 @@ export function GameLayout() {
           {activeTab === "markets" && (
             <PredictionMarketsPanel
               currentPlayerId={player?.id ?? ""}
-              currentPlayerFrontier={player?.frontier ?? 0}
+              currentPlayerAscend={player?.ascend ?? 0}
               className="h-full"
             />
           )}

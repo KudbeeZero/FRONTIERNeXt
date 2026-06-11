@@ -16,20 +16,20 @@
 <a href="GAME_MANUAL.md"><img src="https://img.shields.io/badge/📖_Game_Manual-Read-2D7FF9?style=for-the-badge&labelColor=0B0E2A" alt="Game Manual"></a>
 <a href="STRATEGY_GUIDE.md"><img src="https://img.shields.io/badge/🎯_Strategy-Master-2EE6A6?style=for-the-badge&labelColor=0B0E2A" alt="Strategy Guide"></a>
 <a href="FAQ.md"><img src="https://img.shields.io/badge/❓_FAQ-Help-FFB020?style=for-the-badge&labelColor=0B0E2A" alt="FAQ"></a>
-<a href="ECONOMICS.md"><img src="https://img.shields.io/badge/💰_Economics-FRNTR-F5C518?style=for-the-badge&labelColor=0B0E2A" alt="Economics"></a>
+<a href="ECONOMICS.md"><img src="https://img.shields.io/badge/💰_Economics-ASCEND-F5C518?style=for-the-badge&labelColor=0B0E2A" alt="Economics"></a>
 <a href="LORE_CODEX.md"><img src="https://img.shields.io/badge/🌌_Lore-Codex-B26BFF?style=for-the-badge&labelColor=0B0E2A" alt="Lore"></a>
 <a href="QUICK_REFERENCE.md"><img src="https://img.shields.io/badge/⚡_Quick_Ref-Cheat-FF5DA2?style=for-the-badge&labelColor=0B0E2A" alt="Quick Reference"></a>
 
 <br/>
 
 <img src="https://img.shields.io/badge/Network-Algorand_TestNet-000000?style=flat-square&logo=algorand&logoColor=white" alt="Algorand TestNet">
-<img src="https://img.shields.io/badge/Token-FRNTR_·_1B_supply-F5C518?style=flat-square" alt="FRNTR">
+<img src="https://img.shields.io/badge/Token-ASCEND_·_1B_supply-F5C518?style=flat-square" alt="ASCEND">
 <img src="https://img.shields.io/badge/World-21,000_plots-2D7FF9?style=flat-square" alt="World">
 <img src="https://img.shields.io/badge/License-Proprietary-E5484D?style=flat-square" alt="License">
 
 </div>
 
-Players and AI factions compete for control of a shared 21,000-plot world map rendered as a 3D rotating planet. Mine resources, build defenses, launch attacks, mint Commander avatars, and earn FRONTIER (FRNTR) tokens on Algorand TestNet. Every plot purchase is recorded as a real Algorand ASA NFT. Every FRONTIER token claim triggers a live on-chain transfer.
+Players and AI factions compete for control of a shared 21,000-plot world map rendered as a 3D rotating planet. Mine resources, build defenses, launch attacks, mint Commander avatars, and earn FRONTIER (ASCEND) tokens on Algorand TestNet. Every plot purchase is recorded as a real Algorand ASA NFT. Every FRONTIER token claim triggers a live on-chain transfer.
 
 > 🧭 Looking for the project front door? See the **[repository Docs Home](../../README.md)**.
 
@@ -53,7 +53,7 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 | 🎯 | **[Strategy Guide](STRATEGY_GUIDE.md)** | Beginner tips, advanced strategies, scenario playbooks, and quick-reference tables |
 | ❓ | **[FAQ & Troubleshooting](FAQ.md)** | Fast answers — opt-in issues, balance mismatches, cooldowns, and "where's my NFT?" |
 | 💰 | **[Economics & Tokenomics](ECONOMICS.md)** | Parcel/sub-parcel pricing, 70/30 fee splits, protocol treasury, FRONTIER token supply/sinks |
-| 🪙 | **[FRNTR Tokenomics (one-pager)](TOKENOMICS.md)** | The token at a glance — supply, inflows, sinks, and the protocol treasury |
+| 🪙 | **[ASCEND Tokenomics (one-pager)](TOKENOMICS.md)** | The token at a glance — supply, inflows, sinks, and the protocol treasury |
 | 🌌 | **[Lore & Universe Codex](LORE_CODEX.md)** | The Ascendancy story, faction dossiers, biome lore, commander corps, and orbital phenomena |
 | ⚡ | **[Quick Reference](QUICK_REFERENCE.md)** | One-screen cheat card — every cost, modifier, formula, and cooldown |
 | 📒 | **[Glossary](GLOSSARY.md)** | A–Z of every term, from ADR to Xenorite |
@@ -146,12 +146,12 @@ Always provision a PostgreSQL database before any production deployment.
 | Component | Details |
 |-----------|---------|
 | Network | Algorand TestNet (chainId: 416002) |
-| FRONTIER Token | On-chain ASA `755818217` (FRNTR on TestNet; **$ASCEND** is the public ticker). TestNet mint: 1B units for testing |
+| FRONTIER Token | On-chain ASA `755818217` (ASCEND on TestNet; **$ASCEND** is the public ticker). TestNet mint: 1B units for testing |
 | Plot NFTs | Each purchased plot minted as a unique ARC-3 NFT on-chain |
 | Wallet Support | Pera Wallet (mobile + web) and LUTE Wallet (browser) |
 | On-chain actions | Territory purchases (ALGO), FRONTIER claims (batched ASA transfers) |
 | Off-chain actions | Mining, upgrades, builds, attacks (instant, no signing required) |
-| Tx notes | Structured `FRNTR:{…}` JSON on every on-chain transaction (v1 schema) |
+| Tx notes | Structured `ASCEND:{…}` JSON on every on-chain transaction (v1 schema) |
 
 ### Token Model ($ASCEND)
 | Allocation | Amount | Notes |
@@ -274,7 +274,7 @@ Frontier-Al/
 | `address` | varchar(100) | Algorand wallet address |
 | `name` | varchar(100) | Display name |
 | `iron / fuel / crystal` | integer | Current resource stockpile |
-| `frntr_balance_micro` | bigint | FRONTIER balance (microFRNTR; 1 FRNTR = 1,000,000) |
+| `frntr_balance_micro` | bigint | FRONTIER balance (microASCEND; 1 ASCEND = 1,000,000) |
 | `frntr_claimed_micro` | bigint | Cumulative FRONTIER claimed on-chain |
 | `total_frontier_earned` | real | Lifetime FRONTIER earned |
 | `total_frontier_burned` | real | Lifetime FRONTIER burned in-game |
@@ -303,7 +303,7 @@ Frontier-Al/
 | `owner_id` | varchar(36) | FK → players.id (null = unclaimed) |
 | `defense_level` | integer | Base defense rating |
 | `improvements` | jsonb | Array of `{ type, level }` improvements |
-| `frontier_accumulated` | real | Pending FRNTR tokens (not yet claimed) |
+| `frontier_accumulated` | real | Pending ASCEND tokens (not yet claimed) |
 | `frontier_per_day` | real | Current daily generation rate |
 | `last_frontier_claim_ts` | bigint | Timestamp of last claim |
 | `purchase_price_algo` | real | ALGO price (null = not for sale) |
@@ -361,7 +361,7 @@ Singleton row (id=1). Stores `initialized`, `current_turn`, and `last_update_ts`
 ### Player Actions
 | Method | Endpoint | Body | Description |
 |--------|----------|------|-------------|
-| POST | `/api/actions/connect-wallet` | `{ address }` | Link wallet; grants 500 FRNTR welcome bonus once |
+| POST | `/api/actions/connect-wallet` | `{ address }` | Link wallet; grants 500 ASCEND welcome bonus once |
 | POST | `/api/actions/set-name` | `{ playerId, name }` | Set display name |
 | POST | `/api/actions/mine` | `{ playerId, parcelId }` | Mine resources from owned plot |
 | POST | `/api/actions/upgrade` | `{ playerId, parcelId, upgradeType }` | Upgrade base (defense/yield/mine/fortress) |
@@ -517,7 +517,7 @@ https://testnet.explorer.perawallet.app/asset/<assetId>/
 
 ## On-Chain Transaction Note Format (v1)
 
-All transactions sent to Algorand use the prefix `FRNTR:` followed by structured JSON, making them searchable in block explorers, parseable by any indexer, and versioned via the `"v":1` field.
+All transactions sent to Algorand use the prefix `ASCEND:` followed by structured JSON, making them searchable in block explorers, parseable by any indexer, and versioned via the `"v":1` field.
 
 ### FRONTIER Token Claim (server → chain)
 ```json
@@ -610,9 +610,9 @@ Set environment variables in the Railway dashboard. Provision a Railway PostgreS
 - Architecture Decision Records (ADRs) added to `docs/backlog/systems/`
 
 ### v1.2.0 — On-Chain Transactions & Crystal Tracking
-- Structured `FRNTR:{…}` JSON notes on all Algorand transactions (v1 schema)
+- Structured `ASCEND:{…}` JSON notes on all Algorand transactions (v1 schema)
 - `totalCrystalMined` tracked per player in DB and displayed in leaderboard
-- FRNTR Generation Banner in Inventory panel with "Mint All — X.XX FRNTR" button
+- ASCEND Generation Banner in Inventory panel with "Mint All — X.XX ASCEND" button
 - ResourceHUD daily rate indicator (`▲ 33.0/day (12.5 pending)`)
 - Mine action yields included in on-chain batch notes
 - Batched atomic FRONTIER ASA transfers (up to 16 per Algorand atomic group)
@@ -620,8 +620,8 @@ Set environment variables in the Railway dashboard. Provision a Railway PostgreS
 ### v1.1.0 — Commander & Combat Expansion
 - Commander Avatar system (Sentinel / Phantom / Reaper) with on-chain FRONTIER burn
 - Special attacks (Orbital Strike, EMP Blast, Siege Barrage, Sabotage)
-- Recon Drones — 20 FRNTR each, 15-minute scout missions
-- Orbital Satellites — 50 FRNTR, boost mining yield
+- Recon Drones — 20 ASCEND each, 15-minute scout missions
+- Orbital Satellites — 50 ASCEND, boost mining yield
 - Morale debuff + attack cooldown system for consecutive combat losses
 - Cascade defense penalty on plots adjacent to captured territory
 - Pillage mechanic — attacker steals 30% of defender's stored resources
@@ -635,7 +635,7 @@ Set environment variables in the Railway dashboard. Provision a Railway PostgreS
 - Defense Improvements: Turret, Shield Gen, Storage Depot, Radar, Fortress
 - Four AI factions: NEXUS-7, KRONOS, VANGUARD, SPECTRE
 - Plot NFTs (ARC-3) minted at purchase
-- 500 FRNTR welcome bonus on first wallet connection
+- 500 ASCEND welcome bonus on first wallet connection
 
 ---
 

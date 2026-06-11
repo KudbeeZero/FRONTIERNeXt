@@ -36,7 +36,7 @@ function buildContext(): FlowContext {
     adminKey: process.env.VERITAS_ADMIN_KEY,
     playerId: process.env.VERITAS_PLAYER_ID,
     wallet,
-    frontierAsaId: asaId,
+    ascendAsaId: asaId,
     log: (msg) => console.log(`[veritas] ${msg}`),
   };
 }

@@ -3,7 +3,7 @@ import { useWallet } from "./useWallet";
 import {
   createGameActionTransaction,
   createPurchaseWithAlgoTransaction,
-  createClaimFrontierTransaction,
+  createClaimAscendTransaction,
   createCommanderMintTransaction,
   registerTxnQueueAddress,
   registerBatchStatusCallback,
@@ -26,7 +26,7 @@ type ActionType =
   | "claim"
   | "build"
   | "purchase"
-  | "claim_frontier"
+  | "claim_ascend"
   | "mint_avatar"
   | "special_attack"
   | "deploy_drone"
@@ -38,30 +38,30 @@ export function useBlockchainActions() {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
   const [lastTxId, setLastTxId] = useState<string | null>(null);
-  const [frontierAsaId, setFrontierAsaId] = useState<number | null>(null);
+  const [ascendAsaId, setAscendAsaId] = useState<number | null>(null);
   // tri-state: undefined = checking, true = opted in, false = not opted in
   const [isOptedIn, setIsOptedIn] = useState<boolean | undefined>(undefined);
   const [treasuryAddress, setTreasuryAddress] = useState<string>("");
 
   useEffect(() => {
     fetchBlockchainStatus().then((status) => {
-      if (status.frontierAsaId) setFrontierAsaId(status.frontierAsaId);
+      if (status.ascendAsaId) setAscendAsaId(status.ascendAsaId);
       if (status.adminAddress) setTreasuryAddress(status.adminAddress);
     });
   }, []);
 
   useEffect(() => {
     setIsOptedIn(undefined);
-  }, [address, frontierAsaId]);
+  }, [address, ascendAsaId]);
 
   // Once we have both address and ASA id, read the per-wallet+ASA cache first
   // (so opted-in users never see the banner flash), then verify on-chain in
   // the background to keep the cache accurate.
   useEffect(() => {
-    if (!address || !frontierAsaId) return;
+    if (!address || !ascendAsaId) return;
 
     const network = import.meta.env.VITE_ALGORAND_NETWORK ?? "testnet";
-    const cacheKey = `frontier_optin_${network}_${address}_${frontierAsaId}`;
+    const cacheKey = `frontier_optin_${network}_${address}_${ascendAsaId}`;
     if (localStorage.getItem(cacheKey) === "true") {
       setIsOptedIn(true);
     }
@@ -70,7 +70,7 @@ export function useBlockchainActions() {
       .accountInformation(address)
       .do()
       .then((accountInfo) => {
-        const result = hasOptedIn(accountInfo as unknown as Record<string, unknown>, frontierAsaId);
+        const result = hasOptedIn(accountInfo as unknown as Record<string, unknown>, ascendAsaId);
         setIsOptedIn(result);
         if (result) {
           localStorage.setItem(cacheKey, "true");
@@ -81,7 +81,7 @@ export function useBlockchainActions() {
       .catch(() => {
         // Keep existing cached state if algod is temporarily unreachable
       });
-  }, [address, frontierAsaId]);
+  }, [address, ascendAsaId]);
 
   useEffect(() => {
     if (!address || !isReady) return;
@@ -182,15 +182,15 @@ export function useBlockchainActions() {
   // Direct wallet-sign for Commander mint — opens wallet immediately (like land purchase),
   // NOT queued to the batch relay. Returns txId on success, "cancelled" if rejected, null on error.
   const signCommanderMintAction = useCallback(
-    async (tier: string, frntrCost: number): Promise<string | null | "cancelled"> => {
+    async (tier: string, ascendCost: number): Promise<string | null | "cancelled"> => {
       if (!isReady || !address) {
         toast({ title: "Wallet Not Ready", description: "Connect your wallet first.", variant: "destructive" });
         return null;
       }
       setIsPending(true);
       try {
-        console.log(`[ACTION-DEBUG] signCommanderMintAction | path: direct wallet sign | tier: ${tier} | frntrCost: ${frntrCost} | ts: ${Date.now()}`);
-        const txId = await createCommanderMintTransaction(address, tier, frntrCost);
+        console.log(`[ACTION-DEBUG] signCommanderMintAction | path: direct wallet sign | tier: ${tier} | ascendCost: ${ascendCost} | ts: ${Date.now()}`);
+        const txId = await createCommanderMintTransaction(address, tier, ascendCost);
         setLastTxId(txId);
         return txId;
       } catch (err: unknown) {
@@ -391,8 +391,8 @@ export function useBlockchainActions() {
     [isReady, address, toast, treasuryAddress]
   );
 
-  const signClaimFrontierAction = useCallback(
-    async (frontierAmount: number): Promise<string | null> => {
+  const signClaimAscendAction = useCallback(
+    async (ascendAmount: number): Promise<string | null> => {
       if (!isReady || !address) {
         toast({
           title: "Wallet Not Ready",
@@ -404,12 +404,12 @@ export function useBlockchainActions() {
 
       setIsPending(true);
       try {
-        console.log(`[ACTION-DEBUG] signClaimFrontierAction | path: createClaimFrontierTransaction (single txn) | amount: ${frontierAmount} | ts: ${Date.now()}`);
-        const txId = await createClaimFrontierTransaction(address, frontierAmount);
+        console.log(`[ACTION-DEBUG] signClaimAscendAction | path: createClaimAscendTransaction (single txn) | amount: ${ascendAmount} | ts: ${Date.now()}`);
+        const txId = await createClaimAscendTransaction(address, ascendAmount);
         setLastTxId(txId);
         toast({
           title: "ASCEND Claimed",
-          description: `Claimed ${frontierAmount.toFixed(2)} ASCEND tokens. TX: ${txId.slice(0, 8)}...`,
+          description: `Claimed ${ascendAmount.toFixed(2)} ASCEND tokens. TX: ${txId.slice(0, 8)}...`,
         });
         return txId;
       } catch (error: unknown) {
@@ -427,13 +427,13 @@ export function useBlockchainActions() {
     [isReady, address, toast]
   );
 
-  const signOptInToFrontier = useCallback(
+  const signOptInToAscend = useCallback(
     async (): Promise<string | null> => {
       if (!isReady || !address) {
         toast({ title: "Wallet Not Ready", description: "Connect wallet first.", variant: "destructive" });
         return null;
       }
-      if (!frontierAsaId) {
+      if (!ascendAsaId) {
         toast({ title: "Not Ready", description: "ASCEND token not created yet.", variant: "destructive" });
         return null;
       }
@@ -444,12 +444,12 @@ export function useBlockchainActions() {
 
       setIsPending(true);
       try {
-        console.log(`[ACTION-DEBUG] signOptInToFrontier | path: optInToASA (single txn) | asaId: ${frontierAsaId} | ts: ${Date.now()}`);
-        const txId = await optInToASA(address, frontierAsaId);
+        console.log(`[ACTION-DEBUG] signOptInToAscend | path: optInToASA (single txn) | asaId: ${ascendAsaId} | ts: ${Date.now()}`);
+        const txId = await optInToASA(address, ascendAsaId);
         setLastTxId(txId);
         // waitForConfirmation inside optInToASA already confirmed the tx —
         // optimistically mark as opted-in immediately so the banner disappears.
-        const cacheKey = `frontier_optin_testnet_${address}_${frontierAsaId}`;
+        const cacheKey = `frontier_optin_testnet_${address}_${ascendAsaId}`;
         setIsOptedIn(true);
         localStorage.setItem(cacheKey, "true");
         // Refetch game state so the HUD and any balance displays update.
@@ -468,7 +468,7 @@ export function useBlockchainActions() {
         setIsPending(false);
       }
     },
-    [isReady, address, frontierAsaId, isOptedIn, toast]
+    [isReady, address, ascendAsaId, isOptedIn, toast]
   );
 
   const signOptInToPlotNft = useCallback(
@@ -502,8 +502,8 @@ export function useBlockchainActions() {
     signCollectAction,
     signAttackAction,
     signPurchaseAction,
-    signClaimFrontierAction,
-    signOptInToFrontier,
+    signClaimAscendAction,
+    signOptInToAscend,
     signOptInToPlotNft,
     queueMineAction,
     queueUpgradeAction,
@@ -516,8 +516,8 @@ export function useBlockchainActions() {
     queueDeployDroneAction,
     queueDeploySatelliteAction,
     isWalletConnected: isConnected,
-    frontierAsaId,
-    isOptedInToFrontier: isOptedIn,
+    ascendAsaId,
+    isOptedInToAscend: isOptedIn,
     treasuryAddress,
   };
 }

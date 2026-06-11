@@ -12,7 +12,7 @@ import type { PredictionMarket, MarketPosition, ResolutionSource } from "@shared
 
 interface PredictionMarketsPanelProps {
   currentPlayerId: string;
-  currentPlayerFrontier: number;
+  currentPlayerAscend: number;
   className?: string;
 }
 
@@ -55,7 +55,7 @@ function formatResolutionSource(source: ResolutionSource | null): string {
     case "ownership_at_turn":
       return `Resolves from on-chain ownership of plot ${source.plotId} at turn ${source.turn}.`;
     case "burn_threshold":
-      return `Resolves from total $FRNTR burned reaching ${source.amount.toLocaleString()} by turn ${source.byTurn}.`;
+      return `Resolves from total $ASCEND burned reaching ${source.amount.toLocaleString()} by turn ${source.byTurn}.`;
     case "territory_count":
       return `Resolves from a holder controlling ≥ ${source.threshold} parcels at turn ${source.turn}.`;
     default:
@@ -95,12 +95,12 @@ function VerifyProof({ marketId }: { marketId: string }) {
 function MarketCard({
   market,
   currentPlayerId,
-  currentPlayerFrontier,
+  currentPlayerAscend,
   onBetPlaced,
 }: {
   market: PredictionMarket;
   currentPlayerId: string;
-  currentPlayerFrontier: number;
+  currentPlayerAscend: number;
   onBetPlaced: () => void;
 }) {
   const { toast } = useToast();
@@ -151,7 +151,7 @@ function MarketCard({
       toast({ title: "Invalid Bet", description: "Select an outcome and enter a valid amount.", variant: "destructive" });
       return;
     }
-    if (amount > currentPlayerFrontier) {
+    if (amount > currentPlayerAscend) {
       toast({ title: "Insufficient Balance", description: "You don't have enough ASCEND.", variant: "destructive" });
       return;
     }
@@ -293,7 +293,7 @@ function MarketCard({
 
 // ── Markets Tab ───────────────────────────────────────────────────────────────
 
-function MarketsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerId: string; currentPlayerFrontier: number }) {
+function MarketsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: string; currentPlayerAscend: number }) {
   const queryClient = useQueryClient();
   const { data: markets = [], isFetching, refetch } = useQuery<PredictionMarket[]>({
     queryKey: ["/api/markets"],
@@ -330,7 +330,7 @@ function MarketsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerI
           key={m.id}
           market={m}
           currentPlayerId={currentPlayerId}
-          currentPlayerFrontier={currentPlayerFrontier}
+          currentPlayerAscend={currentPlayerAscend}
           onBetPlaced={invalidate}
         />
       ))}
@@ -340,7 +340,7 @@ function MarketsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerI
 
 // ── My Bets Tab ───────────────────────────────────────────────────────────────
 
-function MyBetsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerId: string; currentPlayerFrontier: number }) {
+function MyBetsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: string; currentPlayerAscend: number }) {
   const queryClient = useQueryClient();
   const { data: positions = [], isFetching } = useQuery<(MarketPosition & { market: PredictionMarket })[]>({
     queryKey: ["/api/markets/player", currentPlayerId],
@@ -387,7 +387,7 @@ function MyBetsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerId
           <MarketCard
             market={m}
             currentPlayerId={currentPlayerId}
-            currentPlayerFrontier={currentPlayerFrontier}
+            currentPlayerAscend={currentPlayerAscend}
             onBetPlaced={invalidate}
           />
         </div>
@@ -453,7 +453,7 @@ function HistoryTab() {
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
-export function PredictionMarketsPanel({ currentPlayerId, currentPlayerFrontier, className }: PredictionMarketsPanelProps) {
+export function PredictionMarketsPanel({ currentPlayerId, currentPlayerAscend, className }: PredictionMarketsPanelProps) {
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Header */}
@@ -465,7 +465,7 @@ export function PredictionMarketsPanel({ currentPlayerId, currentPlayerFrontier,
         </div>
         <div className="ml-auto text-right">
           <p className="text-[10px] text-muted-foreground">Balance</p>
-          <p className="text-sm font-mono font-bold text-emerald-400">{currentPlayerFrontier.toLocaleString()} ASCEND</p>
+          <p className="text-sm font-mono font-bold text-emerald-400">{currentPlayerAscend.toLocaleString()} ASCEND</p>
         </div>
       </div>
 
@@ -478,10 +478,10 @@ export function PredictionMarketsPanel({ currentPlayerId, currentPlayerFrontier,
             <TabsTrigger value="history" className="flex-1 text-xs">Resolved</TabsTrigger>
           </TabsList>
           <TabsContent value="open">
-            <MarketsTab currentPlayerId={currentPlayerId} currentPlayerFrontier={currentPlayerFrontier} />
+            <MarketsTab currentPlayerId={currentPlayerId} currentPlayerAscend={currentPlayerAscend} />
           </TabsContent>
           <TabsContent value="mybets">
-            <MyBetsTab currentPlayerId={currentPlayerId} currentPlayerFrontier={currentPlayerFrontier} />
+            <MyBetsTab currentPlayerId={currentPlayerId} currentPlayerAscend={currentPlayerAscend} />
           </TabsContent>
           <TabsContent value="history">
             <HistoryTab />

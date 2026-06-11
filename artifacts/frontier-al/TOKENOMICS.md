@@ -4,12 +4,12 @@
    .   ✦      .         *           .          ✦      .       .
        ╔══════════════════════════════════════════════════════╗
    *   ║   🪙  T H E   F R O N T I E R   S T A N D A R D   🪙   ║   .
-       ║         FRNTR tokenomics · the one-page brief         ║
+       ║         ASCEND tokenomics · the one-page brief         ║
        ╚══════════════════════════════════════════════════════╝
    .        *          .              .         *        .
 ```
 
-# 🪙 FRNTR Tokenomics — One-Pager
+# 🪙 ASCEND Tokenomics — One-Pager
 
 **FRONTIERNeXt** · The FRONTIER token at a glance
 
@@ -30,11 +30,11 @@
 
 | Property | Value |
 |---|---|
-| **Name / Symbol** | FRONTIER / **FRNTR** |
+| **Name / Symbol** | FRONTIER / **ASCEND** |
 | **Chain** | Algorand TestNet (chainId `416002`) |
 | **Standard** | Algorand Standard Asset (ASA) · ID `755818217` |
-| **Total Supply** | **1,000,000,000** FRNTR — fixed & immutable |
-| **Decimals** | 6 (1 FRNTR = 1,000,000 microFRNTR) |
+| **Total Supply** | **1,000,000,000** ASCEND — fixed & immutable |
+| **Decimals** | 6 (1 ASCEND = 1,000,000 microASCEND) |
 | **Custody** | Two-layer: instant DB balance + batched on-chain transfers |
 
 > **Two-layer model:** the in-game **database balance is authoritative** for all
@@ -43,26 +43,26 @@
 
 ---
 
-## 📈 Where FRNTR Comes From (Inflows)
+## 📈 Where ASCEND Comes From (Inflows)
 
 | Source | Rate |
 |---|---|
-| Base plot ownership | **1 FRNTR/day** per plot (production) |
+| Base plot ownership | **1 ASCEND/day** per plot (production) |
 | + Electricity facility | +1 / day |
 | + Blockchain Node L1 / L2 / L3 | +2 / +3 / +4 / day |
-| **Max per fully-upgraded plot** | **6 FRNTR/day** |
-| Welcome bonus | **500 FRNTR** one-time (×2 → 1,000 during Expansion season) |
+| **Max per fully-upgraded plot** | **6 ASCEND/day** |
+| Welcome bonus | **500 ASCEND** one-time (×2 → 1,000 during Expansion season) |
 | Sub-parcel income | Macro-plot owner earns **70%** of every sub-parcel sale |
 
-> **Testing mode** intentionally boosts base emission to **50 FRNTR/day** per plot for
-> partner testing. Data Centre and AI Lab produce **0 FRNTR** — they give yield % and
+> **Testing mode** intentionally boosts base emission to **50 ASCEND/day** per plot for
+> partner testing. Data Centre and AI Lab produce **0 ASCEND** — they give yield % and
 > cooldown reductions instead.
 
 ---
 
-## 🔥 Where FRNTR Goes (Sinks)
+## 🔥 Where ASCEND Goes (Sinks)
 
-Every sink permanently burns FRNTR from circulation — the deflationary heartbeat.
+Every sink permanently burns ASCEND from circulation — the deflationary heartbeat.
 
 | Sink | Cost |
 |---|---|
@@ -97,7 +97,7 @@ The live ledger (`GET /api/economics`) tracks four pools:
 | Pool | Meaning |
 |---|---|
 | **Max Supply** | The on-chain ASA `total` — 1B, never changes |
-| **Treasury Reserve** | Undistributed FRNTR held by the admin wallet |
+| **Treasury Reserve** | Undistributed ASCEND held by the admin wallet |
 | **In Circulation** | Tokens actively held by all players (DB `frntr_balance_micro`) |
 | **Burned** | Permanently spent in-game on the sinks above |
 
@@ -108,7 +108,7 @@ The live ledger (`GET /api/economics`) tracks four pools:
 Sub-parcel fees feed a protocol treasury via a **70 / 30 split** — 70% to the
 macro-plot owner, 30% to the treasury (100% to treasury if the plot is unowned).
 Fees are tracked instantly in a `treasury_ledger` table and settled on-chain every
-**24 hours** (or immediately once unsettled balance passes **1,000 FRNTR**).
+**24 hours** (or immediately once unsettled balance passes **1,000 ASCEND**).
 
 → Full mechanics, examples, and the ledger schema in **[ECONOMICS.md](ECONOMICS.md)**.
 
@@ -116,8 +116,8 @@ Fees are tracked instantly in a `treasury_ledger` table and settled on-chain eve
 
 ## 🎯 The Player's Money Loop
 
-1. **Own a plot** → earn 1 FRNTR/day base.
-2. **Build Electricity → Blockchain Node L3** → push the plot to 6 FRNTR/day.
+1. **Own a plot** → earn 1 ASCEND/day base.
+2. **Build Electricity → Blockchain Node L3** → push the plot to 6 ASCEND/day.
 3. **Hold 4 hours → subdivide** into 9 sub-parcels.
 4. **Others buy your sub-parcels** → you keep 70% of every sale.
 5. **Own all 9 yourself** → **+50% yield** on the whole plot.

@@ -23,8 +23,8 @@ function redactParcelResources(p: LandParcel): LandParcel {
     ironStored: 0,
     fuelStored: 0,
     crystalStored: 0,
-    frontierAccumulated: 0,
-    frontierPerDay: 0,
+    ascendAccumulated: 0,
+    ascendPerDay: 0,
   };
 }
 
@@ -34,7 +34,7 @@ function redactPlayerEconomics(p: Player): Player {
     iron: 0,
     fuel: 0,
     crystal: 0,
-    frontier: 0,
+    ascend: 0,
     testnetProgress: [],
   };
   // Only touch optional fields that are actually present so the shape is stable.

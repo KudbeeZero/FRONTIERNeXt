@@ -50,17 +50,17 @@ import {
   BASE_STORAGE_CAPACITY,
   LAND_PURCHASE_ALGO,
   TOTAL_PLOTS,
-  FRONTIER_TOTAL_SUPPLY,
-  WELCOME_BONUS_FRONTIER,
+  ASCEND_TOTAL_SUPPLY,
+  WELCOME_BONUS_ASCEND,
   COMMANDER_INFO,
   SPECIAL_ATTACK_INFO,
-  DRONE_MINT_COST_FRONTIER,
+  DRONE_MINT_COST_ASCEND,
   MAX_DRONES,
-  SATELLITE_DEPLOY_COST_FRONTIER,
+  SATELLITE_DEPLOY_COST_ASCEND,
   SATELLITE_ORBIT_DURATION_MS,
   MAX_SATELLITES,
   SATELLITE_YIELD_BONUS,
-  calculateFrontierPerDay,
+  calculateAscendPerDay,
   MORALE_DEBUFF_BASE_MS,
   MORALE_ATTACK_PENALTY,
   ATTACK_COOLDOWN_PER_LOSS_MS,
@@ -90,7 +90,7 @@ export class MemStorage implements IStorage {
   private lastUpdateTs: number;
   private initialized: boolean = false;
   private plotCoords: PlotCoord[] = [];
-  private frontierCirculating: number = 0;
+  private ascendCirculating: number = 0;
 
   constructor() {
     this.parcels = new Map();
@@ -131,9 +131,9 @@ export class MemStorage implements IStorage {
         yieldMultiplier: 1.0,
         improvements: [],
         purchasePriceAlgo: LAND_PURCHASE_ALGO[biome],
-        frontierAccumulated: 0,
-        lastFrontierClaimTs: Date.now(),
-        frontierPerDay: 1,
+        ascendAccumulated: 0,
+        lastAscendClaimTs: Date.now(),
+        ascendPerDay: 1,
         influence: 100,
         influenceRepairRate: 2.0,
         capturedFromFaction: null,
@@ -162,15 +162,15 @@ export class MemStorage implements IStorage {
         iron: 150,
         fuel: 100,
         crystal: 25,
-        frontier: 0,
+        ascend: 0,
         ownedParcels: [],
         isAI: true,
         aiBehavior: AI_BEHAVIORS[i],
         totalIronMined: 0,
         totalFuelMined: 0,
         totalCrystalMined: 0,
-        totalFrontierEarned: 0,
-        totalFrontierBurned: 0,
+        totalAscendEarned: 0,
+        totalAscendBurned: 0,
         attacksWon: 0,
         attacksLost: 0,
         territoriesCaptured: 0,
@@ -221,16 +221,16 @@ export class MemStorage implements IStorage {
     this.lastUpdateTs = Date.now();
   }
 
-  private updateFrontierAccumulation(parcel: LandParcel) {
+  private updateAscendAccumulation(parcel: LandParcel) {
     if (!parcel.ownerId) return;
     const now = Date.now();
-    const daysSinceLastClaim = (now - parcel.lastFrontierClaimTs) / (1000 * 60 * 60 * 24);
+    const daysSinceLastClaim = (now - parcel.lastAscendClaimTs) / (1000 * 60 * 60 * 24);
     if (daysSinceLastClaim <= 0) return;
 
-    const perDay = calculateFrontierPerDay(parcel.improvements);
-    parcel.frontierPerDay = perDay;
+    const perDay = calculateAscendPerDay(parcel.improvements);
+    parcel.ascendPerDay = perDay;
     const earned = perDay * daysSinceLastClaim;
-    parcel.frontierAccumulated += earned;
+    parcel.ascendAccumulated += earned;
   }
 
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
@@ -245,13 +245,13 @@ export class MemStorage implements IStorage {
         totalIronMined: player.totalIronMined,
         totalFuelMined: player.totalFuelMined,
         totalCrystalMined: player.totalCrystalMined,
-        totalFrontierEarned: player.totalFrontierEarned,
+        totalAscendEarned: player.totalAscendEarned,
         attacksWon: player.attacksWon,
         attacksLost: player.attacksLost,
         isAI: player.isAI,
       });
     }
-    return entries.sort((a, b) => b.territories - a.territories || b.totalFrontierEarned - a.totalFrontierEarned);
+    return entries.sort((a, b) => b.territories - a.territories || b.totalAscendEarned - a.totalAscendEarned);
   }
 
   async getGameState(): Promise<GameState> {
@@ -270,8 +270,8 @@ export class MemStorage implements IStorage {
       lastUpdateTs: this.lastUpdateTs,
       totalPlots: TOTAL_PLOTS,
       claimedPlots,
-      frontierTotalSupply: FRONTIER_TOTAL_SUPPLY,
-      frontierCirculating: this.frontierCirculating,
+      ascendTotalSupply: ASCEND_TOTAL_SUPPLY,
+      ascendCirculating: this.ascendCirculating,
       currentSeason: null,
     };
   }
@@ -297,7 +297,7 @@ export class MemStorage implements IStorage {
       battles: full.battles,
       leaderboard: full.leaderboard,
       claimedPlots: full.claimedPlots,
-      frontierCirculating: full.frontierCirculating,
+      ascendCirculating: full.ascendCirculating,
       lastUpdateTs: full.lastUpdateTs,
       seasonEndsAt: null,
       seasonName: null,
@@ -464,16 +464,16 @@ export class MemStorage implements IStorage {
     return merged;
   }
 
-  async spendFrontier(playerId: string, amountFrntr: number): Promise<void> {
+  async spendAscend(playerId: string, amountAscend: number): Promise<void> {
     await this.initialize();
     const player = this.players.get(playerId);
     if (!player) throw new Error("Player not found");
-    if (player.frontier < amountFrntr) {
-      throw new Error(`Insufficient FRONTIER. Need ${amountFrntr}, have ${player.frontier.toFixed(2)}`);
+    if (player.ascend < amountAscend) {
+      throw new Error(`Insufficient ASCEND. Need ${amountAscend}, have ${player.ascend.toFixed(2)}`);
     }
-    player.frontier -= amountFrntr;
-    player.totalFrontierBurned += amountFrntr;
-    this.frontierCirculating -= amountFrntr;
+    player.ascend -= amountAscend;
+    player.totalAscendBurned += amountAscend;
+    this.ascendCirculating -= amountAscend;
   }
 
   async getOrCreatePlayerByAddress(address: string): Promise<Player> {
@@ -492,14 +492,14 @@ export class MemStorage implements IStorage {
       iron: 200,
       fuel: 150,
       crystal: 50,
-      frontier: 0,
+      ascend: 0,
       ownedParcels: [],
       isAI: false,
       totalIronMined: 0,
       totalFuelMined: 0,
       totalCrystalMined: 0,
-      totalFrontierEarned: 0,
-      totalFrontierBurned: 0,
+      totalAscendEarned: 0,
+      totalAscendBurned: 0,
       attacksWon: 0,
       attacksLost: 0,
       territoriesCaptured: 0,
@@ -522,22 +522,22 @@ export class MemStorage implements IStorage {
     if (!player) throw new Error("Player not found");
     if (player.welcomeBonusReceived) return;
 
-    player.frontier += WELCOME_BONUS_FRONTIER;
-    player.totalFrontierEarned += WELCOME_BONUS_FRONTIER;
+    player.ascend += WELCOME_BONUS_ASCEND;
+    player.totalAscendEarned += WELCOME_BONUS_ASCEND;
     player.welcomeBonusReceived = true;
-    this.frontierCirculating += WELCOME_BONUS_FRONTIER;
+    this.ascendCirculating += WELCOME_BONUS_ASCEND;
 
     this.events.push({
       id: randomUUID(),
-      type: "claim_frontier",
+      type: "claim_ascend",
       playerId: player.id,
-      description: `${player.name} received ${WELCOME_BONUS_FRONTIER} FRONTIER welcome bonus!`,
+      description: `${player.name} received ${WELCOME_BONUS_ASCEND} ASCEND welcome bonus!`,
       timestamp: Date.now(),
     });
     this.lastUpdateTs = Date.now();
   }
 
-  async claimFrontier(playerId: string): Promise<{ amount: number }> {
+  async claimAscend(playerId: string): Promise<{ amount: number }> {
     await this.initialize();
     const player = this.players.get(playerId);
     if (!player) throw new Error("Player not found");
@@ -549,23 +549,23 @@ export class MemStorage implements IStorage {
       const parcel = this.parcels.get(parcelId);
       if (!parcel) continue;
 
-      this.updateFrontierAccumulation(parcel);
-      totalClaimed += parcel.frontierAccumulated;
-      parcel.frontierAccumulated = 0;
-      parcel.lastFrontierClaimTs = now;
+      this.updateAscendAccumulation(parcel);
+      totalClaimed += parcel.ascendAccumulated;
+      parcel.ascendAccumulated = 0;
+      parcel.lastAscendClaimTs = now;
     }
 
     const rounded = Math.floor(totalClaimed * 100) / 100;
     if (rounded > 0) {
-      player.frontier += rounded;
-      player.totalFrontierEarned += rounded;
-      this.frontierCirculating += rounded;
+      player.ascend += rounded;
+      player.totalAscendEarned += rounded;
+      this.ascendCirculating += rounded;
 
       this.events.push({
         id: randomUUID(),
-        type: "claim_frontier",
+        type: "claim_ascend",
         playerId: player.id,
-        description: `${player.name} claimed ${rounded.toFixed(2)} FRONTIER tokens`,
+        description: `${player.name} claimed ${rounded.toFixed(2)} ASCEND tokens`,
         timestamp: now,
       });
       this.lastUpdateTs = now;
@@ -574,14 +574,14 @@ export class MemStorage implements IStorage {
     return { amount: rounded };
   }
 
-  async restoreFrontier(playerId: string, amount: number): Promise<void> {
+  async restoreAscend(playerId: string, amount: number): Promise<void> {
     await this.initialize();
     const player = this.players.get(playerId);
     if (!player || amount <= 0) return;
 
-    player.frontier -= amount;
-    player.totalFrontierEarned -= amount;
-    this.frontierCirculating -= amount;
+    player.ascend -= amount;
+    player.totalAscendEarned -= amount;
+    this.ascendCirculating -= amount;
     console.log(`Restored ${amount} FRONTIER for player ${player.name} due to failed transfer`);
   }
 
@@ -609,12 +609,12 @@ export class MemStorage implements IStorage {
         if (!hasPrereq) throw new Error(`Requires ${FACILITY_INFO[facilityInfo.prerequisite!].name} first`);
       }
 
-      const cost = facilityInfo.costFrontier[level - 1];
-      if (player.frontier < cost) throw new Error(`Insufficient FRONTIER (need ${cost})`);
+      const cost = facilityInfo.costAscend[level - 1];
+      if (player.ascend < cost) throw new Error(`Insufficient ASCEND (need ${cost})`);
 
-      player.frontier -= cost;
-      player.totalFrontierBurned += cost;
-      this.frontierCirculating -= cost;
+      player.ascend -= cost;
+      player.totalAscendBurned += cost;
+      this.ascendCirculating -= cost;
     } else {
       const defInfo = DEFENSE_IMPROVEMENT_INFO[action.improvementType as DefenseImprovementType];
       if (existing && existing.level >= defInfo.maxLevel) throw new Error("Improvement already at max level");
@@ -645,7 +645,7 @@ export class MemStorage implements IStorage {
       parcel.yieldMultiplier += 0.05 * level;
     }
 
-    parcel.frontierPerDay = calculateFrontierPerDay(parcel.improvements);
+    parcel.ascendPerDay = calculateAscendPerDay(parcel.improvements);
 
     const displayName = isFacility
       ? FACILITY_INFO[action.improvementType as FacilityType].name
@@ -672,11 +672,14 @@ export class MemStorage implements IStorage {
     if (!parcel || !player) throw new Error("Invalid parcel or player");
     if (parcel.ownerId) throw new Error("Territory is already owned");
     if (parcel.purchasePriceAlgo === null) throw new Error("Territory is not for sale");
+    // Parity with DbStorage: a battle's outcome is locked at deploy time, so
+    // selling a parcel mid-battle robs the buyer or the attacker at resolution.
+    if (parcel.activeBattleId) throw new Error("Territory is under attack and cannot be purchased");
 
     parcel.ownerId = player.id;
     parcel.ownerType = player.isAI ? "ai" : "player";
     parcel.purchasePriceAlgo = null;
-    parcel.lastFrontierClaimTs = Date.now();
+    parcel.lastAscendClaimTs = Date.now();
     player.ownedParcels.push(parcel.id);
     player.territoriesCaptured++;
 
@@ -847,11 +850,11 @@ export class MemStorage implements IStorage {
 
     const info = COMMANDER_INFO[action.tier];
     if (!info) throw new Error("Invalid commander tier");
-    if (player.frontier < info.mintCostFrontier) throw new Error(`Insufficient FRONTIER. Need ${info.mintCostFrontier}, have ${player.frontier.toFixed(2)}`);
+    if (player.ascend < info.mintCostAscend) throw new Error(`Insufficient ASCEND. Need ${info.mintCostAscend}, have ${player.ascend.toFixed(2)}`);
 
-    player.frontier -= info.mintCostFrontier;
-    player.totalFrontierBurned += info.mintCostFrontier;
-    this.frontierCirculating -= info.mintCostFrontier;
+    player.ascend -= info.mintCostAscend;
+    player.totalAscendBurned += info.mintCostAscend;
+    this.ascendCirculating -= info.mintCostAscend;
 
     const bonusRoll = Math.random() * 0.3;
     const avatar: CommanderAvatar = {
@@ -873,7 +876,7 @@ export class MemStorage implements IStorage {
       id: randomUUID(),
       type: "mint_avatar",
       playerId: player.id,
-      description: `${player.name} minted a ${info.name} Commander (${action.tier.toUpperCase()}) for ${info.mintCostFrontier} FRONTIER`,
+      description: `${player.name} minted a ${info.name} Commander (${action.tier.toUpperCase()}) for ${info.mintCostAscend} FRONTIER`,
       timestamp: Date.now(),
     });
 
@@ -894,8 +897,8 @@ export class MemStorage implements IStorage {
       throw new Error(`${attackInfo.name} requires a ${attackInfo.requiredTier.join(" or ")} Commander`);
     }
 
-    if (player.frontier < attackInfo.costFrontier) {
-      throw new Error(`Insufficient FRONTIER. Need ${attackInfo.costFrontier}, have ${player.frontier.toFixed(2)}`);
+    if (player.ascend < attackInfo.costAscend) {
+      throw new Error(`Insufficient ASCEND. Need ${attackInfo.costAscend}, have ${player.ascend.toFixed(2)}`);
     }
 
     const existing = player.specialAttacks.find(sa => sa.type === action.attackType);
@@ -911,9 +914,9 @@ export class MemStorage implements IStorage {
     if (!targetParcel) throw new Error("Target plot not found");
     if (targetParcel.ownerId === player.id) throw new Error("Cannot attack your own territory");
 
-    player.frontier -= attackInfo.costFrontier;
-    player.totalFrontierBurned += attackInfo.costFrontier;
-    this.frontierCirculating -= attackInfo.costFrontier;
+    player.ascend -= attackInfo.costAscend;
+    player.totalAscendBurned += attackInfo.costAscend;
+    this.ascendCirculating -= attackInfo.costAscend;
 
     if (existing) {
       existing.lastUsedTs = Date.now();
@@ -968,13 +971,13 @@ export class MemStorage implements IStorage {
     const player = this.players.get(action.playerId);
     if (!player) throw new Error("Player not found");
     if (player.drones.length >= MAX_DRONES) throw new Error(`Maximum ${MAX_DRONES} drones allowed`);
-    if (player.frontier < DRONE_MINT_COST_FRONTIER) {
-      throw new Error(`Insufficient FRONTIER. Need ${DRONE_MINT_COST_FRONTIER}, have ${player.frontier.toFixed(2)}`);
+    if (player.ascend < DRONE_MINT_COST_ASCEND) {
+      throw new Error(`Insufficient ASCEND. Need ${DRONE_MINT_COST_ASCEND}, have ${player.ascend.toFixed(2)}`);
     }
 
-    player.frontier -= DRONE_MINT_COST_FRONTIER;
-    player.totalFrontierBurned += DRONE_MINT_COST_FRONTIER;
-    this.frontierCirculating -= DRONE_MINT_COST_FRONTIER;
+    player.ascend -= DRONE_MINT_COST_ASCEND;
+    player.totalAscendBurned += DRONE_MINT_COST_ASCEND;
+    this.ascendCirculating -= DRONE_MINT_COST_ASCEND;
 
     let targetId = action.targetParcelId || null;
     if (!targetId) {
@@ -1033,13 +1036,13 @@ export class MemStorage implements IStorage {
     );
     const activeSatellites = player.satellites.filter(s => s.status === "active");
     if (activeSatellites.length >= MAX_SATELLITES) throw new Error(`Maximum ${MAX_SATELLITES} active satellites allowed`);
-    if (player.frontier < SATELLITE_DEPLOY_COST_FRONTIER) {
-      throw new Error(`Insufficient FRONTIER. Need ${SATELLITE_DEPLOY_COST_FRONTIER}, have ${player.frontier.toFixed(2)}`);
+    if (player.ascend < SATELLITE_DEPLOY_COST_ASCEND) {
+      throw new Error(`Insufficient ASCEND. Need ${SATELLITE_DEPLOY_COST_ASCEND}, have ${player.ascend.toFixed(2)}`);
     }
 
-    player.frontier -= SATELLITE_DEPLOY_COST_FRONTIER;
-    player.totalFrontierBurned += SATELLITE_DEPLOY_COST_FRONTIER;
-    this.frontierCirculating -= SATELLITE_DEPLOY_COST_FRONTIER;
+    player.ascend -= SATELLITE_DEPLOY_COST_ASCEND;
+    player.totalAscendBurned += SATELLITE_DEPLOY_COST_ASCEND;
+    this.ascendCirculating -= SATELLITE_DEPLOY_COST_ASCEND;
 
     const satellite: OrbitalSatellite = {
       id: randomUUID(),
@@ -1127,7 +1130,7 @@ export class MemStorage implements IStorage {
             targetParcel.ownerType = attacker.isAI ? "ai" : "player";
             targetParcel.defenseLevel = Math.max(1, Math.floor(targetParcel.defenseLevel / 2));
             targetParcel.purchasePriceAlgo = null;
-            targetParcel.lastFrontierClaimTs = now;
+            targetParcel.lastAscendClaimTs = now;
             attacker.ownedParcels.push(targetParcel.id);
             attacker.attacksWon++;
             attacker.territoriesCaptured++;
@@ -1409,7 +1412,7 @@ export class MemStorage implements IStorage {
     return { outcome: "defender_wins", battleId: "", attackerPower: 0, defenderPower: 0, log: [], error: "Not supported in memory storage" };
   }
   async getOpenSubParcelListings(): Promise<SubParcelListing[]> { return []; }
-  async createSubParcelListing(_sellerId: string, _subParcelId: string, _askPriceFrontier: number): Promise<{ listing: SubParcelListing; error?: string }> { return { listing: null as any, error: "Not supported in memory storage" }; }
+  async createSubParcelListing(_sellerId: string, _subParcelId: string, _askPriceAscend: number): Promise<{ listing: SubParcelListing; error?: string }> { return { listing: null as any, error: "Not supported in memory storage" }; }
   async cancelSubParcelListing(_sellerId: string, _listingId: string): Promise<{ error?: string }> { return { error: "Not supported in memory storage" }; }
   async buySubParcelListing(_buyerId: string, _listingId: string): Promise<{ listing: SubParcelListing; error?: string }> { return { listing: null as any, error: "Not supported in memory storage" }; }
   async assignSubParcelArchetype(_subParcelId: string, _playerId: string, _archetype: SubParcelArchetype, _archetypeLevel: number, _energyAlignment?: EnergyAlignment): Promise<{ subParcel: SubParcel; factionBonus: number; error?: string }> { return { subParcel: null as any, factionBonus: 0, error: "Not supported in memory storage" }; }
@@ -1427,8 +1430,8 @@ export class MemStorage implements IStorage {
     if (parcel.ownerId !== playerId) return { parcel: { ...parcel }, error: "You do not own this plot" };
 
     const cost = TERRAFORM_COSTS[action.type] ?? 10;
-    if (player.frontier < cost) {
-      return { parcel: { ...parcel }, error: `Insufficient FRONTIER — need ${cost}, have ${player.frontier.toFixed(2)}` };
+    if (player.ascend < cost) {
+      return { parcel: { ...parcel }, error: `Insufficient ASCEND — need ${cost}, have ${player.ascend.toFixed(2)}` };
     }
 
     const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
@@ -1459,7 +1462,7 @@ export class MemStorage implements IStorage {
         return { parcel: { ...parcel }, error: "Unknown terraform action" };
     }
 
-    player.frontier -= cost;
+    player.ascend -= cost;
     return { parcel: { ...parcel } };
   }
 

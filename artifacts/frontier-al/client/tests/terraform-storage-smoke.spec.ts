@@ -50,7 +50,7 @@ beforeEach(async () => {
 
   // Give owner enough FRONTIER balance for tests
   const player = await storage.getPlayer(ownerId)
-  if (player) player.frontier = 500
+  if (player) player.ascend = 500
 
   // Create a non-owner player
   nonOwnerId = 'non-owner-test-id'
@@ -59,11 +59,11 @@ beforeEach(async () => {
     address: 'NON_OWNER_WALLET',
     name: 'NonOwner',
     iron: 0, fuel: 0, crystal: 0,
-    frontier: 500,
+    ascend: 500,
     ownedParcels: [],
     isAI: false,
     totalIronMined: 0, totalFuelMined: 0, totalCrystalMined: 0,
-    totalFrontierEarned: 0, totalFrontierBurned: 0,
+    totalAscendEarned: 0, totalAscendBurned: 0,
     attacksWon: 0, attacksLost: 0, territoriesCaptured: 0,
     commander: null, commanders: [], activeCommanderIndex: 0,
     specialAttacks: [], drones: [], satellites: [],
@@ -98,14 +98,14 @@ describe('Terraform smoke — storage layer', () => {
   // A3: Insufficient balance is rejected
   it('rejects insufficient balance', async () => {
     const player = await storage.getPlayer(ownerId)
-    if (player) player.frontier = 1
+    if (player) player.ascend = 1
 
     const result = await storage.terraformParcel(ownedPlotId, ownerId, {
       type: 'convert_biome',
       targetBiome: 'forest',
     })
 
-    expect(result.error).toContain('Insufficient FRONTIER')
+    expect(result.error).toContain('Insufficient ASCEND')
   })
 
   // A4: Updates biome/hazard/stability correctly
@@ -148,7 +148,7 @@ describe('Terraform smoke — storage layer', () => {
     })
 
     const playerBefore = await storage.getPlayer(ownerId)
-    const balanceBefore = playerBefore!.frontier
+    const balanceBefore = playerBefore!.ascend
 
     const result = await storage.terraformParcel(ownedPlotId, ownerId, {
       type: 'convert_biome',
@@ -157,7 +157,7 @@ describe('Terraform smoke — storage layer', () => {
 
     expect(result.error).toContain('already has that biome')
     const playerAfter = await storage.getPlayer(ownerId)
-    expect(playerAfter!.frontier).toBe(balanceBefore)
+    expect(playerAfter!.ascend).toBe(balanceBefore)
   })
 
   // A6: Writes updated state correctly (read-back verification)
@@ -172,6 +172,6 @@ describe('Terraform smoke — storage layer', () => {
     expect(plot.yieldMultiplier).toBeCloseTo(1.5, 3)
 
     const player = state.players.find(p => p.id === ownerId)!
-    expect(player.frontier).toBe(500 - 15)
+    expect(player.ascend).toBe(500 - 15)
   })
 })

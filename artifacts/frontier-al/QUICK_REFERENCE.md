@@ -90,22 +90,22 @@
 
 ---
 
-## 🏭 FRONTIER Facilities *(burn FRNTR · Electricity required first)*
+## 🏭 FRONTIER Facilities *(burn ASCEND · Electricity required first)*
 
 | Facility | Prereq | Lv1 | Lv2 | Lv3 | Effect |
 |---|---|:---:|:---:|:---:|---|
-| Electricity | — | 30 | — | — | +1 FRNTR/day, unlocks the rest |
-| Blockchain Node | Electricity | 120 | 270 | 480 | +2 / +3 / +4 FRNTR/day |
+| Electricity | — | 30 | — | — | +1 ASCEND/day, unlocks the rest |
+| Blockchain Node | Electricity | 120 | 270 | 480 | +2 / +3 / +4 ASCEND/day |
 | Data Centre | Electricity | 120 | 270 | 480 | +5% / +10% / +15% yield |
 | AI Lab | Electricity | 120 | 270 | 480 | −30s / −60s / −90s cooldown |
 
-**Max FRNTR/plot/day = 6** (Base 1 + Electricity 1 + Blockchain Node Lv3 +4).
-Data Centre & AI Lab give **0 FRNTR** — they boost yield / cut cooldown instead.
-Max-output investment per plot: **900 FRNTR** (30 + 120 + 270 + 480).
+**Max ASCEND/plot/day = 6** (Base 1 + Electricity 1 + Blockchain Node Lv3 +4).
+Data Centre & AI Lab give **0 ASCEND** — they boost yield / cut cooldown instead.
+Max-output investment per plot: **900 ASCEND** (30 + 120 + 270 + 480).
 
 ---
 
-## 🎖️ Commanders *(mint by burning FRNTR · 12h lock after deploy)*
+## 🎖️ Commanders *(mint by burning ASCEND · 12h lock after deploy)*
 
 | Tier | Cost | ATK | DEF | Ability | Max Concurrent Attacks |
 |---|:---:|:---:|:---:|---|:---:|
@@ -153,7 +153,7 @@ defenderPower = (defenseLevel × 15 + improvementBonus) × biomeDefenseMod
 
 | | Drone | Satellite |
 |---|---|---|
-| Cost | 20 FRNTR (10 w/ Launchpad) | 50 FRNTR (25 w/ Launchpad) |
+| Cost | 20 ASCEND (10 w/ Launchpad) | 50 ASCEND (25 w/ Launchpad) |
 | Duration | 15 min | 1 hour |
 | Max | 5 (7 w/ Launchpad) | 2 (3 w/ Launchpad) |
 | Effect | Reveals enemy resources + improvements | +25% mining on **all** plots (stacks) |
@@ -163,9 +163,9 @@ defenderPower = (defenseLevel × 15 + improvementBonus) × biomeDefenseMod
 ## 🧩 Sub-Parcels
 
 - Macro-plot → **3×3 grid (9 sub-parcels)**, human-only
-- Requires **4-hour ownership hold**; cost **10–100 FRNTR** by biome
-- Each sub-parcel = **1/9** of parent daily FRNTR
-- **Own all 9 → +50% yield** on that plot (e.g. 6 → 9 FRNTR/day)
+- Requires **4-hour ownership hold**; cost **10–100 ASCEND** by biome
+- Each sub-parcel = **1/9** of parent daily ASCEND
+- **Own all 9 → +50% yield** on that plot (e.g. 6 → 9 ASCEND/day)
 - Sub-parcels inherit parent defense; can be captured independently
 
 ---
@@ -174,10 +174,10 @@ defenderPower = (defenseLevel × 15 + improvementBonus) × biomeDefenseMod
 
 | Landmark | Cost | Requires | Headline Effect |
 |---|---|---|---|
-| 🚀 Launchpad | 500 FRNTR + 50 Xenorite + 30 Plasma Core | 10+ plots, Electricity | −50% drone/sat cost, +slots, Deep Space Probe |
-| 🛸 Orbital Alien Dome | 800 FRNTR + 40 Void Shard + 20 Dark Matter | 25+ plots, active season | +100% FRNTR in season, +5% reward pool to owner |
-| ⚗️ Quantum Forge | 600 FRNTR + 30 Xenorite + 25 Void Shard + 10 Plasma Core | 15+ plots, Data Centre Lv2+ | Refine minerals, Legendary box / 48h, +30% Crystal |
-| 📡 Ancient Relay | 400 FRNTR + 20 Plasma Core + 15 Void Shard | 20+ plots, AI Lab Lv2+ | Teleport resources, +2 FRNTR/day, −25% attack cooldown |
+| 🚀 Launchpad | 500 ASCEND + 50 Xenorite + 30 Plasma Core | 10+ plots, Electricity | −50% drone/sat cost, +slots, Deep Space Probe |
+| 🛸 Orbital Alien Dome | 800 ASCEND + 40 Void Shard + 20 Dark Matter | 25+ plots, active season | +100% ASCEND in season, +5% reward pool to owner |
+| ⚗️ Quantum Forge | 600 ASCEND + 30 Xenorite + 25 Void Shard + 10 Plasma Core | 15+ plots, Data Centre Lv2+ | Refine minerals, Legendary box / 48h, +30% Crystal |
+| 📡 Ancient Relay | 400 ASCEND + 20 Plasma Core + 15 Void Shard | 20+ plots, AI Lab Lv2+ | Teleport resources, +2 ASCEND/day, −25% attack cooldown |
 
 ---
 
@@ -218,18 +218,18 @@ defenderPower = (defenseLevel × 15 + improvementBonus) × biomeDefenseMod
 |---|---|---|
 | 🌱 Expansion | 1–30 | Land −20%, welcome bonus ×2 (1,000), AI starts small |
 | ⚔️ Conflict | 31–60 | Cooldowns −25%, pillage 40%, 2× orbital events |
-| 👑 Domination | 61–90 | +50% FRNTR globally, board locks final 24h |
+| 👑 Domination | 61–90 | +50% ASCEND globally, board locks final 24h |
 
 **Reward pool (top 10):** 30 / 20 / 12 / 8 / 6 / 5 / 5 / 5 / 5 / 4 %
 
 ---
 
-## 🪙 FRNTR Essentials
+## 🪙 ASCEND Essentials
 
 | | |
 |---|---|
 | Total supply | 1,000,000,000 (immutable ASA) · 6 decimals |
-| Welcome bonus | 500 FRNTR (one-time) |
+| Welcome bonus | 500 ASCEND (one-time) |
 | Two-layer model | DB = instant authoritative · On-chain = batched |
 | Sinks | Facilities 30–480 · Commanders 50–400 · Special attacks 10–40 · Drone 20 · Satellite 50 |
 

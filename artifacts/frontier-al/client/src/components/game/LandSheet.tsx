@@ -92,7 +92,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
     },
   });
 
-  const { data: listingsData } = useQuery<{ listings: { id: string; subParcelId: string; status: string; askPriceFrontier: number }[] }>({
+  const { data: listingsData } = useQuery<{ listings: { id: string; subParcelId: string; status: string; askPriceAscend: number }[] }>({
     queryKey: ["/api/sub-parcels/listings"],
     staleTime: 10_000,
   });
@@ -100,7 +100,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
 
   const createListingMutation = useMutation({
     mutationFn: (price: number) =>
-      apiRequest("POST", "/api/sub-parcels/listings", { sellerId: player.id, subParcelId: sp.id, askPriceFrontier: price }),
+      apiRequest("POST", "/api/sub-parcels/listings", { sellerId: player.id, subParcelId: sp.id, askPriceAscend: price }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sub-parcels/listings"] });
       setListPrice("");
@@ -260,7 +260,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
             const cost = atMax ? 0 : Math.ceil(rawCost * multiplier);
             const hasDiscount = multiplier < 0.99;
             const hasPremium = multiplier > 1.01;
-            const canAfford = player.frontier >= cost;
+            const canAfford = player.ascend >= cost;
             const hasPrereq = !info.prerequisite || improvements.find(i => i.type === info.prerequisite);
             return (
               <Button key={type} variant="outline" size="sm"
@@ -339,7 +339,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
         <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1.5">Trade</p>
         {existingListing ? (
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-emerald-400 font-mono">Listed: {existingListing.askPriceFrontier} ASCEND</span>
+            <span className="text-[9px] text-emerald-400 font-mono">Listed: {existingListing.askPriceAscend} ASCEND</span>
             <Button size="sm" variant="outline" className="h-5 px-2 text-[9px] border-destructive/50 text-destructive hover:bg-destructive/10"
               onClick={() => cancelListingMutation.mutate(existingListing.id)}
               disabled={cancelListingMutation.isPending}
@@ -400,7 +400,7 @@ function SubParcelGrid({ parcel, player, onNavigate }: SubParcelGridProps) {
 
   const isOwner = player && parcel.ownerId === player.id;
   const holdMs  = SUB_PARCEL_HOLD_HOURS * 60 * 60 * 1000;
-  const heldSince = parcel.capturedAt ?? parcel.lastFrontierClaimTs;
+  const heldSince = parcel.capturedAt ?? parcel.lastAscendClaimTs;
   const canSubdivide = !!(isOwner && !parcel.isSubdivided && heldSince && Date.now() - heldSince >= holdMs);
 
   if (!parcel.isSubdivided) {
@@ -496,8 +496,8 @@ function SubParcelGrid({ parcel, player, onNavigate }: SubParcelGridProps) {
             const sp = subMap.get(i);
             const isYours = sp?.ownerId === player?.id;
             const isEnemy = sp?.ownerId && !isYours;
-            const price   = sp?.purchasePriceFrontier;
-            const canAffordBuy = player && price !== undefined && player.frontier >= price;
+            const price   = sp?.purchasePriceAscend;
+            const canAffordBuy = player && price !== undefined && player.ascend >= price;
             const canBuy  = !sp?.ownerId && player && price !== undefined;
             const hasImprovements = (sp?.improvements?.length ?? 0) > 0;
             const isSelected = selectedSubIndex === i;
@@ -761,7 +761,7 @@ export function LandSheet({
                   {isOwned && <span className="text-primary font-display uppercase font-semibold">Your Territory</span>}
                   {isEnemyOwned && <span className="text-destructive font-display uppercase font-semibold">Enemy Territory</span>}
                   {isUnclaimed && <span className="font-display uppercase">Unclaimed</span>}
-                  <span className="text-primary font-mono font-semibold">{parcel.frontierPerDay.toFixed(1)} ASCEND/day</span>
+                  <span className="text-primary font-mono font-semibold">{parcel.ascendPerDay.toFixed(1)} ASCEND/day</span>
                 </div>
               </div>
             </div>
@@ -1054,7 +1054,7 @@ export function LandSheet({
           </div>
 
           {showTerraformPanel && isOwned && (() => {
-            const canAffordTerraform = !!player && player.frontier >= TERRAFORM_COST;
+            const canAffordTerraform = !!player && player.ascend >= TERRAFORM_COST;
             const currentProtoKey = Object.keys(TERRAFORM_BIOME_MAP).find(
               k => TERRAFORM_BIOME_MAP[k] === parcel.biome
             );
@@ -1146,7 +1146,7 @@ export function LandSheet({
                 )}
                 {!canAffordTerraform && (
                   <p className="text-[9px] text-destructive font-mono">
-                    Insufficient ASCEND — need {TERRAFORM_COST}, have {player?.frontier ?? 0}
+                    Insufficient ASCEND — need {TERRAFORM_COST}, have {player?.ascend ?? 0}
                   </p>
                 )}
                 {terraformMutation.isError && (
@@ -1232,10 +1232,10 @@ export function LandSheet({
                     const existing = parcel.improvements.find(i => i.type === type);
                     const atMax = existing && existing.level >= info.maxLevel;
                     const level = existing ? existing.level + 1 : 1;
-                    const cost = atMax ? 0 : info.costFrontier[level - 1];
-                    const canAfford = player && player.frontier >= cost;
+                    const cost = atMax ? 0 : info.costAscend[level - 1];
+                    const canAfford = player && player.ascend >= cost;
                     const hasPrereq = !info.prerequisite || parcel.improvements.find(i => i.type === info.prerequisite);
-                    const perDay = info.frontierPerDay[Math.min(level - 1, info.frontierPerDay.length - 1)];
+                    const perDay = info.ascendPerDay[Math.min(level - 1, info.ascendPerDay.length - 1)];
                     const showsIncome = perDay > 0;
 
                     return (
@@ -1338,7 +1338,7 @@ export function LandSheet({
                   const isAvailable = info.requiredTier.includes(player.commander!.tier);
                   const record = player.specialAttacks.find(sa => sa.type === type);
                   const isOnCooldown = record ? (Date.now() - record.lastUsedTs) < info.cooldownMs : false;
-                  const canAfford = player.frontier >= info.costFrontier;
+                  const canAfford = player.ascend >= info.costAscend;
 
                   return (
                     <Button
@@ -1354,7 +1354,7 @@ export function LandSheet({
                         <Icon className="w-3 h-3" /> {info.name}
                       </span>
                       <span className="text-[9px] text-muted-foreground font-mono">
-                        {isOnCooldown ? "Cooldown" : `${info.costFrontier} ASCEND`}
+                        {isOnCooldown ? "Cooldown" : `${info.costAscend} ASCEND`}
                       </span>
                     </Button>
                   );
