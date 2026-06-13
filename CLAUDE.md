@@ -42,3 +42,14 @@ Algorand game — architecture, HARD RULES on pricing/finality/atomic delivery,
 the `algo-auditor` and `mainnet-gate` gates), defer to
 [`artifacts/frontier-al/CLAUDE.md`](./artifacts/frontier-al/CLAUDE.md). If the two
 ever conflict, the app file wins on app matters; this file wins on the chat loop.
+
+## Mainnet readiness flow
+
+On the road to Algorand mainnet, a workflow layer of process gates sits on top of
+the chat loop — see [`docs/MAINNET_READINESS_FLOW.md`](./docs/MAINNET_READINESS_FLOW.md).
+The skills: `/pr-gate` (mechanical pre-merge go/no-go), `/security-pass` (surgical
+security review — fix + test + document), `/mainnet-gate` (read-only PASS/CONCERNS/
+FAIL mainnet check, the concrete impl of the gate referenced above), `/test-matrix`
+(visible coverage grid), and `/end-session` (safe stop + dated session note). They
+are process only — they do not change game behavior. Nothing reaches mainnet
+without a PASS from `/mainnet-gate` **and** an `algo-auditor` pass.
