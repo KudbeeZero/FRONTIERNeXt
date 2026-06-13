@@ -15,7 +15,7 @@ import {
   tally,
   skip,
 } from "./assert.js";
-import { formatReport, shouldAlert } from "./reporter.js";
+import { formatReport, shouldAlert, severityOf, toJsonReport } from "./reporter.js";
 import type { FlowResult } from "./types.js";
 
 describe("assertions", () => {
@@ -76,5 +76,33 @@ describe("reporter", () => {
     expect(shouldAlert(run)).toBe(true);
     const clean = { startedAt: 0, ms: 1, flows: [toFlowResult("market", [assert("ok", true)], 1)], totals: tally([toFlowResult("market", [assert("ok", true)], 1)]) };
     expect(shouldAlert(clean)).toBe(false);
+  });
+});
+
+describe("severity", () => {
+  const makeRun = (flows: FlowResult[]) => ({ startedAt: 0, ms: 1, flows, totals: tally(flows) });
+
+  it("maps clean/skipped runs to OK", () => {
+    expect(severityOf(makeRun([toFlowResult("market", [assert("ok", true)], 1)]))).toBe("OK");
+    expect(severityOf(makeRun([toFlowResult("land", [skip("land", "not implemented")], 1)]))).toBe("OK");
+  });
+
+  it("maps FAIL to SEV2 and any DRIFT to SEV1 (DRIFT dominates)", () => {
+    const failed = makeRun([toFlowResult("market", [assert("create", false, "boom")], 1)]);
+    expect(severityOf(failed)).toBe("SEV2");
+    const drifted = makeRun([
+      toFlowResult("market", [assert("create", false, "boom")], 1),
+      toFlowResult("token", [assertReconciled("balance", { db: 1, chain: 2 })], 1),
+    ]);
+    expect(severityOf(drifted)).toBe("SEV1");
+  });
+
+  it("toJsonReport emits a stable, parseable shape with severity", () => {
+    const run = makeRun([toFlowResult("market", [assert("create", false, "boom")], 1)]);
+    const parsed = JSON.parse(JSON.stringify(toJsonReport(run)));
+    expect(parsed.severity).toBe("SEV2");
+    expect(parsed.totals).toEqual({ PASS: 0, FAIL: 1, DRIFT: 0, SKIP: 0 });
+    expect(parsed.flows[0]).toMatchObject({ flow: "market", status: "FAIL" });
+    expect(parsed.flows[0].steps[0]).toMatchObject({ step: "create", detail: "boom" });
   });
 });

@@ -1,0 +1,86 @@
+# veritas-grind — the robot player. Every 30 minutes it clones the repo and
+# runs the Veritas verification harness (artifacts/frontier-al/server/veritas/)
+# against the live TESTNET backend: real flows, real testnet transactions,
+# PASS/FAIL/DRIFT assertions.
+#
+# Veritas runs in JSON mode (VERITAS_JSON=1): stdout is a machine-readable
+# report with a `severity` field (OK | SEV2 | SEV1 — DRIFT means the DB and the
+# chain disagree, which is always SEV1). Anything not OK is dispatched through
+# severity-router. Do NOT set VERITAS_DISCORD_WEBHOOK here — the router owns
+# alerting, setting both would double-post.
+#
+# Required Kestra secrets:
+#   GITHUB_TOKEN             read access to KudbeeZero/FRONTIERNeXt (repo is private)
+#   FRONTIER_ADMIN_KEY       backend ADMIN_KEY (market create/resolve steps)
+#   VERITAS_TEST_MNEMONIC    25-word TESTNET wallet seed (never a funded mainnet wallet)
+#   VERITAS_FUNDER_MNEMONIC  optional testnet funder for auto top-up
+# Edit `variables` after import.
+id: veritas-grind
+namespace: frontier.ops
+
+variables:
+  targetUrl: "https://YOUR-REPLIT-DEPLOYMENT.replit.app"
+  ascendAsaId: "0" # FRONTIER ($ASCEND) testnet ASA id; 0 skips token reconciliation
+
+tasks:
+  - id: run
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+    containerImage: node:22
+    env:
+      VERITAS_TARGET_URL: "{{ vars.targetUrl }}"
+      VERITAS_ADMIN_KEY: "{{ secret('FRONTIER_ADMIN_KEY') }}"
+      VERITAS_TEST_MNEMONIC: "{{ secret('VERITAS_TEST_MNEMONIC') }}"
+      VERITAS_FUNDER_MNEMONIC: "{{ secret('VERITAS_FUNDER_MNEMONIC') }}"
+      VERITAS_FRONTIER_ASA_ID: "{{ vars.ascendAsaId }}"
+    outputFiles:
+      - veritas.json
+      - report.txt
+    commands:
+      - export OUT_DIR="$PWD"
+      - npm install -g pnpm@10
+      - git clone --depth 1 "https://x-access-token:{{ secret('GITHUB_TOKEN') }}@github.com/KudbeeZero/FRONTIERNeXt.git" repo
+      - cd repo
+      - pnpm install
+      - cd artifacts/frontier-al
+      # Veritas exits 1 on FAIL/DRIFT by design; severity is routed from the
+      # JSON below, so don't let the exit code kill the task. --silent keeps
+      # pnpm's script banner off stdout so it stays pure JSON.
+      - (VERITAS_JSON=1 pnpm --silent run veritas > "$OUT_DIR/veritas.json" 2> "$OUT_DIR/report.txt") || true
+      - cat "$OUT_DIR/report.txt"
+
+  - id: harness_check
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ (read(outputs.run.outputFiles['veritas.json']) ?? '') == '' }}"
+    then:
+      # No JSON at all → the harness itself crashed (exit 2 path). That blinds
+      # us to every flow, so treat it as SEV1.
+      - id: harness_crashed
+        type: io.kestra.plugin.core.flow.Subflow
+        flowId: severity-router
+        namespace: frontier.ops
+        wait: true
+        inputs:
+          severity: "SEV1"
+          title: "veritas harness crashed — monitoring is blind"
+          detail: "{{ read(outputs.run.outputFiles['report.txt']) ?? 'no output captured' }}"
+    else:
+      - id: route_severity
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{ fromJson(read(outputs.run.outputFiles['veritas.json'])).severity != 'OK' }}"
+        then:
+          - id: dispatch
+            type: io.kestra.plugin.core.flow.Subflow
+            flowId: severity-router
+            namespace: frontier.ops
+            wait: true
+            inputs:
+              severity: "{{ fromJson(read(outputs.run.outputFiles['veritas.json'])).severity }}"
+              title: "veritas {{ fromJson(read(outputs.run.outputFiles['veritas.json'])).severity == 'SEV1' ? 'DRIFT — DB and chain disagree' : 'flow failure' }}"
+              detail: "{{ read(outputs.run.outputFiles['report.txt']) }}"
+
+triggers:
+  - id: every_thirty_minutes
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "*/30 * * * *"
