@@ -200,6 +200,8 @@ export async function attemptCommanderDelivery(
  *  - sender matches expectedSender
  *  - receiver matches admin wallet
  *  - amount >= minMicroAlgo
+ *  - carries no close-remainder or rekey rider (a clean payment never does;
+ *    their presence means the txn is doing more than a simple payment)
  */
 export async function verifyAlgoPayment(params: {
   txId:            string;
@@ -238,6 +240,21 @@ export async function verifyAlgoPayment(params: {
   const receiver  = payFields.receiver ?? payFields["receiver"];
   const amount    = Number(payFields.amount ?? 0);
   const sender    = txn.sender;
+
+  // Reject any close-remainder or rekey rider. A legitimate purchase payment is
+  // a plain transfer to the admin; a close/rekey rider means the txn also drains
+  // or seizes control of an account. We must never honor such a txn as a simple
+  // payment. Dual-shape (kebab-case indexer JSON / camelCase v3 models). This is
+  // a tightening guard — it can only reject, never widen what gets accepted.
+  const closeRemainderTo = payFields["close-remainder-to"] ?? payFields.closeRemainderTo;
+  const closeAmount      = Number(payFields["close-amount"] ?? payFields.closeAmount ?? 0);
+  if (closeRemainderTo || closeAmount > 0) {
+    throw new Error(`[chain/commander] Payment txn ${txId} carries a close-remainder rider — rejected`);
+  }
+  const rekeyTo = txn["rekey-to"] ?? txn.rekeyTo;
+  if (rekeyTo) {
+    throw new Error(`[chain/commander] Payment txn ${txId} carries a rekey rider — rejected`);
+  }
 
   if (sender !== expectedSender) {
     throw new Error(`[chain/commander] Payment sender mismatch: got ${sender}, expected ${expectedSender}`);

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { GameState, MineAction, UpgradeAction, AttackAction, BuildAction, PurchaseAction, MintAvatarAction, SpecialAttackAction, DeployDroneAction, DeploySatelliteAction } from "@shared/schema";
+import { COMMANDER_INFO } from "@shared/schema";
 
 export function useGameState() {
   return useQuery<GameState>({
@@ -163,7 +164,9 @@ export function useMintAvatar() {
           ...old,
           players: old.players.map(p =>
             p.id === action.playerId
-              ? { ...p, frontier: Math.max(0, p.ascend - 50) } // Optimistic: reduce by sentinel cost (minimum)
+              // Optimistic: deduct the real ASCEND mint cost for the chosen tier
+              // (server is authoritative; this just keeps the UI honest in-flight).
+              ? { ...p, ascend: Math.max(0, (p.ascend ?? 0) - (COMMANDER_INFO[action.tier]?.mintCostAscend ?? 0)) }
               : p
           ),
         };
