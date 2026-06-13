@@ -140,4 +140,51 @@ describe("verifyAlgoPayment — acceptance decision table", () => {
     };
     await expect(verifyAlgoPayment(params)).rejects.toThrow(/not a payment txn/);
   });
+
+  // Close-remainder / rekey riders: an otherwise-valid payment (right sender,
+  // receiver, amount) that also closes out or rekeys an account must be
+  // rejected — honoring it would treat a control-seizing txn as a clean pay.
+  it("rejects a payment carrying a close-remainder-to rider", async () => {
+    indexerState.response = paymentTxn({
+      "payment-transaction": { receiver: ADMIN, amount: 500_000, "close-remainder-to": STRANGER },
+    });
+    await expect(verifyAlgoPayment(params)).rejects.toThrow(/close-remainder rider/);
+  });
+
+  it("rejects a payment carrying a non-zero close-amount", async () => {
+    indexerState.response = paymentTxn({
+      "payment-transaction": { receiver: ADMIN, amount: 500_000, "close-amount": 10 },
+    });
+    await expect(verifyAlgoPayment(params)).rejects.toThrow(/close-remainder rider/);
+  });
+
+  it("rejects a payment carrying a rekey-to rider", async () => {
+    indexerState.response = paymentTxn({ "rekey-to": STRANGER });
+    await expect(verifyAlgoPayment(params)).rejects.toThrow(/rekey rider/);
+  });
+
+  it("rejects a camelCase payment carrying a closeRemainderTo rider", async () => {
+    indexerState.response = {
+      transaction: {
+        txType: "pay",
+        confirmedRound: 12345n,
+        sender: BUYER,
+        paymentTransaction: { receiver: ADMIN, amount: 500_000n, closeRemainderTo: STRANGER },
+      },
+    };
+    await expect(verifyAlgoPayment(params)).rejects.toThrow(/close-remainder rider/);
+  });
+
+  it("rejects a camelCase payment carrying a rekeyTo rider", async () => {
+    indexerState.response = {
+      transaction: {
+        txType: "pay",
+        confirmedRound: 12345n,
+        sender: BUYER,
+        rekeyTo: STRANGER,
+        paymentTransaction: { receiver: ADMIN, amount: 500_000n },
+      },
+    };
+    await expect(verifyAlgoPayment(params)).rejects.toThrow(/rekey rider/);
+  });
 });

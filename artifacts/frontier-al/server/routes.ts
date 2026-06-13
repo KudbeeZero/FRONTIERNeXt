@@ -990,8 +990,12 @@ export async function registerRoutes(
   // Triggers a fresh on-chain mint for a commander whose previous mint failed.
   app.post("/api/nft/retry-commander/:commanderId", async (req, res) => {
     const { commanderId } = req.params;
-    const { playerId } = req.body;
-    if (!commanderId || !playerId) return res.status(400).json({ error: "commanderId and playerId required" });
+    if (!commanderId) return res.status(400).json({ error: "commanderId required" });
+    // Bind the retry to the caller's verified session: this mint spends the
+    // admin wallet's ALGO, so only the owning (human) player may trigger it —
+    // not anyone who can guess a (playerId, commanderId) pair.
+    const playerId = await assertPlayerOwnership(req, res);
+    if (!playerId) return;
     if (!db) return res.status(503).json({ error: "Database not available" });
 
     try {
@@ -2563,7 +2567,8 @@ export async function registerRoutes(
   });
 
   /** POST /api/orbital/trigger — server rolls for an impact event (called by interval) */
-  app.post("/api/orbital/trigger", async (_req, res) => {
+  app.post("/api/orbital/trigger", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const event = await storage.triggerOrbitalCheck();
       if (event) {
@@ -2578,6 +2583,7 @@ export async function registerRoutes(
 
   /** POST /api/orbital/resolve/:id — mark an impact event resolved + apply effects */
   app.post("/api/orbital/resolve/:id", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       await storage.resolveOrbitalEvent(req.params.id);
       res.json({ success: true });

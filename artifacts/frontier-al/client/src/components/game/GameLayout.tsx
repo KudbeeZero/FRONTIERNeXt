@@ -29,7 +29,7 @@ import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimAscend, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite } from "@/hooks/useGameState";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords } from "lucide-react";
@@ -404,11 +404,9 @@ export function GameLayout() {
     if (!player) return;
     setIsRetryingCommanderMintId(commanderId);
     try {
-      const res = await fetch(`/api/nft/retry-commander/${commanderId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId: player.id }),
-      });
+      // apiRequest attaches the session (Bearer token + credentials); the
+      // retry endpoint is session-bound, so a raw fetch would be rejected 401.
+      const res = await apiRequest("POST", `/api/nft/retry-commander/${commanderId}`, { playerId: player.id });
       const data = await res.json();
       if (data.success) {
         toast({ title: "Mint Restarted", description: "Your Commander NFT is being minted. The badge will update when it's ready to claim." });
