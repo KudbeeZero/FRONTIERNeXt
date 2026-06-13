@@ -69,6 +69,7 @@ import {
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
 import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, type PaymentRedemption } from "./security";
 import { redeemedPayments as redeemedPaymentsTable } from "./db-schema";
+import { evaluateOwnership } from "./routeOwnership";
 
 // One ALGO payment txid buys exactly one thing. Backed by the
 // redeemed_payments table (tx_id PRIMARY KEY) so the first claim wins
@@ -238,15 +239,15 @@ export async function registerRoutes(
 
     // When wallet auth is enforced, a verified session is mandatory and the
     // session's player is authoritative — a client-supplied id can no longer be
-    // used to act on behalf of someone else.
-    if (isWalletAuthRequired() && !auth) {
-      res.status(401).json({ error: "Authentication required — connect your wallet" });
-      return null;
-    }
-
+    // used to act on behalf of someone else. Shared decision (see routeOwnership).
     const claimedId = bodyPlayerId ?? req.body?.playerId;
-    if (auth && claimedId && claimedId !== auth.playerId) {
-      res.status(403).json({ error: "Forbidden — session does not own this player" });
+    const verdict = evaluateOwnership({
+      authRequired: isWalletAuthRequired(),
+      auth,
+      ownerId: claimedId,
+    });
+    if (!verdict.ok) {
+      res.status(verdict.status).json({ error: verdict.error });
       return null;
     }
 
@@ -391,18 +392,18 @@ export async function registerRoutes(
     if (!MUTATION_PATH_RE.test(req.path)) return next();
 
     const auth = getAuth(req);
-    if (isWalletAuthRequired() && !auth) {
-      return res.status(401).json({ error: "Authentication required — connect your wallet" });
+    const ownerId = OWNER_ID_FIELDS
+      .map((f) => req.body?.[f])
+      .find((v) => typeof v === "string" && v.length > 0) ?? null;
+    const verdict = evaluateOwnership({
+      authRequired: isWalletAuthRequired(),
+      auth,
+      ownerId,
+    });
+    if (!verdict.ok) {
+      return res.status(verdict.status).json({ error: verdict.error });
     }
-    if (auth) {
-      req.auth = auth;
-      const bodyId = OWNER_ID_FIELDS
-        .map((f) => req.body?.[f])
-        .find((v) => typeof v === "string" && v.length > 0);
-      if (bodyId && bodyId !== auth.playerId) {
-        return res.status(403).json({ error: "Forbidden — session does not own this player" });
-      }
-    }
+    if (auth) req.auth = auth;
     next();
   });
 
