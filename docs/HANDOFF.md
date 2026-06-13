@@ -4,54 +4,57 @@
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
 ## Current baton
-- **Branch:** `claude/transactions-plane-game-status-vu6xqr`
-- **PR:** [#18](https://github.com/KudbeeZero/FRONTIERNeXt/pull/18) (security
-  hardening of the transactions surface)
+- **Branch:** `claude/handoff-audit-t5ci91`
+- **PR:** [#19](https://github.com/KudbeeZero/FRONTIERNeXt/pull/19) (gameplay-loop
+  playthrough regression test + independent audit of PR #18)
 - **Audit status:** `AWAITING_AUDIT`
-- Note: previous PR **#17 was merged directly by the owner** (`bfea649` on
-  `main`, merged 2026-06-13) — treat its audit as waived-by-owner, same as #15.
-- **CI is GREEN again.** The baton's long-standing "255 client typecheck errors"
-  claim is **stale**: `pnpm --filter @workspace/frontier-al run check` now exits 0
-  on `main`+this branch. The audit gate works again — no longer relying on the
-  vitest-only interim bar.
+- **CI is GREEN:** `check` 0 errors, `test:server` **210/210** (was 202),
+  `test` **31/31**.
 
 ## What this chat did (for the auditor)
-Owner asked to check status, fix errors, and push the transactions game toward
-secure+working. Finding: the transaction loop (wallet payment → `verifyAlgoPayment`
-→ replay guard → grant land/commander → async NFT delivery) **already exists and
-works** (server 202/202). Shipped one security-hardening unit closing baton risks:
-- **`verifyAlgoPayment` rejects close-remainder / rekey riders** (fail-closed;
-  +5 tripwire tests, kebab + camelCase shapes).
-- **Gated `/api/orbital/trigger` + `/api/orbital/resolve/:id`** behind
-  `requireAdminKey` (were ungated mutation endpoints; no legitimate caller exists).
-- **Session-bound `/api/nft/retry-commander/:commanderId`** via
-  `assertPlayerOwnership`; fixed its client caller to use `apiRequest` so the
-  session token is actually sent (raw `fetch` would have 401'd — caught in review).
-- **Fixed `useMintAvatar` optimistic update** (`frontier`→`ascend`, real per-tier
-  `mintCostAscend` instead of hardcoded -50).
-- **Verified:** tsc 0 errors, server 202/202, client 31/31, build green.
+1. **Audited PR #18 independently (verdict PASS).** PR #18 was already
+   owner-merged (`c292138`); a fresh adversarial auditor re-derived PASS from the
+   diff + tests (all 5 security claims verified with file:line evidence, suites
+   green, zero scope creep, fail-closed hardening). Replaced the previous chat's
+   in-PR self-audit with this independent one at
+   `docs/audits/claude-transactions-plane-game-status-vu6xqr.md`. One pre-existing
+   LOW note: `assertPlayerOwnership` trusts `req.body.playerId` when
+   `WALLET_AUTH_REQUIRED=false` (repo-wide, out of scope).
+2. **Shipped one unit: a full gameplay-loop playthrough test** —
+   `server/storage/gameplay-loop.spec.ts` (+8 tests, server 202→210). Drives the
+   real storage layer (MemStorage, no DB/chain/funds) through:
+   bootstrap player → welcome bonus → **acquire land** → **mine resources** →
+   collect → **accrue + claim ASCEND** → **mint commander**, asserting each state
+   transition AND its guard (double-purchase, mining cooldown, insufficient-ASCEND
+   mint). This makes "can a player get land, mine, earn ASCEND, mint" a
+   reproducible CI check.
+   - **Explicitly NOT covered (untested, by design):** the HTTP route layer
+     (ALGO `verifyAlgoPayment`, redeemedPayments replay guard, session auth) and
+     the on-chain NFT mint/delivery/retry — both need a live testnet + admin
+     wallet, which this container does not have. MemStorage ≠ DbStorage parity.
 
 ## NEXT chat
-- **Proposed branch:** `feat/verify-finality-and-rate-limit` (or split).
+- **Proposed branch:** `feat/route-loop-integration-test` (or pick from below).
 - **Scope options (one unit each):**
-  1. **Port PR #10's algod-first finality check** into `verifyAlgoPayment`
-     (currently indexer `confirmed-round` only). **Funds-economic → run
-     `algo-auditor`.** The rider-rejection from this chat is the companion fix.
-  2. `feat/rate-limit-actions` — rate-limit `/api/actions/*` to close the
-     mint-on-prepare DoS (no limiter today).
-  3. `feat/veritas-land-flow` — robot land purchase (testnet payment →
-     `POST /api/actions/purchase` → assert ownership + replay guard).
-  4. `feat/veritas-commander-flow` — commander mint (payment + ASCEND clawback).
-  5. Kestra queue (from #17): remediation → auto-triage → chaos drills.
-- **Owner setup (not code):**
-  - **Before any deploy:** apply `migrations/0005_redeemed_payments.sql` — replay
-    guard fails closed; without the table every paid purchase 503s.
-  - Import `ops/kestra/*.yml` into the Kestra VM (router first), create the 3
-    Discord webhooks + responder role, set secrets per `ops/kestra/README.md`.
+  1. **Route-layer loop test:** mount the real `/api/actions/*` handlers with a
+     mocked storage singleton (`vi.mock`) + mocked `verifyAlgoPayment`, and assert
+     the purchase path including the **replay guard** (redeemedPayments) and auth
+     wiring — the gap the storage-level playthrough does not reach. CI-testable.
+  2. **Port PR #10's algod-first finality check** into `verifyAlgoPayment`
+     (currently indexer-only). **Funds-economic → run `algo-auditor`.**
+  3. `feat/rate-limit-actions` — rate-limit `/api/actions/*` (mint-on-prepare DoS;
+     no limiter today).
+  4. `feat/veritas-land-flow` / `feat/veritas-commander-flow` — implement the
+     stubbed veritas robot flows (`server/veritas/flows/index.ts`). **These run
+     only against a live testnet** (need `VERITAS_TEST_MNEMONIC`, funded wallet,
+     `VERITAS_FRONTIER_ASA_ID`) — cannot be validated in-container.
 - **Open risks:**
-  - ⚠️ `verifyAlgoPayment` finality is indexer-only (no algod cross-check) — #1 above.
-  - ⚠️ No rate limit on `/api/actions/*` (mint-on-prepare DoS) — #2 above.
-  - ⚠️ Migration 0005 must be applied before deploying the replay guard.
+  - ⚠️ Live payment verification + on-chain NFT flow remain **unvalidated** in
+    CI (need testnet) — only the in-game mechanics are regression-covered.
+  - ⚠️ `verifyAlgoPayment` finality is indexer-only (no algod cross-check) — #2.
+  - ⚠️ No rate limit on `/api/actions/*` (mint-on-prepare DoS) — #3.
+  - ⚠️ Migration `0005_redeemed_payments.sql` must be applied before deploying the
+    replay guard (else every paid purchase 503s).
 - **Off-limits:** do not merge `wip/atomic-purchase`; nothing in `ops/kestra/`
   may point at mainnet; no funds/ASA/transfer code to mainnet without
   `mainnet-gate`; no funds-moving phase ships without an `algo-auditor` pass.
