@@ -56,3 +56,40 @@ None. No secrets; mainnet/off-limits guardrails in the baton intact.
 
 **Gate action:** PASS → PR #20 merged (`2de5075`); branch synced to `main` to
 start the next unit (the mainnet-readiness workflow layer) on a clean base.
+
+---
+
+# Audit — `claude/handoff-audit-t5ci91` (PR #21)
+
+**Verdict:** PASS
+
+> Second PR on this branch. Independent adversarial subagent audit over the clean
+> range `git diff 2de5075 57aca0b`, gating the merge of PR #21.
+
+- **PR:** #21 — "feat(process): mainnet-readiness workflow layer — pr-gate,
+  security-pass, mainnet-gate, test-matrix, stronger end-session"
+- **Head SHA:** `57aca0b`; **base:** `2de5075`. 11 files, +524/−45, all `.md`.
+- **CI on head:** "Typecheck & server tests" + "Cloudflare Pages" → success.
+- **Merged:** as merge commit `3d463c5` after this PASS.
+
+## Claims vs. evidence (all ✅)
+- Diff is **markdown/docs only** — `git diff --name-only` = 11 `.md` paths (4 new
+  gate skills, `end-session` mod, `MAINNET_READINESS_FLOW.md`, `CLAUDE.md`, #20
+  audit, session note + README, baton). No code/config/lockfile.
+- Four new skills (`pr-gate`, `security-pass`, `mainnet-gate`, `test-matrix`)
+  have valid `name`/`description` frontmatter matching the existing skills.
+- `/end-session` updated (always-write dated note w/ required fields, update-PR-
+  not-duplicate, no-op note, fixed `/loop` link).
+- `docs/MAINNET_READINESS_FLOW.md` + `CLAUDE.md` pointer present.
+- No secrets; no scope creep; no over-claim (skills self-label prompt-driven/
+  untested; `/mainnet-gate` cannot PASS without evidence).
+
+## Tests (auditor, matching CI, at `57aca0b`)
+- `check` → tsc **0 errors**; `test:server` → **210/210**; `test` → **31/31**.
+- Root `pnpm run typecheck` fails ONLY in unrelated `artifacts/mockup-sandbox`
+  (vite/`@types/node` mismatch; pre-existing on `origin/main`; not in `ci.yml`).
+  Confirmed accurate; no frontier-al package implicated.
+
+**Gate action:** PASS → PR #21 merged (`3d463c5`). Stale PR #16 closed (owner-
+authorized) to restore the one-open-PR invariant. Next unit started on a fresh
+branch `feat/route-loop-integration-test` off the new `main`.
