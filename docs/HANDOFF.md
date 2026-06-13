@@ -4,54 +4,53 @@
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
 ## Current baton
-- **Branch:** `test/gamelayout-entry-state`
-- **PR:** [#23](https://github.com/KudbeeZero/FRONTIERNeXt/pull/23) (real
-  GameLayout entry-state coverage for `/game`)
+- **Branch:** `test/gamelayout-connected-shell`
+- **PR:** [#24](https://github.com/KudbeeZero/FRONTIERNeXt/pull/24) (connected
+  GameLayout shell coverage for `/game`)
 - **Audit status:** `AWAITING_AUDIT`
-- Note: **PR #22 audited PASS (independent) + merged** (`e0a6a2b`); audit at
-  `docs/audits/feat-route-loop-integration-test.md`.
+- Note: **PR #23 audited PASS (independent) + merged** (`6c009c9`); audit at
+  `docs/audits/test-gamelayout-entry-state.md`.
 - **CI gates green** (frontier-al scope = `ci.yml`): `check` 0,
-  `test:server` **210/210**, `test` **41/41** (was 36, +5).
+  `test:server` **210/210**, `test` **45/45** (was 41, +4).
 
 ## What this chat did (for the auditor)
-Added `artifacts/frontier-al/client/tests/gamelayout-entry.spec.tsx` (+5 client
-tests, 36→41) — renders the **real GameLayout** (`/game`) via `react-dom/server`
-under wouter `ssrPath` and asserts its entry-state shells:
-- **wallet-gate** (disconnected visitor) → `data-testid="wallet-gate"`,
-- **game-error** (`useGameState` error) → `data-testid="game-error"`,
-- **wallet-restoring** (`walletStatus:"restoring"`) → `data-testid="wallet-restoring"`,
-- **main shell mounts** (connected, `gameState` undefined → no 3D canvas) →
-  `data-testid="game-layout"`,
-- gates are mutually exclusive (inputs change the rendered state).
-- **No game behavior changed. No jsdom, no new deps.** Mocked only the
-  browser/WebGL/data boundaries (wallet, walletManager, WalletConnect,
-  `TEST_GLOBE=false`, `PlanetGlobe→null`, data/socket/chain hooks); real
-  `useToast`/`Toaster` kept. The 4 entry early-returns precede the gated globe,
-  so no WebGL is hit.
-- **Out of scope (documented, not faked):** the real 3D PlanetGlobe scene,
-  effect-driven behavior (WebSocket/fetch/localStorage), and the connected shell
-  with live `gameState` data — need a WebGL-capable/jsdom harness.
+Added `artifacts/frontier-al/client/tests/gamelayout-connected-shell.spec.tsx`
+(+4 client tests, 41→45) — covers the connected GameLayout shell (after the
+wallet gate). Renders the **real** GameLayout (`/game`) via `react-dom/server`:
+- connected wallet reaches the real shell → `data-testid="game-layout"` (not
+  gate/error/restoring),
+- connected top-level regions render → `data-testid="top-bar"` + `"bottom-nav"`,
+- connected shell mounts with `gameState` present too (globe stubbed, no WebGL),
+- shell markers required (fails if the connected shell stops mounting).
+- **No jsdom, no new dep, no game behavior change.** The shell chrome is outside
+  the `gameState`-gated block (GameLayout.tsx:765/807/1128), so it mounts
+  WebGL-free; jsdom wasn't required so wasn't added. Mocked only boundaries
+  (connected wallet, walletManager, WalletConnect, `TEST_GLOBE=false`,
+  `PlanetGlobe→null`, data/socket/chain hooks); real `useToast`/`Toaster`.
+- **Out of scope (documented, NOT faked, no coverage claimed):** real 3D
+  PlanetGlobe/Three scene, real WebSocket (`useGameSocket` mocked), real wallet
+  provider, effect-driven behavior (post-mount fetch, socket subscribe), and the
+  data-populated panels' internal contents.
 
 ## NEXT chat
-- **Proposed branch:** `test/gamelayout-connected-shell`.
+- **Proposed branch:** `feat/route-loop-server`.
 - **Scope options (one unit each):**
-  1. **Connected shell test (jsdom + WebGL stub):** render the connected shell
-     with populated `gameState` + `PlanetGlobe` stubbed; assert TopBar/HUD panels
-     and effect wiring (WebSocket subscribe). Closes the effect/3D gap from #23.
-     (Likely needs jsdom — weigh the new devDep vs value.)
-  2. **Server route-loop test:** mount `/api/actions/*` with mocked storage
+  1. **Server route-loop test:** mount `/api/actions/*` with mocked storage
      (`vi.mock`) + mocked `verifyAlgoPayment`; assert purchase incl. the **replay
-     guard** (redeemedPayments) + auth wiring.
-  3. **Port PR #10's algod-first finality check** into `verifyAlgoPayment`
+     guard** (redeemedPayments) + auth wiring. Gives `/mainnet-gate` real evidence
+     for the purchase path. CI-testable (server suite).
+  2. **Port PR #10's algod-first finality check** into `verifyAlgoPayment`
      (indexer-only today). **Funds-economic → `algo-auditor` + `/security-pass`.**
-  4. `feat/rate-limit-actions` — rate-limit `/api/actions/*` (mint-on-prepare DoS).
-  5. `chore/align-vite-types` — fix the pre-existing `mockup-sandbox` root-typecheck
+  3. `feat/rate-limit-actions` — rate-limit `/api/actions/*` (mint-on-prepare DoS).
+  4. `chore/align-vite-types` — fix the pre-existing `mockup-sandbox` root-typecheck
      failure (vite/`@types/node` mismatch; not in CI).
+  5. WebGL-capable/jsdom harness for the real PlanetGlobe/effect layer (only if
+     that coverage is genuinely wanted; weigh the new devDep).
 - **Open risks:**
-  - ⚠️ `/game` real 3D scene + effect/WebSocket behavior still unrendered in CI — #1.
-  - ⚠️ Live payment verification + on-chain NFT flow remain **unvalidated** in CI.
-  - ⚠️ `verifyAlgoPayment` finality is indexer-only — #3.
-  - ⚠️ No rate limit on `/api/actions/*` — #4.
+  - ⚠️ Real 3D scene + effect/WebSocket behavior still unrendered in CI — #5.
+  - ⚠️ Live payment verification + on-chain NFT flow remain **unvalidated** in CI — #1/#2.
+  - ⚠️ `verifyAlgoPayment` finality is indexer-only — #2.
+  - ⚠️ No rate limit on `/api/actions/*` — #3.
   - ⚠️ Migration `0005_redeemed_payments.sql` must be applied before deploying the
     replay guard.
 - **Off-limits:** do not merge `wip/atomic-purchase`; nothing in `ops/kestra/`
