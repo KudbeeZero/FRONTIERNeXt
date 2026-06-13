@@ -5,33 +5,28 @@
 
 ## Current baton
 - **Branch:** `claude/handoff-audit-t5ci91`
-- **PR:** [#19](https://github.com/KudbeeZero/FRONTIERNeXt/pull/19) (gameplay-loop
-  playthrough regression test + independent audit of PR #18)
+- **PR:** [#20](https://github.com/KudbeeZero/FRONTIERNeXt/pull/20) (adds the
+  `/end-session` skill)
 - **Audit status:** `AWAITING_AUDIT`
-- **CI is GREEN:** `check` 0 errors, `test:server` **210/210** (was 202),
-  `test` **31/31**.
+- Note: previous PR **#19 was merged by the owner** (gameplay-loop playthrough
+  test + independent #18 audit) — treat its audit as waived-by-owner, same as
+  #17/#18. Its CI was green (typecheck + server 210/210 + client 31/31).
 
 ## What this chat did (for the auditor)
-1. **Audited PR #18 independently (verdict PASS).** PR #18 was already
-   owner-merged (`c292138`); a fresh adversarial auditor re-derived PASS from the
-   diff + tests (all 5 security claims verified with file:line evidence, suites
-   green, zero scope creep, fail-closed hardening). Replaced the previous chat's
-   in-PR self-audit with this independent one at
-   `docs/audits/claude-transactions-plane-game-status-vu6xqr.md`. One pre-existing
-   LOW note: `assertPlayerOwnership` trusts `req.body.playerId` when
-   `WALLET_AUTH_REQUIRED=false` (repo-wide, out of scope).
-2. **Shipped one unit: a full gameplay-loop playthrough test** —
-   `server/storage/gameplay-loop.spec.ts` (+8 tests, server 202→210). Drives the
-   real storage layer (MemStorage, no DB/chain/funds) through:
-   bootstrap player → welcome bonus → **acquire land** → **mine resources** →
-   collect → **accrue + claim ASCEND** → **mint commander**, asserting each state
-   transition AND its guard (double-purchase, mining cooldown, insufficient-ASCEND
-   mint). This makes "can a player get land, mine, earn ASCEND, mint" a
-   reproducible CI check.
-   - **Explicitly NOT covered (untested, by design):** the HTTP route layer
-     (ALGO `verifyAlgoPayment`, redeemedPayments replay guard, session auth) and
-     the on-chain NFT mint/delivery/retry — both need a live testnet + admin
-     wallet, which this container does not have. MemStorage ≠ DbStorage parity.
+This chat ran across the relay: it **audited PR #18 (PASS)**, shipped the
+**gameplay-loop playthrough test** (`server/storage/gameplay-loop.spec.ts`, server
+202→210; merged as PR #19), then added one more unit:
+- **`/end-session` skill** (`.claude/skills/end-session/SKILL.md`, this PR #20) —
+  an umbrella "I'm done" command. It takes stock of session state and routes:
+  unwrapped unit → run `/closeout`; PR already open → no duplicate; already
+  merged → verify + keep baton truthful; nothing changed → say so. Always
+  guarantees committed + pushed (ephemeral container), confirms green, writes a
+  dated session note, prints a truthful report. **Docs/tooling only — no code
+  changed.** Verified: frontmatter matches existing skills, it registers as
+  `/end-session`, and the full CI triad is green (tsc 0 / server 210/210 /
+  client 31/31).
+  - **Untested (honest):** skills are prompt-driven, so there is no automated test
+    that *executes* the skill end-to-end — verified by inspection + registration.
 
 ## NEXT chat
 - **Proposed branch:** `feat/route-loop-integration-test` (or pick from below).
