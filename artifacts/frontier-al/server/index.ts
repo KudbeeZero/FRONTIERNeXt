@@ -2,7 +2,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { registerRoutes } from "./routes";
+import { registerRoutes, pruneActionNonces, ACTION_NONCE_PRUNE_INTERVAL_MS } from "./routes";
 import { initSeasonManager } from "./engine/season/manager";
 import { hydrateWorldEventsFromRedis } from "./worldEventStore";
 import { warmUpDb, logPoolStats } from "./db";
@@ -242,6 +242,15 @@ app.use((req, res, next) => {
   // Hydrate world event feed from Redis (no-op if Redis unavailable)
   await hydrateWorldEventsFromRedis();
   await registerRoutes(httpServer, app);
+  // ID-004: periodically reap expired action_nonces (completed rows now carry
+  // response_json + crash-orphaned in-flight rows). Best-effort and `unref`'d so it
+  // never holds the process open or surfaces errors on the request path.
+  const _actionNoncePruneInterval = setInterval(() => {
+    pruneActionNonces()
+      .then((n) => { if (n > 0) console.log(`[action_nonces] pruned ${n} expired row(s)`); })
+      .catch(() => {});
+  }, ACTION_NONCE_PRUNE_INTERVAL_MS);
+  _actionNoncePruneInterval.unref();
   // Start season lifecycle manager (auto-expiry + countdown broadcasts)
   initSeasonManager(storage);
   console.log("[startup] Season manager initialised ✓");

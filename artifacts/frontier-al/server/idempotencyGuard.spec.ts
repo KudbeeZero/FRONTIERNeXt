@@ -26,15 +26,17 @@ import {
 
 const NONCE = "550e8400-e29b-41d4-a716-446655440000"; // UUID-shaped, valid
 
-/** In-memory store mirroring the `key` PK + `response_json` column semantics. */
-function fakeStore(): ActionNonceStore & { rows: Map<string, { rec: ActionNonceRecord; response: string | null }> } {
-  const rows = new Map<string, { rec: ActionNonceRecord; response: string | null }>();
+/** In-memory store mirroring the `key` PK + `response_json` + `created_at` columns. */
+function fakeStore(): ActionNonceStore & {
+  rows: Map<string, { rec: ActionNonceRecord; response: string | null; createdAt: number }>;
+} {
+  const rows = new Map<string, { rec: ActionNonceRecord; response: string | null; createdAt: number }>();
   return {
     rows,
     async claim(key, rec) {
       const existing = rows.get(key);
       if (existing) return { inserted: false, response: existing.response };
-      rows.set(key, { rec, response: null });
+      rows.set(key, { rec, response: null, createdAt: Date.now() });
       return { inserted: true };
     },
     async complete(key, responseJson) {
@@ -44,8 +46,21 @@ function fakeStore(): ActionNonceStore & { rows: Map<string, { rec: ActionNonceR
     async remove(key) {
       rows.delete(key);
     },
+    async prune(olderThanMs) {
+      const cutoff = Date.now() - olderThanMs;
+      let removed = 0;
+      for (const [key, row] of rows) {
+        if (row.createdAt < cutoff) {
+          rows.delete(key);
+          removed++;
+        }
+      }
+      return removed;
+    },
   };
 }
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const CLAIM = { playerId: "alice", action: "claim-frontier" };
 const BODY = JSON.stringify({ success: true, claimed: { amount: 42 } });
@@ -101,6 +116,7 @@ describe("createActionIdempotencyGuard — two-phase claim/record/release/replay
       async claim() { throw new Error("db down"); },
       async complete() { throw new Error("db down"); },
       async remove() { throw new Error("db down"); },
+      async prune() { throw new Error("db down"); },
     });
     expect(await brokenGuard.claim(CLAIM, NONCE)).toEqual({ ok: false, reason: "store_unavailable" });
   });
@@ -110,6 +126,7 @@ describe("createActionIdempotencyGuard — two-phase claim/record/release/replay
       async claim() { return { inserted: true }; },
       async complete() { throw new Error("db down"); },
       async remove() { throw new Error("db down"); },
+      async prune() { throw new Error("db down"); },
     });
     // Neither rejects, even though the underlying store throws.
     await expect(guard.record(CLAIM, NONCE, BODY)).resolves.toBeUndefined();
@@ -138,6 +155,51 @@ describe("createActionIdempotencyGuard — two-phase claim/record/release/replay
   it("builds a deterministic, collision-scoped key", () => {
     expect(actionNonceKey("claim-frontier", "alice", NONCE)).toBe(`claim-frontier:alice:${NONCE}`);
     expect(actionNonceKey("claim-frontier", "alice", NONCE)).not.toBe(actionNonceKey("claim-frontier", "bob", NONCE));
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// prune (ID-004) — TTL housekeeping so action_nonces can't grow unbounded.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("createActionIdempotencyGuard — prune (TTL housekeeping)", () => {
+  it("reaps claims older than the TTL and forgets the nonce (store path)", async () => {
+    const store = fakeStore();
+    const guard = createActionIdempotencyGuard(store);
+    await guard.claim(CLAIM, NONCE);
+    await guard.record(CLAIM, NONCE, BODY); // a completed row (carries response_json)
+    await delay(8);
+    expect(await guard.prune(5)).toBe(1); // older than 5ms → reaped
+    expect(store.rows.size).toBe(0);
+    // forgotten → a later submission of the same nonce is treated as fresh, not replay
+    expect(await guard.claim(CLAIM, NONCE)).toEqual({ ok: true, replay: false });
+  });
+
+  it("keeps claims younger than the TTL (store path)", async () => {
+    const store = fakeStore();
+    const guard = createActionIdempotencyGuard(store);
+    await guard.claim(CLAIM, NONCE);
+    expect(await guard.prune(60_000)).toBe(0); // ~0ms old, TTL 60s → kept
+    expect(store.rows.size).toBe(1);
+    // still in-flight → a duplicate is still rejected
+    expect(await guard.claim(CLAIM, NONCE)).toEqual({ ok: false, reason: "in_progress" });
+  });
+
+  it("is best-effort: a store error returns 0 (never throws)", async () => {
+    const guard = createActionIdempotencyGuard({
+      async claim() { return { inserted: true }; },
+      async complete() {},
+      async remove() {},
+      async prune() { throw new Error("db down"); },
+    });
+    await expect(guard.prune(1000)).resolves.toBe(0);
+  });
+
+  it("reaps aged claims in storeless (dev/mem) mode", async () => {
+    const guard = createActionIdempotencyGuard(null);
+    await guard.claim(CLAIM, NONCE);
+    await delay(8);
+    expect(await guard.prune(5)).toBe(1);
+    expect(await guard.claim(CLAIM, NONCE)).toEqual({ ok: true, replay: false });
   });
 });
 

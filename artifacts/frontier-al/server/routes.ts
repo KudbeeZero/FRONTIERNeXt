@@ -8,7 +8,7 @@ import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionS
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, lt } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import rateLimit from "express-rate-limit";
 
@@ -126,9 +126,45 @@ const actionIdempotencyGuard = createActionIdempotencyGuard(
         async remove(key) {
           await db.delete(actionNoncesTable).where(eq(actionNoncesTable.key, key));
         },
+        async prune(olderThanMs) {
+          const cutoff = Date.now() - olderThanMs;
+          const deleted = await db
+            .delete(actionNoncesTable)
+            .where(lt(actionNoncesTable.createdAt, cutoff))
+            .returning({ key: actionNoncesTable.key });
+          return deleted.length;
+        },
       }
     : null
 );
+
+// ID-004: TTL + periodic prune for `action_nonces`. Since 0007 the guard persists
+// `response_json` on every completed action, so the table grows with traffic;
+// completed rows and crash-orphaned in-flight rows are reaped by created_at age.
+// The TTL must comfortably exceed the legitimate retry window — after it elapses a
+// nonce is forgotten (replay protection lasts the TTL; normal play uses a fresh
+// nonce per action, never one older than the TTL). Both knobs are env-tunable.
+//
+// The TTL floor is deliberately well above any possible in-flight request duration
+// (the synchronous claim→mutation→record window is sub-second; the on-chain
+// ASCEND transfer is enqueued fire-and-forget, not awaited). This guarantees the
+// prune can never reap a still-running claim out from under it and let a concurrent
+// duplicate re-claim and double-apply — even at the most aggressive configuration.
+export const ACTION_NONCE_TTL_MS = Math.max(
+  600_000, // floor: 10 min — far above max request duration (see note above)
+  Number(process.env.ACTION_NONCE_TTL_MS) || 24 * 60 * 60 * 1000, // 24h default
+);
+export const ACTION_NONCE_PRUNE_INTERVAL_MS = Math.max(
+  60_000,
+  Number(process.env.ACTION_NONCE_PRUNE_INTERVAL_MS) || 60 * 60 * 1000, // hourly default
+);
+
+// Reap action_nonces older than `olderThanMs` (defaults to the TTL). Best-effort:
+// the underlying guard swallows store errors and returns 0, so a prune failure
+// never affects request handling. Returns the number of rows removed.
+export function pruneActionNonces(olderThanMs: number = ACTION_NONCE_TTL_MS): Promise<number> {
+  return actionIdempotencyGuard.prune(olderThanMs);
+}
 
 // Map an idempotency-guard rejection to a safe HTTP status + generic message.
 // Never echoes the nonce/key/playerId (fail-closed, no internals leaked).

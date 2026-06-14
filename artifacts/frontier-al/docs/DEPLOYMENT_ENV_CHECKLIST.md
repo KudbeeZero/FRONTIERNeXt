@@ -39,6 +39,8 @@ Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical 
 | `ENUMERATION_RATE_LIMIT` (`90`) | Per-IP/min on ID/address-enumerable reads (Redis-backed). Anti-scrape. |
 | `AUTH_RATE_LIMIT` (`20`) | Per-IP/min on `/api/auth/*` (Redis-backed). |
 | `ACTIONS_RATE_LIMIT` (`60`) | Per-IP/min on `/api/actions/*` (per-instance). |
+| `ACTION_NONCE_TTL_MS` (`86400000`) | TTL before an `action_nonces` row is pruned; replay protection lasts this long (floor 10 min, above max request duration). |
+| `ACTION_NONCE_PRUNE_INTERVAL_MS` (`3600000`) | How often expired `action_nonces` are pruned (best-effort; floor 60s). |
 | `ADVICE_RATE_LIMIT` (`30`) | Per-IP/min on the LLM terraform-advice endpoint. |
 | `WS_MAX_CONN_PER_IP` (`25`) | Max WebSocket connections per IP (per-instance; `0` = off). |
 | `WS_MAX_CONN` (`0`) | Global WebSocket connection cap (`0` = unlimited). |
