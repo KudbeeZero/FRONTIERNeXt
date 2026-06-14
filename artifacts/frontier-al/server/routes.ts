@@ -95,19 +95,36 @@ const paymentReplayGuard = createPaymentReplayGuard(
     : null
 );
 
-// Action idempotency guard — blocks double-submit/replay of mutating actions.
-// DB-backed (action_nonces, key PRIMARY KEY) for cross-instance atomicity; falls
-// back to an in-process set only when the DB is unavailable (dev/mem mode).
+// Action idempotency guard — blocks double-submit/replay of mutating actions and
+// REPLAYS the original success response on a duplicate (two-phase claim → record/
+// release). DB-backed (action_nonces, key PRIMARY KEY) for cross-instance
+// atomicity; falls back to an in-process map only when the DB is unavailable
+// (dev/mem mode).
 const actionIdempotencyGuard = createActionIdempotencyGuard(
   db
     ? {
-        async tryInsert(key: string, rec: { playerId: string; action: string }): Promise<boolean> {
+        async claim(key, rec) {
           const inserted = await db
             .insert(actionNoncesTable)
             .values({ key, playerId: rec.playerId, action: rec.action, createdAt: Date.now() })
             .onConflictDoNothing()
             .returning({ key: actionNoncesTable.key });
-          return inserted.length > 0;
+          if (inserted.length > 0) return { inserted: true };
+          // Key already claimed — surface the persisted response (NULL = in-flight).
+          const [row] = await db
+            .select({ response: actionNoncesTable.responseJson })
+            .from(actionNoncesTable)
+            .where(eq(actionNoncesTable.key, key));
+          return { inserted: false, response: row?.response ?? null };
+        },
+        async complete(key, responseJson) {
+          await db
+            .update(actionNoncesTable)
+            .set({ responseJson, completedAt: Date.now() })
+            .where(eq(actionNoncesTable.key, key));
+        },
+        async remove(key) {
+          await db.delete(actionNoncesTable).where(eq(actionNoncesTable.key, key));
         },
       }
     : null
@@ -115,18 +132,40 @@ const actionIdempotencyGuard = createActionIdempotencyGuard(
 
 // Map an idempotency-guard rejection to a safe HTTP status + generic message.
 // Never echoes the nonce/key/playerId (fail-closed, no internals leaked).
-function idempotencyRejection(reason: "invalid_nonce" | "already_processed" | "store_unavailable"): {
+function idempotencyRejection(reason: "invalid_nonce" | "in_progress" | "store_unavailable"): {
   status: number;
   error: string;
 } {
   switch (reason) {
-    case "already_processed":
-      return { status: 409, error: "Duplicate request — this action was already submitted" };
+    case "in_progress":
+      return { status: 409, error: "Duplicate request — still being processed, please retry" };
     case "store_unavailable":
       return { status: 503, error: "Service temporarily unavailable" };
     default:
       return { status: 400, error: "Missing or invalid idempotency key" };
   }
+}
+
+// Shared claim/replay/reject step for the nonce-guarded routes. Returns true if a
+// response was already sent (a 200 REPLAY of the original body, or a 400/409/503
+// rejection) and the handler must stop; false if it should run the mutation, then
+// `actionIdempotencyGuard.record(...)` on success / `.release(...)` on failure.
+async function guardClaimOrRespond(
+  res: Response,
+  scope: { playerId: string; action: string; target?: string },
+  nonce: unknown,
+): Promise<boolean> {
+  const idem = await actionIdempotencyGuard.claim(scope, nonce);
+  if (!idem.ok) {
+    const { status, error } = idempotencyRejection(idem.reason);
+    res.status(status).json({ error });
+    return true;
+  }
+  if (idem.replay) {
+    res.json(JSON.parse(idem.response));
+    return true;
+  }
+  return false;
 }
 import {
   getAuth,
@@ -1576,22 +1615,26 @@ export async function registerRoutes(
     try {
       const action = upgradeActionSchema.parse(req.body);
 
-      // Idempotency: claim a per-(player, action, target, nonce) key BEFORE the
-      // upgrade, so a double-submit/replay cannot double-spend ASCEND or
-      // double-level the base. Target = plot + upgrade type. playerId is
-      // auth-verified by the global mutation middleware. Fail closed.
-      const idem = await actionIdempotencyGuard.claim(
-        { playerId: action.playerId, action: "upgrade", target: `${action.parcelId}:${action.upgradeType}` },
-        action.idempotencyKey ?? req.header("x-idempotency-key"),
-      );
-      if (!idem.ok) {
-        const { status, error } = idempotencyRejection(idem.reason);
-        return res.status(status).json({ error });
-      }
+      // Idempotency (two-phase): claim a per-(player, action, target, nonce) key
+      // BEFORE the upgrade so a double-submit/replay cannot double-spend ASCEND or
+      // double-level the base; a duplicate REPLAYS the original 200, an in-flight
+      // duplicate gets 409, a missing/malformed nonce 400 (fail closed). Target =
+      // plot + upgrade type (parcelId escaped to avoid delimiter ambiguity).
+      // playerId is auth-verified by the global mutation middleware.
+      const scope = { playerId: action.playerId, action: "upgrade", target: `${encodeURIComponent(action.parcelId)}:${action.upgradeType}` };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (await guardClaimOrRespond(res, scope, nonce)) return;
 
-      const parcel = await storage.upgradeBase(action);
-      res.json({ success: true, parcel });
-      markDirty();
+      try {
+        const parcel = await storage.upgradeBase(action);
+        const body = { success: true, parcel };
+        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
+        res.json(body);
+        markDirty();
+      } catch (mutErr) {
+        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
+      }
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Upgrade failed" });
@@ -1648,31 +1691,35 @@ export async function registerRoutes(
       if (!verifiedId) return;
       const action = buildActionSchema.parse(req.body);
 
-      // Idempotency: claim a per-(player, action, target, nonce) key BEFORE the
-      // build, so a double-submit/replay cannot double-spend ASCEND or build the
-      // same improvement twice. Target = plot + improvement type. playerId is
-      // auth-verified (assertPlayerOwnership + global middleware). Fail closed.
-      const idem = await actionIdempotencyGuard.claim(
-        { playerId: action.playerId, action: "build", target: `${action.parcelId}:${action.improvementType}` },
-        action.idempotencyKey ?? req.header("x-idempotency-key"),
-      );
-      if (!idem.ok) {
-        const { status, error } = idempotencyRejection(idem.reason);
-        return res.status(status).json({ error });
-      }
+      // Idempotency (two-phase): claim a per-(player, action, target, nonce) key
+      // BEFORE the build so a double-submit/replay cannot double-spend ASCEND or
+      // build the same improvement twice; a duplicate REPLAYS the original 200, an
+      // in-flight duplicate gets 409, a missing/malformed nonce 400 (fail closed).
+      // Target = plot + improvement type (parcelId escaped to avoid delimiter
+      // ambiguity). playerId is auth-verified (assertPlayerOwnership + global mw).
+      const scope = { playerId: action.playerId, action: "build", target: `${encodeURIComponent(action.parcelId)}:${action.improvementType}` };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (await guardClaimOrRespond(res, scope, nonce)) return;
 
-      const parcel = await storage.buildImprovement(action);
-      const buildPlayer = await storage.getPlayer(action.playerId);
-      if (buildPlayer) {
-        const { FACILITY_INFO } = await import('@shared/schema');
-        const info = FACILITY_INFO[action.improvementType as keyof typeof FACILITY_INFO];
-        const built = parcel.improvements?.find((i: any) => i.type === action.improvementType);
-        const level = built?.level ?? 1;
-        const cost = info?.costAscend?.[level - 1] ?? 0;
-        if (cost > 0) fireBurn(buildPlayer.address, cost, `Build improvement plotId=${parcel.plotId}`);
+      try {
+        const parcel = await storage.buildImprovement(action);
+        const buildPlayer = await storage.getPlayer(action.playerId);
+        if (buildPlayer) {
+          const { FACILITY_INFO } = await import('@shared/schema');
+          const info = FACILITY_INFO[action.improvementType as keyof typeof FACILITY_INFO];
+          const built = parcel.improvements?.find((i: any) => i.type === action.improvementType);
+          const level = built?.level ?? 1;
+          const cost = info?.costAscend?.[level - 1] ?? 0;
+          if (cost > 0) fireBurn(buildPlayer.address, cost, `Build improvement plotId=${parcel.plotId}`);
+        }
+        const body = { success: true, parcel };
+        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
+        res.json(body);
+        markDirty();
+      } catch (mutErr) {
+        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
       }
-      res.json({ success: true, parcel });
-      markDirty();
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Build failed" });
@@ -1899,63 +1946,67 @@ export async function registerRoutes(
     try {
       const action = claimAscendActionSchema.parse(req.body);
 
-      // Idempotency: claim a per-(player, action, nonce) key BEFORE crediting, so
-      // a double-submit/replay cannot double-credit ASCEND or double-enqueue the
-      // on-chain transfer. Missing/malformed nonce → 400; replay → 409; broken
-      // store → 503 (fail closed). Scoped by playerId (auth-verified upstream).
-      const idem = await actionIdempotencyGuard.claim(
-        { playerId: action.playerId, action: "claim-frontier" },
-        action.idempotencyKey ?? req.header("x-idempotency-key"),
-      );
-      if (!idem.ok) {
-        const status = idem.reason === "already_processed" ? 409 : idem.reason === "store_unavailable" ? 503 : 400;
-        const error =
-          idem.reason === "already_processed"
-            ? "Duplicate request — this claim was already submitted"
-            : idem.reason === "store_unavailable"
-              ? "Service temporarily unavailable"
-              : "Missing or invalid idempotency key";
-        return res.status(status).json({ error });
-      }
+      // Idempotency (two-phase): claim a per-(player, action, nonce) key BEFORE
+      // crediting so a double-submit/replay cannot double-credit ASCEND or
+      // double-enqueue the on-chain transfer; a duplicate REPLAYS the original
+      // 200, an in-flight duplicate gets 409, a missing/malformed nonce 400 (fail
+      // closed). Scoped by playerId (auth-verified upstream). Only a successful
+      // credit is recorded for replay — every no-credit path releases the nonce so
+      // it stays retryable.
+      const scope = { playerId: action.playerId, action: "claim-frontier" };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (await guardClaimOrRespond(res, scope, nonce)) return;
 
-      const player = await storage.getPlayer(action.playerId);
-      if (!player) return res.status(404).json({ error: "Player not found" });
-
-      const walletAddress = player.address;
-      const isRealWallet =
-        walletAddress &&
-        walletAddress !== "PLAYER_WALLET" &&
-        !walletAddress.startsWith("AI_");
-
-      // Step 1: Check opt-in BEFORE crediting the DB balance.
-      // We only gate on opt-in when the ASA ID is known; if it's null (race condition
-      // on startup / re-mint), we proceed and let the queue handle it (SEV2 #6 fix).
-      const asaId = getAscendAsaId();
-      if (asaId && isRealWallet) {
-        const optedIn = await isAddressOptedIn(walletAddress);
-        if (!optedIn) {
-          return res.json({ success: false, reason: "wallet_not_opted_in" });
+      try {
+        const player = await storage.getPlayer(action.playerId);
+        if (!player) {
+          await actionIdempotencyGuard.release(scope, nonce);
+          return res.status(404).json({ error: "Player not found" });
         }
+
+        const walletAddress = player.address;
+        const isRealWallet =
+          walletAddress &&
+          walletAddress !== "PLAYER_WALLET" &&
+          !walletAddress.startsWith("AI_");
+
+        // Step 1: Check opt-in BEFORE crediting the DB balance.
+        // We only gate on opt-in when the ASA ID is known; if it's null (race condition
+        // on startup / re-mint), we proceed and let the queue handle it (SEV2 #6 fix).
+        const asaId = getAscendAsaId();
+        if (asaId && isRealWallet) {
+          const optedIn = await isAddressOptedIn(walletAddress);
+          if (!optedIn) {
+            // No credit happened — release so the player can retry after opting in.
+            await actionIdempotencyGuard.release(scope, nonce);
+            return res.json({ success: false, reason: "wallet_not_opted_in" });
+          }
+        }
+
+        // Step 2: Credit the DB balance.
+        const result = await storage.claimAscend(action.playerId);
+
+        // Step 3: Enqueue on-chain transfer (SEV2 #6 fix: no asaId guard — worker resolves
+        // the id lazily at drain time so a null asaId at request time is not a silent drop).
+        if (result.amount > 0 && isRealWallet) {
+          enqueueAscendTransfer({
+            recipientAddress:  walletAddress,
+            recipientPlayerId: action.playerId,
+            amount:            result.amount,
+            reason:            "claim_ascend",
+          }).catch((err) =>
+            console.error("claim-frontier enqueue failed (in-game balance preserved):", err)
+          );
+        }
+
+        const body = { success: true, claimed: result, asaId };
+        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
+        res.json(body);
+        markDirty();
+      } catch (mutErr) {
+        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
       }
-
-      // Step 2: Credit the DB balance.
-      const result = await storage.claimAscend(action.playerId);
-
-      // Step 3: Enqueue on-chain transfer (SEV2 #6 fix: no asaId guard — worker resolves
-      // the id lazily at drain time so a null asaId at request time is not a silent drop).
-      if (result.amount > 0 && isRealWallet) {
-        enqueueAscendTransfer({
-          recipientAddress:  walletAddress,
-          recipientPlayerId: action.playerId,
-          amount:            result.amount,
-          reason:            "claim_ascend",
-        }).catch((err) =>
-          console.error("claim-frontier enqueue failed (in-game balance preserved):", err)
-        );
-      }
-
-      res.json({ success: true, claimed: result, asaId });
-      markDirty();
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Claim failed" });
