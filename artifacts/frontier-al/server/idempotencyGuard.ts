@@ -7,15 +7,24 @@
 // store-backed claim-once with a deterministic key, an in-process fallback for
 // dev/mem, and FAIL-CLOSED behavior when the store errors.
 //
-// SCOPING (security): the claim key is `${action}:${playerId}:${nonce}`, so the
-// same nonce only collides for the SAME player AND the SAME action. A different
-// player (or a different action) with the same nonce string gets a distinct key
-// and never collides — one player can never block or replay another's action.
+// SCOPING (security): the claim key is `${action}:${playerId}:${nonce}`, or
+// `${action}:${playerId}:${target}:${nonce}` when a target is supplied (e.g. a
+// build/upgrade against a specific plot+facility). The same nonce only collides
+// for the SAME player AND the SAME action AND the SAME target. A different player,
+// a different action, or a different target with the same nonce string gets a
+// distinct key and never collides — one player can never block or replay another's
+// action, and a build on plot A never collides with a build on plot B.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ActionNonceRecord {
   playerId: string;
   action: string;
+  /**
+   * Optional target scope (e.g. `${parcelId}:${improvementType}`). Folded into
+   * the key so the same nonce can be claimed independently per target. Omitted
+   * for target-less actions (e.g. claim-frontier) — the key is then unchanged.
+   */
+  target?: string;
 }
 
 /** Store contract — `tryInsert` returns false if the key already exists. */
@@ -33,8 +42,10 @@ export type ActionClaimResult =
 const NONCE_RE = /^[A-Za-z0-9_-]{8,128}$/;
 
 /** Deterministic, collision-scoped key. Exported for testing. */
-export function actionNonceKey(action: string, playerId: string, nonce: string): string {
-  return `${action}:${playerId}:${nonce}`;
+export function actionNonceKey(action: string, playerId: string, nonce: string, target?: string): string {
+  return target
+    ? `${action}:${playerId}:${target}:${nonce}`
+    : `${action}:${playerId}:${nonce}`;
 }
 
 export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
@@ -53,7 +64,7 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
       if (typeof nonce !== "string" || !NONCE_RE.test(nonce)) {
         return { ok: false, reason: "invalid_nonce" };
       }
-      const key = actionNonceKey(scope.action, scope.playerId, nonce);
+      const key = actionNonceKey(scope.action, scope.playerId, nonce, scope.target);
 
       if (store) {
         try {

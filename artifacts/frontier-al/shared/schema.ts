@@ -475,6 +475,10 @@ export const upgradeActionSchema = z.object({
   playerId: z.string(),
   parcelId: z.string(),
   upgradeType: z.enum(["defense", "yield", "mine", "bunker"]),
+  // Idempotency nonce — the server requires it to block double-submit/replay of
+  // an upgrade (which spends ASCEND and levels up a base). Optional in the schema
+  // so the route returns a specific 400 rather than a generic ZodError.
+  idempotencyKey: z.string().optional(),
 });
 
 export const attackActionSchema = z.object({
@@ -494,6 +498,10 @@ export const buildActionSchema = z.object({
   playerId: z.string(),
   parcelId: z.string(),
   improvementType: z.enum(["turret", "shield_gen", "storage_depot", "radar", "fortress", "electricity", "blockchain_node", "data_centre", "ai_lab"]),
+  // Idempotency nonce — the server requires it to block double-submit/replay of
+  // a build (which spends ASCEND and adds/levels an improvement). Optional in the
+  // schema so the route returns a specific 400 rather than a generic ZodError.
+  idempotencyKey: z.string().optional(),
 });
 
 export const purchaseActionSchema = z.object({

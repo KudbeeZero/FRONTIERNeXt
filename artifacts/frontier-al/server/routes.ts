@@ -112,6 +112,22 @@ const actionIdempotencyGuard = createActionIdempotencyGuard(
       }
     : null
 );
+
+// Map an idempotency-guard rejection to a safe HTTP status + generic message.
+// Never echoes the nonce/key/playerId (fail-closed, no internals leaked).
+function idempotencyRejection(reason: "invalid_nonce" | "already_processed" | "store_unavailable"): {
+  status: number;
+  error: string;
+} {
+  switch (reason) {
+    case "already_processed":
+      return { status: 409, error: "Duplicate request — this action was already submitted" };
+    case "store_unavailable":
+      return { status: 503, error: "Service temporarily unavailable" };
+    default:
+      return { status: 400, error: "Missing or invalid idempotency key" };
+  }
+}
 import {
   getAuth,
   isWalletAuthRequired,
@@ -1559,6 +1575,20 @@ export async function registerRoutes(
   app.post("/api/actions/upgrade", async (req, res) => {
     try {
       const action = upgradeActionSchema.parse(req.body);
+
+      // Idempotency: claim a per-(player, action, target, nonce) key BEFORE the
+      // upgrade, so a double-submit/replay cannot double-spend ASCEND or
+      // double-level the base. Target = plot + upgrade type. playerId is
+      // auth-verified by the global mutation middleware. Fail closed.
+      const idem = await actionIdempotencyGuard.claim(
+        { playerId: action.playerId, action: "upgrade", target: `${action.parcelId}:${action.upgradeType}` },
+        action.idempotencyKey ?? req.header("x-idempotency-key"),
+      );
+      if (!idem.ok) {
+        const { status, error } = idempotencyRejection(idem.reason);
+        return res.status(status).json({ error });
+      }
+
       const parcel = await storage.upgradeBase(action);
       res.json({ success: true, parcel });
       markDirty();
@@ -1617,6 +1647,20 @@ export async function registerRoutes(
       const verifiedId = await assertPlayerOwnership(req, res);
       if (!verifiedId) return;
       const action = buildActionSchema.parse(req.body);
+
+      // Idempotency: claim a per-(player, action, target, nonce) key BEFORE the
+      // build, so a double-submit/replay cannot double-spend ASCEND or build the
+      // same improvement twice. Target = plot + improvement type. playerId is
+      // auth-verified (assertPlayerOwnership + global middleware). Fail closed.
+      const idem = await actionIdempotencyGuard.claim(
+        { playerId: action.playerId, action: "build", target: `${action.parcelId}:${action.improvementType}` },
+        action.idempotencyKey ?? req.header("x-idempotency-key"),
+      );
+      if (!idem.ok) {
+        const { status, error } = idempotencyRejection(idem.reason);
+        return res.status(status).json({ error });
+      }
+
       const parcel = await storage.buildImprovement(action);
       const buildPlayer = await storage.getPlayer(action.playerId);
       if (buildPlayer) {
