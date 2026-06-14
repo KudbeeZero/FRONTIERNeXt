@@ -4,62 +4,90 @@
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
 ## Current baton
-- **Branch:** `main` (clean) — **no open PR** (one-open-PR invariant restored).
-- **Last unit:** PR [#27](https://github.com/KudbeeZero/FRONTIERNeXt/pull/27)
-  (extend the idempotency-nonce guard to build & upgrade) — **audited PASS WITH
-  NOTES (independent) + merged** (`a1dc9ab`); audit at `docs/audits/pr-27-audit.md`.
-- Prior: PR #26 audited PASS + merged (`9da5f5f`), audit at
-  `docs/audits/feat-actions-idempotency-nonce.md`.
-- **CI gates green** on the merged head (frontier-al scope = `ci.yml`): `check` 0,
-  `test:server` **236/236**, `test` **45/45**.
-- **Audit status:** `READY_FOR_NEXT_UNIT` (nothing awaiting audit).
+- **Branch:** `claude/kestra-automation-factory-06fr1h`
+- **PR:** _(this chat's PR — GrowPod Empire Automation Factory architecture,
+  directive AUTO-001)_
+- **Audit status:** `AWAITING_AUDIT`
+- **Prev PRs (both merged + audited PASS):**
+  - PR [#27](https://github.com/KudbeeZero/FRONTIERNeXt/pull/27) (extend
+    idempotency guard to build & upgrade) — merged into `main`; audited PASS by
+    its own chat (`docs/audits/pr-27-audit.md`) **and independently re-audited
+    PASS this chat** (`docs/audits/claude-actions-idempotency-extend-2qpwrn.md`,
+    tests re-run green: `check` 0, `test:server` 236/236, `test` 45/45).
+  - PR #26 merged @ `9da5f5f` (audit `docs/audits/feat-actions-idempotency-nonce.md`).
 
-## State of idempotency (what's actually enforced)
+## What this chat did (for the auditor)
+Two things — a start-of-chat audit gate, then **architecture-only** work:
+1. **Audited the open PR #27** independently (`/handoff-audit`) before starting:
+   refuted each claim against the diff, re-ran the full suite → **PASS** (report
+   in `docs/audits/`). #27 merged while the audit ran; the audit confirms the
+   merge was sound.
+2. **Directive AUTO-001** (`PLANNED`) — the blueprint for a reusable,
+   multi-project **GrowPod Empire Automation Factory** (Kestra = execution
+   engine, Claude sub-agents = decisions, humans = strategy), FRONTIER-AL framed
+   as one division. Four new docs under `docs/`:
+   - `AUTOMATION_FACTORY_ARCHITECTURE.md` — 7 factories, each with
+     mission/responsibilities/workflows/inputs/outputs/dependencies/failure
+     handling/escalation chain/Kestra namespace/Claude sub-agent; maps the
+     **existing** `frontier.ops` flows onto F5 Operations / F4 QA & Audit.
+   - `AGENT_CHAIN_OF_AUTHORITY.md` — CEO → A00 → AU-A00 → Kestra → Workers →
+     Agents; 10-agent active budget + archived templates; authority matrix;
+     SEV-tier escalation; mapping onto the Session Relay Protocol.
+   - `KESTRA_EXPANSION_PLAN.md` — flat `frontier.ops` → nested namespace tree;
+     **non-breaking** phased migration keyed on the hardcoded subflow
+     `namespace: frontier.ops` refs.
+   - `FACTORY_REGISTRY.md` — AUTO-001 directive entry + factory/agent registries.
+
+**Untouched / honest scope:** no code, no YAML flows, no `ops/kestra/` changes,
+no new namespaces created, no new deps. The testnet-only `frontier.ops`
+first-responder system is preserved. Docs-only → `ci.yml` (frontier-al scope) is
+not triggered; AUTO-001 claims are design proposals, marked "untested / not
+implemented" in the docs themselves.
+
+## State of idempotency (carried from #27 — what's actually enforced)
 Nonce-enforced mutating actions: `claim-frontier` (#26) + `build` + `upgrade`
 (#27). Key = `${action}:${playerId}[:${target}]:${nonce}`, claim-before-spend,
-fail-closed (400/409/503). **Not** guarded: `mine` (cooldown), `collect` (natural),
-`attack`, others. The current nonce is generated **per client call**, so it blocks
-exact-request **replay**, not application-level double-submit (see ID-003).
+fail-closed (400/409/503). **Not** guarded: `mine` (cooldown), `collect`
+(natural), `attack`, others. The nonce is generated **per client call**, so it
+blocks exact-request **replay**, not application-level double-submit (see ID-003).
 
-## Follow-up roadmap (tracked; NOT started this chat)
+## Idempotency follow-up roadmap (carried from #27; NOT started)
 | ID | Title | Status | Priority | Branch |
 |----|-------|--------|----------|--------|
-| **ID-001** | `safeUuid()` fallback — `crypto.randomUUID?.() ?? fallbackUuid()` used by claim/build/upgrade (crypto.randomUUID is undefined in non-secure/legacy contexts → action throws) | PLANNED | Low | (fold into ID-003 or a small `chore/`) |
-| **ID-002** | Structured / unambiguous `target` construction (avoid `parcelId:type` delimiter ambiguity when `parcelId` is an unconstrained string) | PLANNED | Low | (fold into ID-003) |
-| **ID-003** | **Stable idempotency nonce** — generate once per logical user action (click handler / mutation instance), reuse across retries; server returns the **original 200** on duplicate (not 409) for true idempotency semantics. Client (click handlers, useMutation) + server (duplicate path, response replay/persistence). | **NEXT** | **High** | `feat/idempotency-stable-nonce` |
-| **ID-004** | `action_nonces` TTL + prune (unbounded growth, amplified by per-call nonce on high-frequency build/upgrade) — TTL column + periodic prune or `DELETE WHERE created_at < now()-N` | PLANNED | Medium | `chore/action-nonces-ttl` |
+| **ID-001** | `safeUuid()` fallback (`crypto.randomUUID` undefined in non-secure/legacy contexts) | PLANNED | Low | fold into ID-003 / small `chore/` |
+| **ID-002** | Unambiguous `target` construction (avoid `parcelId:type` delimiter ambiguity) | PLANNED | Low | fold into ID-003 |
+| **ID-003** | **Stable idempotency nonce** — one per logical action, reuse across retries; server replays original 200 on duplicate | **NEXT** | **High** | `feat/idempotency-stable-nonce` |
+| **ID-004** | `action_nonces` TTL + prune (unbounded growth) | PLANNED | Medium | `chore/action-nonces-ttl` |
 
 ## NEXT chat
-- **Recommended next unit:** **ID-003 → `feat/idempotency-stable-nonce`** (High).
-  It makes the guard actually stop double-submits and enables safe transparent
-  retries — the correct foundation before rate-limiting. Pairs naturally with
-  ID-001/ID-002 (small, can be folded in) and ID-004 (fewer rows once nonces are
-  per-action).
-- **Sequence (owner-directed):** 1) ID-003 stable nonce → 2) ID-004 TTL/prune →
-  3) `feat/rate-limit-actions` (rate-limiting comes *after* idempotency semantics
-  are correct). ID-001/ID-002 are cheap and may ride along with ID-003.
-- **Other queued options (one unit each):**
-  - `feat/rate-limit-actions` — per-IP/per-player limiter on `/api/actions/*`
-    (do AFTER ID-003).
-  - `chore/registerRoutes-testable` — inject storage/chain so a real HTTP
-    route-mount test of the 400/409/503 enforcement is possible (closes the
-    "no route-mount test" gap from #25/#26/#27).
-  - **Port PR #10's algod-first finality check** into `verifyAlgoPayment`
-    (indexer-only today). **Funds-economic → `algo-auditor` + `/security-pass`.**
-  - `chore/align-vite-types` — fix the pre-existing `mockup-sandbox` root-typecheck
-    failure (vite/`@types/node` mismatch; not in CI).
+- **First:** `/handoff-audit` **this** AUTO-001 PR (docs-only; verify scope =
+  4 docs + 1 audit report + baton, no code, `ops/kestra/` untouched).
+- **Two viable tracks (pick one unit):**
+  - **Idempotency (owner-directed sequence):** ID-003 `feat/idempotency-stable-nonce`
+    (High) → ID-004 TTL/prune → `feat/rate-limit-actions` (rate-limit *after*
+    idempotency semantics are correct). ID-001/ID-002 are cheap, can ride along.
+  - **Kestra factory build-out (AUTO-001 Phase 1):** `chore/kestra-namespace-prep`
+    — nested dirs + **copy** `severity-router.yml` into `common.ops/` (leave the
+    `frontier.ops` copy active → zero downtime; no caller changes), then
+    `chore/kestra-repoint-dispatcher` (Phase 2).
+- **Other queued options:** `chore/registerRoutes-testable` (real HTTP route-mount
+  test of 400/409/503 — closes the #25/#26/#27 wiring-untested gap); port PR #10's
+  algod-first finality into `verifyAlgoPayment` (**funds-economic → `algo-auditor`
+  + `/security-pass`**); `chore/align-vite-types` (pre-existing `mockup-sandbox`).
 - **Open risks:**
+  - ⚠️ AUTO-001 is **design only** — none of F1–F3/F6/F7 implemented; not validated.
   - ⚠️ Idempotency is replay-only, not double-submit-proof (per-call nonce) — ID-003.
-  - ⚠️ `action_nonces` has no TTL/prune (grows unbounded, amplified) — ID-004.
+  - ⚠️ `action_nonces` has no TTL/prune (unbounded) — ID-004.
   - ⚠️ `crypto.randomUUID` can be undefined in non-secure contexts — ID-001.
-  - ⚠️ `target` delimiter ambiguity (fail-safe, but unhardened) — ID-002.
-  - ⚠️ No rate limit on `/api/actions/*` (do after ID-003).
-  - ⚠️ No full HTTP route-mount test (guard unit-tested instead).
-  - ⚠️ No `release()` on the action guard (LOW; fail-closed, no lockout).
-  - ⚠️ mine/collect/attack still have no idempotency nonce (cooldown/accrual only).
+  - ⚠️ `target` delimiter ambiguity (fail-safe, unhardened) — ID-002.
+  - ⚠️ No rate limit on `/api/actions/*` (do after ID-003); no full HTTP
+    route-mount test; no `release()` on the action guard (LOW, fail-closed).
   - ⚠️ `verifyAlgoPayment` finality is indexer-only.
   - ⚠️ Migrations `0005_redeemed_payments.sql` + `0006_action_nonces.sql` must be
-    applied before deploying the guards.
-- **Off-limits:** do not merge `wip/atomic-purchase`; nothing in `ops/kestra/`
-  may point at mainnet; no funds/ASA/transfer code to mainnet without
+    applied before deploying the guards (now covers build/upgrade too).
+  - ⚠️ Kestra namespace migration must update hardcoded subflow `namespace:` refs
+    in `uptime.yml`/`deep-health.yml`/`veritas-grind.yml` in lockstep.
+- **Off-limits:** do not merge `wip/atomic-purchase`; **nothing in `ops/kestra/`
+  may point at mainnet**; no funds/ASA/transfer code to mainnet without
   `/mainnet-gate` **and** `algo-auditor`; no funds-moving phase ships without that.
+  AUTO-001 changes **no** game behavior.
