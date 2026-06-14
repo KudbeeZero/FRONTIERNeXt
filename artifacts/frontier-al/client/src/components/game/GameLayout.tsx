@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { safeUuid } from "@/lib/safeUuid";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
@@ -291,8 +292,9 @@ export function GameLayout() {
       return;
     }
     if (!player || !selectedParcelId || !selectedParcel) return;
+    // One nonce per logical action — reused if React-Query retries this mutate().
     upgradeMutation.mutate(
-      { playerId: player.id, parcelId: selectedParcelId, upgradeType: type as any },
+      { playerId: player.id, parcelId: selectedParcelId, upgradeType: type as any, idempotencyKey: safeUuid() },
       {
         onSuccess: () => {
           queueUpgradeAction(selectedParcel.plotId, type);
@@ -332,8 +334,9 @@ export function GameLayout() {
       return;
     }
     if (!player || !selectedParcelId || !selectedParcel) return;
+    // One nonce per logical action — reused if React-Query retries this mutate().
     buildMutation.mutate(
-      { playerId: player.id, parcelId: selectedParcelId, improvementType: type },
+      { playerId: player.id, parcelId: selectedParcelId, improvementType: type, idempotencyKey: safeUuid() },
       {
         onSuccess: () => {
           queueBuildAction(selectedParcel.plotId, type);

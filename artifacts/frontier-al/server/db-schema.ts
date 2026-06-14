@@ -94,14 +94,19 @@ export const redeemedPayments = pgTable("redeemed_payments", {
 
 // ─── action_nonces ────────────────────────────────────────────────────────────
 // Idempotency guard for mutating game actions. The PRIMARY KEY on `key`
-// (`${action}:${playerId}:${nonce}`) makes the first claim win atomically across
-// instances; a replay/double-submit with the same key inserts zero rows and is
-// rejected with 409. See createActionIdempotencyGuard.
+// (`${action}:${playerId}[:${target}]:${nonce}`) makes the first claim win
+// atomically across instances. Two-phase: the first request claims the key
+// (`response_json` NULL → in-flight), then persists its success body into
+// `response_json` so a later duplicate of the same nonce REPLAYS the original
+// response (200) instead of erroring. A duplicate seen while the first is still
+// in-flight (response_json NULL) gets 409. See createActionIdempotencyGuard.
 export const actionNonces = pgTable("action_nonces", {
-  key:       text("key").primaryKey(),                       // `${action}:${playerId}:${nonce}`
-  playerId:  varchar("player_id", { length: 36 }).notNull(),
-  action:    varchar("action", { length: 40 }).notNull(),
-  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  key:          text("key").primaryKey(),                       // `${action}:${playerId}[:${target}]:${nonce}`
+  playerId:     varchar("player_id", { length: 36 }).notNull(),
+  action:       varchar("action", { length: 40 }).notNull(),
+  createdAt:    bigint("created_at", { mode: "number" }).notNull(),
+  responseJson: text("response_json"),                          // success body for replay; NULL while in-flight
+  completedAt:  bigint("completed_at", { mode: "number" }),     // when the success body was persisted
 });
 
 // ─── ai_faction_identities ────────────────────────────────────────────────────

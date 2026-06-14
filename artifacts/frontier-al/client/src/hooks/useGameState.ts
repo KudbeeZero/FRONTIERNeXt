@@ -1,5 +1,6 @@
 import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { safeUuid } from "@/lib/safeUuid";
 import type { GameState, MineAction, UpgradeAction, AttackAction, BuildAction, PurchaseAction, MintAvatarAction, SpecialAttackAction, DeployDroneAction, DeploySatelliteAction } from "@shared/schema";
 import { COMMANDER_INFO } from "@shared/schema";
 
@@ -78,11 +79,12 @@ export function useMine() {
 export function useUpgrade() {
   return useMutation({
     mutationFn: async (action: UpgradeAction) => {
-      // Idempotency nonce — lets the server reject a double-submit/replay of this
-      // upgrade (so a retried request can't double-spend ASCEND). Fresh per call.
+      // Idempotency nonce — reuse the key the caller generated for THIS logical
+      // action (stable across retries), or fall back to a fresh one. The server
+      // dedups a double-submit/replay and replays the original result.
       const response = await apiRequest("POST", "/api/actions/upgrade", {
         ...action,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: action.idempotencyKey ?? safeUuid(),
       });
       return response.json();
     },
@@ -107,11 +109,12 @@ export function useAttack() {
 export function useBuild() {
   return useMutation({
     mutationFn: async (action: BuildAction) => {
-      // Idempotency nonce — lets the server reject a double-submit/replay of this
-      // build (so a retried request can't double-spend ASCEND). Fresh per call.
+      // Idempotency nonce — reuse the key the caller generated for THIS logical
+      // action (stable across retries), or fall back to a fresh one. The server
+      // dedups a double-submit/replay and replays the original result.
       const response = await apiRequest("POST", "/api/actions/build", {
         ...action,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: action.idempotencyKey ?? safeUuid(),
       });
       return response.json();
     },
@@ -150,11 +153,11 @@ export function useCollectAll() {
 export function useClaimAscend() {
   return useMutation({
     mutationFn: async (playerId: string) => {
-      // Idempotency nonce — lets the server reject a double-submit/replay of this
-      // claim (so a retried request can't double-credit ASCEND). Fresh per call.
+      // Idempotency nonce — the server dedups a double-submit/replay and replays
+      // the original result. safeUuid never throws in non-secure contexts.
       const response = await apiRequest("POST", "/api/actions/claim-frontier", {
         playerId,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: safeUuid(),
       });
       return response.json();
     },
