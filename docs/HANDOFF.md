@@ -5,7 +5,8 @@
 
 ## Current baton
 - **Branch:** `chore/action-nonces-ttl`
-- **PR:** _(this chat's PR — ID-004: `action_nonces` TTL + periodic prune)_
+- **PR:** [#30](https://github.com/KudbeeZero/FRONTIERNeXt/pull/30) — ID-004:
+  `action_nonces` TTL + periodic prune
 - **Audit status:** `AWAITING_AUDIT`
 - **Prior merges (all audited PASS):** PR #29 (stable idempotency nonce, ID-003) —
   merged; **independently re-audited PASS this chat** (`docs/audits/feat-idempotency-stable-nonce.md`).
