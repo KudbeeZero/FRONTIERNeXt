@@ -4,80 +4,60 @@
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
 ## Current baton
-- **Branch:** `claude/actions-idempotency-extend-2qpwrn`
-- **PR:** [#27](https://github.com/KudbeeZero/FRONTIERNeXt/pull/27) (extend the
-  idempotency-nonce guard to build & upgrade actions)
-- **Audit status:** `AWAITING_AUDIT`
-- Note: **PR #26 audited PASS (independent) + merged** (`9da5f5f`); audit at
+- **Branch:** `main` (clean) — **no open PR** (one-open-PR invariant restored).
+- **Last unit:** PR [#27](https://github.com/KudbeeZero/FRONTIERNeXt/pull/27)
+  (extend the idempotency-nonce guard to build & upgrade) — **audited PASS WITH
+  NOTES (independent) + merged** (`a1dc9ab`); audit at `docs/audits/pr-27-audit.md`.
+- Prior: PR #26 audited PASS + merged (`9da5f5f`), audit at
   `docs/audits/feat-actions-idempotency-nonce.md`.
-- **CI gates green** (frontier-al scope = `ci.yml`): `check` 0,
-  `test:server` **236/236** (was 225, +11), `test` **45/45**.
+- **CI gates green** on the merged head (frontier-al scope = `ci.yml`): `check` 0,
+  `test:server` **236/236**, `test` **45/45**.
+- **Audit status:** `READY_FOR_NEXT_UNIT` (nothing awaiting audit).
 
-## What this chat did (for the auditor)
-Extended PR #26's `createActionIdempotencyGuard` to **build** and **upgrade** —
-reuse, not redesign:
-- `server/idempotencyGuard.ts`: added an optional `scope.target` folded into the
-  key → `${action}:${playerId}:${target}:${nonce}`. Target-less key is **unchanged**
-  (claim-frontier byte-for-byte identical → no migration, no regression).
-- `server/routes.ts`: `/api/actions/build` and `/api/actions/upgrade` claim the
-  nonce **before** the spend/mutation (`buildImprovement`/`upgradeBase`/`fireBurn`);
-  `target = parcelId:type`; missing/malformed → 400, replay → 409, broken store →
-  503 (fail closed). Shared `idempotencyRejection()` helper for the safe mapping.
-- `shared/schema.ts`: optional `idempotencyKey` on build/upgrade schemas.
-- client `useBuild`/`useUpgrade`: send a fresh `crypto.randomUUID()` per call (the
-  live POST path; `queueBuild/UpgradeAction` no-op for server-authoritative
-  actions). No UI change.
-- `server/idempotencyGuard.spec.ts` (+11, 225 → 236): build/upgrade valid first;
-  duplicate blocked; cross-player / cross-action / cross-target no-collision;
-  missing & malformed rejected; safe-enum reasons + fail-closed; deterministic
-  target-scoped key.
-- Ran **/security-pass** → PASS; report at
-  `artifacts/frontier-al/docs/audit/2026-06-14-actions-idempotency-extend.md`.
-- **playerId in the key is auth-verified** by the global mutation middleware
-  (`routes.ts:409`). No funds-logic change → no `algo-auditor` needed (same posture
-  as #26). No new deps. No new migration.
-- **Not covered (honest):** no HTTP route-mount test (same `routes.ts` import
-  entanglement as #25/#26) — the guard is unit-tested with the exact route scopes,
-  the wiring (claim-before-spend, 400/409/503) verified by reading. No `release()`
-  on the guard (LOW, carried from #26) — fail-closed, fresh-UUID client = no
-  lockout. Genuine double-clicks (distinct nonces) are not blocked — that's
-  rate-limiting, not idempotency. mine/collect/attack still unguarded.
+## State of idempotency (what's actually enforced)
+Nonce-enforced mutating actions: `claim-frontier` (#26) + `build` + `upgrade`
+(#27). Key = `${action}:${playerId}[:${target}]:${nonce}`, claim-before-spend,
+fail-closed (400/409/503). **Not** guarded: `mine` (cooldown), `collect` (natural),
+`attack`, others. The current nonce is generated **per client call**, so it blocks
+exact-request **replay**, not application-level double-submit (see ID-003).
 
-## Audit checklist (for the next /handoff-audit)
-| Claim | How to verify |
-|---|---|
-| Guard reused, target added, claim-frontier unchanged | `idempotencyGuard.ts` `actionNonceKey` — target-less branch identical; `actionNonceKey("build","alice",N)` === `build:alice:N` |
-| build/upgrade claim BEFORE the spend | `routes.ts` build (~1646) & upgrade (~1575): guard `.claim(...)` precedes `buildImprovement`/`upgradeBase`/`fireBurn` |
-| Scope = player+action+target | guard call passes `action:"build"/"upgrade"`, `target: \`${parcelId}:${type}\`` |
-| Fail-closed + safe errors | `idempotencyRejection()` → 400/409/503, generic text, no nonce/key/playerId echo |
-| Tests real, +11 | `pnpm --filter @workspace/frontier-al run test:server` → 236/236 (was 225) |
-| Typecheck / client green | `check` 0; `test` 45/45 |
-| No new deps / migration | `--frozen-lockfile` clean; target rides existing `action_nonces.key` |
-| No over-claim | only build/upgrade enforced (+ claim-frontier from #26); mine/collect/attack still unguarded, not claimed |
+## Follow-up roadmap (tracked; NOT started this chat)
+| ID | Title | Status | Priority | Branch |
+|----|-------|--------|----------|--------|
+| **ID-001** | `safeUuid()` fallback — `crypto.randomUUID?.() ?? fallbackUuid()` used by claim/build/upgrade (crypto.randomUUID is undefined in non-secure/legacy contexts → action throws) | PLANNED | Low | (fold into ID-003 or a small `chore/`) |
+| **ID-002** | Structured / unambiguous `target` construction (avoid `parcelId:type` delimiter ambiguity when `parcelId` is an unconstrained string) | PLANNED | Low | (fold into ID-003) |
+| **ID-003** | **Stable idempotency nonce** — generate once per logical user action (click handler / mutation instance), reuse across retries; server returns the **original 200** on duplicate (not 409) for true idempotency semantics. Client (click handlers, useMutation) + server (duplicate path, response replay/persistence). | **NEXT** | **High** | `feat/idempotency-stable-nonce` |
+| **ID-004** | `action_nonces` TTL + prune (unbounded growth, amplified by per-call nonce on high-frequency build/upgrade) — TTL column + periodic prune or `DELETE WHERE created_at < now()-N` | PLANNED | Medium | `chore/action-nonces-ttl` |
 
 ## NEXT chat
-- **Proposed branch:** `feat/rate-limit-actions` — per-IP/per-player limiter on
-  `/api/actions/*` (mint-on-prepare / rapid double-click DoS), the natural
-  complement to the nonce guard.
-- **Scope options (one unit each):**
-  1. **`feat/rate-limit-actions`** — rate-limit `/api/actions/*` (centralize in
-     `server/rateLimitStore.ts`), with deterministic tests.
-  2. **`chore/registerRoutes-testable`** — inject storage/chain into
-     `registerRoutes` so a true HTTP route-mount test of the 400/409/503
-     idempotency enforcement is possible (closes the "no route-mount test" gap).
-  3. **`chore/action-nonces-ttl`** — TTL/prune for `action_nonces` (unbounded
-     growth; operational housekeeping).
-  4. **Port PR #10's algod-first finality check** into `verifyAlgoPayment`
-     (indexer-only today). **Funds-economic → `algo-auditor` + `/security-pass`.**
-  5. `chore/align-vite-types` — fix the pre-existing `mockup-sandbox` root-typecheck
-     failure (vite/`@types/node` mismatch; not in CI).
+- **Recommended next unit:** **ID-003 → `feat/idempotency-stable-nonce`** (High).
+  It makes the guard actually stop double-submits and enables safe transparent
+  retries — the correct foundation before rate-limiting. Pairs naturally with
+  ID-001/ID-002 (small, can be folded in) and ID-004 (fewer rows once nonces are
+  per-action).
+- **Sequence (owner-directed):** 1) ID-003 stable nonce → 2) ID-004 TTL/prune →
+  3) `feat/rate-limit-actions` (rate-limiting comes *after* idempotency semantics
+  are correct). ID-001/ID-002 are cheap and may ride along with ID-003.
+- **Other queued options (one unit each):**
+  - `feat/rate-limit-actions` — per-IP/per-player limiter on `/api/actions/*`
+    (do AFTER ID-003).
+  - `chore/registerRoutes-testable` — inject storage/chain so a real HTTP
+    route-mount test of the 400/409/503 enforcement is possible (closes the
+    "no route-mount test" gap from #25/#26/#27).
+  - **Port PR #10's algod-first finality check** into `verifyAlgoPayment`
+    (indexer-only today). **Funds-economic → `algo-auditor` + `/security-pass`.**
+  - `chore/align-vite-types` — fix the pre-existing `mockup-sandbox` root-typecheck
+    failure (vite/`@types/node` mismatch; not in CI).
 - **Open risks:**
-  - ⚠️ No rate limit on `/api/actions/*` — #1.
-  - ⚠️ No full HTTP route-mount test (guard unit-tested instead) — #2.
-  - ⚠️ `action_nonces` has no TTL/prune (grows unbounded) — #3.
+  - ⚠️ Idempotency is replay-only, not double-submit-proof (per-call nonce) — ID-003.
+  - ⚠️ `action_nonces` has no TTL/prune (grows unbounded, amplified) — ID-004.
+  - ⚠️ `crypto.randomUUID` can be undefined in non-secure contexts — ID-001.
+  - ⚠️ `target` delimiter ambiguity (fail-safe, but unhardened) — ID-002.
+  - ⚠️ No rate limit on `/api/actions/*` (do after ID-003).
+  - ⚠️ No full HTTP route-mount test (guard unit-tested instead).
   - ⚠️ No `release()` on the action guard (LOW; fail-closed, no lockout).
   - ⚠️ mine/collect/attack still have no idempotency nonce (cooldown/accrual only).
-  - ⚠️ `verifyAlgoPayment` finality is indexer-only — #4.
+  - ⚠️ `verifyAlgoPayment` finality is indexer-only.
   - ⚠️ Migrations `0005_redeemed_payments.sql` + `0006_action_nonces.sql` must be
     applied before deploying the guards.
 - **Off-limits:** do not merge `wip/atomic-purchase`; nothing in `ops/kestra/`
