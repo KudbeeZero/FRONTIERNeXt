@@ -68,8 +68,9 @@ import {
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
 import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, type PaymentRedemption } from "./security";
-import { redeemedPayments as redeemedPaymentsTable } from "./db-schema";
+import { redeemedPayments as redeemedPaymentsTable, actionNonces as actionNoncesTable } from "./db-schema";
 import { evaluateOwnership } from "./routeOwnership";
+import { createActionIdempotencyGuard } from "./idempotencyGuard";
 
 // One ALGO payment txid buys exactly one thing. Backed by the
 // redeemed_payments table (tx_id PRIMARY KEY) so the first claim wins
@@ -89,6 +90,24 @@ const paymentReplayGuard = createPaymentReplayGuard(
         },
         async remove(txId: string): Promise<void> {
           await db.delete(redeemedPaymentsTable).where(eq(redeemedPaymentsTable.txId, txId));
+        },
+      }
+    : null
+);
+
+// Action idempotency guard — blocks double-submit/replay of mutating actions.
+// DB-backed (action_nonces, key PRIMARY KEY) for cross-instance atomicity; falls
+// back to an in-process set only when the DB is unavailable (dev/mem mode).
+const actionIdempotencyGuard = createActionIdempotencyGuard(
+  db
+    ? {
+        async tryInsert(key: string, rec: { playerId: string; action: string }): Promise<boolean> {
+          const inserted = await db
+            .insert(actionNoncesTable)
+            .values({ key, playerId: rec.playerId, action: rec.action, createdAt: Date.now() })
+            .onConflictDoNothing()
+            .returning({ key: actionNoncesTable.key });
+          return inserted.length > 0;
         },
       }
     : null
@@ -1835,6 +1854,25 @@ export async function registerRoutes(
   app.post("/api/actions/claim-frontier", async (req, res) => {
     try {
       const action = claimAscendActionSchema.parse(req.body);
+
+      // Idempotency: claim a per-(player, action, nonce) key BEFORE crediting, so
+      // a double-submit/replay cannot double-credit ASCEND or double-enqueue the
+      // on-chain transfer. Missing/malformed nonce → 400; replay → 409; broken
+      // store → 503 (fail closed). Scoped by playerId (auth-verified upstream).
+      const idem = await actionIdempotencyGuard.claim(
+        { playerId: action.playerId, action: "claim-frontier" },
+        action.idempotencyKey ?? req.header("x-idempotency-key"),
+      );
+      if (!idem.ok) {
+        const status = idem.reason === "already_processed" ? 409 : idem.reason === "store_unavailable" ? 503 : 400;
+        const error =
+          idem.reason === "already_processed"
+            ? "Duplicate request — this claim was already submitted"
+            : idem.reason === "store_unavailable"
+              ? "Service temporarily unavailable"
+              : "Missing or invalid idempotency key";
+        return res.status(status).json({ error });
+      }
 
       const player = await storage.getPlayer(action.playerId);
       if (!player) return res.status(404).json({ error: "Player not found" });

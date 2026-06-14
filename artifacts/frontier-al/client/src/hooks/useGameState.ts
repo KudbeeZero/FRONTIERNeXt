@@ -140,7 +140,12 @@ export function useCollectAll() {
 export function useClaimAscend() {
   return useMutation({
     mutationFn: async (playerId: string) => {
-      const response = await apiRequest("POST", "/api/actions/claim-frontier", { playerId });
+      // Idempotency nonce — lets the server reject a double-submit/replay of this
+      // claim (so a retried request can't double-credit ASCEND). Fresh per call.
+      const response = await apiRequest("POST", "/api/actions/claim-frontier", {
+        playerId,
+        idempotencyKey: crypto.randomUUID(),
+      });
       return response.json();
     },
     onSuccess: () => {

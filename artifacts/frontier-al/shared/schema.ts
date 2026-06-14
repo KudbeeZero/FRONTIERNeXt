@@ -508,6 +508,11 @@ export const collectActionSchema = z.object({
 
 export const claimAscendActionSchema = z.object({
   playerId: z.string(),
+  // Idempotency nonce — the server requires it to block double-submit/replay of
+  // the ASCEND claim (the route rejects a missing/malformed key via the
+  // idempotency guard). Optional in the schema so the route returns a specific
+  // 400 rather than a generic ZodError.
+  idempotencyKey: z.string().optional(),
 });
 
 export type MineAction = z.infer<typeof mineActionSchema>;
