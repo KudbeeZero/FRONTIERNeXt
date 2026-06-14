@@ -78,7 +78,12 @@ export function useMine() {
 export function useUpgrade() {
   return useMutation({
     mutationFn: async (action: UpgradeAction) => {
-      const response = await apiRequest("POST", "/api/actions/upgrade", action);
+      // Idempotency nonce — lets the server reject a double-submit/replay of this
+      // upgrade (so a retried request can't double-spend ASCEND). Fresh per call.
+      const response = await apiRequest("POST", "/api/actions/upgrade", {
+        ...action,
+        idempotencyKey: crypto.randomUUID(),
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -102,7 +107,12 @@ export function useAttack() {
 export function useBuild() {
   return useMutation({
     mutationFn: async (action: BuildAction) => {
-      const response = await apiRequest("POST", "/api/actions/build", action);
+      // Idempotency nonce — lets the server reject a double-submit/replay of this
+      // build (so a retried request can't double-spend ASCEND). Fresh per call.
+      const response = await apiRequest("POST", "/api/actions/build", {
+        ...action,
+        idempotencyKey: crypto.randomUUID(),
+      });
       return response.json();
     },
     onSuccess: () => {
