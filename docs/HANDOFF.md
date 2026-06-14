@@ -5,8 +5,8 @@
 
 ## Current baton
 - **Branch:** `claude/kestra-automation-factory-06fr1h`
-- **PR:** _(this chat's PR — GrowPod Empire Automation Factory architecture,
-  directive AUTO-001)_
+- **PR:** [#28](https://github.com/KudbeeZero/FRONTIERNeXt/pull/28) — GrowPod
+  Empire Automation Factory architecture, directive AUTO-001
 - **Audit status:** `AWAITING_AUDIT`
 - **Prev PRs (both merged + audited PASS):**
   - PR [#27](https://github.com/KudbeeZero/FRONTIERNeXt/pull/27) (extend
