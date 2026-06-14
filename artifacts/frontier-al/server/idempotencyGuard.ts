@@ -50,11 +50,15 @@ export type StoreClaimResult =
  *              row's persisted response (null while the first request is in-flight).
  * - `complete` persists the success body for later replay.
  * - `remove`   deletes the claim (used when the mutation failed).
+ * - `prune`    deletes claims older than `olderThanMs` (TTL housekeeping, ID-004);
+ *              reaps both completed rows and crash-orphaned in-flight rows.
+ *              Returns the number of rows removed.
  */
 export interface ActionNonceStore {
   claim(key: string, rec: ActionNonceRecord): Promise<StoreClaimResult>;
   complete(key: string, responseJson: string): Promise<void>;
   remove(key: string): Promise<void>;
+  prune(olderThanMs: number): Promise<number>;
 }
 
 export type ActionClaimResult =
@@ -77,8 +81,9 @@ export function actionNonceKey(action: string, playerId: string, nonce: string, 
 export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
   // Dev/mem fallback (single-process). Production injects a DB-backed store for
   // cross-instance protection (see routes.ts wiring + the action_nonces table).
-  // Map value = persisted response, or null while the first request is in-flight.
-  const seen = new Map<string, string | null>();
+  // Map value: `response` is the persisted body (null while in-flight); `createdAt`
+  // is the claim time, used by `prune` for TTL housekeeping (mirrors the DB row).
+  const seen = new Map<string, { response: string | null; createdAt: number }>();
 
   function keyFor(scope: ActionNonceRecord, nonce: string): string {
     return actionNonceKey(scope.action, scope.playerId, nonce, scope.target);
@@ -112,13 +117,13 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
         }
       }
 
-      if (seen.has(key)) {
-        const prior = seen.get(key) ?? null;
-        return prior != null
-          ? { ok: true, replay: true, response: prior }
+      const existing = seen.get(key);
+      if (existing) {
+        return existing.response != null
+          ? { ok: true, replay: true, response: existing.response }
           : { ok: false, reason: "in_progress" };
       }
-      seen.set(key, null);
+      seen.set(key, { response: null, createdAt: Date.now() });
       return { ok: true, replay: false };
     },
 
@@ -139,7 +144,9 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
         }
         return;
       }
-      seen.set(key, responseJson);
+      const existing = seen.get(key);
+      if (existing) existing.response = responseJson;
+      else seen.set(key, { response: responseJson, createdAt: Date.now() });
     },
 
     /**
@@ -154,11 +161,40 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
         try {
           await store.remove(key);
         } catch {
-          /* best-effort: claim remains in-flight; ID-004 prune will reap it */
+          /* best-effort: claim remains in-flight; the periodic prune reaps it */
         }
         return;
       }
       seen.delete(key);
+    },
+
+    /**
+     * TTL housekeeping (ID-004): drop claims older than `olderThanMs`. Reaps both
+     * completed rows (which now also store `response_json`) and crash-orphaned
+     * in-flight rows, so `action_nonces` cannot grow unbounded. Best-effort: a
+     * store error returns 0 rather than throwing (a maintenance job, not a request
+     * path). `olderThanMs` must comfortably exceed the legitimate retry window —
+     * after it elapses a nonce is forgotten (replay protection lasts the TTL; normal
+     * play uses a fresh nonce per action and never relies on an older one). Returns
+     * the number of claims removed.
+     */
+    async prune(olderThanMs: number): Promise<number> {
+      if (store) {
+        try {
+          return await store.prune(olderThanMs);
+        } catch {
+          return 0;
+        }
+      }
+      const cutoff = Date.now() - olderThanMs;
+      let removed = 0;
+      for (const [key, rec] of seen) {
+        if (rec.createdAt < cutoff) {
+          seen.delete(key);
+          removed++;
+        }
+      }
+      return removed;
     },
   };
 }
