@@ -17,8 +17,12 @@ const STATS_KEY = "aether.stats.v1";
 
 export interface Settings {
   muted: boolean;
+  /** 0..1 master volume. */
+  volume: number;
   voiceEnabled: boolean;
   reducedMotion: boolean;
+  /** Always-on clean captions for spoken dialogue. */
+  subtitles: boolean;
 }
 
 export interface RunStats {
@@ -59,8 +63,10 @@ function save(key: string, value: unknown) {
 
 const defaultSettings: Settings = {
   muted: false,
+  volume: 1,
   voiceEnabled: true,
   reducedMotion: prefersReducedMotion(),
+  subtitles: false,
 };
 
 const defaultStats: RunStats = {
@@ -74,8 +80,10 @@ const defaultStats: RunStats = {
 interface SettingsState extends Settings {
   stats: RunStats;
   setMuted: (v: boolean) => void;
+  setVolume: (v: number) => void;
   setVoiceEnabled: (v: boolean) => void;
   setReducedMotion: (v: boolean) => void;
+  setSubtitles: (v: boolean) => void;
   recordRun: (repairMs: number, stability: number) => void;
 }
 
@@ -83,6 +91,7 @@ const initialSettings = load<Settings>(SETTINGS_KEY, defaultSettings);
 
 // Apply the persisted audio prefs to the engine up front.
 audio.setMuted(initialSettings.muted);
+audio.setVolume(initialSettings.volume);
 audio.setVoiceEnabled(initialSettings.voiceEnabled);
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -94,6 +103,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ muted: v });
     persistSettings(get);
   },
+  setVolume: (v) => {
+    audio.setVolume(v);
+    set({ volume: v });
+    persistSettings(get);
+  },
   setVoiceEnabled: (v) => {
     audio.setVoiceEnabled(v);
     set({ voiceEnabled: v });
@@ -101,6 +115,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setReducedMotion: (v) => {
     set({ reducedMotion: v });
+    persistSettings(get);
+  },
+  setSubtitles: (v) => {
+    set({ subtitles: v });
     persistSettings(get);
   },
 
@@ -126,8 +144,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 }));
 
 function persistSettings(get: () => SettingsState) {
-  const { muted, voiceEnabled, reducedMotion } = get();
-  save(SETTINGS_KEY, { muted, voiceEnabled, reducedMotion });
+  const { muted, volume, voiceEnabled, reducedMotion, subtitles } = get();
+  save(SETTINGS_KEY, { muted, volume, voiceEnabled, reducedMotion, subtitles });
 }
 
 /** Cheap per-frame read for the R3F loops (no React re-render). */

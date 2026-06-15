@@ -5,6 +5,7 @@ import { DialogueOverlay } from "./ui/DialogueOverlay";
 import { OnchainLedger } from "./ui/OnchainLedger";
 import { StartGate, WakeFade, EndCard } from "./ui/CinematicLayer";
 import { MenuLayer } from "./ui/MenuLayer";
+import { Subtitles } from "./ui/Subtitles";
 import { useDialogueDriver } from "./ui/useDialogueDriver";
 import { useRunStats } from "./store/settingsStore";
 import { useGameStore } from "./store/gameStore";
@@ -38,6 +39,7 @@ export default function App() {
           <ObjectiveTracker />
           <DialogueOverlay />
           <OnchainLedger />
+          <Subtitles />
           <MenuLayer />
         </>
       )}

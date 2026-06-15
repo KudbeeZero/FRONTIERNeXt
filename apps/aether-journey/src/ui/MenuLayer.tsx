@@ -50,20 +50,53 @@ function Toggle({
 /** Reusable settings rows — used by both the pause menu and the start screen. */
 export function SettingsToggles() {
   const muted = useSettingsStore((s) => s.muted);
+  const volume = useSettingsStore((s) => s.volume);
   const voiceEnabled = useSettingsStore((s) => s.voiceEnabled);
   const reducedMotion = useSettingsStore((s) => s.reducedMotion);
+  const subtitles = useSettingsStore((s) => s.subtitles);
   const setMuted = useSettingsStore((s) => s.setMuted);
+  const setVolume = useSettingsStore((s) => s.setVolume);
   const setVoiceEnabled = useSettingsStore((s) => s.setVoiceEnabled);
   const setReducedMotion = useSettingsStore((s) => s.setReducedMotion);
+  const setSubtitles = useSettingsStore((s) => s.setSubtitles);
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-2">
       <Toggle label="Sound" hint="Ambient hum + effects" on={!muted} onToggle={(v) => setMuted(!v)} />
+
+      {/* Master volume. Disabled-looking (dimmed) while muted. */}
+      <div
+        className={
+          "flex items-center justify-between gap-4 rounded border border-aether-core/20 bg-aether-core/5 px-4 py-3 " +
+          (muted ? "opacity-40" : "")
+        }
+      >
+        <span className="font-display text-sm uppercase tracking-widest text-[#cfe3f5]">
+          Volume
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={Math.round(volume * 100)}
+          disabled={muted}
+          onChange={(e) => setVolume(Number(e.target.value) / 100)}
+          aria-label="Master volume"
+          className="h-1 w-40 cursor-pointer accent-aether-core"
+        />
+      </div>
+
       <Toggle
         label="Aether's Voice"
         hint="Spoken dialogue (Web Speech)"
         on={voiceEnabled}
         onToggle={setVoiceEnabled}
+      />
+      <Toggle
+        label="Subtitles"
+        hint="Clean captions for dialogue"
+        on={subtitles}
+        onToggle={setSubtitles}
       />
       <Toggle
         label="Reduced Motion"
