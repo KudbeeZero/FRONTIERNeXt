@@ -1,0 +1,44 @@
+{
+  "branch": "local/game-online-fixes",
+  "uncommittedCount": 17,
+  "uncommitted": [
+    ".gitignore",
+    "artifacts/frontier-al/client/src/components/game/CommandCenterPanel.tsx",
+    "artifacts/frontier-al/client/src/components/game/GameLayout.tsx",
+    "artifacts/frontier-al/client/src/components/game/InventoryPanel.tsx",
+    "artifacts/frontier-al/client/src/components/game/TopBar.tsx",
+    "artifacts/frontier-al/client/src/components/game/WalletConnect.tsx",
+    "artifacts/frontier-al/client/src/contexts/WalletContext.tsx",
+    "artifacts/frontier-al/server/db.ts",
+    "artifacts/frontier-al/server/index.ts",
+    "artifacts/frontier-al/server/routes.ts",
+    "artifacts/frontier-al/server/services/chain/client.ts",
+    "artifacts/frontier-al/server/storage.ts",
+    "artifacts/frontier-al/server/vite.ts",
+    "artifacts/frontier-al/server/wsServer.ts",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ],
+  "recentCommits": [
+    "a469799 Merge pull request #30 from KudbeeZero/chore/action-nonces-ttl",
+    "previous merge and fix commits (full history truncated)"
+  ],
+  "changedFilesSample": [
+    "artifacts/frontier-al/client/src/components/game/CommandCenterPanel.tsx",
+    "artifacts/frontier-al/client/src/components/game/GameLayout.tsx",
+    "artifacts/frontier-al/client/src/components/game/InventoryPanel.tsx",
+    "artifacts/frontier-al/client/src/components/game/TopBar.tsx",
+    "artifacts/frontier-al/client/src/components/game/WalletConnect.tsx",
+    "artifacts/frontier-al/client/src/contexts/WalletContext.tsx",
+    "artifacts/frontier-al/server/db.ts",
+    "artifacts/frontier-al/server/index.ts",
+    "artifacts/frontier-al/server/routes.ts",
+    "artifacts/frontier-al/server/services/chain/client.ts",
+    "artifacts/frontier-al/server/storage.ts",
+    "artifacts/frontier-al/server/vite.ts",
+    "artifacts/frontier-al/server/wsServer.ts"
+  ],
+  "openPR": "unknown (gh CLI not available; no gh pr list possible)",
+  "aheadBehind": "not fully computed (shallow history on branch)",
+  "notes": "Branch contains game online fixes focused on wallet/UI flows and server persistence/chain/ws. 17 modified files visible in status. No combat removal changes observed."
+}
