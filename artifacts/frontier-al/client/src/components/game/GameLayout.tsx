@@ -400,6 +400,38 @@ export function GameLayout() {
     });
   };
 
+  // Claim accumulated per-plot ASCEND into the player balance and queue the
+  // matching on-chain ASA transfer to their wallet. The server endpoint
+  // (/api/actions/claim-frontier) is idempotent and gates on ASA opt-in.
+  const handleClaimAscend = () => {
+    if (!isConnected) {
+      toast({ title: "Authorization Required", description: "Connect your wallet to perform game actions.", variant: "destructive" });
+      return;
+    }
+    if (!player) return;
+    claimAscendMutation.mutate(player.id, {
+      onSuccess: (data: any) => {
+        if (data?.success === false) {
+          const reason =
+            data.reason === "wallet_not_opted_in"
+              ? "Opt in to the ASCEND token first (banner above), then claim."
+              : data.message || "Nothing to claim right now.";
+          toast({ title: "Claim Unavailable", description: reason, variant: "destructive" });
+          return;
+        }
+        const amt = data?.amount ?? 0;
+        toast({
+          title: "ASCEND Claimed",
+          description:
+            amt > 0
+              ? `${amt} ASCEND credited — on-chain transfer to your wallet is queued.`
+              : "Balance updated.",
+        });
+      },
+      onError: (error) => toast({ title: "Claim Failed", description: (error as Error).message, variant: "destructive" }),
+    });
+  };
+
   const [isClaimingCommanderNft, setIsClaimingCommanderNft] = useState(false);
   const [isRetryingCommanderMintId, setIsRetryingCommanderMintId] = useState<string | null>(null);
 
@@ -748,6 +780,8 @@ export function GameLayout() {
       setSelectedParcelId(id);
     },
     onCollectAll: handleCollectAll,
+    onClaimAscend: handleClaimAscend,
+    isClaimingAscend: claimAscendMutation.isPending,
     onMine: handleMine,
     onMineParcel: handleMineParcel,
     isMiningParcel,
@@ -1005,6 +1039,8 @@ export function GameLayout() {
               player={player}
               parcels={gameState.parcels}
               onCollectAll={handleCollectAll}
+              onClaimAscend={handleClaimAscend}
+              isClaimingAscend={claimAscendMutation.isPending}
               onSelectParcel={handleParcelSelectFromInventory}
               onMineParcel={handleMineParcel}
               isMiningParcel={isMiningParcel}

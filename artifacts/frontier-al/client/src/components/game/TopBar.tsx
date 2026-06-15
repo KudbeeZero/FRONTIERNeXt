@@ -1,4 +1,4 @@
-import { Sun, Moon, HelpCircle, Menu, FlaskConical, Pickaxe, Fuel, Gem, Zap, Flag } from "lucide-react";
+import { Sun, Moon, HelpCircle, Menu, FlaskConical, Pickaxe, Fuel, Gem, Zap, Flag, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -127,6 +127,15 @@ export function TopBar({ isConnected, className, mobileMenuContent, mobileResour
               "absolute top-1 right-1 w-2 h-2 rounded-full",
               isConnected ? "bg-green-400 animate-pulse" : "bg-red-400",
             )} />
+          </div>
+        </Link>
+        <Link href="/armory">
+          <div
+            className="hidden sm:inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-accent hover:text-accent-foreground h-10 w-10 relative cursor-pointer"
+            title="Armory — Weapons Systems"
+            data-testid="button-armory"
+          >
+            <Crosshair className="w-5 h-5" />
           </div>
         </Link>
         <Button variant="ghost" size="icon" className="hidden sm:flex" data-testid="button-help">

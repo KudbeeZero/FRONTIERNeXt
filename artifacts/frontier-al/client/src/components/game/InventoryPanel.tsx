@@ -302,6 +302,18 @@ export function InventoryPanel({
               {isCollecting ? "Collecting..." : `Collect +${totalStoredIron}Fe +${totalStoredFuel}Fu +${totalStoredCrystal}Cr`}
             </Button>
           )}
+          {hasPending && onClaimAscend && (
+            <Button
+              onClick={onClaimAscend}
+              disabled={isClaimingAscend}
+              variant="secondary"
+              className="flex-1 font-display uppercase tracking-wide text-xs"
+              data-testid="button-claim-ascend"
+            >
+              <Zap className="w-3.5 h-3.5 mr-1.5" />
+              {isClaimingAscend ? "Claiming..." : `Claim ${totalAscendPending.toFixed(2)} ASCEND`}
+            </Button>
+          )}
         </div>
 
         {!hasStored && !hasPending && ownedParcels.length > 0 && (

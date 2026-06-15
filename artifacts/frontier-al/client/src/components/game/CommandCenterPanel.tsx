@@ -350,6 +350,8 @@ interface CommandCenterPanelProps {
   selectedParcel: LandParcel | null;
   onSelectParcel: (id: string) => void;
   onCollectAll: () => void;
+  onClaimAscend?: () => void;
+  isClaimingAscend?: boolean;
   onMine: () => void;
   onMineParcel?: (parcelId: string) => void;
   isMiningParcel?: (parcelId: string) => boolean;
@@ -367,6 +369,8 @@ export function CommandCenterPanel({
   selectedParcel,
   onSelectParcel,
   onCollectAll,
+  onClaimAscend,
+  isClaimingAscend,
   onMine,
   onMineParcel,
   isMiningParcel,
@@ -448,6 +452,21 @@ export function CommandCenterPanel({
             {isCollecting
               ? "Collecting..."
               : `Collect Minerals — +${totalStoredIron}Fe +${totalStoredFuel}Fu +${totalStoredCrystal}Cr`}
+          </Button>
+        </div>
+      )}
+
+      {/* ── Claim ASCEND — harvest accumulated per-plot ASCEND to wallet ── */}
+      {player && hasPending && onClaimAscend && (
+        <div className="mx-3 mt-2 shrink-0">
+          <Button
+            onClick={onClaimAscend}
+            disabled={isClaimingAscend}
+            className="w-full font-display uppercase tracking-wide text-xs h-8"
+            data-testid="cc-button-claim-ascend"
+          >
+            <Zap className="w-3.5 h-3.5 mr-1.5" />
+            {isClaimingAscend ? "Claiming..." : `Claim ${totalAscendPending.toFixed(2)} ASCEND`}
           </Button>
         </div>
       )}
