@@ -96,9 +96,25 @@ export function EndCard() {
         ready to commit to Algorand
       </div>
 
-      <p className="mt-8 font-mono text-[11px] uppercase tracking-[0.4em] text-[#5f7da0]">
-        to be continued…
+      {/* Make the stopping point unmistakable — this is the end of Phase 1's
+          playable content, not a soft-lock. A prominent "to be continued" plus
+          a replay action (a clean page reload restarts the store from scratch
+          without touching it). */}
+      <div className="mt-10 font-display text-2xl font-black uppercase tracking-[0.45em] text-aether-core text-glow sm:text-3xl">
+        To Be Continued
+      </div>
+      <p className="mt-3 max-w-md text-sm leading-relaxed text-[#7d93a8]">
+        That&apos;s the end of <span className="text-[#9fb4c9]">Phase 1 — First Watch</span>.
+        Phase 2, where Aether&apos;s journey to the frontier truly begins, is in
+        development.
       </p>
+
+      <button
+        onClick={() => window.location.reload()}
+        className="mt-8 rounded border border-aether-core/50 bg-aether-core/10 px-8 py-3 font-display text-sm uppercase tracking-[0.3em] text-aether-core text-glow transition hover:bg-aether-core/25"
+      >
+        ↻ Replay Prologue
+      </button>
     </div>
   );
 }
