@@ -190,13 +190,12 @@ Frontier-Al/
 ├── client/src/
 │   ├── components/
 │   │   ├── game/
-│   │   │   ├── AttackModal.tsx          # Troop deployment UI
 │   │   │   ├── BaseInfoPanel.tsx        # Selected-plot info drawer
 │   │   │   ├── BattleWatchModal.tsx     # Live battle viewer
 │   │   │   ├── BattlesPanel.tsx         # Active battles list
 │   │   │   ├── BottomNav.tsx            # Mobile tab navigation
 │   │   │   ├── CommandCenterPanel.tsx   # Mission control view
-│   │   │   ├── CommanderPanel.tsx       # Mint/manage commanders
+│   │   │   ├── CommanderPanel.tsx       # Mint/manage commanders + attack (Battlefront)
 │   │   │   ├── EconomicsPanel.tsx       # Token supply analytics
 │   │   │   ├── GameLayout.tsx           # Root layout + game loop
 │   │   │   ├── GamerTagModal.tsx        # Player name setup

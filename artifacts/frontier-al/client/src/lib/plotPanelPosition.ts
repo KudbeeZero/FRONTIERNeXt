@@ -72,5 +72,8 @@ export function getDesktopPanelPosition(
  */
 export const DEFAULT_DESKTOP_POSITION: PanelPosition = {
   top: "80px",
-  right: "16px",
+  // Clear of the desktop right tab rail (≤ 18rem wide) so the card never sits
+  // behind it. SelectedPlotPanel portals the card to <body> for its own
+  // stacking context; max-height clamps it inside the viewport vertically.
+  right: "calc(18rem + 16px)",
 };

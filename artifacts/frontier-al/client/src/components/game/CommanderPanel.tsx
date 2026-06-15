@@ -17,6 +17,7 @@ import {
   COMMANDER_INFO, SPECIAL_ATTACK_INFO, DRONE_MINT_COST_ASCEND, MAX_DRONES,
   DRONE_SCOUT_DURATION_MS, SATELLITE_DEPLOY_COST_ASCEND, MAX_SATELLITES,
   SATELLITE_ORBIT_DURATION_MS, SATELLITE_YIELD_BONUS, ATTACK_BASE_COST, biomeBonuses,
+  BATTLE_DURATION_MS,
 } from "@shared/schema";
 import type { SubParcel } from "@shared/schema";
 import sentinelImg from "@assets/image_1771570491560.png";
@@ -407,6 +408,8 @@ export interface CommanderPanelProps {
   isDeployingSatellite: boolean;
   isClaimingCommanderNft?: boolean;
   isAttacking?: boolean;
+  /** Bumped by the parent when the player taps "Attack" elsewhere — opens the Battlefront. */
+  openBattlefrontSignal?: number;
   selectedParcel?: LandParcel | null;
   ownedParcels?: LandParcel[];
   wallet?: { isConnected: boolean; address: string | null };
@@ -418,7 +421,7 @@ export interface CommanderPanelProps {
 export function CommanderPanel({
   player, onMintAvatar, onDeployDrone, onDeploySatellite, onSwitchCommander,
   onClaimCommanderNft, onAttack, isMinting, isDeployingDrone, isDeployingSatellite,
-  isClaimingCommanderNft, isAttacking, selectedParcel, ownedParcels = [],
+  isClaimingCommanderNft, isAttacking, openBattlefrontSignal, selectedParcel, ownedParcels = [],
   wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
 }: CommanderPanelProps) {
   const queryClient = useQueryClient();
@@ -429,6 +432,7 @@ export function CommanderPanel({
 
   // Battlefront state
   const [battlefrontOpen, setBattlefrontOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [attackMode, setAttackMode] = useState<"plot" | "sub-parcel">("plot");
   const [targetParcelId, setTargetParcelId] = useState<string>("");
   const [targetPlotId, setTargetPlotId] = useState<string>("");
@@ -453,6 +457,20 @@ export function CommanderPanel({
   useEffect(() => {
     if (ownedParcels.length > 0 && !sourceParcelId) setSourceParcelId(ownedParcels[0].id);
   }, [ownedParcels]);
+
+  // Open the Battlefront when the parent signals an attack request (e.g. the
+  // player tapped "Attack" on a plot/map). Ignores the initial 0 value.
+  const attackSignalRef = useRef(openBattlefrontSignal);
+  useEffect(() => {
+    if (openBattlefrontSignal === undefined) return;
+    if (openBattlefrontSignal !== attackSignalRef.current) {
+      attackSignalRef.current = openBattlefrontSignal;
+      if (openBattlefrontSignal > 0) {
+        setBattlefrontOpen(true);
+        setAttackMode("plot");
+      }
+    }
+  }, [openBattlefrontSignal]);
 
   const { data: selectedTierPrice } = useQuery<{ ascendCost: number; algoNetworkFee: number; adminAddress: string; economyMode: string; currency: string }>({
     queryKey: ["/api/nft/commander-price", selectedTier],
@@ -973,7 +991,7 @@ export function CommanderPanel({
                   </div>
                 )}
 
-                {/* Resources */}
+                {/* Resources — Troops always visible; extras tucked behind Advanced ▾ */}
                 <div className="space-y-2">
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -987,29 +1005,47 @@ export function CommanderPanel({
                     <Slider value={[troops]} onValueChange={([v]) => setTroops(v)} min={1} max={Math.max(1, maxTroops)} step={1} className="w-full" />
                   </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Pickaxe className="w-2.5 h-2.5 text-iron" /> Extra Iron</span>
-                      <span className="font-mono text-[10px]">{extraIron}</span>
-                    </div>
-                    <Slider value={[extraIron]} onValueChange={([v]) => setExtraIron(v)} min={0} max={Math.max(0, player.iron - baseCostIron)} step={10} className="w-full" />
-                  </div>
+                  {/* Advanced ▾ — Extra Iron / Fuel / Crystal, hidden by default */}
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(v => !v)}
+                    className="flex items-center gap-1 text-[10px] font-display uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                    data-testid="button-toggle-advanced-attack"
+                  >
+                    {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    Advanced
+                    {!showAdvanced && (extraIron > 0 || extraFuel > 0 || extraCrystal > 0) && (
+                      <span className="text-cyan-400 normal-case">· boosted</span>
+                    )}
+                  </button>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Fuel className="w-2.5 h-2.5 text-fuel" /> Extra Fuel</span>
-                      <span className="font-mono text-[10px]">{extraFuel}</span>
-                    </div>
-                    <Slider value={[extraFuel]} onValueChange={([v]) => setExtraFuel(v)} min={0} max={Math.max(0, player.fuel - baseCostFuel)} step={10} className="w-full" />
-                  </div>
+                  {showAdvanced && (
+                    <div className="space-y-2 pl-2 border-l border-border/40">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Pickaxe className="w-2.5 h-2.5 text-iron" /> Extra Iron</span>
+                          <span className="font-mono text-[10px]">{extraIron}</span>
+                        </div>
+                        <Slider value={[extraIron]} onValueChange={([v]) => setExtraIron(v)} min={0} max={Math.max(0, player.iron - baseCostIron)} step={10} className="w-full" />
+                      </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" /> Crystal</span>
-                      <span className="font-mono text-[10px] text-cyan-400">{extraCrystal}</span>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Fuel className="w-2.5 h-2.5 text-fuel" /> Extra Fuel</span>
+                          <span className="font-mono text-[10px]">{extraFuel}</span>
+                        </div>
+                        <Slider value={[extraFuel]} onValueChange={([v]) => setExtraFuel(v)} min={0} max={Math.max(0, player.fuel - baseCostFuel)} step={10} className="w-full" />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" /> Crystal</span>
+                          <span className="font-mono text-[10px] text-cyan-400">{extraCrystal}</span>
+                        </div>
+                        <Slider value={[extraCrystal]} onValueChange={([v]) => setExtraCrystal(v)} min={0} max={Math.max(0, player.crystal)} step={1} className="w-full" />
+                      </div>
                     </div>
-                    <Slider value={[extraCrystal]} onValueChange={([v]) => setExtraCrystal(v)} min={0} max={Math.max(0, player.crystal)} step={1} className="w-full" />
-                  </div>
+                  )}
                 </div>
 
                 {/* Power display */}
@@ -1032,6 +1068,14 @@ export function CommanderPanel({
                     {allCommandersLocked && hasCommander && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> All commanders on cooldown</p>}
                     {isOnCooldown && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Attack cooldown active</p>}
                   </div>
+                )}
+
+                {/* Combat warning — single line above Confirm */}
+                {attackMode === "plot" && (
+                  <p className="text-[9px] text-muted-foreground flex items-center gap-1.5" data-testid="commander-combat-warning">
+                    <Clock className="w-3 h-3 shrink-0 text-destructive" />
+                    Battle resolves in {Math.round(BATTLE_DURATION_MS / 60000)} min · resources spent now.
+                  </p>
                 )}
 
                 {/* Launch button */}
