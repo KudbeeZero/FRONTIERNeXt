@@ -18,9 +18,30 @@ class AudioEngine {
   private ambientGain: GainNode | null = null;
   private started = false;
   private _muted = false;
+  private _voiceEnabled = true;
+  private _volume = 1;
 
   get muted() {
     return this._muted;
+  }
+
+  get voiceEnabled() {
+    return this._voiceEnabled;
+  }
+
+  get volume() {
+    return this._volume;
+  }
+
+  /** Master gain target — 0 when muted, else base 0.5 scaled by volume. */
+  private targetGain() {
+    return this._muted ? 0 : 0.5 * this._volume;
+  }
+
+  private applyGain() {
+    if (this.master && this.ctx) {
+      this.master.gain.setTargetAtTime(this.targetGain(), this.ctx.currentTime, 0.05);
+    }
   }
 
   /** Lazily create the context (must be called from a user gesture). */
@@ -37,7 +58,7 @@ class AudioEngine {
 
     this.ctx = new Ctx();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this._muted ? 0 : 0.5;
+    this.master.gain.value = this.targetGain();
     this.master.connect(this.ctx.destination);
 
     this.buildAmbient();
@@ -81,9 +102,30 @@ class AudioEngine {
 
   setMuted(muted: boolean) {
     this._muted = muted;
-    if (this.master && this.ctx) {
-      this.master.gain.setTargetAtTime(muted ? 0 : 0.5, this.ctx.currentTime, 0.05);
-    }
+    this.applyGain();
+    if (muted) this.stopSpeaking();
+  }
+
+  /** 0..1 master volume (independent of mute). */
+  setVolume(v: number) {
+    this._volume = Math.max(0, Math.min(1, v));
+    this.applyGain();
+  }
+
+  /** Toggle Aether's spoken dialogue (Web Speech) without muting sound FX. */
+  setVoiceEnabled(enabled: boolean) {
+    this._voiceEnabled = enabled;
+    if (!enabled) this.stopSpeaking();
+  }
+
+  /** Pause/resume the whole soundscape (used by the pause menu). */
+  suspend() {
+    this.stopSpeaking();
+    void this.ctx?.suspend();
+  }
+
+  resume() {
+    void this.ctx?.resume();
   }
 
   /** Short tonal beep — used for confirms / UI ticks. */
@@ -142,7 +184,7 @@ class AudioEngine {
    * where SpeechSynthesis is unavailable.
    */
   speak(text: string, glitch = 0.3) {
-    if (this._muted) return;
+    if (this._muted || !this._voiceEnabled) return;
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     try {
       const u = new SpeechSynthesisUtterance(
