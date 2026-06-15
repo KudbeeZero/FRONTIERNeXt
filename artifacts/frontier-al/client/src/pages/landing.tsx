@@ -587,6 +587,15 @@ export default function LandingPage() {
                 cursor: "pointer", fontWeight: 700, fontFamily: "inherit",
                 boxShadow: "0 0 24px rgba(60,100,255,0.2)",
               }}>▶ Enter Game</button>
+              {/* Story prologue — Aether's Journey. Real <a> (not wouter) so the
+                  static bundle served at /story/ loads instead of the SPA router. */}
+              <a href="/story/" style={{
+                background: "rgba(120,80,255,0.14)", border: "1px solid rgba(150,110,255,0.45)",
+                borderRadius: 8, padding: "13px 28px", color: "rgba(206,184,255,0.95)",
+                fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",
+                fontWeight: 700, fontFamily: "inherit", textDecoration: "none",
+                boxShadow: "0 0 24px rgba(120,80,255,0.16)",
+              }}>✦ Play the Story</a>
             </div>
           </div>
 
