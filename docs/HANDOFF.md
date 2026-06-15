@@ -25,26 +25,33 @@
   restore it** before relying on it — do not assume its contents.
 
 ## Current baton
-- **Branch:** `claude/aether-journey-phase-1-lvgr0b` (pushed).
-- **PR:** [#36](https://github.com/KudbeeZero/FRONTIERNeXt/pull/36) — into `main`
-  (**draft**). **The active item under audit.**
-- **Audit status:** `AWAITING_AUDIT`
-- **➡️ NEXT CHAT STARTS HERE:** run **`/handoff-audit` on PR #36** and gate it
-  (PASS → merge + start the next unit; CONCERNS → ask; FAIL → don't merge).
-- **Start-of-chat gate (done this chat):** none required — PR
-  [#34](https://github.com/KudbeeZero/FRONTIERNeXt/pull/34) was already
-  **merged** to `main` before this chat (`e1eee78`), so the previous unit was
-  closed; this chat began a fresh, isolated unit.
-- **(prior context)** PR [#33](https://github.com/KudbeeZero/FRONTIERNeXt/pull/33)
-  (`feat/plot-attack-ux-cleanup`) independently audited **PASS** and **merged** to
-  `main` (squash `5222678`) — see `docs/audits/feat-plot-attack-ux-cleanup.md`. The
-  prior PR [#32](https://github.com/KudbeeZero/FRONTIERNeXt/pull/32) retro-**FAIL**
-  was re-confirmed (`docs/audits/feat-surface-armory-battle-nav.md`); #33 remediates
-  it. `main` is clean (no `FloatingPlotWidget` / `AttackModal` / `right-reports/`).
-- **Local gate (this chat, branch HEAD, on Linux):** app `check` **0** (tsc),
-  app `build` **green** (vite, 700 modules), `pnpm install --frozen-lockfile`
-  **green** (CI parity), dev server boots **HTTP 200**. CI (`frontier-al`
-  filter) is unaffected and must stay green on the head commit.
+- **Branch:** `claude/aether-phase1-verify-harden` (pushed) → **PR
+  [#37](https://github.com/KudbeeZero/FRONTIERNeXt/pull/37)** into `main`
+  (**draft**). **This is the one active PR.**
+- **Audit status:** `AWAITING_AUDIT` — but **playtested PASS** this chat.
+- **➡️ NEXT CHAT STARTS HERE:** `/handoff-audit` on **PR #37** and gate it
+  (PASS → merge; CONCERNS → ask; FAIL → don't merge).
+- **Playtest (this chat — headless Chromium, real software WebGL):** boots clean,
+  **zero page errors**; 3D scene renders (hologram + cockpit + Mars + HUD); pause
+  menu (☰ / Esc) shows all 5 settings; **volume slider** drives + persists
+  (`"volume":0.4`); **subtitles** toggle persists + clean caption renders on
+  screen; **Esc closes** the menu. One cosmetic nit: the subtitle caption overlaps
+  the main dialogue box (you see the line twice) — small fix queued, not yet done.
+- **PR housekeeping (this chat):**
+  - **#36** (aether Phase-1 base, `claude/aether-journey-phase-1-lvgr0b`) —
+    **MERGED** to `main` (`a06bbcc`, 16:52Z). The previous baton wrongly showed it
+    `AWAITING_AUDIT`; it was already merged. **#37 builds on it.**
+  - **#35** (docs: REC-004 ledger recovery + #34 retro-audit) — **CLOSED**
+    (deferred, *not* merged) to keep a single active PR. Branch
+    `claude/pr34-audit-ledger-recovery-m3xpvm` preserved → revivable.
+  - **#33 / #34** — merged previously; `main` is clean (no `FloatingPlotWidget` /
+    `AttackModal` / `right-reports/`).
+- **⚠️ Out-of-band:** another agent is working on **audio** separately. #37 also
+  edits `apps/aether-journey/src/lib/audioEngine.ts` (volume / voice-gate /
+  suspend-resume) — **watch for a merge conflict there** when the audio work lands.
+- **⚠️ REC-004 ledger still absent on `main`:** #35 (which recreated
+  `docs/AGENT_ORCHESTRATION_LEDGER.md`) is closed, so the file does **not** exist
+  on `main`. Restore from #35's branch before relying on it.
 
 ## What this chat did (for the auditor)
 **Unit: new app `apps/aether-journey/` — FRONTIER: Aether's Journey, Phase 1.**
