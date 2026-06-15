@@ -3,7 +3,8 @@ import { TopBar } from "./TopBar";
 import PlanetGlobe from "./PlanetGlobe";
 import type { LivePulse } from "@/components/game/PlanetGlobe";
 import { BattleWatchModal } from "./BattleWatchModal";
-import { BottomNav, type NavTab } from "./BottomNav";
+import { type NavTab } from "./BottomNav";
+import { HudShell } from "./hud/HudShell";
 import { LandSheet } from "./LandSheet";
 import { InventoryPanel } from "./InventoryPanel";
 import { BattlesPanel } from "./BattlesPanel";
@@ -1171,7 +1172,7 @@ export function GameLayout() {
         />
       )}
 
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} battleCount={activeBattleCount} />
+      <HudShell activeTab={activeTab} onTabChange={handleTabChange} battleCount={activeBattleCount} />
 
       <BattleWatchModal
         open={!!watchingBattleId}

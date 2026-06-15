@@ -1,0 +1,170 @@
+/* ============================================================
+   FRONTIER HUD shell — ported from the v11 prototype.
+   SCOPED: every rule lives under `.hud-root` and every class is
+   `hud-`-prefixed so none of this leaks into the app's existing
+   cyan/Rajdhani theme. Presentational only — no combat/FX/sound/
+   drag code from the prototype was ported.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+.hud-root {
+  --hud-void: #05080d;
+  --hud-panel: rgba(9, 15, 22, .78);
+  --hud-hairline: rgba(120, 255, 210, .16);
+  --hud-edge: #162230;
+  --hud-mint: #4dffc0;
+  --hud-mint-deep: #1f9d78;
+  --hud-ice: #7fb2ff;
+  --hud-iris: #b16cff;
+  --hud-red: #ff5468;
+  --hud-amber: #ffb24d;
+  --hud-rare: #c06cff;
+  --hud-hi: #eaf3f7;
+  --hud-lo: #788593;
+  /* 64px = the app's existing mobile-nav height (old BottomNav was h-16); other
+     UI (MobilePlotSheet `bottom-16`, fullscreen panels `pb-16`) offsets off this,
+     so we keep it 64px to stay a true drop-in with no layout regression. */
+  --hud-dock-h: 64px;
+  --hud-f-display: 'Chakra Petch', system-ui, sans-serif;
+  --hud-f-body: 'Inter', system-ui, sans-serif;
+  --hud-f-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --hud-ease: cubic-bezier(.16, 1, .3, 1);
+}
+
+/* themed scrollbars within HUD surfaces */
+.hud-root *,
+.hud-root *::before,
+.hud-root *::after { box-sizing: border-box; }
+.hud-root ::-webkit-scrollbar { width: 6px; height: 6px; }
+.hud-root ::-webkit-scrollbar-track { background: transparent; }
+.hud-root ::-webkit-scrollbar-thumb { background: rgba(77, 255, 192, .3); border-radius: 3px; }
+.hud-root ::-webkit-scrollbar-thumb:hover { background: rgba(77, 255, 192, .5); }
+
+/* ---------- glass panel ---------- */
+.hud-glass {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 13px;
+  background: var(--hud-panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--hud-hairline);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .05);
+  color: var(--hud-hi);
+  font-family: var(--hud-f-body);
+}
+.hud-glass--player { border-color: transparent; position: relative; }
+.hud-glass--player::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  padding: 1.2px;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(120deg, #3c1f60, #1f5c4d, #22416c, #3c1f60);
+  background-size: 260% 100%;
+  opacity: .95;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* corner brackets */
+.hud-cnr { position: absolute; width: 12px; height: 12px; border: 1.5px solid var(--hud-mint); opacity: .4; pointer-events: none; z-index: 6; }
+.hud-cnr.tl { top: 7px; left: 7px; border-right: 0; border-bottom: 0; }
+.hud-cnr.tr { top: 7px; right: 7px; border-left: 0; border-bottom: 0; }
+.hud-cnr.bl { bottom: 7px; left: 7px; border-right: 0; border-top: 0; }
+.hud-cnr.br { bottom: 7px; right: 7px; border-left: 0; border-top: 0; }
+
+/* glass panel header / body */
+.hud-wh { display: flex; align-items: center; gap: 9px; padding: 11px 13px; flex: 0 0 auto; border-bottom: 1px solid rgba(255, 255, 255, .05); background: rgba(77, 255, 192, .04); position: relative; z-index: 2; }
+.hud-grip { display: flex; flex-direction: column; gap: 2.5px; }
+.hud-grip i { width: 11px; height: 1.5px; background: var(--hud-mint); opacity: .55; border-radius: 2px; }
+.hud-wt { font-family: var(--hud-f-display); font-size: 11.5px; letter-spacing: .18em; font-weight: 600; white-space: nowrap; background: linear-gradient(100deg, var(--hud-mint) 0%, var(--hud-ice) 45%, var(--hud-mint) 90%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hud-wsub { margin-left: auto; display: flex; gap: 6px; }
+.hud-tag { font-family: var(--hud-f-mono); font-size: 9px; letter-spacing: .06em; color: var(--hud-lo); border: 1px solid var(--hud-edge); border-radius: 5px; padding: 3px 7px; white-space: nowrap; }
+.hud-wb { padding: 14px; overflow: auto; flex: 1 1 auto; position: relative; z-index: 2; }
+.hud-eyebrow { font-family: var(--hud-f-display); font-size: 9.5px; letter-spacing: .2em; color: var(--hud-lo); margin: 0 0 8px; }
+
+/* ---------- bottom dock ---------- */
+.hud-dock {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 50;
+  height: var(--hud-dock-h);
+  backdrop-filter: blur(16px);
+  background: linear-gradient(0deg, rgba(7, 12, 18, .92), rgba(6, 10, 15, .6));
+  border-top: 1px solid var(--hud-edge);
+  transition: transform .42s var(--hud-ease), opacity .3s ease;
+}
+.hud-dock.is-collapsed { transform: translateY(100%); opacity: 0; pointer-events: none; }
+.hud-dock-line { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(77, 255, 192, .18) 20%, rgba(77, 255, 192, .18) 80%, transparent); }
+.hud-dock-ind { position: absolute; top: -1px; height: 2px; width: 60px; border-radius: 2px; background: var(--hud-mint); box-shadow: 0 0 14px rgba(77, 255, 192, .7), 0 0 4px rgba(77, 255, 192, 1); transition: transform .55s var(--hud-ease), width .55s var(--hud-ease); }
+.hud-dock-ind::before { content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 120%; height: 34px; background: radial-gradient(ellipse at top, rgba(77, 255, 192, .22), transparent 70%); pointer-events: none; }
+.hud-dock-items { height: 100%; display: flex; align-items: stretch; }
+.hud-di { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; color: var(--hud-lo); background: transparent; border: none; font: inherit; position: relative; transition: color .25s; }
+.hud-di svg { width: 22px; height: 22px; transition: transform .35s var(--hud-ease), filter .25s; }
+.hud-di span { font-family: var(--hud-f-display); font-size: 9.5px; letter-spacing: .18em; font-weight: 500; }
+.hud-di:hover { color: var(--hud-hi); }
+.hud-di:hover svg { transform: translateY(-3px); }
+.hud-di.on { color: var(--hud-mint); }
+.hud-di.on svg { filter: drop-shadow(0 0 7px rgba(77, 255, 192, .6)); transform: translateY(-2px); }
+.hud-badge { position: absolute; top: 14px; right: calc(50% - 22px); min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px; background: var(--hud-red); color: #fff; font-family: var(--hud-f-mono); font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(255, 84, 104, .6); }
+
+/* dock collapse handle */
+.hud-dock-handle { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 64px; height: 22px; display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; z-index: 51; padding: 4px 0; border: 0; background: transparent; transition: bottom .42s var(--hud-ease); }
+.hud-dock-handle.is-lifted { bottom: calc(var(--hud-dock-h) - 4px); }
+.hud-dock-handle .pip { width: 5px; height: 5px; border-radius: 50%; background: rgba(77, 255, 192, .45); transition: background .2s; }
+.hud-dock-handle:hover .pip, .hud-dock-handle:focus-visible .pip { background: rgba(77, 255, 192, .9); }
+.hud-dock-handle svg { width: 18px; height: 18px; color: var(--hud-mint); transition: transform .35s var(--hud-ease); }
+.hud-dock-handle.is-lifted svg { transform: rotate(180deg); }
+
+/* ---------- slide-up drawer ---------- */
+.hud-drawer-track { position: fixed; left: 50%; bottom: var(--hud-dock-h); width: 2px; height: 0; z-index: 49; transform: translateX(-50%); pointer-events: none; background: linear-gradient(180deg, rgba(77, 255, 192, .6), transparent); transition: height .4s var(--hud-ease); }
+.hud-drawer-track.open { height: 18px; }
+.hud-drawer { position: fixed; left: 50%; bottom: var(--hud-dock-h); width: min(440px, 92vw); z-index: 49; background: var(--hud-panel); backdrop-filter: blur(16px); border: 1px solid var(--hud-hairline); border-radius: 14px 14px 0 0; padding: 14px 16px 18px; opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); transition: transform .45s var(--hud-ease), opacity .35s ease; box-shadow: 0 -14px 40px rgba(0, 0, 0, .5); max-height: 46vh; overflow: auto; color: var(--hud-hi); font-family: var(--hud-f-body); }
+.hud-drawer.open { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.hud-dh { display: flex; align-items: center; gap: 9px; }
+.hud-dh .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hud-mint); box-shadow: 0 0 9px var(--hud-mint); }
+.hud-dh .tt { font-family: var(--hud-f-display); font-size: 12px; letter-spacing: .16em; color: var(--hud-mint); font-weight: 700; }
+.hud-dh .x { margin-left: auto; color: var(--hud-lo); cursor: pointer; font-size: 16px; line-height: 1; background: transparent; border: 0; }
+.hud-dh .x:hover { color: var(--hud-hi); }
+.hud-db { margin-top: 10px; color: var(--hud-lo); font-size: 12.5px; line-height: 1.55; }
+.hud-drawer-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border-radius: 10px; border: 0; background: transparent; cursor: pointer; color: var(--hud-hi); font-family: var(--hud-f-display); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; transition: .2s; }
+.hud-drawer-item:hover, .hud-drawer-item.on { color: var(--hud-mint); background: rgba(77, 255, 192, .08); }
+.hud-drawer-item svg { width: 18px; height: 18px; }
+
+.hud-root :focus-visible { outline: 2px solid var(--hud-mint); outline-offset: 2px; }
+
+/* ---------- bottom-nav usage is mobile-only (mirrors BottomNav's md:hidden);
+   desktop keeps its existing right/left rails untouched ---------- */
+@media (min-width: 768px) {
+  .hud-mobile-only .hud-dock,
+  .hud-mobile-only .hud-dock-handle,
+  .hud-mobile-only .hud-drawer,
+  .hud-mobile-only .hud-drawer-track { display: none !important; }
+}
+
+/* ---------- responsive: mobile = full-width bottom sheet ---------- */
+@media (max-width: 760px) {
+  .hud-drawer { width: 100vw; left: 0; transform: translateY(110%); border-radius: 18px 18px 0 0; max-height: 72vh; padding: 16px 18px 22px; }
+  .hud-drawer.open { transform: translateY(0); }
+  .hud-drawer-track { display: none; }
+  .hud-dock-items .hud-di span { font-size: 8.5px; }
+}
+
+/* ---------- motion (gated on reduced-motion) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hud-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes hud-cabinetFlip {
+    0%   { transform: perspective(400px) rotateX(-90deg); opacity: 0; }
+    60%  { transform: perspective(400px) rotateX(12deg); opacity: 1; }
+    100% { transform: perspective(400px) rotateX(0deg); opacity: 1; }
+  }
+  @keyframes hud-diClick { 40% { transform: translateY(-7px) scale(1.18); } 100% { transform: translateY(-2px) scale(1); } }
+  .hud-glass { animation: hud-up .7s var(--hud-ease) both; }
+  /* file-cabinet reveal: items fold up on mount, staggered via inline delay */
+  .hud-dock--cabinet .hud-di { transform-origin: bottom center; transform: perspective(400px) rotateX(-90deg); opacity: 0; animation: hud-cabinetFlip .26s var(--hud-ease) forwards; }
+  .hud-di.click svg { animation: hud-diClick .4s var(--hud-ease); }
+}
