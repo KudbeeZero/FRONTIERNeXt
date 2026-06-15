@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "../store/gameStore";
+import { useSettingsStore } from "../store/settingsStore";
 import { audio } from "../lib/audioEngine";
+import { SettingsToggles } from "./MenuLayer";
 
 // ---------------------------------------------------------------------------
 // The cinematic bookends that frame the playable scene:
@@ -13,6 +15,7 @@ import { audio } from "../lib/audioEngine";
 export function StartGate() {
   const phase = useGameStore((s) => s.phase);
   const begin = useGameStore((s) => s.begin);
+  const [showSettings, setShowSettings] = useState(false);
   if (phase !== "idle") return null;
 
   return (
@@ -44,6 +47,19 @@ export function StartGate() {
       <p className="mt-6 font-mono text-[10px] uppercase tracking-widest text-[#3f5872]">
         headphones recommended · audio + voice enabled on begin
       </p>
+
+      {/* Settings accessible before you start. */}
+      <button
+        onClick={() => setShowSettings((v) => !v)}
+        className="mt-6 font-mono text-[10px] uppercase tracking-[0.3em] text-[#5f7da0] transition hover:text-aether-core"
+      >
+        {showSettings ? "× close settings" : "⚙ settings"}
+      </button>
+      {showSettings && (
+        <div className="mt-4">
+          <SettingsToggles />
+        </div>
+      )}
     </div>
   );
 }
@@ -75,7 +91,9 @@ export function EndCard() {
   const journeyResumed = useGameStore((s) => s.journeyResumed);
   const ledgerCount = useGameStore((s) => s.ledger.length);
   const stability = useGameStore((s) => s.systems.aetherStability);
+  const stats = useSettingsStore((s) => s.stats);
   if (!journeyResumed) return null;
+  const fmtMs = (ms: number | null) => (ms == null ? "—" : `${(ms / 1000).toFixed(1)}s`);
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#03060d]/95 px-6 text-center backdrop-blur-sm">
@@ -94,6 +112,26 @@ export function EndCard() {
       <div className="mt-8 holo-panel rounded-md px-6 py-4 font-mono text-xs uppercase tracking-widest text-[#9fb4c9]">
         <span className="text-aether-core">{ledgerCount}</span> actions recorded ·
         ready to commit to Algorand
+      </div>
+
+      {/* Local (on-device) run stats — a personal scoreboard, no backend. */}
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 font-mono text-[11px] uppercase tracking-widest text-[#7d93a8]">
+        <span>
+          repair <span className="text-[#cfe3f5]">{fmtMs(stats.lastRepairMs)}</span>
+          {stats.bestRepairMs != null && (
+            <> · best <span className="text-aether-core">{fmtMs(stats.bestRepairMs)}</span></>
+          )}
+        </span>
+        <span>
+          stability{" "}
+          <span className="text-[#cfe3f5]">{stats.lastStability ?? Math.round(stability)}%</span>
+          {stats.bestStability != null && (
+            <> · best <span className="text-aether-core">{stats.bestStability}%</span></>
+          )}
+        </span>
+        <span>
+          run <span className="text-[#cfe3f5]">#{stats.runs}</span>
+        </span>
       </div>
 
       {/* Make the stopping point unmistakable — this is the end of Phase 1's

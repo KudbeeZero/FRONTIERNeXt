@@ -51,6 +51,7 @@ src/
   index.css           Tailwind + cockpit/holographic styling, scanline veil
   store/
     gameStore.ts      Zustand store — the canonical session record
+    settingsStore.ts  Persisted settings (audio/voice/motion) + local run stats
     types.ts          On-chain-ready types (Phase, ShipSystems, OnchainEvent…)
   data/
     dialogue.ts       Aether's scripted lines (per-phase, with glitch levels)
@@ -66,7 +67,8 @@ src/
     DiagnosticConsole.tsx  Clickable in-world diagnostic control
     NeuralRepair.tsx  Hold-to-align node repair minigame
   ui/
-    CinematicLayer.tsx   StartGate / WakeFade / EndCard
+    CinematicLayer.tsx   StartGate (+ settings) / WakeFade / EndCard (+ run stats)
+    MenuLayer.tsx        Pause overlay (☰ / Esc) + reusable settings toggles
     DialogueOverlay.tsx  Aether's dialogue box + gating CTAs
     GlitchText.tsx       Live re-rolling text corruption
     StatusHUD.tsx        Ship subsystems + journey progress

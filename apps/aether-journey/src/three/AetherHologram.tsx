@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGameStore } from "../store/gameStore";
+import { isReducedMotion } from "../store/settingsStore";
 
 // ---------------------------------------------------------------------------
 // Aether — a holographic presence above the console.
@@ -52,17 +53,19 @@ export function AetherHologram() {
     const stab = stability / 100;
     // 0 = fully fragmented, 1 = fully healed.
     const damage = 1 - stab;
+    // Reduced Motion → suppress the random jitter, flicker and ring wobble.
+    const motion = isReducedMotion() ? 0 : 1;
 
     tint.copy(RED).lerp(CYAN, stab);
 
     // Instability → positional jitter + dropout flicker. Speaking adds energy.
-    const jitterAmp = damage * 0.06 + (speaking ? 0.03 : 0);
+    const jitterAmp = (damage * 0.06 + (speaking ? 0.03 : 0)) * motion;
     if (group.current) {
       group.current.position.x = (Math.random() - 0.5) * jitterAmp;
       group.current.position.y =
         0.15 + Math.sin(t * 1.6) * 0.05 + (Math.random() - 0.5) * jitterAmp;
       // Occasional whole-projection dropout when badly hurt.
-      const dropout = damage > 0.4 && Math.random() < damage * 0.04;
+      const dropout = motion > 0 && damage > 0.4 && Math.random() < damage * 0.04;
       group.current.visible = !dropout;
     }
 
@@ -78,7 +81,7 @@ export function AetherHologram() {
     }
 
     // Counter-rotating rings — faster/wobblier the more damaged she is.
-    const wob = damage * 0.4;
+    const wob = damage * 0.4 * motion;
     if (ringA.current) {
       ringA.current.rotation.x = t * 0.6 + Math.sin(t * 4) * wob;
       ringA.current.rotation.y = t * 0.3;

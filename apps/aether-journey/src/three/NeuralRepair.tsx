@@ -3,6 +3,7 @@ import { ThreeEvent, useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "../store/gameStore";
+import { isReducedMotion } from "../store/settingsStore";
 import { audio } from "../lib/audioEngine";
 
 // ---------------------------------------------------------------------------
@@ -74,7 +75,9 @@ function NeuralNode({
     } else {
       // Desynced: erratic tumble + a nervous positional wobble that *eases*
       // as the player charges it toward alignment.
-      const calm = charging ? 1 - charge : 1;
+      // Reduced Motion calms the erratic tumble + wobble (keeps a faint spin).
+      const motion = isReducedMotion() ? 0.2 : 1;
+      const calm = (charging ? 1 - charge : 1) * motion;
       m.rotation.x += 0.05 * calm + 0.01;
       m.rotation.y -= 0.07 * calm;
       m.rotation.z += 0.04 * calm;
