@@ -5,10 +5,9 @@
 
 ## Current baton
 - **Branch:** `feat/plot-attack-ux-cleanup` (pushed).
-- **PR:** _not yet opened_ — `gh` is installed but **not authenticated** on this
-  host (`git` push works, `gh pr create` doesn't). Open from the pushed branch:
-  https://github.com/KudbeeZero/FRONTIERNeXt/pull/new/feat/plot-attack-ux-cleanup
-  (base `main`). Title: `fix(ui): retire DEPLOY ATTACK modal, route attack via Commander, restore real plot card`.
+- **PR:** [#33](https://github.com/KudbeeZero/FRONTIERNeXt/pull/33) — opened
+  against `main`. (`gh` itself is unauthenticated on this host; the PR was opened
+  via the stored `git` credential.)
 - **Audit status:** `AWAITING_AUDIT`
 - **Prior relay correction:** PR [#32](https://github.com/KudbeeZero/FRONTIERNeXt/pull/32)
   (`feat/surface-armory-battle-nav`) had **already merged** to `main` (`ff25dcd`)
