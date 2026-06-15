@@ -11,7 +11,9 @@
     "check": "tsc --noEmit",
     "voice:dry": "tsx scripts/voice/generate-all.ts --dry-run",
     "voice:generate": "tsx scripts/voice/generate-all.ts",
-    "voice:one": "tsx scripts/voice/generate-one.ts"
+    "voice:one": "tsx scripts/voice/generate-one.ts",
+    "music:dry": "tsx scripts/voice/generate-music.ts --dry-run",
+    "music:generate": "tsx scripts/voice/generate-music.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

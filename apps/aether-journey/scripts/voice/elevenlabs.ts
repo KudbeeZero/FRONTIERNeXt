@@ -60,3 +60,66 @@ export async function synthesize(text: string, speaker: Speaker): Promise<ArrayB
   }
   throw lastErr instanceof Error ? lastErr : new Error("ElevenLabs request failed");
 }
+
+const MUSIC_ENDPOINT = "https://api.elevenlabs.io/v1/music";
+
+export interface MusicRequest {
+  prompt: string;
+  music_length_ms: number;
+  model_id: string;
+  output_format: string;
+}
+
+/** POST a text prompt -> raw mp3 ArrayBuffer of generated music. Throws (redacted) on failure. */
+export async function composeMusic(req: MusicRequest): Promise<ArrayBuffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set");
+
+  const url = `${MUSIC_ENDPOINT}?output_format=${encodeURIComponent(req.output_format)}`;
+  const body = JSON.stringify({
+    prompt: req.prompt,
+    music_length_ms: req.music_length_ms,
+    model_id: req.model_id,
+  });
+
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= BACKOFFS_MS.length; attempt++) {
+    const controller = new AbortController();
+    // Music generation is slower than TTS — give it a longer ceiling.
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS * 3);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+          Accept: "audio/mpeg",
+        },
+        body,
+        signal: controller.signal,
+      });
+      if (res.ok) return await res.arrayBuffer();
+
+      const status = res.status;
+      const detail = redact((await res.text()).slice(0, 500), apiKey);
+      if (status !== 429 && status < 500) throw new Error(`ElevenLabs music ${status}: ${detail}`);
+      if (attempt < BACKOFFS_MS.length) {
+        lastErr = new Error(`ElevenLabs music ${status}: ${detail}`);
+        await sleep(BACKOFFS_MS[attempt]);
+        continue;
+      }
+      throw new Error(`ElevenLabs music ${status}: ${detail}`);
+    } catch (err) {
+      const isApiErr = err instanceof Error && err.message.startsWith("ElevenLabs music ");
+      if (!isApiErr && attempt < BACKOFFS_MS.length) {
+        lastErr = err;
+        await sleep(BACKOFFS_MS[attempt]);
+        continue;
+      }
+      throw err instanceof Error ? new Error(redact(err.message, apiKey)) : err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("ElevenLabs music request failed");
+}

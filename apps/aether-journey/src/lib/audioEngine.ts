@@ -11,6 +11,10 @@
 // ---------------------------------------------------------------------------
 
 import { getVoiceClip } from "./voice";
+import { getMusicTrack } from "./music";
+
+/** Background music sits well under dialogue/FX — base ceiling before master volume. */
+const MUSIC_BASE = 0.4;
 
 class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -22,6 +26,8 @@ class AudioEngine {
   private _volume = 1;
   /** Currently-playing pre-rendered voice-over clip, if any. */
   private currentVoiceEl: HTMLAudioElement | null = null;
+  /** Currently-playing background-music track, if any. */
+  private currentMusicEl: HTMLAudioElement | null = null;
 
   get muted() {
     return this._muted;
@@ -105,7 +111,13 @@ class AudioEngine {
   setMuted(muted: boolean) {
     this._muted = muted;
     this.applyGain();
-    if (muted) this.stopSpeaking();
+    if (muted) {
+      this.stopSpeaking();
+      this.currentMusicEl?.pause();
+    } else if (this.currentMusicEl) {
+      this.currentMusicEl.volume = this.musicVolume();
+      void this.currentMusicEl.play().catch(() => {});
+    }
   }
 
   /** 0..1 master volume (independent of mute). */
@@ -113,11 +125,47 @@ class AudioEngine {
     this._volume = Math.max(0, Math.min(1, v));
     this.applyGain();
     if (this.currentVoiceEl) this.currentVoiceEl.volume = this.voiceClipVolume();
+    if (this.currentMusicEl) this.currentMusicEl.volume = this.musicVolume();
   }
 
   /** Voice-over element volume — tracks master volume, mirrors `speak`'s 0.9 ceiling. */
   private voiceClipVolume() {
     return Math.max(0, Math.min(1, 0.9 * this._volume));
+  }
+
+  /** Background-music element volume — tracks master volume, sits under dialogue. */
+  private musicVolume() {
+    return Math.max(0, Math.min(1, MUSIC_BASE * this._volume));
+  }
+
+  /**
+   * Play a pre-rendered background-music track by id (looping if the track is
+   * flagged for it). No-ops when muted or when no clip exists. Safe to call from
+   * the BEGIN gesture — it shares that user-activation with the AudioContext.
+   */
+  playMusic(id: string) {
+    const track = getMusicTrack(id);
+    if (!track) return;
+    this.stopMusic();
+    if (this._muted) return;
+    try {
+      const el = new Audio(track.url);
+      el.loop = track.loop;
+      el.volume = this.musicVolume();
+      this.currentMusicEl = el;
+      void el.play().catch(() => {
+        if (this.currentMusicEl === el) this.currentMusicEl = null;
+      });
+    } catch {
+      /* background music is a nice-to-have; never block the game on it */
+    }
+  }
+
+  stopMusic() {
+    if (this.currentMusicEl) {
+      this.currentMusicEl.pause();
+      this.currentMusicEl = null;
+    }
   }
 
   /** Toggle Aether's spoken dialogue (Web Speech) without muting sound FX. */
@@ -129,11 +177,13 @@ class AudioEngine {
   /** Pause/resume the whole soundscape (used by the pause menu). */
   suspend() {
     this.stopSpeaking();
+    this.currentMusicEl?.pause();
     void this.ctx?.suspend();
   }
 
   resume() {
     void this.ctx?.resume();
+    if (this.currentMusicEl && !this._muted) void this.currentMusicEl.play().catch(() => {});
   }
 
   /** Short tonal beep — used for confirms / UI ticks. */

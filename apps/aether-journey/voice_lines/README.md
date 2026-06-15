@@ -48,6 +48,21 @@ with `--line`/`--chapter` if you hit it.
 Copy the wanted version from `_archive/` back over `ch1/<id>.{mp3,json}`, then
 re-run `pnpm voice:generate` (it will pick up the restored sidecar hash).
 
+## Background music (ElevenLabs Music API)
+
+`music.json` lists tracks (`id`, `prompt`, `length_ms`, `loop`). Generate with:
+
+```bash
+pnpm music:dry                        # validate; no network
+ELEVENLABS_API_KEY=... pnpm music:generate
+```
+
+Output goes to `../src/assets/music/<id>.mp3` (+ sidecar) and the committed
+`../src/lib/music/index.generated.ts` lookup. Same idempotency/archive rules as
+voice (hash of prompt + length + model). Music is billed by length, so the
+generator caps total ms per run. `audioEngine.playMusic(id)` plays it under
+dialogue (mute / volume / pause all apply); `title_intro` fires on BEGIN.
+
 ## When a v3 delivery isn't landing
 
 Adjust the **manifest text** (punctuation, ellipses, em-dashes are the signal) —
