@@ -38,7 +38,7 @@ import { safeUuid } from "@/lib/safeUuid";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
-import { SelectedPlotPanel } from "./SelectedPlotPanel";
+import { FloatingPlotWidget } from "./FloatingPlotWidget";
 import { sendPaymentTransaction } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
@@ -907,7 +907,10 @@ export function GameLayout() {
         )}
       </aside>
 
-      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden">
+      <aside 
+        className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
+        style={{ "--right-menu-width": "18rem" } as React.CSSProperties}
+      >
         <div className="flex border-b border-border shrink-0">
           {(
             [
@@ -1085,18 +1088,19 @@ export function GameLayout() {
            Mobile: slides above BottomNav (z-55). Desktop: floating card (z-55).
            The full LandSheet opens separately when the player taps "Manage Plot".
       ────────────────────────────────────────────────────────────────────────── */}
+      {/* ── Plot Action Surface (desktop uses new decoupled FloatingPlotWidget) ──
+           Mobile behavior and full LandSheet untouched.
+           Widget uses portal + fixed for independence from right menu grid.
+      ────────────────────────────────────────────────────────────────────────── */}
       {activeTab === "map" && selectedParcel && (
-        <SelectedPlotPanel
+        <FloatingPlotWidget
           parcel={selectedParcel}
           player={player}
           isOpen={!showFullLandSheet}
-          onClaim={handlePurchase}
-          isClaiming={purchaseMutation.isPending}
-          isWalletConnected={isWalletConnected}
+          onClose={() => setSelectedParcelId(null)}
           onOpenFullSheet={() => {
             setShowFullLandSheet(true);
           }}
-          onClose={() => setSelectedParcelId(null)}
         />
       )}
 
