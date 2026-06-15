@@ -384,34 +384,62 @@ pera-wallet-sign-txn-modal {
 
 /* ── Landing Page Mobile Responsiveness ───────────────────────────────── */
 @media (max-width: 768px) {
-  /* Reduce hero section gap on mobile */
+  /* Stack the hero cleanly: text first, planet centered below. */
   .hero-section {
-    gap: 20px !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center;
+    gap: 28px !important;
   }
-  
-  /* Scale down planet on mobile */
+
+  /* Scale down + center the planet on mobile */
   .planet-wrap {
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
+    order: 2;
     max-width: 240px !important;
     margin: 0 auto !important;
     padding: 0 10px;
+    overflow: hidden;
   }
-  
-  /* Adjust Planet component size */
+
+  /* Adjust Planet component size (overrides the inline 320px) */
   .float-anim {
     width: 240px !important;
     height: 240px !important;
   }
+
+  /* CTA buttons stay centered when the hero is stacked */
+  .hero-cta {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
-  /* Even smaller on phones */
+  /* On phones, stack the CTAs full-width so neither is cramped. */
+  .hero-cta {
+    flex-direction: column;
+    width: 100%;
+  }
+  .hero-cta > button,
+  .hero-cta > a {
+    width: 100%;
+    text-align: center;
+  }
+
   .planet-wrap {
     max-width: 200px !important;
   }
-  
+
   .float-anim {
     width: 200px !important;
     height: 200px !important;
+  }
+}
+
+/* Short / landscape viewports (e.g. phone held sideways): the hero shouldn't
+   force a full 100vh and bury content below the fold. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .hero-section {
+    margin-bottom: 32px !important;
   }
 }

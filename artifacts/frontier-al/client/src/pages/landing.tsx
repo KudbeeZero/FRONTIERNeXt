@@ -562,7 +562,7 @@ export default function LandingPage() {
           gap: 60, marginBottom: 70, flexWrap: "wrap",
         }}>
           {/* Left: Text */}
-          <div style={{ flex: "1 1 320px", minWidth: 280, animation: "fadeInLeft 0.9s ease-out forwards" }}>
+          <div style={{ flex: "1 1 360px", minWidth: 0, maxWidth: 560, animation: "fadeInLeft 0.9s ease-out forwards" }}>
             <div style={{ fontSize: 10, letterSpacing: "0.35em", color: "rgba(100,160,255,0.55)", textTransform: "uppercase", marginBottom: 14, animation: "glow-pulse 3s ease-in-out infinite" }}>
               ⬡ FRONTIER — ALGORAND TESTNET
             </div>
@@ -579,7 +579,7 @@ export default function LandingPage() {
             <p style={{ fontSize: 15, color: "rgba(170,200,255,0.72)", lineHeight: 1.65, maxWidth: 420, marginBottom: 28 }}>
               A massive-scale strategy game on Algorand. Claim 21,000 hex parcels, build your empire, crush AI factions — all on-chain.
             </p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="hero-cta" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <button onClick={handleEnter} style={{
                 background: "rgba(60,100,255,0.3)", border: "1px solid rgba(100,160,255,0.55)",
                 borderRadius: 8, padding: "13px 28px", color: "rgba(180,220,255,0.95)",
@@ -600,7 +600,7 @@ export default function LandingPage() {
           </div>
 
           {/* Right: Planet + Rocket */}
-          <div className="planet-wrap" style={{ position: "relative", display: "flex", alignItems: "flex-end", gap: 16, animation: "fadeInRight 0.9s ease-out forwards" }}>
+          <div className="planet-wrap" style={{ position: "relative", flex: "0 1 auto", justifyContent: "center", maxWidth: "100%", display: "flex", alignItems: "flex-end", gap: 16, animation: "fadeInRight 0.9s ease-out forwards" }}>
             <Planet />
             <div style={{ marginBottom: 20, opacity: 0.88 }}>
               <Rocket />
