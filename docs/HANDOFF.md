@@ -3,10 +3,36 @@
 > Single source of truth for "what's next." Keep it short — a baton, not a log.
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
+## ⚖️ Working agreement — NEW, LOCKED IN (every agent follows this)
+**Serial PR flow — one unit, one PR, audited, then the next:**
+**Finish → Open PR → Audit → Close/Merge → (only then) Next unit.**
+- **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
+- One agent takes a unit **end-to-end** and opens the PR; that PR goes through audit.
+- The next unit **does not start** until the current PR's audit PASSes **and** it is
+  merged/closed.
+- ❌ **Retired:** the old "push straight to `main` / merge with no PR" style (early
+  GrowPod work). No more multiple PRs open at once — too confusing.
+
+**Orchestration (per the user, this session):**
+- `AGENT_ORCHESTRATION_LEDGER.md` (**REC-004**) is **live and a PROTECTED surface** —
+  treat it as authoritative.
+- The **pre-work checklist is mandatory**, and you must **claim the surface(s) you
+  will touch in the ledger BEFORE starting** work.
+- Hand work off using the **5-field Work Order** format.
+- ⚠️ **HONEST FLAG:** I could **not locate `AGENT_ORCHESTRATION_LEDGER.md`** in this
+  branch, on `origin/main`, or in any git ref this session (no `REC-004` / "Work
+  Order" references are tracked). Next agent: **confirm where the ledger lives /
+  restore it** before relying on it — do not assume its contents.
+
 ## Current baton
 - **Branch:** `claude/frontier-hud-shell-port-1js9kp` (pushed).
-- **PR:** [#34](https://github.com/KudbeeZero/FRONTIERNeXt/pull/34) — into `main`.
+- **PR:** [#34](https://github.com/KudbeeZero/FRONTIERNeXt/pull/34) — into `main`
+  (ready for review, not draft). **The active item under audit.**
 - **Audit status:** `AWAITING_AUDIT`
+- **➡️ NEXT CHAT STARTS HERE:** run **`/handoff-audit` on PR #34** and gate it
+  (PASS → merge + start the next unit; CONCERNS → ask; FAIL → don't merge). Per the
+  working agreement above, **do not start `feat/hud-desktop-nav` until #34 is
+  audited and merged/closed.**
 - **Start-of-chat gate (done this chat):** PR [#33](https://github.com/KudbeeZero/FRONTIERNeXt/pull/33)
   (`feat/plot-attack-ux-cleanup`) independently audited **PASS** and **merged** to
   `main` (squash `5222678`) — see `docs/audits/feat-plot-attack-ux-cleanup.md`. The
