@@ -108,3 +108,24 @@ Battles nav* feature is correct and worth keeping. The problems to remediate on
 3. Process: the baton **under-claimed** the diff — future closeouts must list every
    changed file (the "never over-claim" invariant cuts both ways: scope, not just
    results).
+
+## Independent re-confirmation (2026-06-15, chat `frontier-hud-shell-port`)
+A second independent retro-audit (adversarial subagent, isolated worktree, Linux)
+re-derived this verdict and **confirms FAIL** with the same evidence: the
+`FloatingPlotWidget.getMockData()` fabricated stats (`biome:"Volcanic"`,
+`richness:87`, fake fallback `plotId:4721`/`owner:"0x4f2a…e9b1"`), the
+`console.log("[UI-only] …")` stub actions, and the dropped inline claim CTA —
+PR #33's "smuggled in mock data" allegation holds against the diff.
+
+This pass **closes the prior doc's "unverified suites" gap**: the earlier audit
+could not run `test:server`/`test`/`build` on its Windows host. Re-run here on
+Linux against the merged head `7452d5d`: `check` exit 0, `test:server`
+**244/244**, `test` (client) **49/49**, `build` exit 0. So the suites are green —
+but **zero tests cover `FloatingPlotWidget`**, so green CI never vouched for the
+fabricated plot surface.
+
+**Remediation landed:** PR #33 `feat/plot-attack-ux-cleanup` (squash-merged to
+`main` as `5222678`, audited PASS — see `feat-plot-attack-ux-cleanup.md`) deletes
+`FloatingPlotWidget.tsx` + `right-reports/`, restores the real `SelectedPlotPanel`
+claim CTA, and confirms transaction logic unchanged. The #32 regression is
+remediated on `main`.
