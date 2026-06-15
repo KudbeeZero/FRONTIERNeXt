@@ -4,77 +4,81 @@
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
 ## Current baton
-- **Branch:** `chore/action-nonces-ttl`
-- **PR:** [#30](https://github.com/KudbeeZero/FRONTIERNeXt/pull/30) — ID-004:
-  `action_nonces` TTL + periodic prune
+- **Branch:** `feat/surface-armory-battle-nav`
+- **PR:** _not yet opened_ — `gh` is not installed on this host. Open from the
+  pushed branch:
+  https://github.com/KudbeeZero/FRONTIERNeXt/pull/new/feat/surface-armory-battle-nav
+  (base `main`). Title: `feat(ui): surface Armory + promote Battles in game navigation`.
 - **Audit status:** `AWAITING_AUDIT`
-- **Prior merges (all audited PASS):** PR #29 (stable idempotency nonce, ID-003) —
-  merged; **independently re-audited PASS this chat** (`docs/audits/feat-idempotency-stable-nonce.md`).
-  PR #28 (AUTO-001 architecture docs) merged (`docs/audits/pr-28-audit.md`); #27
-  merged @ `a1dc9ab`; #26 merged @ `9da5f5f`.
-- **CI gates green** (frontier-al scope = `ci.yml`): `check` 0,
-  `test:server` **244/244** (was 240, +4), `test` **49/49**, `build` ✓.
+- **Prior relay correction:** PR [#30](https://github.com/KudbeeZero/FRONTIERNeXt/pull/30)
+  (`chore/action-nonces-ttl`, ID-004) had **already merged** to `main`
+  (`a469799`) with the baton left `AWAITING_AUDIT`. **Retro-audited PASS this chat**
+  (`docs/audits/chore-action-nonces-ttl.md`): all code claims verified vs the
+  merged tree, tsc clean, `test:server` 244/244. The "nothing lands unreviewed"
+  gap for #30 is now closed retrospectively.
+- **CI gates green (run locally this chat at branch HEAD):** `check` (tsc) 0,
+  `test:server` **244/244**, `test` (client) **49/49**, `build` ✓.
 
 ## What this chat did (for the auditor)
-Two parts — start-of-chat audit gate, then ID-004:
-1. **Audited the merged PR #29** (it had landed with green CI but no recorded
-   audit) — 2 independent auditors (correctness+tests re-run, funds/security) →
-   **PASS**, no funds-math change. Report in `docs/audits/`.
-2. **ID-004 — `action_nonces` TTL + prune.** Since #29 the table stores
-   `response_json` on every completed action, so it must be reaped.
-   - `idempotencyGuard.ts`: `prune(olderThanMs)` on the store contract + guard
-     (storeless `Map` gains `createdAt`); best-effort (store error → 0, no throw).
-     Fixed the stale "ID-004 prune" comment (the #29 LOW finding).
-   - `routes.ts`: DB `prune` (`DELETE … WHERE created_at < cutoff`), exported
-     `pruneActionNonces()` + env knobs `ACTION_NONCE_TTL_MS` (24h default, **10-min
-     floor**) / `ACTION_NONCE_PRUNE_INTERVAL_MS` (hourly).
-   - `index.ts`: hourly, `unref`'d, error-swallowed prune interval (in startup, not
-     `registerRoutes`, so tests get no timer).
-   - `db-schema.ts` + `migrations/0008_action_nonces_prune_index.sql`: index on
-     `created_at` (staged, not auto-run).
-   - Tests +4 (server 240→244); `ENV_VARS.md` + `DEPLOYMENT_ENV_CHECKLIST.md`
-     updated. **No new deps.**
-   - **/security-pass → PASS** (`docs/audit/2026-06-14-action-nonces-ttl.md`); no
-     funds-logic change → no `algo-auditor`.
-   - **/code-review → 1 finding fixed:** 60s TTL floor could let the prune reap a
-     still-in-flight claim (double-apply window) → **floor raised to 10 min**, far
-     above the sub-second synchronous request window.
+Two parts — the start-of-chat audit, then the unit of work:
+1. **Retro-audited merged PR #30** (see above) → PASS.
+2. **Surfaced the Armory + promoted Battles in the game nav.** The whole weapons
+   system (8 `/api/weapons/*` routes + `ArmoryPanel`) was built but the `/armory`
+   route had **no link anywhere** (URL-only); Battles was buried in the mobile
+   "More" overflow. Now:
+   - `BottomNav.tsx`: added `armory` to `NavTab`; promoted **Battles** and
+     **Armory** into `PRIMARY_TABS` (mobile bar is now Map · Battles · Armory ·
+     Inventory · Commander · More); moved Intel into the overflow sheet.
+   - `GameLayout.tsx`: imported `ArmoryPanel`; added an **Armory** tab to the
+     desktop right sidebar (`desktopRightTab`) and a render branch; added the
+     mobile fullscreen Armory panel (wallet-gated with a connect prompt).
+   - **No backend/route/schema changes.** Renders the existing `ArmoryPanel`
+     against the live API.
+   - **Verified (`/verify` → PASS):** tsc + both suites + build green;
+     **runtime-driven via DOM** (booted with `VITE_TEST_GLOBE=true`): game renders
+     the new tab set, Battles routes to real battle data, Inventory unaffected,
+     Intel correctly demoted to the overflow sheet, desktop War/Armory tabs mount.
+     **No dedicated new automated test** for the nav wiring — it is presentational.
+   - **Post-verify fix:** desktop Armory with no connected wallet was rendering
+     `ArmoryPanel` with an empty `playerId` → misleading "Failed to load armory";
+     now gated on `player` to show the same "Connect your wallet" prompt as mobile.
 
 ## Audit checklist (for the next /handoff-audit)
 | Claim | How to verify |
 |---|---|
-| Prune reaps by age, best-effort | `idempotencyGuard.ts` `prune`; spec reap/keep/returns-0/storeless |
-| DB prune = `DELETE WHERE created_at < cutoff` | `routes.ts` store `prune` + `lt(createdAt, cutoff)` |
-| TTL floor ≥ 10 min (no in-flight reap) | `routes.ts` `ACTION_NONCE_TTL_MS = Math.max(600_000, …)` |
-| Interval unref'd, not in test path | `index.ts` `_actionNoncePruneInterval.unref()`; index.ts not imported by specs |
-| Tests real, no deps | server 240→244, tsc 0, build ✓; `--frozen-lockfile` clean |
-| #29 retro-audit PASS | `docs/audits/feat-idempotency-stable-nonce.md` |
-| No over-claim | only DB prune is wired; storeless prune is dev/mem; replay protection lasts the TTL |
+| Armory reachable in-game (was orphaned) | `GameLayout.tsx` desktop `desktopRightTab === "armory"` branch + mobile `activeTab === "armory"`; `BottomNav.tsx` `armory` in `PRIMARY_TABS` |
+| Battles promoted to primary (was overflow) | `BottomNav.tsx` `PRIMARY_TABS` contains `battles`; `OVERFLOW_TABS` no longer does |
+| No backend change | diff touches only `BottomNav.tsx` + `GameLayout.tsx` (+ audit/baton docs) |
+| Suites green at HEAD | `check` 0, `test:server` 244/244, `test` 49/49, `build` ✓ |
+| Nav wiring untested (honesty) | no new `*.spec.tsx` for the nav; relies on tsc + runtime DOM check |
+| #30 retro-audit | `docs/audits/chore-action-nonces-ttl.md` |
 
 ## NEXT chat
-- **Recommended next unit:** **`feat/rate-limit-actions`** — per-IP/per-player
-  limiter on `/api/actions/*` (idempotency semantics are now correct, so
-  rate-limiting is the right next layer; blocks mint-on-prepare / rapid
-  double-click DoS).
+- **Recommended next unit:** `feat/game-shell-flow-redesign` — the bigger
+  "layout flows better" pass the user asked about: unify desktop/mobile nav,
+  retire the duplicate standalone `/battles` + `/armory` routes (now superseded
+  by in-game tabs), and remove orphaned components (`MobilePlotSheet`,
+  `SelectedPlotPanel`, `MissionLoadingScreen`).
 - **Other queued options (one unit each):**
-  - `chore/registerRoutes-testable` — inject storage/chain for a real HTTP
-    route-mount test of the 400/409/503/200-replay enforcement (closes the
-    #25–#29 wiring-untested gap).
-  - Extend the guard to `/api/sub-parcels/:id/build` (`LandSheet.tsx`, unguarded).
-  - **AUTO-001 build-out (MEDIUM):** `chore/kestra-namespace-prep` → 
-    `chore/kestra-repoint-dispatcher` (per `docs/KESTRA_EXPANSION_PLAN.md`).
-  - **Port PR #10's algod-first finality** into `verifyAlgoPayment` (indexer-only).
-    **Funds-economic → `algo-auditor` + `/security-pass`.**
-  - `chore/align-vite-types` — pre-existing `mockup-sandbox` root-typecheck failure.
+  - `feat/rate-limit-actions` — per-IP/per-player limiter on `/api/actions/*`
+    (idempotency is correct now; rate-limiting is the right next server layer).
+  - `chore/registerRoutes-testable` — real HTTP route-mount test of 400/409/503/
+    200-replay.
+  - Extend idempotency guard to `/api/sub-parcels/:id/build` (`LandSheet.tsx`).
+  - Port PR #10's algod-first finality into `verifyAlgoPayment`. **Funds-economic
+    → `algo-auditor` + `/security-pass`.**
 - **Open risks:**
-  - ⚠️ Replay protection now lasts the TTL (≥10 min); a forgotten >TTL nonce would
-    re-execute — bounded (fresh nonce/action; claim re-credit ~0; auth expiry).
-  - ⚠️ No rate limit on `/api/actions/*` — next unit.
-  - ⚠️ No HTTP route-mount test (guard unit-tested instead).
-  - ⚠️ mine/collect/attack + `/api/sub-parcels/:id/build` still have no idempotency nonce.
-  - ⚠️ `verifyAlgoPayment` finality is indexer-only.
-  - ⚠️ Migrations `0005`/`0006`/`0007`/`0008` must be applied before deploy.
-  - ⚠️ AUTO-001 is **design only** — no factory beyond `frontier.ops` is implemented.
+  - ⚠️ Nav change has **no dedicated automated test** (suite + build + runtime DOM
+    only).
+  - ⚠️ Desktop right sidebar now has **7 tabs** — labels are tiny/cramped at
+    `w-60`; a redesign should reconsider this.
+  - ⚠️ Standalone `/battles` + `/armory` **routes still exist** as duplicates of
+    the in-game tabs (deep-links; harmless but confusing).
+  - ⚠️ `VITE_TEST_GLOBE` in `.env` was toggled to `true` during verification and
+    **restored to `false`** — confirm it reads `false` before any deploy.
+  - (Carried) Replay protection lasts the TTL (≥10 min); no rate limit on
+    `/api/actions/*`; no HTTP route-mount test; migrations `0005`–`0008` must be
+    applied before deploy; `verifyAlgoPayment` finality is indexer-only.
 - **Off-limits:** do not merge `wip/atomic-purchase`; nothing in `ops/kestra/`
   may point at mainnet; no funds/ASA/transfer code to mainnet without
-  `/mainnet-gate` **and** `algo-auditor`; no funds-moving phase ships without that.
+  `/mainnet-gate` **and** `algo-auditor`.

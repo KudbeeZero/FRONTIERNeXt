@@ -15,6 +15,7 @@ import { EconomicsPanel } from "./EconomicsPanel";
 import { GamerTagModal } from "./GamerTagModal";
 import { CommandCenterPanel } from "./CommandCenterPanel";
 import { WarRoomPanel } from "./WarRoomPanel";
+import { ArmoryPanel } from "./armory/ArmoryPanel";
 import { WorldIntelPanel } from "./WorldIntelPanel";
 import { FactionPanel } from "./FactionPanel";
 import { PredictionMarketsPanel } from "./PredictionMarkets";
@@ -32,13 +33,13 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords } from "lucide-react";
+import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { safeUuid } from "@/lib/safeUuid";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
-import { SelectedPlotPanel } from "./SelectedPlotPanel";
+import { FloatingPlotWidget } from "./FloatingPlotWidget";
 import { sendPaymentTransaction } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
@@ -99,7 +100,7 @@ export function GameLayout() {
   const [attackModalOpen, setAttackModalOpen] = useState(false);
   const [watchingBattleId, setWatchingBattleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>("map");
-  const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "rankings" | "trade" | "factions" | "markets" | "commander">("warroom");
+  const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "armory" | "rankings" | "trade" | "factions" | "markets" | "commander">("warroom");
   const [showGamerTag, setShowGamerTag] = useState(false);
   const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -907,11 +908,15 @@ export function GameLayout() {
         )}
       </aside>
 
-      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden">
+      <aside 
+        className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
+        style={{ "--right-menu-width": "18rem" } as React.CSSProperties}
+      >
         <div className="flex border-b border-border shrink-0">
           {(
             [
               { id: "warroom",   icon: Swords,          label: "War"      },
+              { id: "armory",    icon: Crosshair,       label: "Armory"   },
               { id: "commander", icon: Shield,          label: "Commander"},
               { id: "rankings",  icon: Trophy,          label: "Rankings" },
               { id: "trade",     icon: ArrowLeftRight,  label: "Trade"    },
@@ -940,6 +945,16 @@ export function GameLayout() {
           <div className="p-4 space-y-4">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-48 w-full" />
+          </div>
+        ) : desktopRightTab === "armory" ? (
+          <div className="flex-1 overflow-y-auto">
+            {player ? (
+              <ArmoryPanel playerId={player.id} />
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                Connect your wallet to access the Armory.
+              </div>
+            )}
           </div>
         ) : desktopRightTab === "trade" ? (
           <TradeStationPanel
@@ -1020,6 +1035,17 @@ export function GameLayout() {
               onViewOnGlobe={handleViewOnGlobe}
             />
           )}
+          {activeTab === "armory" && (
+            <div className="h-full overflow-y-auto">
+              {player ? (
+                <ArmoryPanel playerId={player.id} />
+              ) : (
+                <div className="p-8 text-center text-muted-foreground">
+                  Connect your wallet to access the Armory.
+                </div>
+              )}
+            </div>
+          )}
           {activeTab === "commander" && gameState && (
             <CommanderPanel
               player={player}
@@ -1085,18 +1111,19 @@ export function GameLayout() {
            Mobile: slides above BottomNav (z-55). Desktop: floating card (z-55).
            The full LandSheet opens separately when the player taps "Manage Plot".
       ────────────────────────────────────────────────────────────────────────── */}
+      {/* ── Plot Action Surface (desktop uses new decoupled FloatingPlotWidget) ──
+           Mobile behavior and full LandSheet untouched.
+           Widget uses portal + fixed for independence from right menu grid.
+      ────────────────────────────────────────────────────────────────────────── */}
       {activeTab === "map" && selectedParcel && (
-        <SelectedPlotPanel
+        <FloatingPlotWidget
           parcel={selectedParcel}
           player={player}
           isOpen={!showFullLandSheet}
-          onClaim={handlePurchase}
-          isClaiming={purchaseMutation.isPending}
-          isWalletConnected={isWalletConnected}
+          onClose={() => setSelectedParcelId(null)}
           onOpenFullSheet={() => {
             setShowFullLandSheet(true);
           }}
-          onClose={() => setSelectedParcelId(null)}
         />
       )}
 
