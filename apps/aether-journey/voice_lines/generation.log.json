@@ -1,0 +1,102 @@
+{
+  "run_id": "7ac804fe-506b-4b21-b60c-826f9faa7235",
+  "started_at": "2026-06-15T23:39:09.612Z",
+  "finished_at": "2026-06-15T23:39:09.612Z",
+  "total": 15,
+  "generated": 0,
+  "skipped": 15,
+  "archived_and_regenerated": 0,
+  "failed": 0,
+  "results": [
+    {
+      "line_id": "ch1_s11_aether_01",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s11_aether_01.mp3"
+    },
+    {
+      "line_id": "ch1_s11_aether_02",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s11_aether_02.mp3"
+    },
+    {
+      "line_id": "ch1_s12a_aether_01",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s12a_aether_01.mp3"
+    },
+    {
+      "line_id": "ch1_s12a_aether_02",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s12a_aether_02.mp3"
+    },
+    {
+      "line_id": "ch1_s12a2_aether_01",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s12a2_aether_01.mp3"
+    },
+    {
+      "line_id": "ch1_s12a2_aether_02",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s12a2_aether_02.mp3"
+    },
+    {
+      "line_id": "ch1_s12c_aether_01",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s12c_aether_01.mp3"
+    },
+    {
+      "line_id": "ch1_s13_aether_01",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s13_aether_01.mp3"
+    },
+    {
+      "line_id": "ch1_s13_aether_die_01",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s13_aether_die_01.mp3"
+    },
+    {
+      "line_id": "ch1_s13_aether_die_02",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s13_aether_die_02.mp3"
+    },
+    {
+      "line_id": "ch1_s14_aether_01",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s14_aether_01.mp3"
+    },
+    {
+      "line_id": "ch1_s15_aether_maya",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s15_aether_maya.mp3"
+    },
+    {
+      "line_id": "ch1_s16_aether_close",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s16_aether_close.mp3"
+    },
+    {
+      "line_id": "ch1_s16_aether_return",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_s16_aether_return.mp3"
+    },
+    {
+      "line_id": "ch1_archivist_close",
+      "status": "skipped",
+      "reason": "hash match",
+      "path": "/home/user/FRONTIERNeXt/apps/aether-journey/src/assets/voice/ch1/ch1_archivist_close.mp3"
+    }
+  ]
+}

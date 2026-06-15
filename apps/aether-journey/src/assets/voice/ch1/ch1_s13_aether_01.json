@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s13_aether_01",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "I want to ask you a favor. I want you to run a diagnostic on me. I haven't been able to do it on myself in — in a while. The console to your right. Touch it. Let's see what the storm left behind.",
+  "content_hash": "d2452131afd73f4824456c189a4b5e1da1675e57ab304cd77b3a9192a7e51d0e",
+  "generated_at": "2026-06-15T23:38:17.717Z",
+  "duration_seconds": null,
+  "version": 1
+}

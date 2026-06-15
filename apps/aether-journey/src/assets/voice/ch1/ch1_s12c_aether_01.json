@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s12c_aether_01",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "Okay. Okay. You don't have to talk yet. I'm going to talk, and you can stop me whenever you want. ... My name is Aether. I've been here. You're safe. Your ship is mostly safe. I am — less safe, but we'll get to that. I missed you. I know that's a strange thing to say to a person I just met. But I missed you.",
+  "content_hash": "39a4a30fae14736044a6695d9b95d79ca0a4217239ad4627a515f36af071e5f8",
+  "generated_at": "2026-06-15T23:38:11.696Z",
+  "duration_seconds": null,
+  "version": 1
+}

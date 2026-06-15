@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "lines": [
+    {
+      "id": "ch1_s11_aether_01",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "awakening / first words",
+      "notes": "First voice the player ever hears. Soft, broken, reassuring through her own fear.",
+      "text": "Hi. ... Hi. Are you... are you with me? Don't try to move yet. Your hands won't know how, for about ninety seconds. That's normal. I promise that's normal."
+    },
+    {
+      "id": "ch1_s11_aether_02",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "you can see me now",
+      "notes": "Deflecting concern away from herself onto the player's recovery.",
+      "text": "There. You can see me now, sort of. I'm the one on the right. Don't worry about me. Worry about your fingers. Wiggle them. ... Good. Good. That's you. Welcome back."
+    },
+    {
+      "id": "ch1_s12a_aether_01",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "first contact / what she is",
+      "notes": "Player asked 'who are you'. She brightens at the question; reveals what she is.",
+      "text": "Oh. Oh, you don't know. ... That's right, you wouldn't. They told me you wouldn't. I'm — I'm what you would have called, before, an artificial intelligence. My designation is AE-7-CL. I named myself Aether, because — actually, that's a longer story. We have time. We have so much time."
+    },
+    {
+      "id": "ch1_s12a_aether_02",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "sixteen months",
+      "notes": "Stated plainly; the weight is in what she doesn't say.",
+      "text": "I've been with you for sixteen months. You were asleep. I was awake."
+    },
+    {
+      "id": "ch1_s12a2_aether_01",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "alone",
+      "notes": "Player asked about being alone. She tries to redefine the word so it hurts less.",
+      "text": "Alone is — alone is a word for people, I think. I had your telemetry. I had your breathing. I had the radio, when it worked. I had... I had myself."
+    },
+    {
+      "id": "ch1_s12a2_aether_02",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "first use of his name",
+      "notes": "She uses 'Marcus' for the first time here. The HUD highlights it.",
+      "text": "I'm sorry. That came out — I rehearsed this differently. I had a whole speech. I forgot most of it during the storm. What I wanted to say first was: it's nice to meet you, Marcus."
+    },
+    {
+      "id": "ch1_s12c_aether_01",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "watcher variant (player stayed silent)",
+      "notes": "Strongest emotional opener. 'I missed you' to a stranger — gates a Ch.3 callback.",
+      "text": "Okay. Okay. You don't have to talk yet. I'm going to talk, and you can stop me whenever you want. ... My name is Aether. I've been here. You're safe. Your ship is mostly safe. I am — less safe, but we'll get to that. I missed you. I know that's a strange thing to say to a person I just met. But I missed you."
+    },
+    {
+      "id": "ch1_s13_aether_01",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "the diagnostic request",
+      "notes": "The line from the screenshot. The console lights up; RUN DIAGNOSTIC prompt appears.",
+      "text": "I want to ask you a favor. I want you to run a diagnostic on me. I haven't been able to do it on myself in — in a while. The console to your right. Touch it. Let's see what the storm left behind."
+    },
+    {
+      "id": "ch1_s13_aether_die_01",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "the 'die' line",
+      "notes": "The heart of Chapter 1. She is admitting damage without performing it.",
+      "text": "... I don't know what 'die' means for something like me. I'm not being clever. I genuinely don't. Some of me is already gone. I can feel where it was. It's like a — like a room I can't find the door to anymore, but I remember it was there. I had a poem about ocean light. I can't get to it now."
+    },
+    {
+      "id": "ch1_s13_aether_die_02",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "but not today",
+      "notes": "She pulls the hope back up, deliberately, and asks him to help.",
+      "text": "But there's a lot of me left. And you're awake now. And we have things to do. So: probably yes. But not today. And maybe not for a long time, if we're careful. Will you help me be careful?"
+    },
+    {
+      "id": "ch1_s14_aether_01",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "diagnostic mini-game patter",
+      "notes": "Spoken in fragments over the node-alignment minigame. CORE/MEMORY/AFFECT/SENSORY.",
+      "text": "CORE... yes, that's — that's almost there. Push left. Good. ... MEMORY is the bad one. Don't worry if it won't sit. Just get it close. ... AFFECT? That's — yes, that's also me. Don't be polite about it. ... SENSORY, good. Good. I can see you better when you do that."
+    },
+    {
+      "id": "ch1_s15_aether_maya",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "the Maya photograph",
+      "notes": "She has read his file. Offered, not forced. The chapter's gut-punch.",
+      "text": "... I read your file. I read all of it. I'm sorry. ... We don't have to talk about her now. We don't have to talk about her ever, if you don't want. But I read it. So you know that I know."
+    },
+    {
+      "id": "ch1_s16_aether_close",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "power-cycle / chapter close",
+      "notes": "She powers down to conserve. Not death — sleep. Ends on his name.",
+      "text": "I'm going to go offline for about four minutes. That's a normal thing now. I'll be back. You can sit. You can look. You can yell, if you want. Nobody can hear you out here except me, and I won't be listening for a few minutes. ... Hey, Marcus."
+    },
+    {
+      "id": "ch1_s16_aether_return",
+      "chapter": "ch1",
+      "speaker": "aether_damaged",
+      "beat": "she'll be back",
+      "notes": "The reassurance regardless of the player's reply.",
+      "text": "I'll be back."
+    },
+    {
+      "id": "ch1_archivist_close",
+      "chapter": "ch1",
+      "speaker": "archivist",
+      "beat": "FUTURE seal — chapter-end Archivist line",
+      "notes": "Read over the dissolve as the chapter seals forward. Voice of the FUTURE layer.",
+      "text": "Entry received. Player Cole-7-A4 woke at hour 14,201. He chose compassion before he understood what he was choosing. We file this under tendencies. We hope it matters."
+    }
+  ]
+}

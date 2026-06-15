@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_archivist_close",
+  "chapter": "ch1",
+  "speaker": "archivist",
+  "voice_id": "wDsJlOXPqcvIUKdLXjDs",
+  "voice_name": "Jarvis",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.75,
+    "similarity_boost": 0.85,
+    "style": 0.15,
+    "use_speaker_boost": false
+  },
+  "text": "Entry received. Player Cole-7-A4 woke at hour 14,201. He chose compassion before he understood what he was choosing. We file this under tendencies. We hope it matters.",
+  "content_hash": "6cab983ae27e9042bac07e249a55a2ec56d7f752bd096257a22b115d75ae9d72",
+  "generated_at": "2026-06-15T23:38:57.857Z",
+  "duration_seconds": null,
+  "version": 1
+}

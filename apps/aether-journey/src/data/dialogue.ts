@@ -23,6 +23,12 @@ export interface DialogueLine {
   glitch: number;
   /** ms to hold before auto-advance (cinematic lines). 0 = wait for player. */
   autoMs?: number;
+  /**
+   * Optional manifest line id for pre-rendered ElevenLabs voice-over
+   * (`voice_lines/manifest.json`). When present and a clip exists, the cast
+   * performance plays; otherwise the engine falls back to runtime Web Speech.
+   */
+  voiceId?: string;
 }
 
 export const DIALOGUE: Record<Exclude<Phase, "idle">, DialogueLine[]> = {
@@ -71,10 +77,13 @@ export const DIALOGUE: Record<Exclude<Phase, "idle">, DialogueLine[]> = {
     {
       speaker: "aether",
       name: "AETHER",
-      text: "Run a diagnostic on me. Please. I need to know how much of myself I still have. The console to your right — touch it, and let's see what the storm left behind.",
+      // Canonical Ch.1 §1.3 line — cast as voice-over (ch1_s13_aether_01).
+      // Subtitle text matches the clip so caption and audio stay in sync.
+      text: "I want to ask you a favor. I want you to run a diagnostic on me. I haven't been able to do it on myself in — in a while. The console to your right. Touch it. Let's see what the storm left behind.",
       mood: "focused",
       glitch: 0.4,
       autoMs: 0, // wait: player must run the diagnostic
+      voiceId: "ch1_s13_aether_01",
     },
   ],
 

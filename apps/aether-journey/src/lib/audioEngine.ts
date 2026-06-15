@@ -1,16 +1,16 @@
 // ---------------------------------------------------------------------------
-// AudioEngine — procedural cockpit soundscape (Web Audio API).
+// AudioEngine — procedural cockpit soundscape (Web Audio API) + voice-over.
 //
-// No audio files needed; everything is synthesized so the prototype runs from a
-// clean clone. Provides:
-//   • a continuous, stressed cockpit ambient hum (two detuned oscillators + LFO)
-//   • UI beeps / confirms
-//   • a burst of "glitch" noise for Aether's fragmented moments
-//   • optional modulated speech via the Web Speech API (SpeechSynthesis)
+// The cockpit hum, beeps and glitch bursts are fully synthesized so the app
+// runs from a clean clone. Aether's dialogue prefers pre-rendered ElevenLabs
+// voice-over when a clip exists for the line, and falls back to runtime Web
+// Speech otherwise (see `speakLine`).
 //
 // AudioContext can only start after a user gesture, so callers must invoke
 // `start()` from a click/tap (the BEGIN gate handles this).
 // ---------------------------------------------------------------------------
+
+import { getVoiceClip } from "./voice";
 
 class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -20,6 +20,8 @@ class AudioEngine {
   private _muted = false;
   private _voiceEnabled = true;
   private _volume = 1;
+  /** Currently-playing pre-rendered voice-over clip, if any. */
+  private currentVoiceEl: HTMLAudioElement | null = null;
 
   get muted() {
     return this._muted;
@@ -110,6 +112,12 @@ class AudioEngine {
   setVolume(v: number) {
     this._volume = Math.max(0, Math.min(1, v));
     this.applyGain();
+    if (this.currentVoiceEl) this.currentVoiceEl.volume = this.voiceClipVolume();
+  }
+
+  /** Voice-over element volume — tracks master volume, mirrors `speak`'s 0.9 ceiling. */
+  private voiceClipVolume() {
+    return Math.max(0, Math.min(1, 0.9 * this._volume));
   }
 
   /** Toggle Aether's spoken dialogue (Web Speech) without muting sound FX. */
@@ -179,6 +187,37 @@ class AudioEngine {
   }
 
   /**
+   * Speak a dialogue line. If a pre-rendered voice-over clip exists for
+   * `voiceId`, play that (the cast performance); otherwise fall back to runtime
+   * Web Speech. Subtitles come from `text`, never from the clip.
+   */
+  speakLine(voiceId: string | undefined, text: string, glitch = 0.3) {
+    if (this._muted || !this._voiceEnabled) return;
+    const url = voiceId ? getVoiceClip(voiceId) : null;
+    if (!url) {
+      this.speak(text, glitch);
+      return;
+    }
+    // Stop whatever's currently sounding (prior clip and/or synth).
+    this.stopSpeaking();
+    try {
+      const el = new Audio(url);
+      el.volume = this.voiceClipVolume();
+      this.currentVoiceEl = el;
+      el.addEventListener("ended", () => {
+        if (this.currentVoiceEl === el) this.currentVoiceEl = null;
+      });
+      void el.play().catch(() => {
+        // Autoplay blocked or decode failed — degrade to Web Speech.
+        if (this.currentVoiceEl === el) this.currentVoiceEl = null;
+        this.speak(text, glitch);
+      });
+    } catch {
+      this.speak(text, glitch);
+    }
+  }
+
+  /**
    * Speak a line via the Web Speech API, modulated by Aether's damage level.
    * Higher `glitch` → lower, more unsteady pitch. Best-effort; silently no-ops
    * where SpeechSynthesis is unavailable.
@@ -208,6 +247,10 @@ class AudioEngine {
   }
 
   stopSpeaking() {
+    if (this.currentVoiceEl) {
+      this.currentVoiceEl.pause();
+      this.currentVoiceEl = null;
+    }
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
