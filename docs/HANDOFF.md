@@ -44,6 +44,10 @@ Client-only; does **not** touch `frontier-al`, globe, server, funds/ASA/mainnet.
   Speech fallback otherwise (mute/volume/voice-toggle/pause all apply). Driver routed
   through it; **one** real line (`ch1_s13_aether_01`, the diagnostic request) wired
   end-to-end with matching subtitle as proof.
+- **Background music (added on user goal):** ElevenLabs Music API (`POST /v1/music`,
+  `music_v1`) via `generate-music.ts` + `voice_lines/music.json`. Generated a 15s
+  `title_intro` that plays on BEGIN under the title dissolve; `audioEngine.playMusic()`
+  beds it at 0.4× master with mute/volume/pause applied.
 
 ## Audit checklist (for the next /handoff-audit)
 | Claim | How to verify |
