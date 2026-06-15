@@ -160,7 +160,7 @@ closeout prune it) once your PR is opened/merged or the work is dropped.
 
 | Surface (files/dirs) | Claimed by (branch / agent) | Unit / Work Order objective | Status | Claimed (UTC) |
 |----------------------|-----------------------------|-----------------------------|--------|---------------|
-| `docs/AGENT_ORCHESTRATION_LEDGER.md`, `docs/audits/<this branch>.md`, `docs/HANDOFF.md` | `claude/pr34-audit-ledger-recovery-m3xpvm` | Retrospective audit of PR #34 + recreate REC-004 ledger | **CLAIMED** | 2026-06-15 |
+| `docs/AGENT_ORCHESTRATION_LEDGER.md`, `docs/audits/claude-frontier-hud-shell-port-1js9kp.md`, `docs/HANDOFF.md` | `claude/pr34-audit-ledger-recovery-m3xpvm` | Retrospective audit of PR #34 + recreate REC-004 ledger | **RELEASED** (PR opened; prune on merge) | 2026-06-15 |
 
 > Claims are advisory but **binding by convention**: if you find a surface you
 > need already `CLAIMED` by an open unit, stop and coordinate (ask the user) —
