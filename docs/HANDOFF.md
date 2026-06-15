@@ -106,4 +106,3 @@
   reintroduce mock/demo data into plot/HUD surfaces.** Treat
   `docs/AGENT_ORCHESTRATION_LEDGER.md`, `docs/HANDOFF.md`, and `docs/audits/**` as
   protected (claim + audited change only).
-</content>

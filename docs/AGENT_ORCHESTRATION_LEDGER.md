@@ -203,5 +203,3 @@ Legend: 🔒 claim + audited change · 🚫 hard gate (named approval/gate requi
 - [`../CLAUDE.md`](../CLAUDE.md) ·
   [`../artifacts/frontier-al/CLAUDE.md`](../artifacts/frontier-al/CLAUDE.md) —
   chat-loop and app rules.
-</content>
-</invoke>

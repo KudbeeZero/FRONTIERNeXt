@@ -130,4 +130,3 @@ be; CI is green on head. Carry forward:
    prefixed, HUD-scoped" rather than "every rule under `.hud-root`."
 3. **Open risk:** HUD shell remains runtime/visually unverified (SSR only) +
    Google-Fonts `@import` external dependency.
-</content>
