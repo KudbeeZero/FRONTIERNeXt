@@ -10,6 +10,7 @@
  */
 
 import { X, MapPin, Shield, Trees, Mountain, Flame, Droplets, Snowflake, Zap, AlertTriangle } from "lucide-react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -111,7 +112,11 @@ function DesktopPlotPanel({
     ownershipBadge = { label: "Unclaimed", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25" };
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  // Portal to <body> so the card has its OWN stacking context and can never be
+  // trapped behind an ancestor's transform/blur or the right tab rail.
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -283,7 +288,8 @@ function DesktopPlotPanel({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

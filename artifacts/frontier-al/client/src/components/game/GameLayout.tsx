@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { TopBar } from "./TopBar";
 import PlanetGlobe from "./PlanetGlobe";
 import type { LivePulse } from "@/components/game/PlanetGlobe";
-import { AttackModal } from "./AttackModal";
 import { BattleWatchModal } from "./BattleWatchModal";
 import { BottomNav, type NavTab } from "./BottomNav";
 import { LandSheet } from "./LandSheet";
@@ -24,6 +23,7 @@ import { WalletConnect } from "./WalletConnect";
 import { OrbitalEventToast } from "./OrbitalEventToast";
 import { useOrbitalEngine } from "@/hooks/useOrbitalEngine";
 import { useWallet } from "@/hooks/useWallet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { TEST_GLOBE } from "@/lib/testMode";
 import { useBlockchainActions } from "@/hooks/useBlockchainActions";
 import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
@@ -39,7 +39,7 @@ import { safeUuid } from "@/lib/safeUuid";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
-import { FloatingPlotWidget } from "./FloatingPlotWidget";
+import { SelectedPlotPanel } from "./SelectedPlotPanel";
 import { sendPaymentTransaction } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
@@ -72,6 +72,7 @@ export function GameLayout() {
   const { data: gameState, isLoading, error } = useGameState();
   const player = useCurrentPlayer(wallet.address);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const { events: orbitalEvents, impactEvents } = useOrbitalEngine();
   const handleParcelSelect = useCallback((id: string) => {
     setSelectedParcelId(id);
@@ -97,7 +98,9 @@ export function GameLayout() {
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
   /** Controls whether the full LandSheet is open (vs. the lightweight SelectedPlotPanel) */
   const [showFullLandSheet, setShowFullLandSheet] = useState(false);
-  const [attackModalOpen, setAttackModalOpen] = useState(false);
+  /** Bumped each time the player requests an attack — signals the Commander
+   *  Battlefront to open (replaces the retired global AttackModal). */
+  const [attackIntent, setAttackIntent] = useState(0);
   const [watchingBattleId, setWatchingBattleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>("map");
   const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "armory" | "rankings" | "trade" | "factions" | "markets" | "commander">("warroom");
@@ -306,7 +309,19 @@ export function GameLayout() {
     );
   };
 
-  const handleAttackClick = () => setAttackModalOpen(true);
+  /**
+   * Route an attack request to the Commander flow instead of the (retired)
+   * global AttackModal. Prefills the target from the selected parcel, surfaces
+   * the Commander panel (right rail on desktop, fullscreen on mobile), and
+   * signals the Battlefront to open. The on-chain attack still fires via
+   * handleAttackConfirm → attackMutation (unchanged).
+   */
+  const handleRequestAttack = (parcelId?: string) => {
+    if (parcelId) setSelectedParcelId(parcelId);
+    setDesktopRightTab("commander");
+    if (isMobile) setActiveTab("commander");
+    setAttackIntent((n) => n + 1);
+  };
 
   const handleAttackConfirm = async (troops: number, iron: number, fuel: number, crystal: number, commanderId?: string, sourceParcelId?: string) => {
     if (!isConnected) {
@@ -321,7 +336,6 @@ export function GameLayout() {
           queueAttackAction(selectedParcel.plotId, troops, iron, fuel, crystal);
           const battleId = data?.id as string | undefined;
           toast({ title: "Attack Deployed", description: "Battle will resolve in 10 minutes." });
-          setAttackModalOpen(false);
           if (battleId) setWatchingBattleId(battleId);
         },
         onError: (error) => toast({ title: "Attack Failed", description: error.message, variant: "destructive" }),
@@ -753,7 +767,7 @@ export function GameLayout() {
     onMineParcel: handleMineParcel,
     isMiningParcel,
     onUpgrade: handleUpgrade,
-    onAttack: handleAttackClick,
+    onAttack: () => handleRequestAttack(),
     isMining: mineMutation.isPending,
     isUpgrading: upgradeMutation.isPending,
     isCollecting: collectMutation.isPending,
@@ -776,7 +790,7 @@ export function GameLayout() {
               currentPlayerId={player?.id || null}
               selectedParcelId={selectedParcelId}
               onParcelSelect={handleParcelSelect}
-              onAttack={handleAttackClick}
+              onAttack={() => handleRequestAttack()}
               onMine={handleMine}
               onBuild={() => { /* LandSheet handles upgrades — stay on map */ }}
               onPurchase={handlePurchase}
@@ -987,6 +1001,7 @@ export function GameLayout() {
             isDeployingSatellite={deploySatelliteMutation.isPending}
             isClaimingCommanderNft={isClaimingCommanderNft}
             isAttacking={attackMutation.isPending}
+            openBattlefrontSignal={attackIntent}
             selectedParcel={selectedParcel}
             ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
             wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
@@ -1060,6 +1075,7 @@ export function GameLayout() {
               isDeployingSatellite={deploySatelliteMutation.isPending}
               isClaimingCommanderNft={isClaimingCommanderNft}
               isAttacking={attackMutation.isPending}
+              openBattlefrontSignal={attackIntent}
               selectedParcel={selectedParcel}
               ownedParcels={gameState.parcels.filter(p => p.ownerId === player?.id)}
               wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
@@ -1107,23 +1123,23 @@ export function GameLayout() {
       )}
 
       {/* ── Plot Action Surface ─────────────────────────────────────────────────
-           Shown for ANY selected plot (mobile + desktop).
-           Mobile: slides above BottomNav (z-55). Desktop: floating card (z-55).
+           Shown for ANY selected plot (mobile + desktop). Real parcel data + the
+           live claim CTA (no mock/demo values). SelectedPlotPanel portals to body
+           with its own stacking context and clamps clear of the right rail, so it
+           can never sit behind a menu.
+           Mobile → MobilePlotSheet (above BottomNav). Desktop → floating card.
            The full LandSheet opens separately when the player taps "Manage Plot".
       ────────────────────────────────────────────────────────────────────────── */}
-      {/* ── Plot Action Surface (desktop uses new decoupled FloatingPlotWidget) ──
-           Mobile behavior and full LandSheet untouched.
-           Widget uses portal + fixed for independence from right menu grid.
-      ────────────────────────────────────────────────────────────────────────── */}
       {activeTab === "map" && selectedParcel && (
-        <FloatingPlotWidget
+        <SelectedPlotPanel
           parcel={selectedParcel}
           player={player}
           isOpen={!showFullLandSheet}
+          onClaim={handlePurchase}
+          isClaiming={purchaseMutation.isPending}
+          isWalletConnected={isWalletConnected}
+          onOpenFullSheet={() => setShowFullLandSheet(true)}
           onClose={() => setSelectedParcelId(null)}
-          onOpenFullSheet={() => {
-            setShowFullLandSheet(true);
-          }}
         />
       )}
 
@@ -1134,7 +1150,7 @@ export function GameLayout() {
           player={player}
           onMine={handleMine}
           onUpgrade={handleUpgrade}
-          onAttack={handleAttackClick}
+          onAttack={() => handleRequestAttack()}
           onBuild={handleBuild}
           onPurchase={handlePurchase}
           onSpecialAttack={handleSpecialAttack}
@@ -1156,20 +1172,6 @@ export function GameLayout() {
       )}
 
       <BottomNav activeTab={activeTab} onTabChange={handleTabChange} battleCount={activeBattleCount} />
-
-      <AttackModal
-        open={attackModalOpen}
-        onOpenChange={setAttackModalOpen}
-        targetParcel={selectedParcel}
-        attacker={player}
-        ownedParcels={
-          gameState
-            ? gameState.parcels.filter((p) => player && p.ownerId === player.id)
-            : []
-        }
-        onAttack={handleAttackConfirm}
-        isAttacking={attackMutation.isPending}
-      />
 
       <BattleWatchModal
         open={!!watchingBattleId}
