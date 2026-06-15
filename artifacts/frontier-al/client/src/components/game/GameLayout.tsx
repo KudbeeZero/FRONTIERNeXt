@@ -948,7 +948,13 @@ export function GameLayout() {
           </div>
         ) : desktopRightTab === "armory" ? (
           <div className="flex-1 overflow-y-auto">
-            <ArmoryPanel playerId={player?.id ?? ""} />
+            {player ? (
+              <ArmoryPanel playerId={player.id} />
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                Connect your wallet to access the Armory.
+              </div>
+            )}
           </div>
         ) : desktopRightTab === "trade" ? (
           <TradeStationPanel

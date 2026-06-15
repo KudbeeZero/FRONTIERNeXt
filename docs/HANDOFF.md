@@ -34,10 +34,14 @@ Two parts — the start-of-chat audit, then the unit of work:
      mobile fullscreen Armory panel (wallet-gated with a connect prompt).
    - **No backend/route/schema changes.** Renders the existing `ArmoryPanel`
      against the live API.
-   - **Verified:** tsc + both suites + build green; **runtime-verified via DOM**
-     (booted with `VITE_TEST_GLOBE=true`, confirmed the game renders the new tab
-     set and that clicking Battles routes to real battle data). **No dedicated
-     new automated test** for the nav wiring — it is presentational.
+   - **Verified (`/verify` → PASS):** tsc + both suites + build green;
+     **runtime-driven via DOM** (booted with `VITE_TEST_GLOBE=true`): game renders
+     the new tab set, Battles routes to real battle data, Inventory unaffected,
+     Intel correctly demoted to the overflow sheet, desktop War/Armory tabs mount.
+     **No dedicated new automated test** for the nav wiring — it is presentational.
+   - **Post-verify fix:** desktop Armory with no connected wallet was rendering
+     `ArmoryPanel` with an empty `playerId` → misleading "Failed to load armory";
+     now gated on `player` to show the same "Connect your wallet" prompt as mobile.
 
 ## Audit checklist (for the next /handoff-audit)
 | Claim | How to verify |
