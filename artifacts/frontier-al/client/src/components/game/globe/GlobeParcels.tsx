@@ -239,6 +239,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
         fillColor = getPlotColor(parcel, currentPlayerId, customColors);
+        // Owned territory pops: brighten player tiles (breathing) and faction/enemy tiles.
+        if (isOwnedByMe) {
+          fillColor.multiplyScalar(1.4 + Math.sin(pulseRef.current + i * 0.1) * 0.12);
+        } else if (isOwned) {
+          fillColor.multiplyScalar(1.25);
+        }
       }
 
       // Your own plots get a breathing border-glow so ownership reads as motion,
@@ -304,6 +310,10 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
         fillColor = getPlotColor(parcel, currentPlayerId, customColors);
+        // Owned territory pops (static base pass — faction/enemy tiles aren't animated).
+        const isOwnedByMe = !!parcel?.ownerId && parcel.ownerId === currentPlayerId;
+        if (isOwnedByMe) fillColor.multiplyScalar(1.4);
+        else if (isOwned) fillColor.multiplyScalar(1.25);
       }
 
       const borderColor = isOwned ? COLOR_BORDER_OWNED.clone() : COLOR_BORDER_UNOWNED.clone();

@@ -46,6 +46,7 @@ import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient } fr
 import { mintLandNft, transferLandNft, attemptDelivery } from "./services/chain/land";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
 import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment, attemptCommanderDelivery } from "./services/chain/commander";
+import { recordPurchaseTransition, newIntentId, queryRecentChainEvents, queryPurchaseIntents, summarizePurchaseFunnel, summarizeChainHealth } from "./services/chain/chainEventStore";
 import {
   bootstrapFactionIdentities,
   getAllFactionAsaIds,
@@ -1792,6 +1793,18 @@ export async function registerRoutes(
 
       const expectedMicroAlgos = Math.round((selectedParcel.purchasePriceAlgo ?? 0) * 1_000_000);
 
+      // Chain-event audit trail (fire-and-forget; never gates the purchase).
+      const purchaseIntentId = newIntentId();
+      const intentBase = {
+        intentId: purchaseIntentId,
+        playerId: action.playerId,
+        kind: "plot" as const,
+        refId: String(action.parcelId),
+        txId: action.algoPaymentTxId,
+        amount: expectedMicroAlgos,
+      };
+      void recordPurchaseTransition({ ...intentBase, state: "submitting", event: "purchase_submitted" });
+
       try {
         await verifyAlgoPayment({
           txId:           action.algoPaymentTxId,
@@ -1799,8 +1812,10 @@ export async function registerRoutes(
           minMicroAlgo:   expectedMicroAlgos,
         });
         console.log(`[purchase] ALGO payment verified txId=${action.algoPaymentTxId} microAlgos=${expectedMicroAlgos} buyer=${player.address}`);
+        void recordPurchaseTransition({ ...intentBase, state: "confirmed", event: "payment_verified" });
       } catch (payErr) {
         console.warn(`[purchase] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
+        void recordPurchaseTransition({ ...intentBase, state: "failed", event: "payment_failed", lastError: (payErr as Error).message });
         return res.status(402).json({ error: "Algo payment not verified" });
       }
       // ─────────────────────────────────────────────────────────────────────────
@@ -1816,6 +1831,7 @@ export async function registerRoutes(
       if (!paymentClaim.ok) {
         if (paymentClaim.reason === "already_redeemed") {
           console.warn(`[purchase] REPLAY DENIED txId=${action.algoPaymentTxId} parcelId=${action.parcelId} player=${action.playerId}`);
+          void recordPurchaseTransition({ ...intentBase, state: "duplicate_detected", event: "duplicate_rejected" });
           return res.status(409).json({ error: "This payment transaction has already been redeemed." });
         }
         return res.status(503).json({ error: "Payment ledger unavailable — purchase refused. Your ALGO was not consumed; try again shortly." });
@@ -1836,6 +1852,7 @@ export async function registerRoutes(
         console.log(`[purchase-audit] plotId=${parcel.plotId} buyer=${buyerAddress} algoPaymentTxId=${action.algoPaymentTxId}`);
       }
       console.log(`[mint-audit] purchase ok plotId=${parcel.plotId} buyer=${buyerAddress}`);
+      void recordPurchaseTransition({ ...intentBase, state: "inventory_syncing", event: "ownership_committed", metadata: { plotId: parcel.plotId } });
       const buyerForEvent = await storage.getPlayer(action.playerId).catch(() => null);
       appendWorldEvent({
         type: "land_claimed",
@@ -1926,11 +1943,14 @@ export async function registerRoutes(
                     .set({ mintedToAddress: buyerAddress })
                     .where(eq(plotNftsTable.plotId, parcel.plotId));
                   console.log(`[purchase] plotId=${parcel.plotId} NFT auto-delivered to ${buyerAddress}`);
+                  void recordPurchaseTransition({ ...intentBase, state: "complete", event: "delivery_complete", metadata: { plotId: parcel.plotId, assetId: result.assetId } });
                 } else if (delivery.reason === "transfer_failed") {
                   // CRITICAL: payment received and NFT minted but delivery failed — flag for admin review
                   console.error(`[CRITICAL] plotId=${parcel.plotId} NFT delivery failed after payment. assetId=${result.assetId} buyer=${buyerAddress} reason=${delivery.reason}`);
+                  void recordPurchaseTransition({ ...intentBase, state: "failed", event: "delivery_failed", lastError: "transfer_failed", metadata: { plotId: parcel.plotId, assetId: result.assetId } });
                 } else {
                   console.log(`[purchase] plotId=${parcel.plotId} NFT in custody (${delivery.reason}) — buyer must opt-in then call /api/nft/deliver/${parcel.plotId}`);
+                  void recordPurchaseTransition({ ...intentBase, state: "inventory_syncing", event: "delivery_pending_optin", metadata: { plotId: parcel.plotId, assetId: result.assetId, reason: delivery.reason } });
                 }
               })
               .catch(async (err) => {
@@ -1939,6 +1959,7 @@ export async function registerRoutes(
                   .set({ status: "failed", updatedAt: Date.now() })
                   .where(eq(mintIdempotencyTable.key, idempotencyKey));
                 console.error(`[purchase] NFT minting failed for plotId=${parcel.plotId}:`, err instanceof Error ? err.message : err);
+                void recordPurchaseTransition({ ...intentBase, state: "failed", event: "mint_failed", lastError: err instanceof Error ? err.message : String(err), metadata: { plotId: parcel.plotId } });
               });
           } else {
             console.warn(`[purchase] PUBLIC_BASE_URL not set — skipping NFT mint for plotId=${parcel.plotId}`);
@@ -3676,6 +3697,41 @@ export async function registerRoutes(
       })));
     } catch (err) {
       console.error("[admin/battles-live]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * GET /api/admin/chain-events — recent on-chain purchase-lifecycle events +
+   * chain-health rollup (admin-gated). Backed by the chain_events /
+   * purchase_intents tables (migration 0009); empty arrays before any purchase.
+   */
+  app.get("/api/admin/chain-events", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
+    try {
+      const limit = clampLimit(req.query.limit, 50, 200);
+      const [events, intents] = await Promise.all([
+        queryRecentChainEvents(limit),
+        queryPurchaseIntents(),
+      ]);
+      res.json({ events, health: summarizeChainHealth(intents, events) });
+    } catch (err) {
+      console.error("[admin/chain-events]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * GET /api/admin/purchase-metrics — purchase funnel + transaction-status
+   * counts for the dashboard charts (admin-gated). Derived from purchase_intents.
+   */
+  app.get("/api/admin/purchase-metrics", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
+    try {
+      const intents = await queryPurchaseIntents();
+      res.json({ funnel: summarizePurchaseFunnel(intents), total: intents.length });
+    } catch (err) {
+      console.error("[admin/purchase-metrics]", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });

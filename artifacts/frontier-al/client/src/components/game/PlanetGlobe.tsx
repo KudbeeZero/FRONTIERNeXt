@@ -82,8 +82,10 @@ function Scene({
       />
       <StarField />
       <GlobeAtmosphere />
-      <ambientLight intensity={1.0} color="#c8d8ff" />
-      <directionalLight position={[8, 5, 5]} intensity={1.8} color="#fff5e0" />
+      <ambientLight intensity={1.8} color="#d8eaff" />
+      <directionalLight position={[8, 4, 5]}   intensity={1.6} color="#fff4e0" />
+      <directionalLight position={[-6, -2, -4]} intensity={1.2} color="#c0d4ff" />
+      <directionalLight position={[0, 8, 0]}   intensity={0.7} color="#e0eeff" />
       <group>
         <GlobeTerrain />
         <PlotOverlay
