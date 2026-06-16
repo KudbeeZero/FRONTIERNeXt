@@ -64,7 +64,13 @@ export function SceneCanvas() {
       {phase === "repair" && <NeuralRepair />}
 
       {/* --- Camera control ------------------------------------------------ */}
+      {/* Look-around is disabled during the repair beat: the nodes are a
+          press-and-hold target, and an active orbit control competes for the
+          same pointer/touch gesture — on touch the browser fires `pointercancel`
+          when it claims the drag for the camera, which aborts the node's charge
+          before it can lock. Freezing the camera here keeps the hold intact. */}
       <OrbitControls
+        enabled={phase !== "repair"}
         target={[0, 0, -3]}
         enablePan={false}
         enableZoom={false}
