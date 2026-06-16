@@ -10,9 +10,25 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `main` — **clean. No open PRs.** `main` @ `3a1ef2e`.
-- **Audit status:** `IDLE` — nothing awaiting audit. Safe to start the next unit.
-- **➡️ NEXT CHAT STARTS HERE:** scope the **globe** (the new focus). See "NEXT chat".
+- **Branch:** `claude/multi-agent-dev-plan-rdpbfi` — **PR open, AWAITING AUDIT.**
+- **Audit status:** `AWAITING_AUDIT` — globe **scope brief** unit. Doc-only.
+- **What this chat did (for the auditor):** added
+  `artifacts/frontier-al/docs/globe/SCOPE_BRIEF.md` (the baton's globe-scope unit) +
+  a dated session note. **No code touched** — `client/`/`server/`/`shared/` unchanged.
+  The brief inventories the globe, the server→globe WS data flow, the as-is interaction
+  model (**coverage-sphere + O(n) nearest-neighbor snap, NOT a per-tile raycaster**),
+  the **Fibonacci parity invariant**, perf cost drivers at 21k tiles, a **pluggable
+  globe interface spec** (`worldToScreen`/`surfaceHit`) for the future combat package,
+  and an audit-checkable exit definition for the next unit. Built by a 4-agent squad
+  (safety/frontend/backend/finalizer); internal safety review = PASS.
+  ⚠️ **Honest flag:** §4.1 reconciles an apparent conflict — the HARD RULE says
+  "positions computed, never stored," but the **server seeds + persists** positions
+  (`seeder.ts:191` → `parcels` table → `rowToParcel`) while the **client regenerates**
+  them at runtime (`GlobeParcels.tsx:59`). Both true; that's *why* client≡server parity
+  is load-bearing. **There is no parity test yet** — top item for the next unit.
+- **Auditor TODO:** confirm diff is doc-only/additive; spot-check the parity-constants
+  table (`server/sphereUtils.ts` vs `client/src/lib/globe/globeUtils.ts`+`globeConstants.ts`);
+  confirm `worldToScreen`/`surfaceHit` truly absent in `client/src`; re-run the 3 checks.
 - **Recent merges (newest first):**
   - **#38** — Aether's Journey Ch.1 **voice + music pipeline** (15 ElevenLabs VO lines,
     Sarah `eleven_v3`; 15s `title_intro` music on BEGIN; `audioEngine.speakLine`/`playMusic`
@@ -34,18 +50,21 @@
 - three.js is **code-split** (three ~687 kB + r3f ~369 kB chunks) — the old
   "single ~1.1 MB chunk" risk is **resolved**.
 
-## NEXT chat — the globe
-- **Direction (per user):** the story-mode prologue (voice/narrative) is in motion;
-  **focus now shifts to the globe** —
-  `artifacts/frontier-al/client/src/components/game/globe/**` (~2,064 LOC:
-  `GlobeParcels`, `GlobeEvents`, `GlobeHUD`, `GlobeTerrain`, `GlobeAtmosphere`,
-  `StarField`, `LiveWeaponLayer`, `ObserverLayer`). It is **real and server-data-driven**,
-  not a placeholder.
-- **Recommended first unit:** a **globe scope brief** — capture current capabilities +
-  the target end-state (mission layer? interaction model? perf at parcel scale?) before
-  branching, so globe work has an exit definition. Then one focused unit
-  (e.g. `feat/globe-mission-layer` or a perf/instancing pass) — small targeted diffs,
-  never a wholesale rewrite.
+## NEXT chat — the globe (build unit; scope brief now DONE)
+- **Read first:** `artifacts/frontier-al/docs/globe/SCOPE_BRIEF.md` (this chat's unit).
+  It is the exit-definition + invariant guard for all globe work. The globe lives at
+  `artifacts/frontier-al/client/src/components/game/globe/**` and is real, server-driven.
+- **Recommended next unit (one PR, additive):** `perf/globe-pick-index` — replace the
+  O(n) `nearestPlot` scan (`GlobeParcels.tsx:100–109`) with a spatial index behind the
+  **same signature**; land `client/src/lib/globe/globeProjection.ts` (the brief's §6
+  `worldToScreen`/`surfaceHit` seam) as its first real caller; **add the missing
+  client≡server Fibonacci parity test** (§4.1/§7). No render-output change.
+- **Alternative next unit:** `feat/globe-mission-layer` — additive overlay mounted by
+  `PlanetGlobe`, render core untouched, any new schema columns additive+nullable.
+- **Later track (per user):** the master-prompt **wave-combat game** lands in a NEW
+  isolated package `@workspace/frontier-combat`, phase-by-phase (cold-open → 5 enemy
+  archetypes → new turrets → parallax + super-combo), integrating the real globe ONLY
+  through the §6 interface. Never edit the globe render core off-hand.
 - **Queued — story mode (one unit each):** reconcile
   `apps/aether-journey/src/data/dialogue.ts` to the §11 Ch.1 script + assign `voiceId`
   to the remaining 14 VO lines (only proof line `ch1_s13_aether_01` is wired today);
