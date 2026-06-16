@@ -35,6 +35,8 @@ export function StartGate() {
       <button
         onClick={() => {
           audio.start();
+          // Background intro cue under the title dissolve into the wake-up.
+          audio.playMusic("title_intro");
           // Some voices only populate after the synth is touched.
           if ("speechSynthesis" in window) window.speechSynthesis.getVoices();
           begin();

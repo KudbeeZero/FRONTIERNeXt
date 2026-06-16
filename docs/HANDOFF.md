@@ -3,117 +3,84 @@
 > Single source of truth for "what's next." Keep it short — a baton, not a log.
 > Full protocol: [docs/SESSION_PROTOCOL.md](./SESSION_PROTOCOL.md).
 
-## ⚖️ Working agreement — NEW, LOCKED IN (every agent follows this)
+## ⚖️ Working agreement — LOCKED IN (every agent follows this)
 **Serial PR flow — one unit, one PR, audited, then the next:**
 **Finish → Open PR → Audit → Close/Merge → (only then) Next unit.**
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - One agent takes a unit **end-to-end** and opens the PR; that PR goes through audit.
 - The next unit **does not start** until the current PR's audit PASSes **and** it is
   merged/closed.
-- ❌ **Retired:** the old "push straight to `main` / merge with no PR" style (early
-  GrowPod work). No more multiple PRs open at once — too confusing.
-
-**Orchestration (per the user, this session):**
-- `AGENT_ORCHESTRATION_LEDGER.md` (**REC-004**) is **live and a PROTECTED surface** —
-  treat it as authoritative.
-- The **pre-work checklist is mandatory**, and you must **claim the surface(s) you
-  will touch in the ledger BEFORE starting** work.
-- Hand work off using the **5-field Work Order** format.
-- ⚠️ **HONEST FLAG:** I could **not locate `AGENT_ORCHESTRATION_LEDGER.md`** in this
-  branch, on `origin/main`, or in any git ref this session (no `REC-004` / "Work
-  Order" references are tracked). Next agent: **confirm where the ledger lives /
-  restore it** before relying on it — do not assume its contents.
 
 ## Current baton
-- **Branch:** `claude/aether-phase1-verify-harden` (pushed) → **PR
-  [#37](https://github.com/KudbeeZero/FRONTIERNeXt/pull/37)** into `main`
+- **Branch:** `claude/aether-voice-pipeline-handoff-b92ai1` (pushed) → **PR
+  [#38](https://github.com/KudbeeZero/FRONTIERNeXt/pull/38)** into `main`
   (**draft**). **This is the one active PR.**
-- **Audit status:** `AWAITING_AUDIT` — but **playtested PASS** this chat.
-- **➡️ NEXT CHAT STARTS HERE:** `/handoff-audit` on **PR #37** and gate it
+- **Audit status:** `AWAITING_AUDIT`.
+- **➡️ NEXT CHAT STARTS HERE:** `/handoff-audit` on **PR #38** and gate it
   (PASS → merge; CONCERNS → ask; FAIL → don't merge).
-- **Playtest (this chat — headless Chromium, real software WebGL):** boots clean,
-  **zero page errors**; 3D scene renders (hologram + cockpit + Mars + HUD); pause
-  menu (☰ / Esc) shows all 5 settings; **volume slider** drives + persists
-  (`"volume":0.4`); **subtitles** toggle persists + clean caption renders on
-  screen; **Esc closes** the menu. One cosmetic nit: the subtitle caption overlaps
-  the main dialogue box (you see the line twice) — small fix queued, not yet done.
-- **PR housekeeping (this chat):**
-  - **#36** (aether Phase-1 base, `claude/aether-journey-phase-1-lvgr0b`) —
-    **MERGED** to `main` (`a06bbcc`, 16:52Z). The previous baton wrongly showed it
-    `AWAITING_AUDIT`; it was already merged. **#37 builds on it.**
-  - **#35** (docs: REC-004 ledger recovery + #34 retro-audit) — **CLOSED**
-    (deferred, *not* merged) to keep a single active PR. Branch
-    `claude/pr34-audit-ledger-recovery-m3xpvm` preserved → revivable.
-  - **#33 / #34** — merged previously; `main` is clean (no `FloatingPlotWidget` /
-    `AttackModal` / `right-reports/`).
-- **⚠️ Out-of-band:** another agent is working on **audio** separately. #37 also
-  edits `apps/aether-journey/src/lib/audioEngine.ts` (volume / voice-gate /
-  suspend-resume) — **watch for a merge conflict there** when the audio work lands.
-- **⚠️ REC-004 ledger still absent on `main`:** #35 (which recreated
-  `docs/AGENT_ORCHESTRATION_LEDGER.md`) is closed, so the file does **not** exist
-  on `main`. Restore from #35's branch before relying on it.
+- **PR housekeeping:** **#37** (aether Phase-1 verify/harden) — **MERGED** to `main`
+  (`16570f9`). The previous baton still showed it `AWAITING_AUDIT`; it was already
+  merged. #38 builds on that merged base. The out-of-band "audio work" the #37 baton
+  warned about **is this PR** — it touches `audioEngine.ts` but only **adds**
+  `speakLine` + a VO path; the #37 volume/voice-gate/suspend code is untouched, so
+  the anticipated conflict did not materialize.
 
 ## What this chat did (for the auditor)
-**Unit: new app `apps/aether-journey/` — FRONTIER: Aether's Journey, Phase 1.**
-A high-polish, **client-only** cinematic prologue (Vite + React 18 + TS + R3F).
-Fully self-contained; does **not** touch `frontier-al`, the globe, combat,
-server, or any funds/ASA/mainnet code.
-- **Wake-up:** fade-from-black + bloom/vignette/film-grain post; a battered
-  cockpit (flickering damaged panel, drifting god-ray dust), Mars in the
-  forward viewport (`three/SceneCanvas.tsx`, `Cockpit.tsx`, `ForwardViewport.tsx`,
-  `DustMotes.tsx`).
-- **Aether:** elegant glitching hologram whose color/jitter/dropout are
-  **data-driven by `aetherStability`** — she steadies as she heals
-  (`three/AetherHologram.tsx`). Live text corruption (`ui/GlitchText.tsx`,
-  `lib/glitch.ts`) + modulated Web Speech (`lib/audioEngine.ts`).
-- **Interaction:** constrained orbit look, in-world clickable diagnostic control
-  (`three/DiagnosticConsole.tsx`), and a **press-&-hold neural-node realignment**
-  repair (`three/NeuralRepair.tsx`) with payoff.
-- **State foundation:** Zustand store (`store/gameStore.ts`) with an
-  on-chain-ready `OnchainEvent` ledger (`seq + ts + kind + payload`,
-  `store/types.ts`) shaped to flush to Algorand boxes/ASAs later; visible Ledger
-  panel (`ui/OnchainLedger.tsx`).
-- **Wiring:** `apps/*` added to `pnpm-workspace.yaml` (+1 line); lockfile +1 pkg.
-  All audio synthesized at runtime — **no binary assets**.
+**Unit: Chapter 1 voice pipeline + 15 generated VO lines, in `apps/aether-journey/`.**
+Client-only; does **not** touch `frontier-al`, globe, server, funds/ASA/mainnet.
+- **Corrected the handoff to the real stack.** `AETHER_VOICE_PIPELINE_HANDOFF.md`
+  assumed `apps/mobile` (Expo/Metro, `require()` maps, voice "Matilda"). The real app
+  is **Vite + React + R3F**. Adapted: `?url` imports (committed
+  `src/lib/voice/index.generated.ts`), output to `src/assets/voice/ch1/`, voice =
+  **Sarah `EXAVITQu4vr4xnSDxMaL` / `eleven_v3`** per `AETHER_STORY_PASS_1.md` §7, and
+  all **15** Ch.1 lines authored from §11 (the handoff shipped only 2).
+- **Pipeline** (`scripts/voice/`): native `fetch`, retry/backoff/timeout, key
+  redaction, 50k-char/run cost cap, atomic writes, content-hash idempotency,
+  auto-archiving regen. `pnpm voice:dry|generate|one`.
+- **Audio generated this session** with the user-supplied key (env only — **not in
+  the diff**; `.env` gitignored; tree scanned clean). 15 MP3 + sidecars; `failed=0`;
+  idempotent re-run all-skipped.
+- **Integration:** `audioEngine.speakLine()` = ElevenLabs clip when present, Web
+  Speech fallback otherwise (mute/volume/voice-toggle/pause all apply). Driver routed
+  through it; **one** real line (`ch1_s13_aether_01`, the diagnostic request) wired
+  end-to-end with matching subtitle as proof.
+- **Background music (added on user goal):** ElevenLabs Music API (`POST /v1/music`,
+  `music_v1`) via `generate-music.ts` + `voice_lines/music.json`. Generated a 15s
+  `title_intro` that plays on BEGIN under the title dissolve; `audioEngine.playMusic()`
+  beds it at 0.4× master with mute/volume/pause applied.
 
 ## Audit checklist (for the next /handoff-audit)
 | Claim | How to verify |
 |---|---|
-| Net-new + isolated | Diff touches only `apps/aether-journey/**`, `pnpm-workspace.yaml` (+`apps/*`), `pnpm-lock.yaml`. No `artifacts/frontier-al/**`, `globe/`, `server/`, ASA/mainnet/secret changes |
-| CI unaffected | `.github/workflows/ci.yml` filters to `@workspace/frontier-al`; `pnpm install --frozen-lockfile` succeeds with committed lockfile |
-| App typechecks | `pnpm --filter @workspace/aether-journey check` → 0 errors |
-| App builds | `pnpm --filter @workspace/aether-journey build` → vite bundle produced |
-| On-chain-ready state | `store/types.ts` `OnchainEvent`; every meaningful action calls `logOnchain` in `store/gameStore.ts` |
-| No binary assets | No audio/image files added; Web Audio (`lib/audioEngine.ts`) + Web Speech only |
-| Honesty: not browser-verified | tsc + vite build + dev HTTP 200 only; on-screen look, post-FX, hologram, speech, hold-to-align repair are **NOT** screenshot-confirmed |
+| Scope app-only | diff touches `apps/aether-journey/**`, `.gitignore`, `pnpm-lock.yaml` only |
+| No secret committed | `grep -rn "sk_" --exclude-dir=node_modules` empty; `.env` gitignored |
+| App typechecks/builds | `pnpm --filter @workspace/aether-journey check`/`build` → 0 errors; 15 clips in `dist/assets` |
+| Pipeline idempotent + capped | dry-run `failed=0`; re-run all-skipped; `MAX_CHARS_PER_RUN` guard |
+| VO + fallback works | `audioEngine.speakLine` plays clip else `speak`; proof line `ch1_s13_aether_01` |
+| Subtitles from script | proof line `text` == manifest `text`; manifest text never used for captions |
+| Honesty: not audibly verified | check + build + dry-run only; on-screen/audible playback **NOT** browser-confirmed |
 
 ## NEXT chat
-- **Recommended next unit:** Aether's Journey **Phase 1 polish pass** — first
-  playtest then targeted refinement of lighting/materials, Aether's
-  glitch/personality, and repair-interaction feel (per the iterative-dev rules:
-  small, targeted diffs only — do NOT rewrite files wholesale).
+- **Recommended next unit:** reconcile `apps/aether-journey/src/data/dialogue.ts` to
+  the canonical Ch.1 §11 script and assign `voiceId` to the remaining 14 lines, so all
+  of Chapter 1 plays the cast VO (currently only the one proof line does). Keep each
+  line's subtitle `text` == manifest `text`.
 - **Also queued (one unit each):**
-  - Aether's Journey: code-split the ~1.1 MB three.js chunk; add a browser/visual
-    verification harness (currently unbooted).
-  - (frontier-al, carried) `feat/hud-desktop-nav` — adopt the HUD `Dock` on
-    desktop, reconciling dock-vs-rail nav redundancy.
-  - (frontier-al, carried) port v11 **glass info panels** onto real data via
-    `GlassPanel` (real props only — the #32 FAIL lesson); HUD runtime/visual
-    verification; `feat/capsule-nav-drawers`; **step 3** duplicate plot feed;
-    `feat/rate-limit-actions`; `chore/registerRoutes-testable`; idempotency for
-    `/api/sub-parcels/:id/build`; algod-first finality in `verifyAlgoPayment`
-    (**funds → `algo-auditor` + `/security-pass`**).
+  - Voice CI: auto-regen-on-manifest-change workflow (needs repo secrets
+    `ELEVENLABS_API_KEY` + a bot token); intentionally left out of #38.
+  - (carried) code-split note now moot for clips; the three.js chunk split landed in #37.
+  - (frontier-al, carried) `feat/hud-desktop-nav`; v11 glass info panels on real data;
+    `feat/rate-limit-actions`; idempotency for `/api/sub-parcels/:id/build`; algod-first
+    finality in `verifyAlgoPayment` (**funds → `algo-auditor` + `/security-pass`**).
 - **Open risks:**
-  - ⚠️ Aether's Journey is **NOT browser/visually booted** — typecheck + build +
-    dev HTTP 200 only; on-screen behavior/appearance unverified.
-  - ⚠️ Single ~1.1 MB JS chunk (three.js); not code-split.
-  - ⚠️ Fonts load via Google Fonts `<link>`; offline/CSP falls back to
-    system-ui/monospace. Web Speech voice availability varies; degrades silently.
-  - (Carried, frontier-al) HUD shell SSR-tested only; replay protection lasts the
-    TTL; no rate limit on `/api/actions/*`; no HTTP route-mount test; migrations
-    `0005`–`0008` before deploy; `verifyAlgoPayment` finality indexer-only;
-    confirm `VITE_TEST_GLOBE` reads `false` before deploy.
+  - ⚠️ #38 is **NOT** audibly/browser-verified — `check` + `build` + generator only.
+  - ⚠️ `eleven_v3` is alpha; the generated takes are first-pass. Spot-listen
+    `ch1_s13_aether_die_01` before relying on the performance; recasting Sarah would
+    invalidate all 15 clips.
+  - The full story bible `AETHER_STORY_PASS_1.md` is **not committed** — the manifest's
+    `text`/`notes`/`beat` carry the provenance for the VO. Commit the bible separately
+    if it needs to live in-repo.
 - **Off-limits:** do not touch the 3D globe (`components/game/globe/**`) or combat/
   canvas code; no funds/ASA/transfer code to mainnet without `/mainnet-gate` **and**
-  `algo-auditor`; do not merge `wip/atomic-purchase`; nothing in `ops/kestra/` may
-  point at mainnet. **Do not reintroduce mock/demo data into plot/HUD surfaces.**
+  `algo-auditor`; nothing in `ops/kestra/` may point at mainnet. Do not reintroduce
+  mock/demo data into plot/HUD surfaces.

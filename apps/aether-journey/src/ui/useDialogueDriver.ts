@@ -28,7 +28,7 @@ export function useDialogueDriver() {
 
     if (line.speaker === "aether") {
       setAetherSpeaking(true);
-      audio.speak(line.text, line.glitch);
+      audio.speakLine(line.voiceId, line.text, line.glitch);
       if (line.glitch > 0.4) audio.glitchBurst(line.glitch);
       // Stop the "speaking" energy a touch before the line auto-advances.
       const speakMs = line.autoMs ? line.autoMs - 600 : 2600;

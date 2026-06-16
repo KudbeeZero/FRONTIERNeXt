@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s12a2_aether_02",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "I'm sorry. That came out — I rehearsed this differently. I had a whole speech. I forgot most of it during the storm. What I wanted to say first was: it's nice to meet you, Marcus.",
+  "content_hash": "d17df99b997d04aff523fb4f74105aeec8e0e8f5c6ce77cb2924124ac4b9552b",
+  "generated_at": "2026-06-15T23:38:00.689Z",
+  "duration_seconds": null,
+  "version": 1
+}

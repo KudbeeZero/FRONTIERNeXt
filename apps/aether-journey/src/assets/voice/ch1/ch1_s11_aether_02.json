@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s11_aether_02",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "There. You can see me now, sort of. I'm the one on the right. Don't worry about me. Worry about your fingers. Wiggle them. ... Good. Good. That's you. Welcome back.",
+  "content_hash": "5f204abbd1e543bb8507aab0185712ddf6ab066beae56a13d3494f5540574a5d",
+  "generated_at": "2026-06-15T23:37:38.795Z",
+  "duration_seconds": null,
+  "version": 1
+}

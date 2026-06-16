@@ -1,0 +1,34 @@
+{
+  "aether_damaged": {
+    "description": "Aether post-storm: soft-spoken, intelligent, frightened but masking. Low stability gives breath/tremor. The damage is in the delivery, not the words.",
+    "voice_id": "EXAVITQu4vr4xnSDxMaL",
+    "voice_name": "Sarah",
+    "model_id": "eleven_v3",
+    "voice_settings": { "stability": 0.30, "similarity_boost": 0.75, "style": 0.45, "use_speaker_boost": true },
+    "output_format": "mp3_44100_128"
+  },
+  "aether_healthy": {
+    "description": "Aether steadier / masking. Higher stability = no tremor. Used for calmer beats.",
+    "voice_id": "EXAVITQu4vr4xnSDxMaL",
+    "voice_name": "Sarah",
+    "model_id": "eleven_v3",
+    "voice_settings": { "stability": 0.55, "similarity_boost": 0.85, "style": 0.20, "use_speaker_boost": true },
+    "output_format": "mp3_44100_128"
+  },
+  "aether_recorded": {
+    "description": "Aether-when-she-was-whole: the pre-recorded contingency log. Clean, no tremor — 'her before'.",
+    "voice_id": "EXAVITQu4vr4xnSDxMaL",
+    "voice_name": "Sarah",
+    "model_id": "eleven_v3",
+    "voice_settings": { "stability": 0.85, "similarity_boost": 0.90, "style": 0.10, "use_speaker_boost": false },
+    "output_format": "mp3_44100_128"
+  },
+  "archivist": {
+    "description": "The voice of the FUTURE layer — calm, knowing, slightly amused. Reads the chapter-end seal.",
+    "voice_id": "wDsJlOXPqcvIUKdLXjDs",
+    "voice_name": "Jarvis",
+    "model_id": "eleven_v3",
+    "voice_settings": { "stability": 0.75, "similarity_boost": 0.85, "style": 0.15, "use_speaker_boost": false },
+    "output_format": "mp3_44100_128"
+  }
+}

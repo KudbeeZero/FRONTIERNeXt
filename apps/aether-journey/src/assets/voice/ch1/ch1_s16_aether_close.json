@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s16_aether_close",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "I'm going to go offline for about four minutes. That's a normal thing now. I'll be back. You can sit. You can look. You can yell, if you want. Nobody can hear you out here except me, and I won't be listening for a few minutes. ... Hey, Marcus.",
+  "content_hash": "8191b611dff641e6732ecfc1d0774e52e97ecac2b2764b54ffc288ab93850be8",
+  "generated_at": "2026-06-15T23:38:51.284Z",
+  "duration_seconds": null,
+  "version": 1
+}

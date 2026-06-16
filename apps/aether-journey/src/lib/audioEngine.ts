@@ -1,16 +1,20 @@
 // ---------------------------------------------------------------------------
-// AudioEngine — procedural cockpit soundscape (Web Audio API).
+// AudioEngine — procedural cockpit soundscape (Web Audio API) + voice-over.
 //
-// No audio files needed; everything is synthesized so the prototype runs from a
-// clean clone. Provides:
-//   • a continuous, stressed cockpit ambient hum (two detuned oscillators + LFO)
-//   • UI beeps / confirms
-//   • a burst of "glitch" noise for Aether's fragmented moments
-//   • optional modulated speech via the Web Speech API (SpeechSynthesis)
+// The cockpit hum, beeps and glitch bursts are fully synthesized so the app
+// runs from a clean clone. Aether's dialogue prefers pre-rendered ElevenLabs
+// voice-over when a clip exists for the line, and falls back to runtime Web
+// Speech otherwise (see `speakLine`).
 //
 // AudioContext can only start after a user gesture, so callers must invoke
 // `start()` from a click/tap (the BEGIN gate handles this).
 // ---------------------------------------------------------------------------
+
+import { getVoiceClip } from "./voice";
+import { getMusicTrack } from "./music";
+
+/** Background music sits well under dialogue/FX — base ceiling before master volume. */
+const MUSIC_BASE = 0.4;
 
 class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -20,6 +24,10 @@ class AudioEngine {
   private _muted = false;
   private _voiceEnabled = true;
   private _volume = 1;
+  /** Currently-playing pre-rendered voice-over clip, if any. */
+  private currentVoiceEl: HTMLAudioElement | null = null;
+  /** Currently-playing background-music track, if any. */
+  private currentMusicEl: HTMLAudioElement | null = null;
 
   get muted() {
     return this._muted;
@@ -103,13 +111,66 @@ class AudioEngine {
   setMuted(muted: boolean) {
     this._muted = muted;
     this.applyGain();
-    if (muted) this.stopSpeaking();
+    if (muted) {
+      this.stopSpeaking();
+      this.currentMusicEl?.pause();
+    } else if (this.currentMusicEl) {
+      this.currentMusicEl.volume = this.musicVolume();
+      void this.currentMusicEl.play().catch(() => {});
+    }
   }
 
   /** 0..1 master volume (independent of mute). */
   setVolume(v: number) {
     this._volume = Math.max(0, Math.min(1, v));
     this.applyGain();
+    if (this.currentVoiceEl) this.currentVoiceEl.volume = this.voiceClipVolume();
+    if (this.currentMusicEl) this.currentMusicEl.volume = this.musicVolume();
+  }
+
+  /** Voice-over element volume — tracks master volume, mirrors `speak`'s 0.9 ceiling. */
+  private voiceClipVolume() {
+    return Math.max(0, Math.min(1, 0.9 * this._volume));
+  }
+
+  /** Background-music element volume — tracks master volume, sits under dialogue. */
+  private musicVolume() {
+    return Math.max(0, Math.min(1, MUSIC_BASE * this._volume));
+  }
+
+  /**
+   * Play a pre-rendered background-music track by id (looping if the track is
+   * flagged for it). No-ops when muted or when no clip exists. Safe to call from
+   * the BEGIN gesture — it shares that user-activation with the AudioContext.
+   */
+  playMusic(id: string) {
+    const track = getMusicTrack(id);
+    if (!track) return;
+    this.stopMusic();
+    if (this._muted) return;
+    try {
+      const el = new Audio(track.url);
+      el.loop = track.loop;
+      el.volume = this.musicVolume();
+      this.currentMusicEl = el;
+      // A non-looping track that finishes must release its ref, or a later
+      // resume()/unmute would replay the ended one-shot from the top.
+      el.addEventListener("ended", () => {
+        if (this.currentMusicEl === el) this.currentMusicEl = null;
+      });
+      void el.play().catch(() => {
+        if (this.currentMusicEl === el) this.currentMusicEl = null;
+      });
+    } catch {
+      /* background music is a nice-to-have; never block the game on it */
+    }
+  }
+
+  stopMusic() {
+    if (this.currentMusicEl) {
+      this.currentMusicEl.pause();
+      this.currentMusicEl = null;
+    }
   }
 
   /** Toggle Aether's spoken dialogue (Web Speech) without muting sound FX. */
@@ -121,11 +182,13 @@ class AudioEngine {
   /** Pause/resume the whole soundscape (used by the pause menu). */
   suspend() {
     this.stopSpeaking();
+    this.currentMusicEl?.pause();
     void this.ctx?.suspend();
   }
 
   resume() {
     void this.ctx?.resume();
+    if (this.currentMusicEl && !this._muted) void this.currentMusicEl.play().catch(() => {});
   }
 
   /** Short tonal beep — used for confirms / UI ticks. */
@@ -179,6 +242,43 @@ class AudioEngine {
   }
 
   /**
+   * Speak a dialogue line. If a pre-rendered voice-over clip exists for
+   * `voiceId`, play that (the cast performance); otherwise fall back to runtime
+   * Web Speech. Subtitles come from `text`, never from the clip.
+   */
+  speakLine(voiceId: string | undefined, text: string, glitch = 0.3) {
+    if (this._muted || !this._voiceEnabled) return;
+    // A new line supersedes anything still sounding — stop the prior clip and
+    // any synth first, so a long VO never overlaps the next line (clip or synth).
+    this.stopSpeaking();
+    const url = voiceId ? getVoiceClip(voiceId) : null;
+    if (!url) {
+      this.speak(text, glitch);
+      return;
+    }
+    try {
+      const el = new Audio(url);
+      el.volume = this.voiceClipVolume();
+      this.currentVoiceEl = el;
+      el.addEventListener("ended", () => {
+        if (this.currentVoiceEl === el) this.currentVoiceEl = null;
+      });
+      void el.play().catch(() => {
+        // Autoplay blocked or decode failed — degrade to Web Speech, but only
+        // if this clip is still the active line. A newer line may have already
+        // superseded it (pause() rejects the pending play()); in that case its
+        // rejection must stay silent rather than speak the stale text.
+        if (this.currentVoiceEl === el) {
+          this.currentVoiceEl = null;
+          this.speak(text, glitch);
+        }
+      });
+    } catch {
+      this.speak(text, glitch);
+    }
+  }
+
+  /**
    * Speak a line via the Web Speech API, modulated by Aether's damage level.
    * Higher `glitch` → lower, more unsteady pitch. Best-effort; silently no-ops
    * where SpeechSynthesis is unavailable.
@@ -208,6 +308,15 @@ class AudioEngine {
   }
 
   stopSpeaking() {
+    if (this.currentVoiceEl) {
+      const el = this.currentVoiceEl;
+      this.currentVoiceEl = null;
+      el.pause();
+      // Abort any in-flight download so a superseded clip doesn't keep fetching
+      // (and starving the line the player actually wants) on a slow link.
+      el.removeAttribute("src");
+      el.load();
+    }
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
