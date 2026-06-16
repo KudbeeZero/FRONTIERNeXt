@@ -3,6 +3,7 @@ import { useGameStore } from "../store/gameStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { audio } from "../lib/audioEngine";
 import { SettingsToggles } from "./MenuLayer";
+import { ClaimPanel } from "./ClaimPanel";
 
 // ---------------------------------------------------------------------------
 // The cinematic bookends that frame the playable scene:
@@ -91,7 +92,7 @@ export function WakeFade() {
 
 export function EndCard() {
   const journeyResumed = useGameStore((s) => s.journeyResumed);
-  const ledgerCount = useGameStore((s) => s.ledger.length);
+  const ledger = useGameStore((s) => s.ledger);
   const stability = useGameStore((s) => s.systems.aetherStability);
   const stats = useSettingsStore((s) => s.stats);
   if (!journeyResumed) return null;
@@ -111,10 +112,8 @@ export function EndCard() {
         neither of you is alone. The frontier waits.
       </p>
 
-      <div className="mt-8 holo-panel rounded-md px-6 py-4 font-mono text-xs uppercase tracking-widest text-[#9fb4c9]">
-        <span className="text-aether-core">{ledgerCount}</span> actions recorded ·
-        ready to commit to Algorand
-      </div>
+      {/* Commit the run to Algorand (testnet), then hand off to FRONTIER-AL. */}
+      <ClaimPanel events={ledger} />
 
       {/* Local (on-device) run stats — a personal scoreboard, no backend. */}
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 font-mono text-[11px] uppercase tracking-widest text-[#7d93a8]">
@@ -136,24 +135,21 @@ export function EndCard() {
         </span>
       </div>
 
-      {/* Make the stopping point unmistakable — this is the end of Phase 1's
-          playable content, not a soft-lock. A prominent "to be continued" plus
-          a replay action (a clean page reload restarts the store from scratch
-          without touching it). */}
-      <div className="mt-10 font-display text-2xl font-black uppercase tracking-[0.45em] text-aether-core text-glow sm:text-3xl">
-        To Be Continued
-      </div>
-      <p className="mt-3 max-w-md text-sm leading-relaxed text-[#7d93a8]">
-        That&apos;s the end of <span className="text-[#9fb4c9]">Phase 1 — First Watch</span>.
-        Phase 2, where Aether&apos;s journey to the frontier truly begins, is in
-        development.
+      {/* The prologue ends by committing the run on-chain and handing off to the
+          main game (see ClaimPanel above). Replay stays available as a clean
+          page reload (restarts the store from scratch without touching it). */}
+      <p className="mt-6 max-w-md text-sm leading-relaxed text-[#7d93a8]">
+        That&apos;s the end of <span className="text-[#9fb4c9]">First Watch</span>.
+        Commit your run above, then continue into{" "}
+        <span className="text-aether-core">FRONTIER-AL</span> — where the frontier
+        truly begins.
       </p>
 
       <button
         onClick={() => window.location.reload()}
-        className="mt-8 rounded border border-aether-core/50 bg-aether-core/10 px-8 py-3 font-display text-sm uppercase tracking-[0.3em] text-aether-core text-glow transition hover:bg-aether-core/25"
+        className="mt-6 font-mono text-[10px] uppercase tracking-widest text-[#5f7da0] underline decoration-dotted transition hover:text-aether-core"
       >
-        ↻ Replay Prologue
+        ↻ replay prologue
       </button>
     </div>
   );
