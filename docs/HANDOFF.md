@@ -10,15 +10,23 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `main` — **clean. Zero open PRs.** `main` @ `6ec8bb5` (the #49 squash merge).
-- **Audit status:** `IDLE` — nothing awaiting audit. Safe to start the next unit.
-- **➡️ NEXT AUTHORIZED UNIT:** `feat/admin-chain-agent-dashboard` — start from a **fresh
-  pull of updated `main`** (see "NEXT chat"). The one-open-PR invariant remains active.
+- **Branch:** `claude/strike-system-design-spec-jan40c` — **AWAITING_AUDIT**.
+- **PR:** [#53](https://github.com/KudbeeZero/FRONTIERNeXt/pull/53) — Strike System
+  design spec v0.1 + Clerk admin layer (doc-only, `artifacts/frontier-al/docs/design/strike-system-design.md`).
+- **Audit status:** `AWAITING_AUDIT` — PR #53 open, CI running (doc-only; local gates were
+  green: check ✓, test:server 244/244, test 55/55).
+- **⚠️ TWO PRs OPEN:** PR #52 (`feat/admin-chain-agent-dashboard`) is also open and
+  AWAITING_AUDIT. User confirmed PR #53 should be opened; user will handle #52. The
+  one-open-PR invariant is technically broken — resolve by auditing/merging one before
+  starting any new work.
+- **➡️ NEXT AUTHORIZED UNIT:** Audit and merge **both** open PRs before starting anything new.
+  Suggested order: audit #52 first (it is a code PR, more critical to review), then #53 (doc-only).
+  Only after both are resolved may a new unit begin.
 - **Recent merges (newest first):**
   - **#49** — **purchase monitor + admin dashboard AUDIT** (doc-only, single file). **MERGED**
     `6ec8bb5`. Added `artifacts/frontier-al/docs/audit/2026-06-16-purchase-monitor-admin-dashboard-audit.md`
     (14-section read-only audit + scoped baton). No code/schema/config touched; CI green;
-    server 244/244, client 55/55, typecheck clean. **This is the source for the next unit.**
+    server 244/244, client 55/55, typecheck clean.
   - **#45** — globe **scope brief** (doc-only). **MERGED** + **retro-audited PASS**. The
     audit record lives on branch **`audit/rdpbfi-retro`** (`docs/audits/claude-multi-agent-dev-plan-rdpbfi.md`,
     pushed as a record — **no PR**, to keep the one-open-PR invariant). Added
