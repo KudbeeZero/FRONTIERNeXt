@@ -1,0 +1,39 @@
+weapon_id,display_name,realworld_ref,category,tier,base_damage,range_km,cooldown_ms,fire_cost_ascend,unlock_cost_ascend,accuracy_cep_m,intercept_basePk,intercept_magazine,unlock_requirement,fires_in_code,shown_in_armory_ui,in_game_fire_button,affects_invasion_battle_math,missing_description,missing_price,source_file,status,notes
+msl_ballistic_1,Lancet TBM,MGM-140A ATACMS Block I,ballistic,1,120,165,1500000,18,108,250,,,badge:demolition tier:none,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:17,ui_partial,Catalog+unlock+upgrade+equip wired; no in-game fire button; weapon damage not read by resolveBattle
+msl_ballistic_2,Lancet-ER,MGM-140B ATACMS Block IA,ballistic,2,165,300,1680000,30,180,50,,,badge:demolition tier:bronze,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:25,ui_partial,Tier-2 is a separate spec; progression by badge tier not per-weapon level
+msl_ballistic_3,Vanguard SRBM,9K720 Iskander-E,ballistic,3,230,415,1920000,48,288,30,,,badge:demolition tier:silver,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:33,ui_partial,
+msl_ballistic_4,Vanguard-M,9K720 Iskander-M,ballistic,4,300,500,2160000,70,420,20,,,badge:demolition tier:gold,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:41,ui_partial,
+msl_cruise_1,Gale TLAM,BGM-109 Tomahawk Block III,cruise,1,130,1600,1800000,26,156,10,,,badge:marksman tier:none,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:53,ui_partial,
+msl_cruise_2,Gale Block IV,Tomahawk Block IV,cruise,2,160,1800,1800000,38,228,8,,,badge:marksman tier:bronze,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:61,ui_partial,
+msl_cruise_3,Gale Maritime,Tomahawk Block Va,cruise,3,185,2100,1920000,52,312,6,,,badge:marksman tier:silver,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:69,ui_partial,
+msl_cruise_4,Gale-ER,Tomahawk Block Vb,cruise,4,215,2400,2040000,74,444,5,,,badge:marksman tier:gold,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:77,ui_partial,
+msl_hyper_1,Meteor HGV,Kh-47M2 Kinzhal,hypersonic,1,260,500,2400000,90,540,30,,,badge:demolition tier:silver,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:89,ui_partial,
+msl_hyper_2,Meteor-II,Kinzhal-class boost-glide,hypersonic,2,320,1000,2640000,120,720,20,,,badge:demolition tier:gold,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:97,ui_partial,
+msl_hyper_3,Meteor Glide,Avangard-class HGV,hypersonic,3,380,1500,2880000,165,990,15,,,badge:demolition tier:gold,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:105,ui_partial,
+msl_hyper_4,Meteor Apex,Avangard-class apex,hypersonic,4,460,2000,3300000,230,1380,12,,,badge:demolition tier:hall_of_fame,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/missiles.ts:113,ui_partial,
+art_towed_1,Field Gun 105,M119 105mm towed howitzer,artillery,1,45,14,90000,4,24,120,,,badge:long_rifle tier:none,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:17,ui_partial,Cheapest offensive weapon (fire 4 ASCEND)
+art_towed_2,Howitzer 155,M777 155mm,artillery,2,70,24,120000,7,42,100,,,badge:long_rifle tier:none,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:26,ui_partial,
+art_towed_3,Howitzer 155 PGM,M777 + Excalibur,artillery,3,90,40,130000,12,72,5,,,badge:long_rifle tier:bronze,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:34,ui_partial,
+art_towed_4,Howitzer 155 RAP,M777ER RAP,artillery,4,110,70,150000,18,108,10,,,badge:long_rifle tier:silver,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:42,ui_partial,
+art_rocket_1,Salvo MRL,BM-21 Grad 122mm,rocket_artillery,1,95,40,180000,14,84,300,,,badge:long_rifle tier:bronze,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:54,ui_partial,
+art_rocket_2,GMLRS Strike,M30/M31 GMLRS HIMARS,rocket_artillery,2,130,84,210000,24,144,5,,,badge:long_rifle tier:silver,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:62,ui_partial,
+art_rocket_3,GMLRS-ER,Extended-Range GMLRS,rocket_artillery,3,160,150,230000,36,216,5,,,badge:long_rifle tier:silver,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:70,ui_partial,
+art_rocket_4,PrSM Tactical,Precision Strike Missile,rocket_artillery,4,200,300,260000,54,324,5,,,badge:long_rifle tier:gold,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:78,ui_partial,
+art_mlrs_1,Heavy MLRS,M270 MLRS 227mm,rocket_artillery,1,175,165,300000,40,240,10,,,badge:long_rifle tier:gold,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:90,ui_partial,Category is rocket_artillery (MLRS line)
+art_mlrs_2,Heavy MLRS-ER,M270A2 ER rockets,rocket_artillery,2,215,300,330000,60,360,8,,,badge:long_rifle tier:gold,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:98,ui_partial,
+art_mlrs_3,Heavy MLRS-TBM,M270 firing ATACMS,rocket_artillery,3,255,400,360000,82,492,8,,,badge:long_rifle tier:hall_of_fame,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:106,ui_partial,
+art_mlrs_4,Heavy MLRS Apex,M270 firing PrSM,rocket_artillery,4,300,480,400000,110,660,6,,,badge:long_rifle tier:hall_of_fame,yes,yes,NO,NOT_VERIFIED,YES,NO,shared/weapons/artillery.ts:114,ui_partial,
+aa_short_1,Stinger MANPADS,FIM-92 Stinger,anti_air,1,60,8,45000,8,48,1,0.45,4,badge:aegis tier:none,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:16,logic_only,Defensive interceptor; deploy route exists but no deploy UI; deploy cost=fire*4=32
+aa_short_2,NASAMS AMRAAM,NASAMS AIM-120,anti_air,2,95,30,60000,16,96,1,0.6,6,badge:aegis tier:bronze,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:25,logic_only,
+aa_med_1,NASAMS-ER,NASAMS AMRAAM-ER,anti_air,2,110,50,70000,22,132,1,0.62,6,badge:aegis tier:silver,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:34,logic_only,
+aa_med_2,Patriot PAC-2,MIM-104 Patriot PAC-2,anti_air,3,140,96,90000,38,228,2,0.68,8,badge:aegis tier:silver,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:43,logic_only,
+aa_long_1,Patriot PAC-3 MSE,MIM-104 PAC-3 MSE,anti_air,4,170,120,100000,56,336,0.5,0.75,8,badge:aegis tier:gold,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:52,logic_only,
+aa_long_2,S-400 48N6,S-400 48N6 series,anti_air,3,200,250,110000,78,468,3,0.7,10,badge:aegis tier:gold,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:61,logic_only,
+aa_long_3,S-400 40N6,S-400 40N6E,anti_air,4,240,400,130000,104,624,2,0.72,12,badge:aegis tier:hall_of_fame,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:70,logic_only,
+aa_exo_1,Arrow-3 Exo,Arrow-3 exoatmospheric,anti_air,4,260,300,140000,130,780,1,0.8,6,badge:aegis tier:hall_of_fame,yes,yes,NO,defensive,YES,NO,shared/weapons/antiAir.ts:79,logic_only,
+def_pointiron,Iron Dome Battery,Iron Dome Tamir,missile_defense,1,80,70,20000,30,180,1,0.65,20,badge:aegis tier:bronze,yes,yes,NO,defensive,YES,NO,shared/weapons/defense.ts:18,logic_only,Battery; deploy cost=fire*4=120; no deploy UI
+def_cram,C-RAM Point Defense,Phalanx C-RAM 20mm,missile_defense,1,50,4,8000,18,108,1,0.55,40,badge:aegis tier:none,yes,yes,NO,defensive,YES,NO,shared/weapons/defense.ts:27,logic_only,Largest magazine (40); deploy cost=72
+def_sling,David's Sling,David's Sling Stunner,missile_defense,2,180,300,40000,70,420,0.5,0.74,12,badge:aegis tier:silver,yes,yes,NO,defensive,YES,NO,shared/weapons/defense.ts:36,logic_only,
+def_thaad,THAAD Terminal,THAAD,missile_defense,3,230,200,60000,110,660,0.3,0.8,8,badge:aegis tier:gold,yes,yes,NO,defensive,YES,NO,shared/weapons/defense.ts:45,logic_only,
+def_aegis,Aegis SM-6,Aegis BMD SM-6,missile_defense,3,250,370,70000,140,840,0.3,0.82,10,badge:aegis tier:gold,yes,yes,NO,defensive,YES,NO,shared/weapons/defense.ts:54,logic_only,
+def_arrow_exo,Arrow-3 Shield,Arrow-3 exoatmospheric BMD,missile_defense,4,300,600,90000,200,1200,0.2,0.88,6,badge:aegis tier:hall_of_fame,yes,yes,NO,defensive,YES,NO,shared/weapons/defense.ts:63,logic_only,Highest ceiling (1000km) and Pk (0.88); deploy cost=800
