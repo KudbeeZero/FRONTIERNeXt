@@ -12,8 +12,3 @@ import { VOICE_URLS } from "./index.generated";
 export function getVoiceClip(lineId: string): string | null {
   return VOICE_URLS[lineId] ?? null;
 }
-
-/** True if a pre-rendered clip exists for this line id. */
-export function hasVoiceClip(lineId: string): boolean {
-  return lineId in VOICE_URLS;
-}

@@ -138,7 +138,9 @@ async function run(): Promise<number> {
     return 1;
   }
 
-  // Cost guard: refuse to (re)generate beyond the cap. Skips don't count.
+  // Cost guard: refuse to run beyond the cap. Conservative — sums every
+  // selected line, including ones that may be skipped on a hash match, so a
+  // large already-generated manifest can trip it; narrow with --line/--chapter.
   const totalChars = lines.reduce((n, l) => n + l.text.length, 0);
   if (!opts.dryRun && totalChars > MAX_CHARS_PER_RUN) {
     throw new Error(

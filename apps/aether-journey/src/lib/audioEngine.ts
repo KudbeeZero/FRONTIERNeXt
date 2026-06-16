@@ -153,6 +153,11 @@ class AudioEngine {
       el.loop = track.loop;
       el.volume = this.musicVolume();
       this.currentMusicEl = el;
+      // A non-looping track that finishes must release its ref, or a later
+      // resume()/unmute would replay the ended one-shot from the top.
+      el.addEventListener("ended", () => {
+        if (this.currentMusicEl === el) this.currentMusicEl = null;
+      });
       void el.play().catch(() => {
         if (this.currentMusicEl === el) this.currentMusicEl = null;
       });
@@ -243,13 +248,14 @@ class AudioEngine {
    */
   speakLine(voiceId: string | undefined, text: string, glitch = 0.3) {
     if (this._muted || !this._voiceEnabled) return;
+    // A new line supersedes anything still sounding — stop the prior clip and
+    // any synth first, so a long VO never overlaps the next line (clip or synth).
+    this.stopSpeaking();
     const url = voiceId ? getVoiceClip(voiceId) : null;
     if (!url) {
       this.speak(text, glitch);
       return;
     }
-    // Stop whatever's currently sounding (prior clip and/or synth).
-    this.stopSpeaking();
     try {
       const el = new Audio(url);
       el.volume = this.voiceClipVolume();
@@ -258,9 +264,14 @@ class AudioEngine {
         if (this.currentVoiceEl === el) this.currentVoiceEl = null;
       });
       void el.play().catch(() => {
-        // Autoplay blocked or decode failed — degrade to Web Speech.
-        if (this.currentVoiceEl === el) this.currentVoiceEl = null;
-        this.speak(text, glitch);
+        // Autoplay blocked or decode failed — degrade to Web Speech, but only
+        // if this clip is still the active line. A newer line may have already
+        // superseded it (pause() rejects the pending play()); in that case its
+        // rejection must stay silent rather than speak the stale text.
+        if (this.currentVoiceEl === el) {
+          this.currentVoiceEl = null;
+          this.speak(text, glitch);
+        }
       });
     } catch {
       this.speak(text, glitch);
@@ -298,8 +309,13 @@ class AudioEngine {
 
   stopSpeaking() {
     if (this.currentVoiceEl) {
-      this.currentVoiceEl.pause();
+      const el = this.currentVoiceEl;
       this.currentVoiceEl = null;
+      el.pause();
+      // Abort any in-flight download so a superseded clip doesn't keep fetching
+      // (and starving the line the player actually wants) on a slow link.
+      el.removeAttribute("src");
+      el.load();
     }
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
