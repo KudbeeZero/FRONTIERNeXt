@@ -112,6 +112,50 @@ export const actionNonces = pgTable("action_nonces", {
   createdIdx: index("action_nonces_created_idx").on(t.createdAt),
 }));
 
+// ─── chain_events ───────────────────────────────────────────────────────────────
+// Append-only audit log of the on-chain purchase lifecycle. One row per state
+// transition (submitting → confirmed → inventory_syncing → complete, or
+// failed/timeout/duplicate_detected). Written fire-and-forget from the purchase
+// handler via recordPurchaseTransition(); never gates a purchase. Powers the
+// admin "recent events" feed + chain-health cards. See migration 0009.
+export const chainEvents = pgTable("chain_events", {
+  id:           text("id").primaryKey(),                     // uuid
+  event:        varchar("event", { length: 40 }).notNull(),  // 'payment_verified' | 'ownership_committed' | ...
+  status:       varchar("status", { length: 24 }).notNull(), // lifecycle state (mirrors purchase_intents.state)
+  txId:         text("tx_id"),                               // Algorand payment txid (nullable)
+  playerId:     varchar("player_id", { length: 36 }),
+  itemType:     varchar("item_type", { length: 20 }),        // 'parcel' | 'commander' | 'sub_parcel'
+  itemId:       text("item_id"),                             // parcelId / tier (nullable)
+  network:      varchar("network", { length: 12 }),          // 'testnet' | 'mainnet' | ...
+  amount:       bigint("amount", { mode: "number" }),        // microAlgos (nullable)
+  metadataJson: text("metadata_json"),                       // JSON blob (nullable)
+  createdAt:    bigint("created_at", { mode: "number" }).notNull(),
+}, (t) => ({
+  createdIdx: index("chain_events_created_idx").on(t.createdAt),
+  statusIdx:  index("chain_events_status_idx").on(t.status),
+}));
+
+// ─── purchase_intents ─────────────────────────────────────────────────────────
+// One row per purchase attempt carrying its CURRENT state. Upserted by id at
+// each transition (the same recordPurchaseTransition() call that appends a
+// chain_event). Powers the purchase-funnel + transaction-status charts. The
+// state index supports a future timeout-reaper (out of scope here).
+export const purchaseIntents = pgTable("purchase_intents", {
+  id:        text("id").primaryKey(),                       // uuid (one per attempt)
+  playerId:  varchar("player_id", { length: 36 }).notNull(),
+  kind:      varchar("kind", { length: 20 }).notNull(),     // 'plot' | 'commander'
+  refId:     text("ref_id"),                                // parcelId / tier
+  txId:      text("tx_id"),                                 // Algorand payment txid (nullable)
+  state:     varchar("state", { length: 24 }).notNull(),    // submitting|confirmed|inventory_syncing|complete|failed|timeout|duplicate_detected
+  amount:    bigint("amount", { mode: "number" }),          // microAlgos (nullable)
+  lastError: text("last_error"),                            // nullable
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+}, (t) => ({
+  stateIdx:   index("purchase_intents_state_idx").on(t.state),
+  createdIdx: index("purchase_intents_created_idx").on(t.createdAt),
+}));
+
 // ─── ai_faction_identities ────────────────────────────────────────────────────
 // One row per AI faction. Records the on-chain Algorand ASA that serves as
 // that faction's permanent identity token. Minted once at world init.

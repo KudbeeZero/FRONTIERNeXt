@@ -15,6 +15,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ChartContainer } from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+
+const statusVariant = (s: string): "secondary" | "destructive" | "outline" =>
+  s === "complete" ? "secondary" : s === "failed" || s === "timeout" ? "destructive" : "outline";
 
 const KEY_STORAGE = "ascendancy_admin_key";
 
@@ -84,6 +90,8 @@ export default function AdminDashboard() {
   const ai = q<any>("ai-activity", "/api/admin/ai-activity");
   const battles = q<any>("battles-live", "/api/admin/battles-live");
   const metrics = q<any>("metrics", "/api/admin/metrics");
+  const chainEvents = q<any>("chain-events", "/api/admin/chain-events");
+  const purchaseMetrics = q<any>("purchase-metrics", "/api/admin/purchase-metrics");
 
   const runControl = useCallback(
     async (label: string, path: string, confirmText: string) => {
@@ -210,6 +218,65 @@ export default function AdminDashboard() {
               {isMainnet ? "Reset (mainnet-disabled)" : "Reset game data"}
             </Button>
           </div>
+        </Panel>
+      </div>
+
+      <h2 className="font-display text-sm uppercase tracking-widest text-primary pt-2">Chain &amp; Purchase Analytics</h2>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Panel title="Chain Health">
+          {chainEvents.error && <p className="text-xs text-destructive">{(chainEvents.error as Error).message}</p>}
+          {chainEvents.data?.health ? (
+            <div className="space-y-1">
+              <KV k="Network" v={<Badge variant={chainEvents.data.health.network === "mainnet" ? "destructive" : "secondary"}>{chainEvents.data.health.network}</Badge>} />
+              <KV k="Pending" v={chainEvents.data.health.pending} />
+              <KV k="Complete" v={chainEvents.data.health.complete} />
+              <KV k="Failed" v={chainEvents.data.health.failed} />
+              <KV k="Timeout" v={chainEvents.data.health.timeout} />
+              <KV k="Duplicate blocked" v={chainEvents.data.health.duplicate} />
+              <KV k="Last confirmed" v={chainEvents.data.health.lastConfirmedAt ? new Date(chainEvents.data.health.lastConfirmedAt).toLocaleTimeString() : "—"} />
+            </div>
+          ) : !chainEvents.error && <p className="text-xs text-muted-foreground">No purchases recorded yet.</p>}
+        </Panel>
+
+        <Panel title="Purchase Funnel">
+          {purchaseMetrics.error && <p className="text-xs text-destructive">{(purchaseMetrics.error as Error).message}</p>}
+          {Array.isArray(purchaseMetrics.data?.funnel) && purchaseMetrics.data.total > 0 ? (
+            <ChartContainer config={{ count: { label: "Count", color: "hsl(var(--primary))" } }} className="h-48 w-full">
+              <BarChart data={purchaseMetrics.data.funnel} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <CartesianGrid vertical={false} strokeOpacity={0.15} />
+                <XAxis dataKey="state" tickLine={false} axisLine={false} interval={0} angle={-35} textAnchor="end" height={64} tick={{ fontSize: 9 }} />
+                <Bar dataKey="count" fill="hsl(var(--primary))" radius={3} />
+              </BarChart>
+            </ChartContainer>
+          ) : !purchaseMetrics.error && <p className="text-xs text-muted-foreground">No purchase attempts yet.</p>}
+        </Panel>
+
+        <Panel title="Recent Chain Events">
+          {chainEvents.error && <p className="text-xs text-destructive">{(chainEvents.error as Error).message}</p>}
+          {Array.isArray(chainEvents.data?.events) && chainEvents.data.events.length > 0 ? (
+            <div className="max-h-64 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-[10px]">Time</TableHead>
+                    <TableHead className="text-[10px]">Event</TableHead>
+                    <TableHead className="text-[10px]">Status</TableHead>
+                    <TableHead className="text-[10px]">Item</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {chainEvents.data.events.map((e: any) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-mono text-[10px]">{new Date(e.createdAt).toLocaleTimeString()}</TableCell>
+                      <TableCell className="text-xs">{e.event}</TableCell>
+                      <TableCell><Badge variant={statusVariant(e.status)} className="text-[9px]">{e.status}</Badge></TableCell>
+                      <TableCell className="font-mono text-[10px]">{e.itemType}{e.itemId ? ` ${String(e.itemId).slice(0, 8)}` : ""}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : !chainEvents.error && <p className="text-xs text-muted-foreground">No chain events yet.</p>}
         </Panel>
       </div>
     </div>
