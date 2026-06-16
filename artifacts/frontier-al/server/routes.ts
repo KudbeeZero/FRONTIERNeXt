@@ -8,7 +8,6 @@ import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionS
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
-import { eq, sql, desc } from "drizzle-orm";
 import { eq, sql, desc, lt } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import rateLimit from "express-rate-limit";
