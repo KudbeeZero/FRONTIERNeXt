@@ -2,7 +2,8 @@
   "name": "@workspace/frontier-al",
   "version": "1.0.0",
   "type": "module",
-  "license": "MIT",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "test": "vitest run",
     "test:server": "vitest run --config vitest.server.config.ts",
