@@ -13,6 +13,7 @@ const NAME_COLOR: Record<string, string> = {
   aether: "#7fe7ff",
   system: "#9fb4c9",
   operator: "#ffd9a0",
+  archivist: "#c9b8ff", // FUTURE-layer narrator — pale violet, set apart from Aether
 };
 
 export function DialogueOverlay() {
@@ -31,7 +32,8 @@ export function DialogueOverlay() {
   const line = track[idx];
   const isLast = dialogueIndex >= track.length - 1;
   const waiting = isLast && (line.autoMs ?? 0) === 0;
-  const canSkip = !waiting && (line.autoMs ?? 0) > 0;
+  // Any non-final line can be clicked to continue — including long voiced takes.
+  const canSkip = !isLast;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-6 sm:pb-10">
