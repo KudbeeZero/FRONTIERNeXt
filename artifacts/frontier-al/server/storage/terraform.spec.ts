@@ -65,6 +65,9 @@ describe("terraformParcel — convert_biome drives the metadata biome", () => {
 
   it("deducts the convert_biome cost from the owner", async () => {
     const { proto } = differentTarget(currentBiome);
+    const before = (await storage.getPlayer(ownerId))!.frontier;
+    await storage.terraformParcel(plotId, ownerId, { type: "convert_biome", targetBiome: proto } as any);
+    const after = (await storage.getPlayer(ownerId))!.frontier;
     const before = (await storage.getPlayer(ownerId))!.ascend;
     await storage.terraformParcel(plotId, ownerId, { type: "convert_biome", targetBiome: proto } as any);
     const after = (await storage.getPlayer(ownerId))!.ascend;
@@ -72,12 +75,14 @@ describe("terraformParcel — convert_biome drives the metadata biome", () => {
   });
 
   it("rejects converting to the biome it already is (no charge)", async () => {
+    const before = (await storage.getPlayer(ownerId))!.frontier;
     const before = (await storage.getPlayer(ownerId))!.ascend;
     const res = await storage.terraformParcel(plotId, ownerId, {
       type: "convert_biome",
       targetBiome: currentBiome,
     } as any);
     expect(res.error).toContain("already has that biome");
+    expect((await storage.getPlayer(ownerId))!.frontier).toBe(before);
     expect((await storage.getPlayer(ownerId))!.ascend).toBe(before);
   });
 
