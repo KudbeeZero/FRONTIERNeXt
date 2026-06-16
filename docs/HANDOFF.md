@@ -10,19 +10,33 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `claude/strike-system-design-spec-jan40c` — **AWAITING_AUDIT**.
-- **PR:** [#53](https://github.com/KudbeeZero/FRONTIERNeXt/pull/53) — Strike System
-  design spec v0.1 + Clerk admin layer (doc-only, `artifacts/frontier-al/docs/design/strike-system-design.md`).
-- **Audit status:** `AWAITING_AUDIT` — PR #53 open, CI running (doc-only; local gates were
-  green: check ✓, test:server 244/244, test 55/55).
-- **⚠️ TWO PRs OPEN:** PR #52 (`feat/admin-chain-agent-dashboard`) is also open and
-  AWAITING_AUDIT. User confirmed PR #53 should be opened; user will handle #52. The
-  one-open-PR invariant is technically broken — resolve by auditing/merging one before
-  starting any new work.
-- **➡️ NEXT AUTHORIZED UNIT:** Audit and merge **both** open PRs before starting anything new.
-  Suggested order: audit #52 first (it is a code PR, more critical to review), then #53 (doc-only).
-  Only after both are resolved may a new unit begin.
+- **Branch:** `main` @ `ca240d9` (after #52 + #53 merges). **Zero open PRs.**
+  This `audit/pr52-chain-agent-dashboard` branch carries only the #52 retro-audit
+  record + this baton.
+- **Audit status:** `IDLE` — nothing awaiting audit. **Both #52 and #53 are merged
+  and accounted for.** Safe to start the next unit.
+- **#52 retro-audit:** `CONCERNS` (non-blocking) — recorded in
+  `docs/audits/feat-admin-chain-agent-dashboard.md`. #52 was merged by the owner
+  *before* audit; an independent retro-audit verified every substantive claim
+  (additive; pure+tested logic; admin-gated reads; fire-and-forget recorder that
+  cannot break the purchase; `/admin` lazy-loaded) and reproduced **test:server 252,
+  test 55, check clean**. Only nits: an undisclosed 9th session-note file, and a
+  "no-ops without a DB" guard that is effectively dead code (server can't boot
+  without `DATABASE_URL`; real safety is the try/catch). No security/behavioral defect.
+- **➡️ NEXT AUTHORIZED UNIT (queued, pick one):** the dashboard follow-ups
+  (commander-mint instrumentation; the `purchase_intents.timeout` reaper; a
+  DOM-based admin render test) — or the Globe/Story-mode units below. One unit, one PR.
 - **Recent merges (newest first):**
+  - **#53** — **Strike System design spec v0.1 + Clerk admin layer** (doc-only). **MERGED**
+    `714bdb8` (merge `032c6ff`). Added `artifacts/frontier-al/docs/design/strike-system-design.md`
+    — code-grounded; corrects the draft's unverified claims. No code/schema/config; CI green;
+    check ✓, test:server 244/244, test 55/55, Cloudflare deploy ✓. **Design only — the strike
+    system is NOT built; every gameplay number is PROPOSED/untested.**
+  - **#52** — **chain-event audit trail + purchase dashboard charts** (code). **MERGED**
+    `272656d` (merge `ca240d9`). +678/−2: `migrations/0009_chain_events.sql`, `chain_events`
+    + `purchase_intents` Drizzle defs, pure `chainEventLog.ts` (+8 tests), `chainEventStore.ts`
+    (fire-and-forget recorder), 2 admin-gated reads, admin dashboard charts, `/admin` lazy.
+    Retro-audited **CONCERNS** (see above). test:server **252**, test 55.
   - **#49** — **purchase monitor + admin dashboard AUDIT** (doc-only, single file). **MERGED**
     `6ec8bb5`. Added `artifacts/frontier-al/docs/audit/2026-06-16-purchase-monitor-admin-dashboard-audit.md`
     (14-section read-only audit + scoped baton). No code/schema/config touched; CI green;
@@ -39,36 +53,22 @@
   PR — leave as-is); `test/gamelayout-entry-state` (another agent's experiment — unknown);
   `wip/atomic-purchase` (**OFF-LIMITS — do not merge**).
 
-## Repo state (verified this chat)
+## Repo state (verified this chat, HEAD `ca240d9`)
 - `pnpm --filter @workspace/frontier-al run check` (tsc) → **green**; `test:server` →
-  **244/244 pass**; `test` (client) → **55/55 pass**.
+  **252/252 pass** (was 244; +8 from #52 `chainEventLog.spec.ts`); `test` (client) →
+  **55/55 pass**.
 - `pnpm run typecheck` (root) → green (mockup-sandbox excluded).
-- three.js is **code-split** (three ~687 kB + r3f ~369 kB chunks).
+- three.js is **code-split**; `/admin` is now lazy-loaded (its own `admin-*.js` chunk).
 
-## NEXT chat — `feat/admin-chain-agent-dashboard` (the authorized build unit)
-- **Read first:** `artifacts/frontier-al/docs/audit/2026-06-16-purchase-monitor-admin-dashboard-audit.md`
-  — **§14 is the implementation baton**; §9–§11 list the exact files/DB/tests. The buy flow
-  is **real and live** (`POST /api/actions/purchase`, `routes.ts:1765`); canonical term is
-  **`parcel`** (`plot`/`plotId`). Admin dashboard exists at `client/src/pages/admin.tsx`
-  (ADMIN_KEY-gated, text cards only); `recharts ^2.15.2` is already installed +
-  `client/src/components/ui/chart.tsx` is a ready, unused wrapper.
-- **Scope (one PR, additive, testnet/devnet only — no mainnet):**
-  - additive `chain_events` + `purchase_intents` migration (new `0009_*.sql`; Drizzle defs
-    matching the `redeemed_payments`/`action_nonces` style; nullable-tolerant)
-  - emit `chain_events` at the **existing** purchase transition points in `server/routes.ts`
-    (`:1796,:1811,:1827,:1901,:1924,:1936`) — pure instrumentation, no behavior change
-  - admin-gated reads `GET /api/admin/chain-events` + `/api/admin/purchase-metrics`
-    (`requireAdminKey`; funnel counts derivable from `chain_events`)
-  - `/admin` Analytics tab: chain-health cards + purchase-funnel/transaction-status charts
-    (recharts via `ui/chart.tsx`) + recent-events table (`ui/table.tsx`) — reuse existing styling
-  - tests: server (events emitted + metrics aggregate + admin-gate) and client (admin renders
-    metrics / empty / failed-fetch). **No fix without a test.**
-- **Explicitly OUT of scope** (separate later units / gated): purchase status-timeline UI +
-  explorer link; the lifecycle reaper/monitor that re-drives stuck mints; atomic pay→mint
-  (off-limits `wip/atomic-purchase`); `agent_reports`/`admin_metrics_snapshots` tables (defer
-  until an agent writes them); any funds/ASA/mainnet change (needs `/mainnet-gate` PASS +
-  `algo-auditor`). If a new mutating route prefix is added, extend `MUTATION_PATH_RE`
-  (`routes.ts:498-518`) or it bypasses the global mutation guard.
+## NEXT chat — candidate units (pick ONE; one unit, one PR)
+- **#52 dashboard follow-ups** (from the retro-audit, all additive/testnet-only): commander-mint
+  instrumentation (only `/api/actions/purchase` is wired today); the `purchase_intents.timeout`
+  reaper (state defined, never set); a DOM-based `admin.tsx` render test (current client suite is
+  SSR-only). Reuse `chainEventStore.recordPurchaseTransition` + the existing admin-gate.
+- **Strike system** is now SPEC'd (`artifacts/frontier-al/docs/design/strike-system-design.md`)
+  but NOT built — a future multi-unit build (damage must route through the `db.ts` parcel writer;
+  any new mutating route must join `MUTATION_PATH_RE`, `routes.ts:498-518`). All its numbers are
+  PROPOSED/untested. Do not start without an explicit go.
 
 ## Queued (one unit each, after the dashboard unit)
 - **Globe:** `perf/globe-pick-index` — replace the O(n) `nearestPlot` scan
