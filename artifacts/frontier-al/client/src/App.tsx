@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -19,7 +20,9 @@ import LandingUpdates from "@/pages/landing-updates";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import BattlesPage from "@/pages/battles";
 import ArmoryPage from "@/pages/armory";
-import AdminDashboard from "@/pages/admin";
+// Lazy-loaded so the dashboard's chart library (recharts) is code-split out of
+// the main bundle and only fetched when an operator opens /admin.
+const AdminDashboard = lazy(() => import("@/pages/admin"));
 
 function App() {
   return (
@@ -75,7 +78,9 @@ function App() {
                 </WalletProvider>
               </Route>
               <Route path="/admin">
-                <AdminDashboard />
+                <Suspense fallback={null}>
+                  <AdminDashboard />
+                </Suspense>
               </Route>
               <Route path="/privacy-policy">
                 <WalletProvider>
