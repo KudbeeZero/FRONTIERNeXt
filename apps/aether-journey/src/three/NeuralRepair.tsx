@@ -111,17 +111,24 @@ function NeuralNode({
         position={position}
         onPointerDown={(e: ThreeEvent<PointerEvent>) => {
           e.stopPropagation();
+          // Capture the pointer so the hold follows the finger/cursor even as
+          // the node wobbles or the pointer drifts off the mesh — without this
+          // the move-away fires `pointerout` and the charge is lost.
+          (e.target as Element)?.setPointerCapture?.(e.pointerId);
           if (!locked) onGrab(index);
         }}
         onPointerUp={(e) => {
           e.stopPropagation();
+          (e.target as Element)?.releasePointerCapture?.(e.pointerId);
           onRelease();
         }}
         onPointerOver={() => setHovered(true)}
-        onPointerOut={() => {
-          setHovered(false);
-          onRelease();
-        }}
+        // Only drop the hover highlight here — do NOT release the hold. A node
+        // tumbles and wobbles while desynced, so it routinely slips out from
+        // under a perfectly still pointer; releasing on `pointerout` made the
+        // ~1.2s charge nearly impossible to complete. The hold ends on the
+        // global pointerup/cancel/blur handlers (and the mesh's own pointerup).
+        onPointerOut={() => setHovered(false)}
       >
         <icosahedronGeometry args={[0.26, 0]} />
         <meshStandardMaterial

@@ -80,10 +80,17 @@ src/
 ## On-chain foundation (why it's structured this way)
 
 Every meaningful action emits an `OnchainEvent` (`seq + ts + kind + payload`) into
-an append-only `ledger`. In Phase 1 this is logged client-side and shown in the
-Ledger panel — but the shape deliberately mirrors what a later phase will flush to
-an **Algorand box** / mint as **ASA rewards** (FRNTR / GEOCRED, treasury,
-plots, outpost unlocks). No reshaping required to go on-chain.
+an append-only `ledger`, shown live in the Ledger panel.
+
+At the end of the run the **end-card commits that ledger to Algorand (testnet)**:
+each event becomes a 0-ALGO self-payment carrying the event in its note field,
+all signed in one **Pera Wallet** popup as a single atomic group, then the player
+hands off to the main **FRONTIER-AL** game (`lib/chain/claim.ts`,
+`lib/chain/handoff.ts`, `ui/ClaimPanel.tsx`). This is **testnet-only and never
+moves value** — it proves the on-chain mechanic with zero funds risk. A
+"continue without committing" escape is always present so the player is never
+hard-locked. Config (network, algod endpoint, handoff URL) lives in
+`.env.example`.
 
 ## Tech
 
