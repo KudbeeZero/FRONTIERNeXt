@@ -245,15 +245,26 @@ class AudioEngine {
    * Speak a dialogue line. If a pre-rendered voice-over clip exists for
    * `voiceId`, play that (the cast performance); otherwise fall back to runtime
    * Web Speech. Subtitles come from `text`, never from the clip.
+   *
+   * `onEnded` fires once when the clip (or the synth fallback) finishes
+   * playing — the dialogue driver uses it to advance cinematic lines when the
+   * cast performance actually ends, rather than on a guessed timer. It does NOT
+   * fire when the line is muted / voice-disabled (the driver caps those), nor
+   * when a newer line supersedes this one.
    */
-  speakLine(voiceId: string | undefined, text: string, glitch = 0.3) {
+  speakLine(
+    voiceId: string | undefined,
+    text: string,
+    glitch = 0.3,
+    onEnded?: () => void,
+  ) {
     if (this._muted || !this._voiceEnabled) return;
     // A new line supersedes anything still sounding — stop the prior clip and
     // any synth first, so a long VO never overlaps the next line (clip or synth).
     this.stopSpeaking();
     const url = voiceId ? getVoiceClip(voiceId) : null;
     if (!url) {
-      this.speak(text, glitch);
+      this.speak(text, glitch, onEnded);
       return;
     }
     try {
@@ -262,6 +273,7 @@ class AudioEngine {
       this.currentVoiceEl = el;
       el.addEventListener("ended", () => {
         if (this.currentVoiceEl === el) this.currentVoiceEl = null;
+        onEnded?.();
       });
       void el.play().catch(() => {
         // Autoplay blocked or decode failed — degrade to Web Speech, but only
@@ -270,11 +282,11 @@ class AudioEngine {
         // rejection must stay silent rather than speak the stale text.
         if (this.currentVoiceEl === el) {
           this.currentVoiceEl = null;
-          this.speak(text, glitch);
+          this.speak(text, glitch, onEnded);
         }
       });
     } catch {
-      this.speak(text, glitch);
+      this.speak(text, glitch, onEnded);
     }
   }
 
@@ -283,7 +295,7 @@ class AudioEngine {
    * Higher `glitch` → lower, more unsteady pitch. Best-effort; silently no-ops
    * where SpeechSynthesis is unavailable.
    */
-  speak(text: string, glitch = 0.3) {
+  speak(text: string, glitch = 0.3, onEnded?: () => void) {
     if (this._muted || !this._voiceEnabled) return;
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     try {
@@ -300,6 +312,7 @@ class AudioEngine {
         /female|samantha|victoria|zira|google uk english female|aria/i.test(v.name),
       );
       if (preferred) u.voice = preferred;
+      if (onEnded) u.onend = () => onEnded();
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     } catch {
