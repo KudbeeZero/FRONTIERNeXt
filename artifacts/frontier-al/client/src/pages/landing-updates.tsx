@@ -28,12 +28,6 @@ const ACTIVE_UPDATES = [
     detail: "All gameplay prices (commander mint, land purchase, facility builds, special attacks, drones, satellites) are now controlled from a single shared/economy-config.ts. Testing and production profiles are cleanly separated. Set ECONOMY_MODE=production to switch to live tokenomics.",
   },
   {
-    label: "Tutorial Restart Button",
-    status: "complete" as const,
-    date: "Mar 2026",
-    detail: "A 'TUTORIAL' button now appears in the lower-left of the game screen. Partners and testers can replay the onboarding tutorial at any time without clearing browser storage.",
-  },
-  {
     label: "Economics Panel — Testing Price Clarity",
     status: "complete" as const,
     date: "Mar 2026",
@@ -108,7 +102,7 @@ export default function LandingUpdates() {
     staleTime: 30_000, refetchInterval: 30_000,
   });
 
-  const { data: leaderboard } = useQuery<{ name: string; territories: number; totalFrontierEarned: number }[]>({
+  const { data: leaderboard } = useQuery<{ name: string; territories: number; totalAscendEarned: number }[]>({
     queryKey: ["/api/game/leaderboard"],
     queryFn: () => fetch("/api/game/leaderboard").then(r => r.json()),
     staleTime: 60_000,

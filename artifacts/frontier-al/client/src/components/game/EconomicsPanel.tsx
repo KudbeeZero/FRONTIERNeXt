@@ -23,7 +23,7 @@ interface TestingPrices {
   mode: string;
   landEmissionRatePerDay: number;
   landPurchaseAlgo: Record<string, number>;
-  commanderMintFrntr: Record<string, number>;
+  commanderMintAscend: Record<string, number>;
   commanderAlgoNetworkFeeOnly: number;
   primaryCurrency: string;
   unavoidableAlgoCost: string;
@@ -128,7 +128,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
   });
 
   const { isConnected } = useWallet();
-  const { signOptInToFrontier, isOptedInToFrontier, isPending } = useBlockchainActions();
+  const { signOptInToAscend, isOptedInToAscend, isPending } = useBlockchainActions();
 
   const algoExplorerUrl = data?.asaId
     ? `https://testnet.explorer.perawallet.app/asset/${data.asaId}/`
@@ -220,7 +220,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                 <div>
                   <p className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-2">Wallet Opt-In</p>
                   <div className="bg-card/60 border border-border/50 rounded-lg p-3 space-y-2.5">
-                    {isOptedInToFrontier === true ? (
+                    {isOptedInToAscend === true ? (
                       <div className="flex items-center gap-2 text-emerald-400">
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
                         <div>
@@ -228,7 +228,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                           <p className="text-[10px] text-muted-foreground">Your wallet can receive ASCEND tokens</p>
                         </div>
                       </div>
-                    ) : isOptedInToFrontier === false ? (
+                    ) : isOptedInToAscend === false ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-yellow-400">
                           <AlertCircle className="w-4 h-4 shrink-0" />
@@ -240,7 +240,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                         <Button
                           size="sm"
                           className="w-full gap-2 font-display uppercase tracking-wide text-xs"
-                          onClick={signOptInToFrontier}
+                          onClick={signOptInToAscend}
                           disabled={isPending}
                         >
                           <Coins className="w-3.5 h-3.5" />
@@ -313,15 +313,15 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Commander — Sentinel</span>
-                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.sentinel} ASCEND</span>
+                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintAscend.sentinel} ASCEND</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Commander — Phantom</span>
-                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.phantom} ASCEND</span>
+                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintAscend.phantom} ASCEND</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Commander — Reaper</span>
-                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintFrntr.reaper} ASCEND</span>
+                      <span className="font-mono text-xs font-bold text-emerald-400">{data.testingPrices.commanderMintAscend.reaper} ASCEND</span>
                     </div>
                     <div className="flex items-center justify-between border-t border-border/30 pt-1 mt-1">
                       <span className="text-xs text-muted-foreground">Land Purchase (all biomes)</span>

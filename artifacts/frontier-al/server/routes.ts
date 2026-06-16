@@ -4,11 +4,12 @@ import { getBattleReplay, recordSubParcelWorldEvent, recordArchetypeWorldEvent }
 import { createServer, type Server } from "http";
 import algosdk from "algosdk";
 import { storage } from "./storage";
-import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimFrontierActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, resolveMarketSchema, terraformActionSchema } from "@shared/schema";
+import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimAscendActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, terraformActionSchema } from "@shared/schema";
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
 import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, lt } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import rateLimit from "express-rate-limit";
 
@@ -22,13 +23,26 @@ const adviceLimiter = rateLimit({
   message: { error: "Too many advice requests — try again shortly." },
 });
 import { broadcastGameState, broadcastRaw, markDirty } from "./wsServer";
+import * as weaponService from "./weapons/service";
+import { engagementStore } from "./weapons/engagementStore";
+import { mintWeaponNft, attemptWeaponDelivery } from "./services/chain/weapon";
+import {
+  buildWeaponProfileActionSchema,
+  unlockWeaponActionSchema,
+  setLoadoutActionSchema,
+  fireWeaponActionSchema,
+  deployDefenseActionSchema,
+  upgradeWeaponActionSchema,
+  mintWeaponNftActionSchema,
+  getWeapon as getWeaponSpec,
+} from "@shared/weapons";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 
 // ── Chain Service ─────────────────────────────────────────────────────────────
 // All algosdk usage is now isolated in server/services/chain/*.
 // Routes import ONLY from the service layer — never from algosdk directly.
-import { getFrontierAsaId, getOrCreateFrontierAsa, isAddressOptedIn, setFrontierAsaId, batchedTransferFrontierAsa, clawbackFrontierAsa } from "./services/chain/asa";
-import { enqueueFrontierTransfer } from "./services/chain/transferQueue";
+import { getAscendAsaId, getOrCreateAscendAsa, isAddressOptedIn, setAscendAsaId, batchedTransferAscendAsa, clawbackAscendAsa } from "./services/chain/asa";
+import { enqueueAscendTransfer } from "./services/chain/transferQueue";
 import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient } from "./services/chain/client";
 import { mintLandNft, transferLandNft, attemptDelivery } from "./services/chain/land";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
@@ -39,21 +53,168 @@ import {
   getFactionAsaId,
   FACTION_DEFINITIONS,
 } from "./services/chain/factions";
-import { fromMicroFRNTR } from "./storage/game-rules";
+import { fromMicroASCEND } from "./storage/game-rules";
 import {
   ECONOMY_MODE,
-  LAND_DAILY_FRNTR_RATE,
-  LAND_DAILY_FRNTR_RATE_TEST,
-  LAND_DAILY_FRNTR_RATE_PROD,
+  LAND_DAILY_ASCEND_RATE,
+  LAND_DAILY_ASCEND_RATE_TEST,
+  LAND_DAILY_ASCEND_RATE_PROD,
   EMISSION_CHECK_PARCEL_COUNTS,
   projectedDailyEmissions,
-  COMMANDER_MINT_FRNTR_ACTIVE,
+  COMMANDER_MINT_ASCEND_ACTIVE,
   COMMANDER_ALGO_NETWORK_FEE,
   COMMANDER_ALGO_PRICE_ACTIVE,
   LAND_PURCHASE_ALGO_ACTIVE,
   TESTING_ECONOMY_SUMMARY,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
+import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, type PaymentRedemption } from "./security";
+import { redeemedPayments as redeemedPaymentsTable, actionNonces as actionNoncesTable } from "./db-schema";
+import { evaluateOwnership } from "./routeOwnership";
+import { createActionIdempotencyGuard } from "./idempotencyGuard";
+
+// One ALGO payment txid buys exactly one thing. Backed by the
+// redeemed_payments table (tx_id PRIMARY KEY) so the first claim wins
+// atomically across instances; falls back to an in-process Set only when the
+// DB is unavailable (dev/mem mode). See createPaymentReplayGuard for the
+// claim → mutate → release-on-failure contract.
+const paymentReplayGuard = createPaymentReplayGuard(
+  db
+    ? {
+        async tryInsert(txId: string, meta: PaymentRedemption): Promise<boolean> {
+          const inserted = await db
+            .insert(redeemedPaymentsTable)
+            .values({ txId, purpose: meta.purpose, refId: meta.refId, playerId: meta.playerId, redeemedAt: Date.now() })
+            .onConflictDoNothing()
+            .returning({ txId: redeemedPaymentsTable.txId });
+          return inserted.length > 0;
+        },
+        async remove(txId: string): Promise<void> {
+          await db.delete(redeemedPaymentsTable).where(eq(redeemedPaymentsTable.txId, txId));
+        },
+      }
+    : null
+);
+
+// Action idempotency guard — blocks double-submit/replay of mutating actions and
+// REPLAYS the original success response on a duplicate (two-phase claim → record/
+// release). DB-backed (action_nonces, key PRIMARY KEY) for cross-instance
+// atomicity; falls back to an in-process map only when the DB is unavailable
+// (dev/mem mode).
+const actionIdempotencyGuard = createActionIdempotencyGuard(
+  db
+    ? {
+        async claim(key, rec) {
+          const inserted = await db
+            .insert(actionNoncesTable)
+            .values({ key, playerId: rec.playerId, action: rec.action, createdAt: Date.now() })
+            .onConflictDoNothing()
+            .returning({ key: actionNoncesTable.key });
+          if (inserted.length > 0) return { inserted: true };
+          // Key already claimed — surface the persisted response (NULL = in-flight).
+          const [row] = await db
+            .select({ response: actionNoncesTable.responseJson })
+            .from(actionNoncesTable)
+            .where(eq(actionNoncesTable.key, key));
+          return { inserted: false, response: row?.response ?? null };
+        },
+        async complete(key, responseJson) {
+          await db
+            .update(actionNoncesTable)
+            .set({ responseJson, completedAt: Date.now() })
+            .where(eq(actionNoncesTable.key, key));
+        },
+        async remove(key) {
+          await db.delete(actionNoncesTable).where(eq(actionNoncesTable.key, key));
+        },
+        async prune(olderThanMs) {
+          const cutoff = Date.now() - olderThanMs;
+          const deleted = await db
+            .delete(actionNoncesTable)
+            .where(lt(actionNoncesTable.createdAt, cutoff))
+            .returning({ key: actionNoncesTable.key });
+          return deleted.length;
+        },
+      }
+    : null
+);
+
+// ID-004: TTL + periodic prune for `action_nonces`. Since 0007 the guard persists
+// `response_json` on every completed action, so the table grows with traffic;
+// completed rows and crash-orphaned in-flight rows are reaped by created_at age.
+// The TTL must comfortably exceed the legitimate retry window — after it elapses a
+// nonce is forgotten (replay protection lasts the TTL; normal play uses a fresh
+// nonce per action, never one older than the TTL). Both knobs are env-tunable.
+//
+// The TTL floor is deliberately well above any possible in-flight request duration
+// (the synchronous claim→mutation→record window is sub-second; the on-chain
+// ASCEND transfer is enqueued fire-and-forget, not awaited). This guarantees the
+// prune can never reap a still-running claim out from under it and let a concurrent
+// duplicate re-claim and double-apply — even at the most aggressive configuration.
+export const ACTION_NONCE_TTL_MS = Math.max(
+  600_000, // floor: 10 min — far above max request duration (see note above)
+  Number(process.env.ACTION_NONCE_TTL_MS) || 24 * 60 * 60 * 1000, // 24h default
+);
+export const ACTION_NONCE_PRUNE_INTERVAL_MS = Math.max(
+  60_000,
+  Number(process.env.ACTION_NONCE_PRUNE_INTERVAL_MS) || 60 * 60 * 1000, // hourly default
+);
+
+// Reap action_nonces older than `olderThanMs` (defaults to the TTL). Best-effort:
+// the underlying guard swallows store errors and returns 0, so a prune failure
+// never affects request handling. Returns the number of rows removed.
+export function pruneActionNonces(olderThanMs: number = ACTION_NONCE_TTL_MS): Promise<number> {
+  return actionIdempotencyGuard.prune(olderThanMs);
+}
+
+// Map an idempotency-guard rejection to a safe HTTP status + generic message.
+// Never echoes the nonce/key/playerId (fail-closed, no internals leaked).
+function idempotencyRejection(reason: "invalid_nonce" | "in_progress" | "store_unavailable"): {
+  status: number;
+  error: string;
+} {
+  switch (reason) {
+    case "in_progress":
+      return { status: 409, error: "Duplicate request — still being processed, please retry" };
+    case "store_unavailable":
+      return { status: 503, error: "Service temporarily unavailable" };
+    default:
+      return { status: 400, error: "Missing or invalid idempotency key" };
+  }
+}
+
+// Shared claim/replay/reject step for the nonce-guarded routes. Returns true if a
+// response was already sent (a 200 REPLAY of the original body, or a 400/409/503
+// rejection) and the handler must stop; false if it should run the mutation, then
+// `actionIdempotencyGuard.record(...)` on success / `.release(...)` on failure.
+async function guardClaimOrRespond(
+  res: Response,
+  scope: { playerId: string; action: string; target?: string },
+  nonce: unknown,
+): Promise<boolean> {
+  const idem = await actionIdempotencyGuard.claim(scope, nonce);
+  if (!idem.ok) {
+    const { status, error } = idempotencyRejection(idem.reason);
+    res.status(status).json({ error });
+    return true;
+  }
+  if (idem.replay) {
+    res.json(JSON.parse(idem.response));
+    return true;
+  }
+  return false;
+}
+import {
+  getAuth,
+  isWalletAuthRequired,
+  issueNonce,
+  verifyAuthAndNonce,
+  signSession,
+  setSessionCookie,
+  clearSessionCookie,
+} from "./auth";
+import { scopeGameStateFor } from "./stateScope";
+import { assessWelcomeBonusEligibility } from "./services/chain/eligibility";
 
 // ── API Route Timing Diagnostics ──────────────────────────────────────────────
 const _apiRouteTimings: Record<string, { count: number; totalTimeMs: number; maxTimeMs: number; slowCount: number }> = {};
@@ -134,7 +295,7 @@ const indexerClient  = getIndexerClient();
  * Game action is never blocked if this fails — DB is source of truth.
  */
 function fireBurn(walletAddress: string, amount: number, note: string): void {
-  const asaId = getFrontierAsaId();
+  const asaId = getAscendAsaId();
   const isRealWallet =
     walletAddress &&
     walletAddress !== 'PLAYER_WALLET' &&
@@ -143,7 +304,7 @@ function fireBurn(walletAddress: string, amount: number, note: string): void {
 
   if (!asaId || !isRealWallet || amount <= 0) return;
 
-  clawbackFrontierAsa(walletAddress, amount, note)
+  clawbackAscendAsa(walletAddress, amount, note)
     .then(txId => { if (txId) console.log(`[burn] ${amount} FRONTIER from ${walletAddress} txId=${txId}`); })
     .catch(err => console.error('[burn] clawback failed:', err));
 }
@@ -158,8 +319,8 @@ export async function registerRoutes(
   (async () => {
     try {
       const forceNew = process.env.FORCE_NEW_FRONTIER_ASA === "true" || process.env.FORCE_NEW_ASA === "true";
-      const asaId    = await getOrCreateFrontierAsa({ forceNew });
-      setFrontierAsaId(asaId);
+      const asaId    = await getOrCreateAscendAsa({ forceNew });
+      setAscendAsaId(asaId);
       blockchainReady = true;
       const adminAddr = getAdminAddress();
       const balance   = await getAdminBalance();
@@ -185,8 +346,23 @@ export async function registerRoutes(
     res: Response,
     bodyPlayerId?: string
   ): Promise<string | null> {
-    const targetId = bodyPlayerId ?? req.body?.playerId;
+    const auth = getAuth(req);
 
+    // When wallet auth is enforced, a verified session is mandatory and the
+    // session's player is authoritative — a client-supplied id can no longer be
+    // used to act on behalf of someone else. Shared decision (see routeOwnership).
+    const claimedId = bodyPlayerId ?? req.body?.playerId;
+    const verdict = evaluateOwnership({
+      authRequired: isWalletAuthRequired(),
+      auth,
+      ownerId: claimedId,
+    });
+    if (!verdict.ok) {
+      res.status(verdict.status).json({ error: verdict.error });
+      return null;
+    }
+
+    const targetId = auth?.playerId ?? claimedId;
     if (!targetId || typeof targetId !== "string") {
       res.status(401).json({ error: "Player ID required" });
       return null;
@@ -205,32 +381,182 @@ export async function registerRoutes(
     return targetId;
   }
 
-  app.get("/api/blockchain/status", async (_req, res) => {
+  /**
+   * Grant the 500 ASCEND welcome bonus once, gated by on-chain Sybil
+   * heuristics (minimum ALGO balance). Safe to call on every login: it no-ops
+   * if the bonus was already received or the wallet is ineligible, so the bonus
+   * is effectively granted on the first *eligible* login.
+   */
+  async function maybeGrantWelcomeBonus(
+    playerId: string,
+    address: string,
+  ): Promise<{ granted: boolean; reason?: string }> {
+    const p = await storage.getPlayer(playerId).catch(() => null);
+    if (!p || p.welcomeBonusReceived) return { granted: false };
+    // Internal AI players never reach here, but guard anyway.
+    if (!address || address.startsWith("AI_")) return { granted: false };
+
+    const elig = await assessWelcomeBonusEligibility(address);
+    if (!elig.eligible) return { granted: false, reason: elig.reason };
+
+    await storage.grantWelcomeBonus(playerId);
+    // Enqueue regardless of asaId / opt-in state; the worker retries.
+    enqueueAscendTransfer({
+      recipientAddress: address,
+      recipientPlayerId: playerId,
+      amount: 500,
+      reason: "welcome_bonus",
+    }).catch((err) => console.error("Welcome bonus enqueue failed:", err));
+    return { granted: true };
+  }
+
+  // ── Anti-scraping: strict per-IP throttle on enumerable read endpoints ───────
+  // These endpoints are keyed by a sequential/guessable identifier (plotId,
+  // playerId, wallet address) and individually return off-chain game-economy
+  // intelligence. A real client hits any one occasionally; a bot walking the
+  // keyspace to harvest "which plots hold the most resources" hammers them.
+  // Mounted via app.use (not as a per-route arg) so it never perturbs the
+  // typed route-param inference of the handlers below. GET-only paths, so
+  // matching all methods on these exact paths is harmless.
+  for (const p of [
+    "/api/blockchain/opt-in-check/:address",
+    "/api/nft/plot/:plotId",
+    "/api/nft/commander/:commanderId",
+    "/api/game/parcel/:id",
+    "/api/game/player/:id",
+    "/api/game/player-by-address/:address",
+    "/api/parcels/attackable",
+    "/api/markets/player/:playerId",
+    "/api/plots/:plotId/sub-parcels",
+  ]) {
+    app.use(p, enumerationLimiter);
+  }
+
+  // ── Wallet-signature authentication endpoints ────────────────────────────────
+  // Sign-In With Algorand: prove control of the wallet, receive a session token.
+  // Tight, Redis-backed per-IP limiter blunts nonce/verify spam across instances.
+  app.use("/api/auth", authLimiter);
+
+  app.post("/api/auth/nonce", async (req, res) => {
     try {
-      const asaId      = getFrontierAsaId();
+      const { address } = req.body ?? {};
+      if (!address || typeof address !== "string" || !algosdk.isValidAddress(address)) {
+        return res.status(400).json({ error: "Valid Algorand address required" });
+      }
+      const { nonce, expiresAt } = await issueNonce(address);
+      // `message` is the exact note the wallet must sign into the auth txn.
+      res.json({ nonce, expiresAt, message: `FRONTIER-AUTH:v1:${nonce}` });
+    } catch {
+      res.status(500).json({ error: "Failed to issue nonce" });
+    }
+  });
+
+  app.post("/api/auth/verify", async (req, res) => {
+    try {
+      const { address, signedTxn, nonce } = req.body ?? {};
+      if (!address || !signedTxn || !nonce) {
+        return res.status(400).json({ error: "address, signedTxn and nonce are required" });
+      }
+      if (!algosdk.isValidAddress(address)) {
+        return res.status(400).json({ error: "Invalid Algorand address" });
+      }
+      if (!(await verifyAuthAndNonce(address, signedTxn, nonce))) {
+        return res.status(401).json({ error: "Signature verification failed" });
+      }
+
+      // Ownership proven — resolve (or create) the player bound to this address.
+      const player = await storage.getOrCreatePlayerByAddress(address);
+      const wb = await maybeGrantWelcomeBonus(player.id, address);
+
+      const token = signSession({ address, playerId: player.id });
+      setSessionCookie(res, token);
+      const fresh = await storage.getPlayer(player.id);
+      res.json({ success: true, token, welcomeBonus: wb.granted, welcomeBonusReason: wb.reason, player: fresh });
+    } catch (error) {
+      console.error("[auth/verify] error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ authenticated: false });
+    const player = await storage.getPlayer(auth.playerId).catch(() => null);
+    res.json({ authenticated: true, address: auth.address, player });
+  });
+
+  app.post("/api/auth/logout", (_req, res) => {
+    clearSessionCookie(res);
+    res.json({ success: true });
+  });
+
+  // ── Global ownership guard for mutating game endpoints ───────────────────────
+  // Single chokepoint: every state-changing game route requires a verified
+  // wallet session (when enforced), and any player-identity field in the body
+  // MUST match the session's player. This is what makes acting on behalf of
+  // another player impossible — a client can no longer just supply someone
+  // else's playerId. Registered before the routes below so it runs first.
+  const MUTATION_PATH_RE = /^\/api\/(actions|trade|markets|plots|sub-parcels|factions)\b/;
+  const OWNER_ID_FIELDS = ["playerId", "attackerId", "sellerId", "buyerId"] as const;
+  app.use((req, res, next) => {
+    if (req.method !== "POST" && req.method !== "DELETE" && req.method !== "PUT") return next();
+    if (!MUTATION_PATH_RE.test(req.path)) return next();
+
+    const auth = getAuth(req);
+    const ownerId = OWNER_ID_FIELDS
+      .map((f) => req.body?.[f])
+      .find((v) => typeof v === "string" && v.length > 0) ?? null;
+    const verdict = evaluateOwnership({
+      authRequired: isWalletAuthRequired(),
+      auth,
+      ownerId,
+    });
+    if (!verdict.ok) {
+      return res.status(verdict.status).json({ error: verdict.error });
+    }
+    if (auth) req.auth = auth;
+    next();
+  });
+
+  app.get("/api/blockchain/status", async (req, res) => {
+    try {
+      const asaId      = getAscendAsaId();
       const adminAddress = getAdminAddress();
-      const balance    = await getAdminBalance();
       const forceNew   = process.env.FORCE_NEW_FRONTIER_ASA === "true" || process.env.FORCE_NEW_ASA === "true";
       const network    = process.env.ALGORAND_NETWORK ?? "testnet";
       const factionAsaIds = getAllFactionAsaIds();
-      res.json({
+
+      const body: Record<string, unknown> = {
         ready: blockchainReady,
-        frontierAsaId: asaId,
-        adminAddress,
-        adminAlgoBalance: balance.algo,
-        adminFrontierBalance: balance.frontierAsa,
+        ascendAsaId: asaId,
+        adminAddress, // payment target — clients need this; it is public on-chain anyway
         network,
         forceNewAsaEnabled: forceNew,
         factionIdentities: factionAsaIds,
-      });
+      };
+
+      // The admin wallet's live balances are operational treasury intelligence.
+      // They are queryable on-chain, but we do not hand them to anonymous API
+      // callers — surface them only to an authenticated admin (no 403 written
+      // here; this is an additive field on an otherwise-public endpoint).
+      if (process.env.ADMIN_KEY) {
+        const headerKey = req.headers["x-admin-key"];
+        if (typeof headerKey === "string" && headerKey === process.env.ADMIN_KEY) {
+          const balance = await getAdminBalance();
+          body.adminAlgoBalance = balance.algo;
+          body.adminAscendBalance = balance.ascendAsa;
+        }
+      }
+
+      res.json(body);
     } catch (error) {
-      res.json({ ready: false, frontierAsaId: null, adminAddress: null });
+      res.json({ ready: false, ascendAsaId: null, adminAddress: null });
     }
   });
 
   app.get("/api/economics", async (_req, res) => {
     try {
-      const asaId = getFrontierAsaId();
+      const asaId = getAscendAsaId();
       const adminAddr = getAdminAddress();
       const ASA_DECIMALS = 6;
       const divisor = Math.pow(10, ASA_DECIMALS);
@@ -283,8 +609,8 @@ export async function registerRoutes(
       try {
         const [metrics] = await db
           .select({
-            burned:  sql<number>`COALESCE(SUM(${playersTable.totalFrontierBurned}), 0)`,
-            balanceMicro: sql<number>`COALESCE(SUM(${playersTable.frntrBalanceMicro}), 0)`,
+            burned:  sql<number>`COALESCE(SUM(${playersTable.totalAscendBurned}), 0)`,
+            balanceMicro: sql<number>`COALESCE(SUM(${playersTable.ascendBalanceMicro}), 0)`,
           })
           .from(playersTable);
         totalBurned       = Math.round(Number(metrics?.burned       ?? 0) * 100) / 100;
@@ -305,23 +631,23 @@ export async function registerRoutes(
       let protocolTreasuryTotal     = 0;
       try {
         const bal = await storage.getTreasuryBalance();
-        protocolTreasuryUnsettled = Math.round(fromMicroFRNTR(bal.unsettledMicro) * 100) / 100;
-        protocolTreasuryTotal     = Math.round(fromMicroFRNTR(bal.totalMicro)     * 100) / 100;
+        protocolTreasuryUnsettled = Math.round(fromMicroASCEND(bal.unsettledMicro) * 100) / 100;
+        protocolTreasuryTotal     = Math.round(fromMicroASCEND(bal.totalMicro)     * 100) / 100;
       } catch (_e) { /* non-fatal */ }
 
-      // ── Payout safety: projected daily emissions vs admin FRNTR balance ──────
+      // ── Payout safety: projected daily emissions vs admin ASCEND balance ──────
       const projections = Object.fromEntries(
         EMISSION_CHECK_PARCEL_COUNTS.map(n => [n, projectedDailyEmissions(n)])
       ) as Record<number, number>;
 
       const currentDailyDemand = projectedDailyEmissions(ownedParcelCount);
 
-      // Warn when current demand (base rate only) exceeds 10% of admin FRNTR balance per day
+      // Warn when current demand (base rate only) exceeds 10% of admin ASCEND balance per day
       if (treasury > 0 && currentDailyDemand > treasury * 0.1) {
         console.warn(
           `[/api/economics] ⚠ Payout warning: current daily base emission demand ` +
-          `(${currentDailyDemand.toFixed(0)} FRNTR/day for ${ownedParcelCount} parcels) ` +
-          `exceeds 10% of admin treasury balance (${treasury.toFixed(0)} FRNTR). ` +
+          `(${currentDailyDemand.toFixed(0)} ASCEND/day for ${ownedParcelCount} parcels) ` +
+          `exceeds 10% of admin treasury balance (${treasury.toFixed(0)} ASCEND). ` +
           `At this rate the treasury covers ~${(treasury / Math.max(currentDailyDemand, 1)).toFixed(1)} days.`
         );
       }
@@ -337,14 +663,14 @@ export async function registerRoutes(
         protocolTreasuryUnsettled,
         protocolTreasuryTotal,
         network: "Algorand TestNet",
-        unitName: "FRNTR",
-        assetName: "FRONTIER",
+        unitName: "ASCEND",
+        assetName: "ASCEND",
         decimals: ASA_DECIMALS,
         // ── Emission config (centralized from shared/economy-config.ts) ──────
         economyMode: ECONOMY_MODE,
-        emissionRatePerDay: LAND_DAILY_FRNTR_RATE,
-        emissionRateTest:   LAND_DAILY_FRNTR_RATE_TEST,
-        emissionRateProd:   LAND_DAILY_FRNTR_RATE_PROD,
+        emissionRatePerDay: LAND_DAILY_ASCEND_RATE,
+        emissionRateTest:   LAND_DAILY_ASCEND_RATE_TEST,
+        emissionRateProd:   LAND_DAILY_ASCEND_RATE_PROD,
         // ── Payout projections (base rate × parcel count) ────────────────────
         ownedParcelCount,
         currentDailyBaseEmission: Math.round(currentDailyDemand * 100) / 100,
@@ -362,9 +688,9 @@ export async function registerRoutes(
     try {
       const queryAsaId = req.query.assetId ? Number(req.query.assetId) : undefined;
       const optedIn = await isAddressOptedIn(req.params.address, queryAsaId);
-      res.json({ optedIn, asaId: getFrontierAsaId() });
+      res.json({ optedIn, asaId: getAscendAsaId() });
     } catch (error) {
-      res.json({ optedIn: false, asaId: getFrontierAsaId() });
+      res.json({ optedIn: false, asaId: getAscendAsaId() });
     }
   });
 
@@ -570,6 +896,24 @@ export async function registerRoutes(
         return res.json({ success: false, reason: "not_in_custody", message: "NFT already delivered to buyer", assetId });
       }
 
+      // ── Ownership gate ────────────────────────────────────────────────────
+      // Custody + opt-in alone are attacker-satisfiable (opt-in is
+      // permissionless), so the NFT may only ever go to the registered wallet
+      // of the parcel's current in-game owner.
+      const [parcelRow] = await db
+        .select({ ownerId: parcelsTable.ownerId })
+        .from(parcelsTable)
+        .where(eq(parcelsTable.plotId, plotId));
+      const ownerId = parcelRow?.ownerId ?? null;
+      const [ownerRow] = ownerId
+        ? await db.select({ address: playersTable.address }).from(playersTable).where(eq(playersTable.id, ownerId))
+        : [];
+      const claim = evaluateNftDeliveryClaim({ ownerAddress: ownerRow?.address ?? null, requestedAddress: address });
+      if (!claim.allow) {
+        console.warn(`[nft/deliver] DENIED plotId=${plotId} assetId=${assetId} requested=${address} reason=${claim.reason}`);
+        return res.status(403).json({ error: "Delivery address does not match the plot owner's registered wallet", reason: claim.reason });
+      }
+
       // Verify the caller's wallet has opted into this specific plot NFT ASA
       const optedIn = await isAddressOptedIn(address, assetId);
       if (!optedIn) {
@@ -681,29 +1025,29 @@ export async function registerRoutes(
 
   // ── Commander NFT Price ─────────────────────────────────────────────────────
   // GET /api/nft/commander-price/:tier
-  // Returns the FRNTR cost and minimal ALGO network fee for commander minting.
-  // In testing mode: FRNTR costs are low, ALGO is network fee only (~0.001).
-  // In production mode: FRNTR costs are standard, same minimal ALGO network fee.
+  // Returns the ASCEND cost and minimal ALGO network fee for commander minting.
+  // In testing mode: ASCEND costs are low, ALGO is network fee only (~0.001).
+  // In production mode: ASCEND costs are standard, same minimal ALGO network fee.
   app.get("/api/nft/commander-price/:tier", (req, res) => {
     const { tier } = req.params;
-    const frntrCost = COMMANDER_MINT_FRNTR_ACTIVE[tier];
-    if (frntrCost === undefined) return res.status(400).json({ error: "Unknown tier" });
+    const ascendCost = COMMANDER_MINT_ASCEND_ACTIVE[tier];
+    if (ascendCost === undefined) return res.status(400).json({ error: "Unknown tier" });
 
     const adminAddress = getAdminAddress();
 
     const algoGamePrice = COMMANDER_ALGO_PRICE_ACTIVE[tier] ?? 0.5;
     res.json({
       tier,
-      frntrCost,
+      ascendCost,
       algoGamePrice,
       algoNetworkFee: COMMANDER_ALGO_NETWORK_FEE,
       algoTotal: algoGamePrice + COMMANDER_ALGO_NETWORK_FEE,
       adminAddress,
       economyMode: ECONOMY_MODE,
-      currency: "FRNTR+ALGO",
+      currency: "ASCEND+ALGO",
       note: ECONOMY_MODE === "testing"
-        ? `Testing mode: ${frntrCost} FRNTR + ${algoGamePrice} ALGO to mint.`
-        : `${frntrCost} FRNTR + ${algoGamePrice} ALGO to mint.`,
+        ? `Testing mode: ${ascendCost} ASCEND + ${algoGamePrice} ALGO to mint.`
+        : `${ascendCost} ASCEND + ${algoGamePrice} ALGO to mint.`,
     });
   });
 
@@ -758,8 +1102,12 @@ export async function registerRoutes(
   // Triggers a fresh on-chain mint for a commander whose previous mint failed.
   app.post("/api/nft/retry-commander/:commanderId", async (req, res) => {
     const { commanderId } = req.params;
-    const { playerId } = req.body;
-    if (!commanderId || !playerId) return res.status(400).json({ error: "commanderId and playerId required" });
+    if (!commanderId) return res.status(400).json({ error: "commanderId required" });
+    // Bind the retry to the caller's verified session: this mint spends the
+    // admin wallet's ALGO, so only the owning (human) player may trigger it —
+    // not anyone who can guess a (playerId, commanderId) pair.
+    const playerId = await assertPlayerOwnership(req, res);
+    if (!playerId) return;
     if (!db) return res.status(503).json({ error: "Database not available" });
 
     try {
@@ -849,6 +1197,20 @@ export async function registerRoutes(
         return res.json({ success: false, reason: "not_in_custody", message: "NFT already delivered to buyer", assetId });
       }
 
+      // ── Ownership gate ────────────────────────────────────────────────────
+      // Same rule as plot delivery: only the registered wallet of the player
+      // who owns this commander may take delivery (opt-in is permissionless,
+      // so it is not an ownership proof).
+      const [cmdrOwnerRow] = await db
+        .select({ address: playersTable.address })
+        .from(playersTable)
+        .where(sql`${playersTable.commanders} @> ${JSON.stringify([{ id: commanderId }])}::jsonb`);
+      const claim = evaluateNftDeliveryClaim({ ownerAddress: cmdrOwnerRow?.address ?? null, requestedAddress: address });
+      if (!claim.allow) {
+        console.warn(`[nft/deliver-commander] DENIED commanderId=${commanderId} assetId=${assetId} requested=${address} reason=${claim.reason}`);
+        return res.status(403).json({ error: "Delivery address does not match the commander owner's registered wallet", reason: claim.reason });
+      }
+
       const optedIn = await isAddressOptedIn(address, assetId);
       if (!optedIn) {
         return res.json({
@@ -889,11 +1251,11 @@ export async function registerRoutes(
       if (player && !player.welcomeBonusReceived) {
         await storage.grantWelcomeBonus(playerId);
         welcomeBonus = true;
-        console.log(`Welcome bonus of 500 FRONTIER granted to player ${player.name} (${address})`);
+        console.log(`Welcome bonus of 500 ASCEND granted to player ${player.name} (${address})`);
 
         // SEV2 #7 fix: enqueue regardless of asaId / opt-in state; worker retries.
         if (address && !address.startsWith("AI_")) {
-          enqueueFrontierTransfer({
+          enqueueAscendTransfer({
             recipientAddress:  address,
             recipientPlayerId: playerId,
             amount:            500,
@@ -913,7 +1275,10 @@ export async function registerRoutes(
   app.get("/api/game/state", async (req, res) => {
     try {
       const gameState = await withDbRetry(() => storage.getGameState(), "getGameState");
-      res.json(gameState);
+      // Scope to the requesting viewer (fog of war / EPI). Anonymous → fully
+      // redacted. The WS broadcast below re-scopes per connection.
+      const auth = getAuth(req);
+      res.json(scopeGameStateFor(gameState, auth?.playerId ?? null));
       broadcastGameState(gameState);
     } catch (error) {
       console.error("Error fetching game state:", error);
@@ -955,7 +1320,7 @@ export async function registerRoutes(
    * Wallet-based player lookup / auto-creation.
    * Called by the client immediately after a wallet connects.
    * Returns the existing player for that address, or creates a fresh one.
-   * Also grants the 500 FRONTIER welcome bonus on first login.
+   * Also grants the 500 ASCEND welcome bonus on first login.
    */
   app.get("/api/game/player-by-address/:address", async (req, res) => {
     try {
@@ -965,26 +1330,11 @@ export async function registerRoutes(
       }
 
       const player = await storage.getOrCreatePlayerByAddress(address);
+      const wb = await maybeGrantWelcomeBonus(player.id, address);
 
-      let welcomeBonus = false;
-      if (!player.welcomeBonusReceived) {
-        await storage.grantWelcomeBonus(player.id);
-        welcomeBonus = true;
-
-        // SEV2 #7 fix: enqueue regardless of asaId / opt-in state; worker retries.
-        if (!address.startsWith("AI_")) {
-          enqueueFrontierTransfer({
-            recipientAddress:  address,
-            recipientPlayerId: player.id,
-            amount:            500,
-            reason:            "welcome_bonus",
-          }).catch((err) => console.error("Welcome bonus enqueue failed:", err));
-        }
-      }
-
-      // Return fresh player data (welcomeBonusReceived is now true)
+      // Return fresh player data (welcomeBonusReceived reflects any grant)
       const fresh = await storage.getPlayer(player.id);
-      res.json({ ...fresh, welcomeBonus });
+      res.json({ ...fresh, welcomeBonus: wb.granted, welcomeBonusReason: wb.reason });
     } catch (error) {
       console.error("player-by-address error:", error);
       res.status(500).json({ error: "Failed to get or create player" });
@@ -1036,7 +1386,7 @@ export async function registerRoutes(
           totalIronMined: player.totalIronMined,
           totalFuelMined: player.totalFuelMined,
           totalCrystalMined: player.totalCrystalMined,
-          totalFrontierEarned: player.totalFrontierEarned,
+          totalAscendEarned: player.totalAscendEarned,
           attacksWon: player.attacksWon,
           attacksLost: player.attacksLost,
           hasCommander: player.commanders.length > 0,
@@ -1301,9 +1651,27 @@ export async function registerRoutes(
   app.post("/api/actions/upgrade", async (req, res) => {
     try {
       const action = upgradeActionSchema.parse(req.body);
-      const parcel = await storage.upgradeBase(action);
-      res.json({ success: true, parcel });
-      markDirty();
+
+      // Idempotency (two-phase): claim a per-(player, action, target, nonce) key
+      // BEFORE the upgrade so a double-submit/replay cannot double-spend ASCEND or
+      // double-level the base; a duplicate REPLAYS the original 200, an in-flight
+      // duplicate gets 409, a missing/malformed nonce 400 (fail closed). Target =
+      // plot + upgrade type (parcelId escaped to avoid delimiter ambiguity).
+      // playerId is auth-verified by the global mutation middleware.
+      const scope = { playerId: action.playerId, action: "upgrade", target: `${encodeURIComponent(action.parcelId)}:${action.upgradeType}` };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (await guardClaimOrRespond(res, scope, nonce)) return;
+
+      try {
+        const parcel = await storage.upgradeBase(action);
+        const body = { success: true, parcel };
+        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
+        res.json(body);
+        markDirty();
+      } catch (mutErr) {
+        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
+      }
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Upgrade failed" });
@@ -1359,18 +1727,36 @@ export async function registerRoutes(
       const verifiedId = await assertPlayerOwnership(req, res);
       if (!verifiedId) return;
       const action = buildActionSchema.parse(req.body);
-      const parcel = await storage.buildImprovement(action);
-      const buildPlayer = await storage.getPlayer(action.playerId);
-      if (buildPlayer) {
-        const { FACILITY_INFO } = await import('@shared/schema');
-        const info = FACILITY_INFO[action.improvementType as keyof typeof FACILITY_INFO];
-        const built = parcel.improvements?.find((i: any) => i.type === action.improvementType);
-        const level = built?.level ?? 1;
-        const cost = info?.costFrontier?.[level - 1] ?? 0;
-        if (cost > 0) fireBurn(buildPlayer.address, cost, `Build improvement plotId=${parcel.plotId}`);
+
+      // Idempotency (two-phase): claim a per-(player, action, target, nonce) key
+      // BEFORE the build so a double-submit/replay cannot double-spend ASCEND or
+      // build the same improvement twice; a duplicate REPLAYS the original 200, an
+      // in-flight duplicate gets 409, a missing/malformed nonce 400 (fail closed).
+      // Target = plot + improvement type (parcelId escaped to avoid delimiter
+      // ambiguity). playerId is auth-verified (assertPlayerOwnership + global mw).
+      const scope = { playerId: action.playerId, action: "build", target: `${encodeURIComponent(action.parcelId)}:${action.improvementType}` };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (await guardClaimOrRespond(res, scope, nonce)) return;
+
+      try {
+        const parcel = await storage.buildImprovement(action);
+        const buildPlayer = await storage.getPlayer(action.playerId);
+        if (buildPlayer) {
+          const { FACILITY_INFO } = await import('@shared/schema');
+          const info = FACILITY_INFO[action.improvementType as keyof typeof FACILITY_INFO];
+          const built = parcel.improvements?.find((i: any) => i.type === action.improvementType);
+          const level = built?.level ?? 1;
+          const cost = info?.costAscend?.[level - 1] ?? 0;
+          if (cost > 0) fireBurn(buildPlayer.address, cost, `Build improvement plotId=${parcel.plotId}`);
+        }
+        const body = { success: true, parcel };
+        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
+        res.json(body);
+        markDirty();
+      } catch (mutErr) {
+        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
       }
-      res.json({ success: true, parcel });
-      markDirty();
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Build failed" });
@@ -1420,8 +1806,32 @@ export async function registerRoutes(
       }
       // ─────────────────────────────────────────────────────────────────────────
 
+      // ── Replay protection ────────────────────────────────────────────────
+      // The verification above is a stateless indexer read; claim the txid
+      // atomically so the same payment can never buy a second plot.
+      const paymentClaim = await paymentReplayGuard.claim(action.algoPaymentTxId, {
+        purpose:  "plot_purchase",
+        refId:    String(action.parcelId),
+        playerId: action.playerId,
+      });
+      if (!paymentClaim.ok) {
+        if (paymentClaim.reason === "already_redeemed") {
+          console.warn(`[purchase] REPLAY DENIED txId=${action.algoPaymentTxId} parcelId=${action.parcelId} player=${action.playerId}`);
+          return res.status(409).json({ error: "This payment transaction has already been redeemed." });
+        }
+        return res.status(503).json({ error: "Payment ledger unavailable — purchase refused. Your ALGO was not consumed; try again shortly." });
+      }
+
       const buyerAddress = player.address;
-      const parcel = await storage.purchaseLand(action);
+      let parcel;
+      try {
+        parcel = await storage.purchaseLand(action);
+      } catch (purchaseErr) {
+        // The purchase did not happen — give the buyer their payment back
+        // for a retry instead of leaving the txid burned.
+        await paymentReplayGuard.release(action.algoPaymentTxId);
+        throw purchaseErr;
+      }
       // Log the payment txId for audit trail (no dedicated column on parcels table).
       if (action.algoPaymentTxId) {
         console.log(`[purchase-audit] plotId=${parcel.plotId} buyer=${buyerAddress} algoPaymentTxId=${action.algoPaymentTxId}`);
@@ -1571,46 +1981,69 @@ export async function registerRoutes(
 
   app.post("/api/actions/claim-frontier", async (req, res) => {
     try {
-      const action = claimFrontierActionSchema.parse(req.body);
+      const action = claimAscendActionSchema.parse(req.body);
 
-      const player = await storage.getPlayer(action.playerId);
-      if (!player) return res.status(404).json({ error: "Player not found" });
+      // Idempotency (two-phase): claim a per-(player, action, nonce) key BEFORE
+      // crediting so a double-submit/replay cannot double-credit ASCEND or
+      // double-enqueue the on-chain transfer; a duplicate REPLAYS the original
+      // 200, an in-flight duplicate gets 409, a missing/malformed nonce 400 (fail
+      // closed). Scoped by playerId (auth-verified upstream). Only a successful
+      // credit is recorded for replay — every no-credit path releases the nonce so
+      // it stays retryable.
+      const scope = { playerId: action.playerId, action: "claim-frontier" };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (await guardClaimOrRespond(res, scope, nonce)) return;
 
-      const walletAddress = player.address;
-      const isRealWallet =
-        walletAddress &&
-        walletAddress !== "PLAYER_WALLET" &&
-        !walletAddress.startsWith("AI_");
-
-      // Step 1: Check opt-in BEFORE crediting the DB balance.
-      // We only gate on opt-in when the ASA ID is known; if it's null (race condition
-      // on startup / re-mint), we proceed and let the queue handle it (SEV2 #6 fix).
-      const asaId = getFrontierAsaId();
-      if (asaId && isRealWallet) {
-        const optedIn = await isAddressOptedIn(walletAddress);
-        if (!optedIn) {
-          return res.json({ success: false, reason: "wallet_not_opted_in" });
+      try {
+        const player = await storage.getPlayer(action.playerId);
+        if (!player) {
+          await actionIdempotencyGuard.release(scope, nonce);
+          return res.status(404).json({ error: "Player not found" });
         }
+
+        const walletAddress = player.address;
+        const isRealWallet =
+          walletAddress &&
+          walletAddress !== "PLAYER_WALLET" &&
+          !walletAddress.startsWith("AI_");
+
+        // Step 1: Check opt-in BEFORE crediting the DB balance.
+        // We only gate on opt-in when the ASA ID is known; if it's null (race condition
+        // on startup / re-mint), we proceed and let the queue handle it (SEV2 #6 fix).
+        const asaId = getAscendAsaId();
+        if (asaId && isRealWallet) {
+          const optedIn = await isAddressOptedIn(walletAddress);
+          if (!optedIn) {
+            // No credit happened — release so the player can retry after opting in.
+            await actionIdempotencyGuard.release(scope, nonce);
+            return res.json({ success: false, reason: "wallet_not_opted_in" });
+          }
+        }
+
+        // Step 2: Credit the DB balance.
+        const result = await storage.claimAscend(action.playerId);
+
+        // Step 3: Enqueue on-chain transfer (SEV2 #6 fix: no asaId guard — worker resolves
+        // the id lazily at drain time so a null asaId at request time is not a silent drop).
+        if (result.amount > 0 && isRealWallet) {
+          enqueueAscendTransfer({
+            recipientAddress:  walletAddress,
+            recipientPlayerId: action.playerId,
+            amount:            result.amount,
+            reason:            "claim_ascend",
+          }).catch((err) =>
+            console.error("claim-frontier enqueue failed (in-game balance preserved):", err)
+          );
+        }
+
+        const body = { success: true, claimed: result, asaId };
+        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
+        res.json(body);
+        markDirty();
+      } catch (mutErr) {
+        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
       }
-
-      // Step 2: Credit the DB balance.
-      const result = await storage.claimFrontier(action.playerId);
-
-      // Step 3: Enqueue on-chain transfer (SEV2 #6 fix: no asaId guard — worker resolves
-      // the id lazily at drain time so a null asaId at request time is not a silent drop).
-      if (result.amount > 0 && isRealWallet) {
-        enqueueFrontierTransfer({
-          recipientAddress:  walletAddress,
-          recipientPlayerId: action.playerId,
-          amount:            result.amount,
-          reason:            "claim_frontier",
-        }).catch((err) =>
-          console.error("claim-frontier enqueue failed (in-game balance preserved):", err)
-        );
-      }
-
-      res.json({ success: true, claimed: result, asaId });
-      markDirty();
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Claim failed" });
@@ -1661,38 +2094,66 @@ export async function registerRoutes(
         }
       }
 
-      // ── FRNTR cost check ───────────────────────────────────────────────────
-      // Commander minting is now FRNTR-based. ALGO is NOT charged at game level.
+      // ── ASCEND cost check ───────────────────────────────────────────────────
+      // Commander minting is now ASCEND-based. ALGO is NOT charged at game level.
       // The minimal Algorand network fee for the NFT mint transaction is handled
       // automatically by the admin wallet during the post-response fire-and-forget.
       const { COMMANDER_INFO } = await import('@shared/schema');
-      const frntrCost = COMMANDER_INFO[action.tier as keyof typeof COMMANDER_INFO]?.mintCostFrontier ?? 0;
+      const ascendCost = COMMANDER_INFO[action.tier as keyof typeof COMMANDER_INFO]?.mintCostAscend ?? 0;
 
-      if (frntrCost > 0 && isHumanPlayer) {
-        const playerFrntr = mintPlayer.frontier ?? 0;
-        if (playerFrntr < frntrCost) {
+      if (ascendCost > 0 && isHumanPlayer) {
+        const playerAscend = mintPlayer.ascend ?? 0;
+        if (playerAscend < ascendCost) {
           return res.status(402).json({
-            error: `Insufficient FRNTR. Required: ${frntrCost} FRNTR, you have: ${playerFrntr.toFixed(2)} FRNTR.`,
-            frntrRequired: frntrCost,
-            frntrAvailable: playerFrntr,
-            currency: "FRNTR",
+            error: `Insufficient ASCEND. Required: ${ascendCost} ASCEND, you have: ${playerAscend.toFixed(2)} ASCEND.`,
+            ascendRequired: ascendCost,
+            ascendAvailable: playerAscend,
+            currency: "ASCEND",
           });
         }
       }
 
-      // ── Mint in-game avatar ────────────────────────────────────────────────
-      const avatar = await storage.mintAvatar(action);
+      // ── Replay protection ──────────────────────────────────────────────────
+      // Claim the payment txid atomically before mutating state — the same
+      // payment must never mint a second commander (or anything else).
+      if (isHumanPlayer && action.algoPaymentTxId) {
+        const paymentClaim = await paymentReplayGuard.claim(action.algoPaymentTxId, {
+          purpose:  "commander_mint",
+          refId:    action.tier,
+          playerId: action.playerId,
+        });
+        if (!paymentClaim.ok) {
+          if (paymentClaim.reason === "already_redeemed") {
+            console.warn(`[mint-avatar] REPLAY DENIED txId=${action.algoPaymentTxId} tier=${action.tier} player=${action.playerId}`);
+            return res.status(409).json({ error: "This payment transaction has already been redeemed." });
+          }
+          return res.status(503).json({ error: "Payment ledger unavailable — mint refused. Your ALGO was not consumed; try again shortly." });
+        }
+      }
 
-      // ── Deduct FRNTR cost via on-chain clawback (fire-and-forget) ─────────
-      if (frntrCost > 0 && mintPlayer.address) {
-        fireBurn(mintPlayer.address, frntrCost, `Commander mint tier=${action.tier}`);
+      // ── Mint in-game avatar ────────────────────────────────────────────────
+      let avatar;
+      try {
+        avatar = await storage.mintAvatar(action);
+      } catch (mintErr) {
+        // The mint did not happen — release the claim so the buyer's payment
+        // is not burned by a failed mint.
+        if (isHumanPlayer && action.algoPaymentTxId) {
+          await paymentReplayGuard.release(action.algoPaymentTxId);
+        }
+        throw mintErr;
+      }
+
+      // ── Deduct ASCEND cost via on-chain clawback (fire-and-forget) ─────────
+      if (ascendCost > 0 && mintPlayer.address) {
+        fireBurn(mintPlayer.address, ascendCost, `Commander mint tier=${action.tier}`);
       }
 
       res.json({
         success: true,
         avatar,
-        frntrCost,
-        currency: "FRNTR",
+        ascendCost,
+        currency: "ASCEND",
         nft: isHumanPlayer && db
           ? { status: "minting", message: "Your Commander NFT is being minted. Check back shortly for the on-chain asset ID." }
           : undefined,
@@ -1862,14 +2323,240 @@ export async function registerRoutes(
     }
   });
 
+  // ── Weapon System ──────────────────────────────────────────────────────────
+  // Per-weapon mint lock: the check-then-mint-then-record sequence below spans a
+  // multi-second on-chain call, so concurrent mint requests for the same weapon
+  // could each pass the nftAssetId guard and mint duplicate 1-of-1 ASAs (draining
+  // admin ALGO). The server is single-process, so an in-process claim suffices.
+  const weaponMintInFlight = new Set<string>();
+
+  // Reap faded engagements so the runtime store can't grow unbounded if play goes
+  // quiet (launch() also prunes opportunistically). unref() so it never holds the
+  // process open (tests / graceful shutdown).
+  setInterval(() => engagementStore.prune(), 30_000).unref();
+
+  // Read a player's armory: full catalog annotated with unlock/own state + costs.
+  app.get("/api/weapons/catalog", async (req, res) => {
+    try {
+      const queryId = typeof req.query.playerId === "string" ? req.query.playerId : undefined;
+      const playerId = await assertPlayerOwnership(req, res, queryId);
+      if (!playerId) return;
+      const result = await weaponService.getCatalog(storage, playerId);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Catalog failed" });
+    }
+  });
+
+  // Set the attribute build (validated against budget + tradeoff curve).
+  app.post("/api/weapons/build", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = buildWeaponProfileActionSchema.parse(req.body);
+      const profile = await weaponService.buildProfile(storage, playerId, action.attributes);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Build failed" });
+    }
+  });
+
+  // Acquire an unlocked weapon into the armory (spends ASCEND).
+  app.post("/api/weapons/unlock", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = unlockWeaponActionSchema.parse(req.body);
+      const profile = await weaponService.unlockWeapon(storage, playerId, action.specId);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Unlock failed" });
+    }
+  });
+
+  // Set the equipped loadout (the active "sub-shots").
+  app.post("/api/weapons/loadout", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = setLoadoutActionSchema.parse(req.body);
+      const profile = await weaponService.setLoadout(storage, playerId, action.loadout);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Loadout failed" });
+    }
+  });
+
+  // Fire a weapon at a target parcel: spends ASCEND, creates a runtime engagement
+  // (with layered interception resolved), and streams it to the live globe.
+  app.post("/api/weapons/fire", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = fireWeaponActionSchema.parse(req.body);
+      const engagement = await weaponService.fireWeapon(storage, engagementStore, {
+        playerId,
+        specId: action.specId,
+        sourceParcelId: action.sourceParcelId,
+        targetParcelId: action.targetParcelId,
+      });
+      res.json({ success: true, engagement });
+      // Post-response side effects must never re-enter the error path (would try
+      // to set headers on an already-sent response).
+      try {
+        broadcastRaw({ type: "weapon_engagement", payload: engagement });
+        markDirty();
+      } catch { /* broadcast best-effort */ }
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Fire failed" });
+    }
+  });
+
+  // Deploy a defensive battery onto an owned parcel (spends ASCEND).
+  app.post("/api/weapons/deploy-defense", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = deployDefenseActionSchema.parse(req.body);
+      const battery = await weaponService.deployDefense(storage, engagementStore, {
+        playerId,
+        specId: action.specId,
+        parcelId: action.parcelId,
+      });
+      // NOTE: intentionally NOT broadcast — a deployed battery is concealed intel
+      // (position / type / ammo). Other players only learn of it when it actually
+      // intercepts, which is revealed via the weapon_engagement event. Broadcasting
+      // it here would bypass the game's fog-of-war / EPI model (see stateScope.ts).
+      res.json({ success: true, battery });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Deploy failed" });
+    }
+  });
+
+  // Upgrade an owned weapon instance one tier (spends ASCEND).
+  app.post("/api/weapons/upgrade", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = upgradeWeaponActionSchema.parse(req.body);
+      const profile = await weaponService.upgradeWeapon(storage, playerId, action.ownedWeaponId);
+      res.json({ success: true, profile });
+      markDirty();
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Upgrade failed" });
+    }
+  });
+
+  // Mint an owned weapon as a 1-of-1 Algorand NFT (custody model, mirrors commander).
+  app.post("/api/weapons/mint-nft", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const action = mintWeaponNftActionSchema.parse(req.body);
+
+      const profile = await storage.getWeaponProfile(playerId);
+      const owned = profile.ownedWeapons.find((w) => w.id === action.ownedWeaponId);
+      if (!owned) return res.status(404).json({ error: "Weapon not in your armory" });
+      if (owned.nftAssetId) return res.status(409).json({ error: "Weapon already minted", assetId: owned.nftAssetId });
+
+      const baseUrl = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "");
+      if (!baseUrl) return res.status(503).json({ error: "PUBLIC_BASE_URL not configured — cannot mint" });
+
+      // Claim the weapon for minting; reject concurrent duplicate requests.
+      if (weaponMintInFlight.has(owned.id)) {
+        return res.status(409).json({ error: "Mint already in progress for this weapon" });
+      }
+      weaponMintInFlight.add(owned.id);
+      try {
+        const mint = await mintWeaponNft({
+          ownedWeaponId: owned.id,
+          specId: owned.specId,
+          receiverAddress: action.receiverAddress,
+          metadataBaseUrl: baseUrl,
+        });
+        await weaponService.recordWeaponNft(storage, playerId, owned.id, mint.assetId);
+        const delivery = await attemptWeaponDelivery(mint.assetId, action.receiverAddress, owned.id);
+        res.json({ success: true, assetId: mint.assetId, createTxId: mint.createTxId, delivered: delivery.delivered, reason: delivery.reason });
+        markDirty();
+      } finally {
+        weaponMintInFlight.delete(owned.id);
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Mint failed" });
+    }
+  });
+
+  // ARC-3 metadata for a minted Weapon NFT.
+  app.get("/nft/metadata/weapon/:ownedWeaponId", async (req, res) => {
+    const { ownedWeaponId } = req.params;
+    if (!ownedWeaponId || ownedWeaponId.length < 8) {
+      return res.status(400).json({ error: "Invalid ownedWeaponId" });
+    }
+    if (!db) return res.status(503).json({ error: "Database not available" });
+    try {
+      const baseUrl = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "");
+      if (!baseUrl) return res.status(503).json({ error: "PUBLIC_BASE_URL not configured" });
+
+      const players = await db
+        .select({ weaponProfile: playersTable.weaponProfile })
+        .from(playersTable);
+      let owned: any = null;
+      for (const p of players) {
+        const wp = p.weaponProfile as any;
+        const found = wp?.ownedWeapons?.find((w: any) => w.id === ownedWeaponId);
+        if (found) { owned = found; break; }
+      }
+      if (!owned) return res.status(404).json({ error: "Weapon not found" });
+
+      const spec = getWeaponSpec(owned.specId);
+      if (!spec) return res.status(404).json({ error: "Weapon spec not found" });
+
+      const displayId = owned.nftAssetId ?? owned.id.slice(0, 8);
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.json({
+        name: `Frontier ${spec.name} #${displayId}`,
+        description: `${spec.name} — a tier-${spec.tier} ${spec.category.replace(/_/g, " ")} weapon (ref: ${spec.realWorldRef}).`,
+        image: `${baseUrl}/images/weapons/${spec.category}.png`,
+        external_url: `${baseUrl}/weapon/${owned.nftAssetId ?? owned.id}`,
+        properties: {
+          nftId: owned.nftAssetId ?? null,
+          ownedWeaponId: owned.id,
+          specId: spec.id,
+          category: spec.category,
+          tier: spec.tier,
+          upgradeTier: owned.upgradeTier,
+          rangeKm: spec.rangeKm,
+          damage: spec.damage,
+          realWorldRef: spec.realWorldRef,
+          version: 1,
+        },
+      });
+    } catch (error) {
+      console.error("[/nft/metadata/weapon] error:", error);
+      res.status(500).json({ error: "Failed to fetch Weapon NFT metadata" });
+    }
+  });
+
   app.post("/api/actions/deploy-drone", async (req, res) => {
     try {
       const action = deployDroneActionSchema.parse(req.body);
       const drone = await storage.deployDrone(action);
       const dronePlayer = await storage.getPlayer(action.playerId);
       if (dronePlayer) {
-        const { DRONE_MINT_COST_FRONTIER } = await import('@shared/schema');
-        fireBurn(dronePlayer.address, DRONE_MINT_COST_FRONTIER, `Drone deploy`);
+        const { DRONE_MINT_COST_ASCEND } = await import('@shared/schema');
+        fireBurn(dronePlayer.address, DRONE_MINT_COST_ASCEND, `Drone deploy`);
       }
       try {
         const dronePlayerEvt = await storage.getPlayer(action.playerId).catch(() => null);
@@ -1899,8 +2586,8 @@ export async function registerRoutes(
       const satellite = await storage.deploySatellite(action);
       const satPlayer = await storage.getPlayer(action.playerId);
       if (satPlayer) {
-        const { SATELLITE_DEPLOY_COST_FRONTIER } = await import('@shared/schema');
-        fireBurn(satPlayer.address, SATELLITE_DEPLOY_COST_FRONTIER, `Satellite deploy`);
+        const { SATELLITE_DEPLOY_COST_ASCEND } = await import('@shared/schema');
+        fireBurn(satPlayer.address, SATELLITE_DEPLOY_COST_ASCEND, `Satellite deploy`);
       }
       res.json({ success: true, satellite });
       try {
@@ -1976,16 +2663,10 @@ export async function registerRoutes(
   });
 
   // ── Admin key guard (used for internal/admin endpoints) ───────────────────
-  function requireAdminKey(req: any, res: any): boolean {
-    const adminKey = process.env.ADMIN_KEY;
-    if (!adminKey) return true; // No key configured → allow (dev mode)
-    const provided = (req.headers["x-admin-key"] as string) ?? (req.query.adminKey as string);
-    if (provided !== adminKey) {
-      res.status(403).json({ error: "Forbidden: invalid admin key" });
-      return false;
-    }
-    return true;
-  }
+  // NOTE: requireAdminKey is now imported from ./security — it fails CLOSED in
+  // production (a missing ADMIN_KEY no longer grants access) and only accepts
+  // the key via the x-admin-key header in prod (never the query string, which
+  // would be captured by access logs).
 
   app.post("/api/game/resolve-battles", async (req, res) => {
     if (!requireAdminKey(req, res)) return;
@@ -2057,7 +2738,8 @@ export async function registerRoutes(
   });
 
   /** POST /api/orbital/trigger — server rolls for an impact event (called by interval) */
-  app.post("/api/orbital/trigger", async (_req, res) => {
+  app.post("/api/orbital/trigger", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const event = await storage.triggerOrbitalCheck();
       if (event) {
@@ -2072,6 +2754,7 @@ export async function registerRoutes(
 
   /** POST /api/orbital/resolve/:id — mark an impact event resolved + apply effects */
   app.post("/api/orbital/resolve/:id", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       await storage.resolveOrbitalEvent(req.params.id);
       res.json({ success: true });
@@ -2088,7 +2771,9 @@ export async function registerRoutes(
       const filters: import("@shared/worldEvents").WorldEventFilters = {};
       if (start)  filters.start  = Number(start);
       if (end)    filters.end    = Number(end);
-      if (limit)  filters.limit  = Number(limit);
+      // Always clamp — an unbounded `limit` lets a caller dump the entire event
+      // log in one request (off-chain activity-intelligence scrape).
+      filters.limit = clampLimit(limit, 100, 200);
       if (types)  filters.types  = String(types).split(",") as import("@shared/worldEvents").WorldEventType[];
       res.json(listWorldEvents(filters));
     } catch { res.status(500).json({ error: "Failed to fetch world events" }); }
@@ -2332,12 +3017,18 @@ export async function registerRoutes(
 
   // ── Prediction Markets ────────────────────────────────────────────────────
 
-  // Background resolver: close expired open markets every 60 seconds
+  // Background resolver (every 60s): close expired markets, then DERIVE outcomes for
+  // any market whose deterministic resolution condition is now met. No human in the loop.
   setInterval(async () => {
     try {
       await withDbRetry(() => storage.resolveExpiredMarkets(), "resolveExpiredMarkets");
     } catch (err) {
       console.warn("[markets] resolveExpiredMarkets:", err instanceof Error ? err.message : err);
+    }
+    try {
+      await withDbRetry(() => storage.resolveReadyMarkets(), "resolveReadyMarkets");
+    } catch (err) {
+      console.warn("[markets] resolveReadyMarkets:", err instanceof Error ? err.message : err);
     }
   }, 60_000);
 
@@ -2412,6 +3103,30 @@ export async function registerRoutes(
     }
   });
 
+  // Public verification: anyone can fetch how a market resolved and re-run the
+  // computation themselves. Before resolution it returns the immutable source so
+  // players can see up front exactly what the market resolves from.
+  app.get("/api/markets/:id/proof", async (req, res) => {
+    try {
+      const market = await withDbRetry(() => storage.getMarket(req.params.id), "getMarket");
+      if (!market) return res.status(404).json({ error: "Market not found" });
+      res.json({
+        marketId: market.id,
+        resolutionSource: market.resolutionSource,   // what it resolves from (immutable)
+        resolutionCutoffTs: market.resolutionCutoffTs,
+        status: market.status,
+        resolved: market.status === "resolved",
+        outcome: market.winningOutcome,
+        resolvedInputs: market.resolvedInputs,        // exact public facts read
+        resolutionHash: market.resolutionHash,        // sha256 they can recompute
+        resolvedAt: market.resolvedAt,
+      });
+    } catch (err) {
+      console.error("[markets] proof error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Admin-only routes
   app.post("/api/admin/markets", async (req, res) => {
     if (!requireAdminKey(req, res)) return;
@@ -2426,25 +3141,23 @@ export async function registerRoutes(
     }
   });
 
+  // Trigger-only resolution. There is NO winningOutcome parameter — the outcome is
+  // always DERIVED from the market's immutable source. Admin can nudge the timer but
+  // cannot choose a winner. Returns "Not yet resolvable" until the fact is knowable.
   app.post("/api/admin/markets/:id/resolve", async (req, res) => {
     if (!requireAdminKey(req, res)) return;
     try {
-      const parsed = resolveMarketSchema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-      const result = await withDbRetry(() => storage.resolveMarket(req.params.id, parsed.data.winningOutcome), "resolveMarket");
+      const result = await withDbRetry(() => storage.resolveMarketTrustlessly(req.params.id), "resolveMarketTrustlessly");
       if ("error" in result) return res.status(400).json({ error: result.error });
       res.json(result);
     } catch (err) {
-      console.error("[markets] resolveMarket error:", err);
+      console.error("[markets] resolveMarketTrustlessly error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
   app.get("/api/admin/mint-status/:plotId", async (req, res) => {
-    const adminKey = process.env.ADMIN_KEY;
-    if (adminKey && req.query.adminKey !== adminKey) {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
+    if (!requireAdminKey(req, res)) return;
 
     const plotId = parseInt(req.params.plotId, 10);
     if (isNaN(plotId)) {
@@ -2599,7 +3312,7 @@ export async function registerRoutes(
           subIndex: sp.subIndex,
           biome,
           playerId,
-          price:    sp.purchasePriceFrontier,
+          price:    sp.purchasePriceAscend,
         }).catch(() => {});
       }).catch(() => {});
 
@@ -2767,12 +3480,12 @@ export async function registerRoutes(
 
   /** POST /api/sub-parcels/listings — create a listing */
   app.post("/api/sub-parcels/listings", async (req, res) => {
-    const { sellerId, subParcelId, askPriceFrontier } = req.body;
+    const { sellerId, subParcelId, askPriceAscend } = req.body;
     if (!sellerId)         return res.status(400).json({ error: "sellerId required" });
     if (!subParcelId)      return res.status(400).json({ error: "subParcelId required" });
-    if (!askPriceFrontier) return res.status(400).json({ error: "askPriceFrontier required" });
+    if (!askPriceAscend) return res.status(400).json({ error: "askPriceAscend required" });
     try {
-      const result = await storage.createSubParcelListing(sellerId, subParcelId, Number(askPriceFrontier));
+      const result = await storage.createSubParcelListing(sellerId, subParcelId, Number(askPriceAscend));
       if (result.error) return res.status(400).json({ error: result.error });
       broadcastRaw({ type: "sub_parcel_listed", listing: result.listing });
       res.json({ success: true, listing: result.listing });
@@ -2931,7 +3644,8 @@ export async function registerRoutes(
   });
 
   /** GET /api/admin/battles-live — currently pending battles */
-  app.get("/api/admin/battles-live", async (_req, res) => {
+  app.get("/api/admin/battles-live", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const pending = await db.select()
         .from(battlesTable)
@@ -2968,7 +3682,8 @@ export async function registerRoutes(
   });
 
   /** GET /api/admin/ai-activity — AI faction status + last action per faction */
-  app.get("/api/admin/ai-activity", async (_req, res) => {
+  app.get("/api/admin/ai-activity", async (req, res) => {
+    if (!requireAdminKey(req, res)) return;
     try {
       const factionRows = await db
         .select()
@@ -3137,7 +3852,7 @@ export async function registerRoutes(
       env: {
         nodeEnv: process.env.NODE_ENV ?? "development",
         network: process.env.ALGORAND_NETWORK ?? "testnet",
-        asaId: getFrontierAsaId() ?? null,
+        asaId: getAscendAsaId() ?? null,
       },
     });
   });

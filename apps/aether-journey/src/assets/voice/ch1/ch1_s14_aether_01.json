@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s14_aether_01",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "CORE... yes, that's — that's almost there. Push left. Good. ... MEMORY is the bad one. Don't worry if it won't sit. Just get it close. ... AFFECT? That's — yes, that's also me. Don't be polite about it. ... SENSORY, good. Good. I can see you better when you do that.",
+  "content_hash": "b881527974e09ce628fe419c028801b2a4fb33390d768e08ab2203d424956add",
+  "generated_at": "2026-06-15T23:38:40.662Z",
+  "duration_seconds": null,
+  "version": 1
+}

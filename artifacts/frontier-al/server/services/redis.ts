@@ -34,6 +34,91 @@ function getRedis(): Redis | null {
   }
 }
 
+// ── Distributed primitives (nonce store + rate limiting) ─────────────────────
+// These back security state that must be shared across instances. Each follows
+// the module's graceful-degradation rule: when Redis is absent or a call fails
+// they signal that (false / null) so callers fall back to per-instance memory.
+
+/** True when an Upstash client is configured (UPSTASH_REDIS_REST_URL/TOKEN set). */
+export function isRedisEnabled(): boolean {
+  return getRedis() !== null;
+}
+
+/** SET key=value with a millisecond TTL. Returns true on success. */
+export async function setWithPx(key: string, value: string, ttlMs: number): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return false;
+  try {
+    await r.set(key, value, { px: ttlMs });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Atomic GET + DEL — reads a key and removes it in one round trip. Used for
+ * single-use nonce consumption. Returns the stored string, or null if absent
+ * or on error.
+ */
+export async function getDel(key: string): Promise<string | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    const v = await r.getdel<string>(key);
+    return v == null ? null : (typeof v === "string" ? v : String(v));
+  } catch {
+    return null;
+  }
+}
+
+// Atomic rate-limit increment: INCR, set the window TTL on the first hit, and
+// return [count, pttl] so the caller can compute an accurate resetTime that is
+// consistent across instances.
+const _RL_INCR_LUA = `
+local c = redis.call('INCR', KEYS[1])
+if c == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+return {c, redis.call('PTTL', KEYS[1])}
+`;
+
+/**
+ * Atomically increment a counter and return its current count + remaining TTL.
+ * Returns null when Redis is unavailable or the call fails, so the caller can
+ * fall back to a per-instance store.
+ */
+export async function rlIncr(
+  key: string,
+  windowMs: number,
+): Promise<{ count: number; ttlMs: number } | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    const res = (await r.eval(_RL_INCR_LUA, [key], [windowMs])) as [number, number];
+    const count = Number(res?.[0] ?? 0);
+    let ttlMs = Number(res?.[1] ?? windowMs);
+    // PTTL returns -1 (no expiry) / -2 (missing) in edge cases — normalise.
+    if (!Number.isFinite(ttlMs) || ttlMs < 0) ttlMs = windowMs;
+    if (count <= 0) return null;
+    return { count, ttlMs };
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort decrement of a rate-limit counter (used only with skip options). */
+export async function rlDecr(key: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try { await r.decr(key); } catch { /* non-fatal */ }
+}
+
+/** Best-effort delete of a single key (rate-limit resetKey). */
+export async function rlDelete(key: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try { await r.del(key); } catch { /* non-fatal */ }
+}
+
 // ── Battle Replay ────────────────────────────────────────────────────────────
 
 export interface BattleReplayRecord {

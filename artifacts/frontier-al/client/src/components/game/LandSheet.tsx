@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { LandParcel, Player, ImprovementType, SpecialAttackType, DefenseImprovementType, FacilityType, SubParcel, BiomeType, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
-import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS, DEFENSE_IMPROVEMENT_INFO, FACILITY_INFO, IMPROVEMENT_INFO, SPECIAL_ATTACK_INFO, SUB_PARCEL_HOLD_HOURS, BASE_YIELD, SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, ARCHETYPE_FACTION_BONUSES, TERRAFORM_COSTS, TERRAFORM_BIOME_MAP } from "@shared/schema";
+import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS, DEFENSE_IMPROVEMENT_INFO, FACILITY_INFO, IMPROVEMENT_INFO, SPECIAL_ATTACK_INFO, SUB_PARCEL_HOLD_HOURS, BASE_YIELD, SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, ARCHETYPE_FACTION_BONUSES, TERRAFORM_COSTS, TERRAFORM_BIOME_MAP, isImprovementAllowedForArchetype } from "@shared/schema";
 
 // ── SubParcelGrid ─────────────────────────────────────────────────────────────
 // Shows the 3×3 sub-parcel ownership grid for subdivided plots.
@@ -92,7 +92,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
     },
   });
 
-  const { data: listingsData } = useQuery<{ listings: { id: string; subParcelId: string; status: string; askPriceFrontier: number }[] }>({
+  const { data: listingsData } = useQuery<{ listings: { id: string; subParcelId: string; status: string; askPriceAscend: number }[] }>({
     queryKey: ["/api/sub-parcels/listings"],
     staleTime: 10_000,
   });
@@ -100,7 +100,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
 
   const createListingMutation = useMutation({
     mutationFn: (price: number) =>
-      apiRequest("POST", "/api/sub-parcels/listings", { sellerId: player.id, subParcelId: sp.id, askPriceFrontier: price }),
+      apiRequest("POST", "/api/sub-parcels/listings", { sellerId: player.id, subParcelId: sp.id, askPriceAscend: price }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sub-parcels/listings"] });
       setListPrice("");
@@ -126,8 +126,11 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
 
   const improvements = sp.improvements ?? [];
 
-  const facilityTypes: FacilityType[] = ["electricity", "blockchain_node", "data_centre", "ai_lab"];
-  const defenseTypes: DefenseImprovementType[] = ["turret", "shield_gen", "storage_depot", "radar", "fortress"];
+  // Archetype gates which structures are buildable; unassigned = all.
+  const facilityTypes: FacilityType[] = (["electricity", "blockchain_node", "data_centre", "ai_lab"] as FacilityType[])
+    .filter(t => isImprovementAllowedForArchetype(sp.archetype, t));
+  const defenseTypes: DefenseImprovementType[] = (["turret", "shield_gen", "storage_depot", "radar", "fortress"] as DefenseImprovementType[])
+    .filter(t => isImprovementAllowedForArchetype(sp.archetype, t));
   const biomeColor = biomeColors[biome];
 
   return (
@@ -243,6 +246,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
         </div>
       )}
 
+      {facilityTypes.length > 0 && (
       <div>
         <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1">Facilities (ASCEND)</p>
         <div className="grid grid-cols-2 gap-1">
@@ -256,7 +260,7 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
             const cost = atMax ? 0 : Math.ceil(rawCost * multiplier);
             const hasDiscount = multiplier < 0.99;
             const hasPremium = multiplier > 1.01;
-            const canAfford = player.frontier >= cost;
+            const canAfford = player.ascend >= cost;
             const hasPrereq = !info.prerequisite || improvements.find(i => i.type === info.prerequisite);
             return (
               <Button key={type} variant="outline" size="sm"
@@ -285,7 +289,9 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
           })}
         </div>
       </div>
+      )}
 
+      {defenseTypes.length > 0 && (
       <div>
         <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1">Defense (Iron/Fuel)</p>
         <div className="grid grid-cols-2 gap-1">
@@ -326,13 +332,14 @@ function SubParcelUpgradePanel({ sp, player, parentPlotId, biome, onClose }: {
           })}
         </div>
       </div>
+      )}
 
       {/* Trade Section */}
       <div className="border-t border-border/30 pt-2">
         <p className="text-[9px] text-muted-foreground font-display uppercase tracking-wide mb-1.5">Trade</p>
         {existingListing ? (
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-emerald-400 font-mono">Listed: {existingListing.askPriceFrontier} ASCEND</span>
+            <span className="text-[9px] text-emerald-400 font-mono">Listed: {existingListing.askPriceAscend} ASCEND</span>
             <Button size="sm" variant="outline" className="h-5 px-2 text-[9px] border-destructive/50 text-destructive hover:bg-destructive/10"
               onClick={() => cancelListingMutation.mutate(existingListing.id)}
               disabled={cancelListingMutation.isPending}
@@ -393,7 +400,7 @@ function SubParcelGrid({ parcel, player, onNavigate }: SubParcelGridProps) {
 
   const isOwner = player && parcel.ownerId === player.id;
   const holdMs  = SUB_PARCEL_HOLD_HOURS * 60 * 60 * 1000;
-  const heldSince = parcel.capturedAt ?? parcel.lastFrontierClaimTs;
+  const heldSince = parcel.capturedAt ?? parcel.lastAscendClaimTs;
   const canSubdivide = !!(isOwner && !parcel.isSubdivided && heldSince && Date.now() - heldSince >= holdMs);
 
   if (!parcel.isSubdivided) {
@@ -489,8 +496,8 @@ function SubParcelGrid({ parcel, player, onNavigate }: SubParcelGridProps) {
             const sp = subMap.get(i);
             const isYours = sp?.ownerId === player?.id;
             const isEnemy = sp?.ownerId && !isYours;
-            const price   = sp?.purchasePriceFrontier;
-            const canAffordBuy = player && price !== undefined && player.frontier >= price;
+            const price   = sp?.purchasePriceAscend;
+            const canAffordBuy = player && price !== undefined && player.ascend >= price;
             const canBuy  = !sp?.ownerId && player && price !== undefined;
             const hasImprovements = (sp?.improvements?.length ?? 0) > 0;
             const isSelected = selectedSubIndex === i;
@@ -727,7 +734,6 @@ export function LandSheet({
         expanded ? "max-h-[75vh]" : "max-h-[280px]"
       )}
       data-testid="land-sheet"
-      data-tutorial="land-sheet"
     >
       <div className="mx-2 backdrop-blur-xl bg-gradient-to-b from-card/95 to-card/85 border border-border/60 rounded-t-xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: expanded ? "75vh" : "280px" }}>
         <div
@@ -755,7 +761,7 @@ export function LandSheet({
                   {isOwned && <span className="text-primary font-display uppercase font-semibold">Your Territory</span>}
                   {isEnemyOwned && <span className="text-destructive font-display uppercase font-semibold">Enemy Territory</span>}
                   {isUnclaimed && <span className="font-display uppercase">Unclaimed</span>}
-                  <span className="text-primary font-mono font-semibold">{parcel.frontierPerDay.toFixed(1)} ASCEND/day</span>
+                  <span className="text-primary font-mono font-semibold">{parcel.ascendPerDay.toFixed(1)} ASCEND/day</span>
                 </div>
               </div>
             </div>
@@ -846,23 +852,35 @@ export function LandSheet({
               <span className="font-mono text-sm font-bold">{Math.round(parcel.richness)}%</span>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-iron/40 transition-colors">
-              <Pickaxe className="w-4 h-4 mx-auto mb-1 text-iron" />
-              <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Iron</span>
-              <span className="font-mono text-sm font-bold text-iron">{parcel.ironStored}</span>
+          {/* Stored-resource intel is fog-of-war: only the owner sees exact
+              amounts. For enemy/unclaimed plots the server redacts these values,
+              so we show a classified placeholder instead of a misleading 0.
+              Sanctioned target intel comes from the War Room (attackable list). */}
+          {isOwned ? (
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-iron/40 transition-colors">
+                <Pickaxe className="w-4 h-4 mx-auto mb-1 text-iron" />
+                <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Iron</span>
+                <span className="font-mono text-sm font-bold text-iron">{parcel.ironStored}</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-fuel/40 transition-colors">
+                <Fuel className="w-4 h-4 mx-auto mb-1 text-fuel" />
+                <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Fuel</span>
+                <span className="font-mono text-sm font-bold text-fuel">{parcel.fuelStored}</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-purple-400/40 transition-colors">
+                <Gem className="w-4 h-4 mx-auto mb-1 text-purple-400" />
+                <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Crystal</span>
+                <span className="font-mono text-sm font-bold text-purple-400">{parcel.crystalStored}</span>
+              </div>
             </div>
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-fuel/40 transition-colors">
-              <Fuel className="w-4 h-4 mx-auto mb-1 text-fuel" />
-              <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Fuel</span>
-              <span className="font-mono text-sm font-bold text-fuel">{parcel.fuelStored}</span>
+          ) : (
+            <div className="mb-3 p-2.5 rounded-lg bg-muted/30 border border-border/40 text-center">
+              <span className="text-[10px] text-muted-foreground font-display uppercase tracking-wide">
+                🔒 Stored resources classified — recon required
+              </span>
             </div>
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-muted/60 to-muted/30 border border-border/40 text-center hover:border-purple-400/40 transition-colors">
-              <Gem className="w-4 h-4 mx-auto mb-1 text-purple-400" />
-              <span className="text-[9px] text-muted-foreground block font-display uppercase tracking-wide">Crystal</span>
-              <span className="font-mono text-sm font-bold text-purple-400">{parcel.crystalStored}</span>
-            </div>
-          </div>
+          )}
 
           {/* 24h Resource Yield Forecast */}
           {(() => {
@@ -1036,7 +1054,7 @@ export function LandSheet({
           </div>
 
           {showTerraformPanel && isOwned && (() => {
-            const canAffordTerraform = !!player && player.frontier >= TERRAFORM_COST;
+            const canAffordTerraform = !!player && player.ascend >= TERRAFORM_COST;
             const currentProtoKey = Object.keys(TERRAFORM_BIOME_MAP).find(
               k => TERRAFORM_BIOME_MAP[k] === parcel.biome
             );
@@ -1128,7 +1146,7 @@ export function LandSheet({
                 )}
                 {!canAffordTerraform && (
                   <p className="text-[9px] text-destructive font-mono">
-                    Insufficient ASCEND — need {TERRAFORM_COST}, have {player?.frontier ?? 0}
+                    Insufficient ASCEND — need {TERRAFORM_COST}, have {player?.ascend ?? 0}
                   </p>
                 )}
                 {terraformMutation.isError && (
@@ -1214,10 +1232,10 @@ export function LandSheet({
                     const existing = parcel.improvements.find(i => i.type === type);
                     const atMax = existing && existing.level >= info.maxLevel;
                     const level = existing ? existing.level + 1 : 1;
-                    const cost = atMax ? 0 : info.costFrontier[level - 1];
-                    const canAfford = player && player.frontier >= cost;
+                    const cost = atMax ? 0 : info.costAscend[level - 1];
+                    const canAfford = player && player.ascend >= cost;
                     const hasPrereq = !info.prerequisite || parcel.improvements.find(i => i.type === info.prerequisite);
-                    const perDay = info.frontierPerDay[Math.min(level - 1, info.frontierPerDay.length - 1)];
+                    const perDay = info.ascendPerDay[Math.min(level - 1, info.ascendPerDay.length - 1)];
                     const showsIncome = perDay > 0;
 
                     return (
@@ -1320,7 +1338,7 @@ export function LandSheet({
                   const isAvailable = info.requiredTier.includes(player.commander!.tier);
                   const record = player.specialAttacks.find(sa => sa.type === type);
                   const isOnCooldown = record ? (Date.now() - record.lastUsedTs) < info.cooldownMs : false;
-                  const canAfford = player.frontier >= info.costFrontier;
+                  const canAfford = player.ascend >= info.costAscend;
 
                   return (
                     <Button
@@ -1336,7 +1354,7 @@ export function LandSheet({
                         <Icon className="w-3 h-3" /> {info.name}
                       </span>
                       <span className="text-[9px] text-muted-foreground font-mono">
-                        {isOnCooldown ? "Cooldown" : `${info.costFrontier} ASCEND`}
+                        {isOnCooldown ? "Cooldown" : `${info.costAscend} ASCEND`}
                       </span>
                     </Button>
                   );

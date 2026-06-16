@@ -200,6 +200,8 @@ export async function attemptCommanderDelivery(
  *  - sender matches expectedSender
  *  - receiver matches admin wallet
  *  - amount >= minMicroAlgo
+ *  - carries no close-remainder or rekey rider (a clean payment never does;
+ *    their presence means the txn is doing more than a simple payment)
  */
 export async function verifyAlgoPayment(params: {
   txId:            string;
@@ -226,15 +228,33 @@ export async function verifyAlgoPayment(params: {
     throw new Error(`[chain/commander] Payment txn ${txId} is not yet confirmed on-chain`);
   }
 
-  // Type must be pay
-  if (txn["tx-type"] !== "pay") {
-    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${txn["tx-type"]})`);
+  // Type must be pay. Dual-shape like the other fields: raw indexer JSON is
+  // kebab-case ("tx-type"); algosdk v3 client models are camelCase (txType) —
+  // without the fallback every real v3 verification throws here.
+  const txType = txn["tx-type"] ?? txn.txType;
+  if (txType !== "pay") {
+    throw new Error(`[chain/commander] txn ${txId} is not a payment txn (type=${txType})`);
   }
 
   const payFields = txn["payment-transaction"] ?? txn.paymentTransaction ?? {};
   const receiver  = payFields.receiver ?? payFields["receiver"];
   const amount    = Number(payFields.amount ?? 0);
   const sender    = txn.sender;
+
+  // Reject any close-remainder or rekey rider. A legitimate purchase payment is
+  // a plain transfer to the admin; a close/rekey rider means the txn also drains
+  // or seizes control of an account. We must never honor such a txn as a simple
+  // payment. Dual-shape (kebab-case indexer JSON / camelCase v3 models). This is
+  // a tightening guard — it can only reject, never widen what gets accepted.
+  const closeRemainderTo = payFields["close-remainder-to"] ?? payFields.closeRemainderTo;
+  const closeAmount      = Number(payFields["close-amount"] ?? payFields.closeAmount ?? 0);
+  if (closeRemainderTo || closeAmount > 0) {
+    throw new Error(`[chain/commander] Payment txn ${txId} carries a close-remainder rider — rejected`);
+  }
+  const rekeyTo = txn["rekey-to"] ?? txn.rekeyTo;
+  if (rekeyTo) {
+    throw new Error(`[chain/commander] Payment txn ${txId} carries a rekey rider — rejected`);
+  }
 
   if (sender !== expectedSender) {
     throw new Error(`[chain/commander] Payment sender mismatch: got ${sender}, expected ${expectedSender}`);

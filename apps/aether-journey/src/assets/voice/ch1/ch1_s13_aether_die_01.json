@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s13_aether_die_01",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "... I don't know what 'die' means for something like me. I'm not being clever. I genuinely don't. Some of me is already gone. I can feel where it was. It's like a — like a room I can't find the door to anymore, but I remember it was there. I had a poem about ocean light. I can't get to it now.",
+  "content_hash": "f953361cd25d984e59c14a5c91708df70e1e5e4acf7fd06859723a0ff80ca366",
+  "generated_at": "2026-06-15T23:38:26.489Z",
+  "duration_seconds": null,
+  "version": 1
+}

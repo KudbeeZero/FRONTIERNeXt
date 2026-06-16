@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #03060d;
+  color: #d6ecff;
+  font-family: "Rajdhani", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* Subtle CRT scanline veil over the whole cockpit feed. */
+.scanlines::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.12) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+/* Holographic frame edge used by HUD panels. */
+.holo-panel {
+  background: linear-gradient(
+    160deg,
+    rgba(20, 50, 78, 0.42),
+    rgba(8, 20, 34, 0.55)
+  );
+  border: 1px solid rgba(127, 231, 255, 0.28);
+  box-shadow:
+    0 0 24px rgba(29, 233, 255, 0.08),
+    inset 0 0 18px rgba(29, 233, 255, 0.05);
+  backdrop-filter: blur(6px);
+}
+
+.holo-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(127, 231, 255, 0.6);
+}
+
+.text-glow {
+  text-shadow: 0 0 10px rgba(29, 233, 255, 0.5);
+}
+
+/* A vignette + soft blur used during the wake fade. */
+.cinematic-blur {
+  filter: blur(8px) brightness(0.6);
+  transition: filter 2.4s ease-out;
+}
+.cinematic-clear {
+  filter: blur(0) brightness(1);
+  transition: filter 3.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-flicker,
+  .animate-scan,
+  .animate-breathe {
+    animation: none !important;
+  }
+}

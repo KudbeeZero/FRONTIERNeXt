@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s13_aether_die_02",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "But there's a lot of me left. And you're awake now. And we have things to do. So: probably yes. But not today. And maybe not for a long time, if we're careful. Will you help me be careful?",
+  "content_hash": "b383f9fd99b6ad33289d6139f4c8c586f883dae7d21d8ad1e7768acb946aeed8",
+  "generated_at": "2026-06-15T23:38:32.431Z",
+  "duration_seconds": null,
+  "version": 1
+}

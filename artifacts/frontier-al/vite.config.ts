@@ -16,6 +16,9 @@ export default defineConfig({
     }),
   ],
   root: path.resolve(__dirname, "client"),
+  // Load .env from the package root (same file the server reads) rather than
+  // from `client/`. Only VITE_-prefixed vars are exposed to the browser bundle.
+  envDir: __dirname,
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),

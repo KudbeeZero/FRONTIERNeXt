@@ -31,13 +31,13 @@
 
 ### First 30 Minutes Checklist
 
-1. **Connect wallet** — Pera or LUTE, receive 500 FRNTR welcome bonus
+1. **Connect wallet** — Pera or LUTE, receive 500 ASCEND welcome bonus
 2. **Buy your first plot** — Desert (0.2 ALGO) or Swamp/Plains (0.3 ALGO) for budget start
 3. **Mine immediately** — Tap mine, wait 5 minutes, mine again
-4. **Build Electricity** — Spend 30 FRNTR for +1 FRNTR/day and to unlock advanced facilities
+4. **Build Electricity** — Spend 30 ASCEND for +1 ASCEND/day and to unlock advanced facilities
 5. **Build a Turret** — 40 Iron + 20 Fuel for basic defense (prevents easy captures)
 6. **Set up mining rotation** — If you bought multiple plots, cycle through them every 5 minutes
-7. **Save FRNTR** — Don't spend your remaining ~470 FRNTR yet; plan your build path first
+7. **Save ASCEND** — Don't spend your remaining ~470 ASCEND yet; plan your build path first
 
 ### First Plot Selection Guide
 
@@ -81,7 +81,7 @@
 
 **Goal:** Maximum territory count for minimum ALGO
 
-| ALGO Budget | Plots | Biomes | Monthly FRNTR (with Electricity) |
+| ALGO Budget | Plots | Biomes | Monthly ASCEND (with Electricity) |
 |------------|-------|--------|--------------------------------|
 | 1.0 ALGO | 5 | 5× Desert | 10/day = 300/month |
 | 1.5 ALGO | 5 | 5× Plains/Swamp | 10/day = 300/month |
@@ -129,7 +129,7 @@ Base storage is **800 units**. Prioritize Storage Depot construction on high-yie
 
 ### Resource Allocation by Game Phase
 
-| Phase | Iron Priority | Fuel Priority | Crystal Priority | FRNTR Priority |
+| Phase | Iron Priority | Fuel Priority | Crystal Priority | ASCEND Priority |
 |-------|--------------|--------------|-----------------|----------------|
 | **Early** (0–10 plots) | Turrets | Turrets | Save | Electricity on every plot |
 | **Mid** (10–20 plots) | Shield Gens + Upgrades | Shield Gens | Advanced upgrades | Blockchain Nodes |
@@ -197,7 +197,7 @@ Random range: ±10%
 
 ### Scouting Protocol
 
-1. Deploy Recon Drone (20 FRNTR) to target plot
+1. Deploy Recon Drone (20 ASCEND) to target plot
 2. Wait 15 minutes for scout report
 3. Calculate defender power from report:
    - `(defLevel × 15 + improvementLevels × 5) × biomeDefMod`
@@ -231,9 +231,9 @@ Target resource-rich plots for maximum stolen goods:
 
 | Phase | Best Commander | Why |
 |-------|---------------|-----|
-| **Early** (< 500 FRNTR) | Sentinel (50 FRNTR) | Best value — balanced +10% ATK/DEF, affordable |
-| **Mid** (500–1,500 FRNTR) | Phantom (150 FRNTR) | Unlocks Sabotage + EMP, +18% ATK, 2 concurrent attacks |
-| **Late** (1,500+ FRNTR) | Reaper (400 FRNTR) | +30% ATK, 3 concurrent attacks, Siege Barrage access |
+| **Early** (< 500 ASCEND) | Sentinel (50 ASCEND) | Best value — balanced +10% ATK/DEF, affordable |
+| **Mid** (500–1,500 ASCEND) | Phantom (150 ASCEND) | Unlocks Sabotage + EMP, +18% ATK, 2 concurrent attacks |
+| **Late** (1,500+ ASCEND) | Reaper (400 ASCEND) | +30% ATK, 3 concurrent attacks, Siege Barrage access |
 
 ### Concurrent Attack Management
 
@@ -258,28 +258,28 @@ After deploying a commander in an attack, they're locked for 12 hours. Plan acco
 
 - **When to use**: Against heavily fortified Mountain/Volcanic plots
 - **Combo**: EMP Blast first (disable improvements 10 min) → Orbital Strike (ignores 50% remaining defense) → Standard attack with full troops
-- **Cost**: 25 FRNTR + cooldown: 30 min
+- **Cost**: 25 ASCEND + cooldown: 30 min
 - **Effective against**: Any defense level — the 3.0x multiplier + 50% defense bypass is devastating
 
 ### EMP Blast — The Improvement Neutralizer
 
 - **When to use**: Before any attack against plots with Turret/Shield Gen/Fortress
 - **Combo**: EMP → standard attack within the 10-minute disable window
-- **Cost**: 15 FRNTR + cooldown: 20 min
+- **Cost**: 15 ASCEND + cooldown: 20 min
 - **Effective against**: Fortress builds that rely on improvement bonuses for defense
 
 ### Siege Barrage — Area Denial
 
 - **When to use**: Against clusters of enemy plots; hits target + up to 3 adjacent
 - **Combo**: Siege Barrage on central plot → standard attacks on weakened neighbors
-- **Cost**: 40 FRNTR + cooldown: 45 min
+- **Cost**: 40 ASCEND + cooldown: 45 min
 - **Effective against**: Enemy territory clusters, creating vulnerability across multiple fronts
 
 ### Sabotage — Economic Warfare
 
 - **When to use**: Before a major offensive to cripple enemy resource production
 - **Combo**: Sabotage multiple plots → wait 30 min for economic damage → attack when they can't afford repairs
-- **Cost**: 10 FRNTR + cooldown: 15 min
+- **Cost**: 10 ASCEND + cooldown: 15 min
 - **Effective against**: Resource-dependent players, high-yield plots
 
 ### Cooldown Stacking
@@ -301,40 +301,40 @@ Chain different attacks for sustained pressure:
 
 ### Facility Build Order
 
-**Optimal path for maximum FRNTR/day return:**
+**Optimal path for maximum ASCEND/day return:**
 
-1. **Electricity** (30 FRNTR) — +1 FRNTR/day, unlocks everything else
-2. **Blockchain Node Lv1** (120 FRNTR) — +2 FRNTR/day
-3. **Blockchain Node Lv2** (270 FRNTR) — +3 FRNTR/day (total +4 from node)
-4. **Data Centre Lv1** (120 FRNTR) — +5% resource yield (no FRNTR but boosts mining)
-5. **Blockchain Node Lv3** (480 FRNTR) — +4 FRNTR/day (total +5 from node)
-6. **AI Lab Lv1** (120 FRNTR) — -30s mine cooldown
+1. **Electricity** (30 ASCEND) — +1 ASCEND/day, unlocks everything else
+2. **Blockchain Node Lv1** (120 ASCEND) — +2 ASCEND/day
+3. **Blockchain Node Lv2** (270 ASCEND) — +3 ASCEND/day (total +4 from node)
+4. **Data Centre Lv1** (120 ASCEND) — +5% resource yield (no ASCEND but boosts mining)
+5. **Blockchain Node Lv3** (480 ASCEND) — +4 ASCEND/day (total +5 from node)
+6. **AI Lab Lv1** (120 ASCEND) — -30s mine cooldown
 
 ### ROI Calculations
 
-| Facility | Cost | FRNTR/day Added | Days to Break Even |
+| Facility | Cost | ASCEND/day Added | Days to Break Even |
 |----------|------|----------------|-------------------|
 | Electricity | 30 | +1 | 30 days |
 | Blockchain Node Lv1 | 120 | +2 | 60 days |
 | Blockchain Node Lv2 | 270 | +1 (cumulative +3) | 270 days |
 | Blockchain Node Lv3 | 480 | +1 (cumulative +4) | 480 days |
 
-> **Key insight:** Electricity and Blockchain Node Lv1 have the best ROI. Beyond that, spending FRNTR on commanders or landmarks may generate more value.
+> **Key insight:** Electricity and Blockchain Node Lv1 have the best ROI. Beyond that, spending ASCEND on commanders or landmarks may generate more value.
 
 ### Total Investment per Plot
 
-| Configuration | Total FRNTR | FRNTR/day | Break-Even |
+| Configuration | Total ASCEND | ASCEND/day | Break-Even |
 |--------------|------------|-----------|------------|
 | Electricity only | 30 | 2 | 15 days |
 | Electricity + BC Node Lv1 | 150 | 4 | 38 days |
 | Full BC Node chain | 900 | 6 | 150 days |
 | Full all facilities | 1,770 | 6 | 295 days |
 
-> Data Centre and AI Lab add 0 FRNTR/day but boost resource yields and mining speed. Their value is indirect.
+> Data Centre and AI Lab add 0 ASCEND/day but boost resource yields and mining speed. Their value is indirect.
 
-### When to Burn vs. Save FRNTR
+### When to Burn vs. Save ASCEND
 
-| FRNTR Available | Best Use |
+| ASCEND Available | Best Use |
 |----------------|----------|
 | < 50 | Save for Electricity |
 | 50–150 | Electricity on 1–2 plots |
@@ -394,7 +394,7 @@ Each battle victory guarantees a Common box + chance for Rare/Epic:
 
 - **Always open immediately** — the 20-box cap means you lose drops if full
 - **Exception**: If you're about to enter a Conflict phase (higher drop rates), make room first
-- **Legendary boxes**: Open immediately — the guaranteed 24h Double FRNTR is time-sensitive
+- **Legendary boxes**: Open immediately — the guaranteed 24h Double ASCEND is time-sensitive
 
 ---
 
@@ -404,19 +404,19 @@ Each battle victory guarantees a Common box + chance for Rare/Epic:
 
 | Playstyle | First Landmark | Why |
 |-----------|---------------|-----|
-| **Expansionist** | Ancient Relay (400 FRNTR) | Resource teleport + attack cooldown reduction |
-| **Defender** | Launchpad (500 FRNTR) | More drones + satellites for intel and defense |
-| **Economy** | Quantum Forge (600 FRNTR) | Rare mineral refining + Crystal bonus + Legendary boxes |
-| **Competitive** | Orbital Alien Dome (800 FRNTR) | Season Nexus + massive FRNTR bonus + reward pool share |
+| **Expansionist** | Ancient Relay (400 ASCEND) | Resource teleport + attack cooldown reduction |
+| **Defender** | Launchpad (500 ASCEND) | More drones + satellites for intel and defense |
+| **Economy** | Quantum Forge (600 ASCEND) | Rare mineral refining + Crystal bonus + Legendary boxes |
+| **Competitive** | Orbital Alien Dome (800 ASCEND) | Season Nexus + massive ASCEND bonus + reward pool share |
 
 ### Landmark Comparison
 
 | Landmark | Cost | Plot Req | Best For |
 |----------|------|----------|----------|
-| Ancient Relay | 400 FRNTR + minerals | 20 plots | Multi-front attackers |
-| Launchpad | 500 FRNTR + minerals | 10 plots | Intel + satellite-heavy players |
-| Quantum Forge | 600 FRNTR + minerals | 15 plots | Long-term economy + crafting |
-| Orbital Alien Dome | 800 FRNTR + minerals | 25 plots | Seasonal dominance |
+| Ancient Relay | 400 ASCEND + minerals | 20 plots | Multi-front attackers |
+| Launchpad | 500 ASCEND + minerals | 10 plots | Intel + satellite-heavy players |
+| Quantum Forge | 600 ASCEND + minerals | 15 plots | Long-term economy + crafting |
+| Orbital Alien Dome | 800 ASCEND + minerals | 25 plots | Seasonal dominance |
 
 ### Prerequisite Planning
 
@@ -478,7 +478,7 @@ When one AI faction reaches ~2,000 plots (~10% of map), others auto-escalate agg
 | Situation | Subdivide? | Why |
 |-----------|-----------|-----|
 | High-value Volcanic/Mountain plot | **Yes** | Full control bonus (+50%) on premium yields |
-| Cheap Desert/Plains plot | **Maybe** | Only if you need FRNTR optimization |
+| Cheap Desert/Plains plot | **Maybe** | Only if you need ASCEND optimization |
 | Border plot near enemies | **No** | Enemies can capture individual sub-parcels, breaking your bonus |
 | Interior plot (surrounded by your territory) | **Yes** | Safe from attack, guaranteed full control bonus |
 
@@ -486,7 +486,7 @@ When one AI faction reaches ~2,000 plots (~10% of map), others auto-escalate agg
 
 The +50% yield bonus for owning all 9 sub-parcels is significant:
 
-| Plot FRNTR/day | Without Subdivision | With Full Control |
+| Plot ASCEND/day | Without Subdivision | With Full Control |
 |---------------|--------------------|--------------------|
 | 2 (base + electricity) | 2.0 | 3.0 |
 | 6 (max facilities) | 6.0 | 9.0 |
@@ -551,7 +551,7 @@ Orbital impact events create a 0.3% Dark Matter drop chance on any biome:
 - **Priority**: Buy as many plots as possible (20% price reduction!)
 - **Focus**: Desert/Plains/Swamp — bulk buy cheap territory
 - **Build**: Electricity on every plot immediately
-- **Welcome bonus**: 1,000 FRNTR during this phase (doubled)
+- **Welcome bonus**: 1,000 ASCEND during this phase (doubled)
 - **Avoid**: Over-investing in defense — expand first
 
 #### Conflict Phase (Days 31–60)
@@ -565,16 +565,16 @@ Orbital impact events create a 0.3% Dark Matter drop chance on any biome:
 #### Domination Phase (Days 61–90)
 
 - **Priority**: Secure your leaderboard position
-- **Focus**: +50% global FRNTR generation — maximize token income
-- **Build**: Blockchain Nodes on all plots for compounding FRNTR
-- **Dome**: If you own the Orbital Alien Dome, your FRNTR generation is doubled (+100%)
+- **Focus**: +50% global ASCEND generation — maximize token income
+- **Build**: Blockchain Nodes on all plots for compounding ASCEND
+- **Dome**: If you own the Orbital Alien Dome, your ASCEND generation is doubled (+100%)
 - **Endgame**: Positions lock in final 24h — make your last land grabs count
 
 ### Dome Racing
 
 The Orbital Alien Dome is the single most powerful season asset:
 - First to build it claims it for the entire season
-- Requires 25 plots + 800 FRNTR + 40 Void Shard + 20 Dark Matter
+- Requires 25 plots + 800 ASCEND + 40 Void Shard + 20 Dark Matter
 - Start collecting Void Shards and Dark Matter from Day 1
 - Rush to 25 plots during Expansion Phase price reduction
 - Build the Dome as early as possible for maximum season benefit
@@ -601,13 +601,13 @@ With Radar: your attack power -10%
 ```
 
 **Solution (Full Combo):**
-1. **Scout**: Deploy Recon Drone (20 FRNTR) — confirm defenses
-2. **Sabotage**: Halve yield for 30 min (10 FRNTR) — reduce resource accumulation
-3. **EMP Blast**: Disable improvements for 10 min (15 FRNTR) — removes 30 defense power + Radar
-4. **Orbital Strike**: 3.0x damage, ignores 50% defense (25 FRNTR) — devastating with improvements down
+1. **Scout**: Deploy Recon Drone (20 ASCEND) — confirm defenses
+2. **Sabotage**: Halve yield for 30 min (10 ASCEND) — reduce resource accumulation
+3. **EMP Blast**: Disable improvements for 10 min (15 ASCEND) — removes 30 defense power + Radar
+4. **Orbital Strike**: 3.0x damage, ignores 50% defense (25 ASCEND) — devastating with improvements down
 5. **Attack**: Within 10-min EMP window, send full troops with Reaper commander
 
-**Cost:** 70 FRNTR + troops + resources
+**Cost:** 70 ASCEND + troops + resources
 **After EMP:** Defender power drops to (3×15 + 0) × 1.4 × 0.5 (Orbital Strike) = **31.5**
 **Your Reaper attack (5 troops + 50 iron + 50 fuel):** (50 + 25 + 40) × 1.3 × 3.0 = **448.5**
 
@@ -615,18 +615,18 @@ Result: Overwhelming victory.
 
 ### Scenario: Economic Snowball
 
-**Goal:** Maximize FRNTR generation for compound growth.
+**Goal:** Maximize ASCEND generation for compound growth.
 
 1. **Buy 10 Desert plots** (0.2 ALGO each = 2.0 ALGO total)
-2. **Build Electricity on all 10** (300 FRNTR) — now generating 20 FRNTR/day
-3. **Build Blockchain Node Lv1 on all 10** (1,200 FRNTR) — generating 40 FRNTR/day
-4. **Wait 30 days** — accumulate 1,200 FRNTR
-5. **Build Blockchain Node Lv2 on 4 plots** (1,080 FRNTR) — generating 44 FRNTR/day
-6. **Continue compounding** — reinvest all FRNTR into facility upgrades
+2. **Build Electricity on all 10** (300 ASCEND) — now generating 20 ASCEND/day
+3. **Build Blockchain Node Lv1 on all 10** (1,200 ASCEND) — generating 40 ASCEND/day
+4. **Wait 30 days** — accumulate 1,200 ASCEND
+5. **Build Blockchain Node Lv2 on 4 plots** (1,080 ASCEND) — generating 44 ASCEND/day
+6. **Continue compounding** — reinvest all ASCEND into facility upgrades
 
-**Month 1:** 20 FRNTR/day → 600/month
-**Month 2:** 40 FRNTR/day → 1,200/month
-**Month 3:** 50+ FRNTR/day → 1,500+/month
+**Month 1:** 20 ASCEND/day → 600/month
+**Month 2:** 40 ASCEND/day → 1,200/month
+**Month 3:** 50+ ASCEND/day → 1,500+/month
 
 ### Scenario: AI Faction Farming
 
@@ -648,9 +648,9 @@ Result: Overwhelming victory.
 1. **Choose 3 high-value Volcanic plots** (interior, away from borders)
 2. **Wait 4 hours per plot** (hold requirement for subdivision)
 3. **Subdivide all 3** (27 total sub-parcels)
-4. **Build facilities on each parent plot** — max FRNTR generation
+4. **Build facilities on each parent plot** — max ASCEND generation
 5. **Full control bonus: +50% yield on all 3 plots**
-6. **Total yield**: 3 plots × 6 FRNTR/day × 1.5 = **27 FRNTR/day** from just 3 plots
+6. **Total yield**: 3 plots × 6 ASCEND/day × 1.5 = **27 ASCEND/day** from just 3 plots
 
 ### Scenario: Season Dome Rush
 
@@ -659,13 +659,13 @@ Result: Overwhelming victory.
 **Pre-Season Prep:**
 1. Accumulate 40+ Void Shards (mine Tundra/Water heavily)
 2. Farm 20+ Dark Matter during orbital events
-3. Save 800+ FRNTR
+3. Save 800+ ASCEND
 
 **Season Start (Expansion Phase):**
 1. Immediately buy plots to reach 25 (use 20% price reduction)
 2. Build Electricity on the Dome target plot
 3. Build Orbital Alien Dome as soon as requirements are met
-4. **Result:** +100% FRNTR generation for the entire season + 5% reward pool bonus
+4. **Result:** +100% ASCEND generation for the entire season + 5% reward pool bonus
 
 ### Scenario: Dark Matter Monopoly
 
@@ -715,7 +715,7 @@ Result: Overwhelming victory.
 
 ### All Special Attacks
 
-| Attack | FRNTR | Cooldown | Multiplier | Effect | Tier |
+| Attack | ASCEND | Cooldown | Multiplier | Effect | Tier |
 |--------|-------|----------|------------|--------|------|
 | Orbital Strike | 25 | 30 min | 3.0x | Ignores 50% def | Any |
 | EMP Blast | 15 | 20 min | 1.5x | Disables impr. 10m | Phantom+ |
@@ -726,8 +726,8 @@ Result: Overwhelming victory.
 
 | Facility | Lv1 | Lv2 | Lv3 | Effect |
 |----------|-----|-----|-----|--------|
-| Electricity | 30 | — | — | +1 FRNTR/day |
-| Blockchain Node | 120 | 270 | 480 | +2/3/4 FRNTR/day |
+| Electricity | 30 | — | — | +1 ASCEND/day |
+| Blockchain Node | 120 | 270 | 480 | +2/3/4 ASCEND/day |
 | Data Centre | 120 | 270 | 480 | +5/10/15% yield |
 | AI Lab | 120 | 270 | 480 | -30/60/90s cooldown |
 
@@ -742,21 +742,21 @@ Result: Overwhelming victory.
 
 ### All Landmarks
 
-| Landmark | FRNTR | Minerals | Plots Req | Key Effect |
+| Landmark | ASCEND | Minerals | Plots Req | Key Effect |
 |----------|-------|----------|-----------|-----------|
 | Ancient Relay | 400 | 20 PC + 15 VS | 20 | Resource teleport |
 | Launchpad | 500 | 50 X + 30 PC | 10 | Drone/satellite hub |
 | Quantum Forge | 600 | 30 X + 25 VS + 10 PC | 15 | Mineral refining + crafting |
-| Orbital Dome | 800 | 40 VS + 20 DM | 25 | Season nexus (+100% FRNTR) |
+| Orbital Dome | 800 | 40 VS + 20 DM | 25 | Season nexus (+100% ASCEND) |
 
 ### All Loot Box Tiers
 
-| Tier | Resources | FRNTR | Minerals | Special |
+| Tier | Resources | ASCEND | Minerals | Special |
 |------|-----------|-------|----------|---------|
 | Common | 50–200 | 5–20 | 1% × 1 | — |
 | Rare | 200–500 | 20–80 | 15% × 2–5 | 5% satellite |
 | Epic | 500–1,000 | 80–200 | 5–10 guaranteed | 20% cmd reroll |
-| Legendary | 1,000–2,500 | 200–500 | 10–25 + DM | 24h ×2 FRNTR |
+| Legendary | 1,000–2,500 | 200–500 | 10–25 + DM | 24h ×2 ASCEND |
 
 ---
 

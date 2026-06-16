@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s12a_aether_01",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "Oh. Oh, you don't know. ... That's right, you wouldn't. They told me you wouldn't. I'm — I'm what you would have called, before, an artificial intelligence. My designation is AE-7-CL. I named myself Aether, because — actually, that's a longer story. We have time. We have so much time.",
+  "content_hash": "f38ba05088df67c42c01b6eea8413a244369b5797164470a73157126b684d23b",
+  "generated_at": "2026-06-15T23:37:46.952Z",
+  "duration_seconds": null,
+  "version": 1
+}

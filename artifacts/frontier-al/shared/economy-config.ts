@@ -15,7 +15,7 @@
  * Currency used per action:
  *   ALGO — unavoidable network transaction fees only (land purchase NFT mint).
  *          In testing mode, land prices are reduced to minimum viable amounts.
- *   FRNTR — primary in-game currency for all gameplay purchases.
+ *   ASCEND — primary in-game currency for all gameplay purchases.
  */
 
 // ─── Economy Mode ─────────────────────────────────────────────────────────────
@@ -30,20 +30,20 @@ export const ECONOMY_MODE: "testing" | "production" =
     ? "production"
     : "testing";
 
-// ─── Land Emission Rates (FRNTR / day per parcel) ────────────────────────────
+// ─── Land Emission Rates (ASCEND / day per parcel) ────────────────────────────
 
-/** Base FRNTR/day per owned parcel during testing phase. */
-export const LAND_DAILY_FRNTR_RATE_TEST = 50;
+/** Base ASCEND/day per owned parcel during testing phase. */
+export const LAND_DAILY_ASCEND_RATE_TEST = 50;
 
-/** Base FRNTR/day per owned parcel for live production. */
-export const LAND_DAILY_FRNTR_RATE_PROD = 1;
+/** Base ASCEND/day per owned parcel for live production. */
+export const LAND_DAILY_ASCEND_RATE_PROD = 1;
 
 /**
  * Currently active base emission rate.
- * Resolves to LAND_DAILY_FRNTR_RATE_TEST unless ECONOMY_MODE=production.
+ * Resolves to LAND_DAILY_ASCEND_RATE_TEST unless ECONOMY_MODE=production.
  */
-export const LAND_DAILY_FRNTR_RATE: number =
-  ECONOMY_MODE === "production" ? LAND_DAILY_FRNTR_RATE_PROD : LAND_DAILY_FRNTR_RATE_TEST;
+export const LAND_DAILY_ASCEND_RATE: number =
+  ECONOMY_MODE === "production" ? LAND_DAILY_ASCEND_RATE_PROD : LAND_DAILY_ASCEND_RATE_TEST;
 
 // ─── Land Purchase Prices (ALGO) ─────────────────────────────────────────────
 // ALGO is required for on-chain plot NFT minting — this is an unavoidable
@@ -78,27 +78,27 @@ export const LAND_PURCHASE_ALGO_ACTIVE: Record<string, number> =
   ECONOMY_MODE === "production" ? LAND_PURCHASE_ALGO_PROD : LAND_PURCHASE_ALGO_TEST;
 
 // ─── Commander Mint Prices ────────────────────────────────────────────────────
-// Primary currency: FRNTR (in-game). No ALGO game-level charge for commanders.
+// Primary currency: ASCEND (in-game). No ALGO game-level charge for commanders.
 // The minimal Algorand network fee (~0.001 ALGO) is the only on-chain cost
 // and is handled automatically by the wallet; it is NOT a game-level charge.
 
-/** Commander mint cost in FRNTR — TESTING MODE (affordable for partner testing). */
-export const COMMANDER_MINT_FRNTR_TEST: Record<string, number> = {
+/** Commander mint cost in ASCEND — TESTING MODE (affordable for partner testing). */
+export const COMMANDER_MINT_ASCEND_TEST: Record<string, number> = {
   sentinel: 10,
   phantom:  25,
   reaper:   50,
 };
 
-/** Commander mint cost in FRNTR — PRODUCTION MODE. */
-export const COMMANDER_MINT_FRNTR_PROD: Record<string, number> = {
+/** Commander mint cost in ASCEND — PRODUCTION MODE. */
+export const COMMANDER_MINT_ASCEND_PROD: Record<string, number> = {
   sentinel: 50,
   phantom:  150,
   reaper:   400,
 };
 
-/** Active commander mint cost in FRNTR. */
-export const COMMANDER_MINT_FRNTR_ACTIVE: Record<string, number> =
-  ECONOMY_MODE === "production" ? COMMANDER_MINT_FRNTR_PROD : COMMANDER_MINT_FRNTR_TEST;
+/** Active commander mint cost in ASCEND. */
+export const COMMANDER_MINT_ASCEND_ACTIVE: Record<string, number> =
+  ECONOMY_MODE === "production" ? COMMANDER_MINT_ASCEND_PROD : COMMANDER_MINT_ASCEND_TEST;
 
 /**
  * Commander ALGO network fee (unavoidable — covers NFT mint transaction fee).
@@ -127,47 +127,47 @@ export const COMMANDER_ALGO_PRICE_PROD: Record<string, number> = {
 export const COMMANDER_ALGO_PRICE_ACTIVE: Record<string, number> =
   ECONOMY_MODE === "production" ? COMMANDER_ALGO_PRICE_PROD : COMMANDER_ALGO_PRICE_TEST;
 
-// ─── Facility Build Costs (FRNTR) ─────────────────────────────────────────────
+// ─── Facility Build Costs (ASCEND) ─────────────────────────────────────────────
 
 export interface FacilityCostConfig {
-  frntr: number;
+  ascend: number;
 }
 
-/** Facility costs in FRNTR — TESTING MODE. */
+/** Facility costs in ASCEND — TESTING MODE. */
 export const FACILITY_COSTS_TEST: Record<string, FacilityCostConfig> = {
-  electricity:       { frntr: 5 },
-  blockchain_node_1: { frntr: 15 },
-  blockchain_node_2: { frntr: 30 },
-  blockchain_node_3: { frntr: 50 },
-  data_centre_1:     { frntr: 15 },
-  data_centre_2:     { frntr: 30 },
-  data_centre_3:     { frntr: 50 },
-  ai_lab_1:          { frntr: 15 },
-  ai_lab_2:          { frntr: 30 },
-  ai_lab_3:          { frntr: 50 },
+  electricity:       { ascend: 5 },
+  blockchain_node_1: { ascend: 15 },
+  blockchain_node_2: { ascend: 30 },
+  blockchain_node_3: { ascend: 50 },
+  data_centre_1:     { ascend: 15 },
+  data_centre_2:     { ascend: 30 },
+  data_centre_3:     { ascend: 50 },
+  ai_lab_1:          { ascend: 15 },
+  ai_lab_2:          { ascend: 30 },
+  ai_lab_3:          { ascend: 50 },
 };
 
-/** Facility costs in FRNTR — PRODUCTION MODE (matches schema.ts). */
+/** Facility costs in ASCEND — PRODUCTION MODE (matches schema.ts). */
 export const FACILITY_COSTS_PROD: Record<string, FacilityCostConfig> = {
-  electricity:       { frntr: 30 },
-  blockchain_node_1: { frntr: 120 },
-  blockchain_node_2: { frntr: 270 },
-  blockchain_node_3: { frntr: 480 },
-  data_centre_1:     { frntr: 120 },
-  data_centre_2:     { frntr: 270 },
-  data_centre_3:     { frntr: 480 },
-  ai_lab_1:          { frntr: 120 },
-  ai_lab_2:          { frntr: 270 },
-  ai_lab_3:          { frntr: 480 },
+  electricity:       { ascend: 30 },
+  blockchain_node_1: { ascend: 120 },
+  blockchain_node_2: { ascend: 270 },
+  blockchain_node_3: { ascend: 480 },
+  data_centre_1:     { ascend: 120 },
+  data_centre_2:     { ascend: 270 },
+  data_centre_3:     { ascend: 480 },
+  ai_lab_1:          { ascend: 120 },
+  ai_lab_2:          { ascend: 270 },
+  ai_lab_3:          { ascend: 480 },
 };
 
 /** Active facility costs. */
 export const FACILITY_COSTS_ACTIVE: Record<string, FacilityCostConfig> =
   ECONOMY_MODE === "production" ? FACILITY_COSTS_PROD : FACILITY_COSTS_TEST;
 
-// ─── Special Attack Costs (FRNTR) ─────────────────────────────────────────────
+// ─── Special Attack Costs (ASCEND) ─────────────────────────────────────────────
 
-/** Special attack costs in FRNTR — TESTING MODE. */
+/** Special attack costs in ASCEND — TESTING MODE. */
 export const SPECIAL_ATTACK_COSTS_TEST: Record<string, number> = {
   orbital_strike: 5,
   emp_blast:      3,
@@ -175,7 +175,7 @@ export const SPECIAL_ATTACK_COSTS_TEST: Record<string, number> = {
   sabotage:       2,
 };
 
-/** Special attack costs in FRNTR — PRODUCTION MODE (matches schema.ts). */
+/** Special attack costs in ASCEND — PRODUCTION MODE (matches schema.ts). */
 export const SPECIAL_ATTACK_COSTS_PROD: Record<string, number> = {
   orbital_strike: 25,
   emp_blast:      15,
@@ -183,21 +183,21 @@ export const SPECIAL_ATTACK_COSTS_PROD: Record<string, number> = {
   sabotage:       10,
 };
 
-/** Active special attack costs in FRNTR. */
+/** Active special attack costs in ASCEND. */
 export const SPECIAL_ATTACK_COSTS_ACTIVE: Record<string, number> =
   ECONOMY_MODE === "production" ? SPECIAL_ATTACK_COSTS_PROD : SPECIAL_ATTACK_COSTS_TEST;
 
-// ─── Drone & Satellite Costs (FRNTR) ─────────────────────────────────────────
+// ─── Drone & Satellite Costs (ASCEND) ─────────────────────────────────────────
 
-export const DRONE_COST_FRNTR_TEST = 2;
-export const DRONE_COST_FRNTR_PROD = 20;
-export const DRONE_COST_FRNTR_ACTIVE =
-  ECONOMY_MODE === "production" ? DRONE_COST_FRNTR_PROD : DRONE_COST_FRNTR_TEST;
+export const DRONE_COST_ASCEND_TEST = 2;
+export const DRONE_COST_ASCEND_PROD = 20;
+export const DRONE_COST_ASCEND_ACTIVE =
+  ECONOMY_MODE === "production" ? DRONE_COST_ASCEND_PROD : DRONE_COST_ASCEND_TEST;
 
-export const SATELLITE_COST_FRNTR_TEST = 5;
-export const SATELLITE_COST_FRNTR_PROD = 50;
-export const SATELLITE_COST_FRNTR_ACTIVE =
-  ECONOMY_MODE === "production" ? SATELLITE_COST_FRNTR_PROD : SATELLITE_COST_FRNTR_TEST;
+export const SATELLITE_COST_ASCEND_TEST = 5;
+export const SATELLITE_COST_ASCEND_PROD = 50;
+export const SATELLITE_COST_ASCEND_ACTIVE =
+  ECONOMY_MODE === "production" ? SATELLITE_COST_ASCEND_PROD : SATELLITE_COST_ASCEND_TEST;
 
 // ─── Emission Safety Checks ───────────────────────────────────────────────────
 
@@ -208,11 +208,11 @@ export const SATELLITE_COST_FRNTR_ACTIVE =
 export const EMISSION_CHECK_PARCEL_COUNTS = [1, 10, 100, 250] as const;
 
 /**
- * Returns projected daily FRNTR emissions for a given parcel count.
+ * Returns projected daily ASCEND emissions for a given parcel count.
  * Uses base rate only — does not include per-parcel facility bonuses.
  */
 export function projectedDailyEmissions(parcelCount: number): number {
-  return parcelCount * LAND_DAILY_FRNTR_RATE;
+  return parcelCount * LAND_DAILY_ASCEND_RATE;
 }
 
 // ─── Testing Economy Summary ──────────────────────────────────────────────────
@@ -223,13 +223,13 @@ export function projectedDailyEmissions(parcelCount: number): number {
  */
 export const TESTING_ECONOMY_SUMMARY = {
   mode: ECONOMY_MODE,
-  landEmissionRatePerDay: LAND_DAILY_FRNTR_RATE,
+  landEmissionRatePerDay: LAND_DAILY_ASCEND_RATE,
   landPurchaseAlgo: LAND_PURCHASE_ALGO_ACTIVE,
-  commanderMintFrntr: COMMANDER_MINT_FRNTR_ACTIVE,
+  commanderMintAscend: COMMANDER_MINT_ASCEND_ACTIVE,
   commanderAlgoNetworkFeeOnly: COMMANDER_ALGO_NETWORK_FEE,
-  primaryCurrency: "FRNTR",
+  primaryCurrency: "ASCEND",
   unavoidableAlgoCost: "network fee only (~0.001 ALGO per transaction)",
   note: ECONOMY_MODE === "testing"
-    ? "TESTING MODE: All prices reduced for partner testing. FRNTR is the primary gameplay currency."
+    ? "TESTING MODE: All prices reduced for partner testing. ASCEND is the primary gameplay currency."
     : "PRODUCTION MODE: Live tokenomics active.",
 } as const;

@@ -9,8 +9,8 @@ Frontier AL is now live on Algorand Testnet and ready for game testing. This gui
 - ✅ **All 31 unit tests passing** — TypeScript clean, no errors
 - ✅ **Blockchain confirmed** — ASA 755818217 (FRONTIER token)
 - ✅ **Network**: Algorand TestNet
-- ✅ **Economy mode**: `testing` (50 FRNTR/day emission)
-- ✅ **Commander tiers** fully functional: Sentinel (10 FRNTR), Phantom (25 FRNTR), Reaper (50 FRNTR)
+- ✅ **Economy mode**: `testing` (50 ASCEND/day emission)
+- ✅ **Commander tiers** fully functional: Sentinel (10 ASCEND), Phantom (25 ASCEND), Reaper (50 ASCEND)
 
 ### Deployed Components
 1. **3D Globe** — 21,000 hexagonal parcels, clickable selection
@@ -37,18 +37,18 @@ Frontier AL is now live on Algorand Testnet and ready for game testing. This gui
 2. Click "▶ Enter Game"
 3. Connect wallet (Pera recommended for testnet)
 4. Navigate to **Commander** tab (top-right panel)
-5. Click "Mint Sentinel" button (10 FRNTR + 0.001 ALGO fee)
+5. Click "Mint Sentinel" button (10 ASCEND + 0.001 ALGO fee)
 6. Confirm wallet transaction
 7. **Expected**: NFT appears in Commander panel with ID, image, transfer history
 
 **Success Criteria**:
-- [ ] Pricing displays correctly (10 FRNTR for Sentinel, 25 for Phantom, 50 for Reaper)
-- [ ] Wallet transaction shows both FRNTR cost + ALGO network fee
+- [ ] Pricing displays correctly (10 ASCEND for Sentinel, 25 for Phantom, 50 for Reaper)
+- [ ] Wallet transaction shows both ASCEND cost + ALGO network fee
 - [ ] NFT appears in UI within 3 seconds of confirmation
 - [ ] Can see NFT in Pera Wallet app under "Assets"
 
 **Report If**:
-- Price shows wrong format (e.g., "USD" instead of "FRNTR")
+- Price shows wrong format (e.g., "USD" instead of "ASCEND")
 - NFT doesn't appear after transaction confirms
 - Transaction fails with cryptic error
 - Wallet gets charged but NFT never mints
@@ -223,7 +223,7 @@ curl -w "Time: %{time_total}s\n" http://localhost:5000/api/economics
 ---
 
 ### ⚠️ Stale Cache on Commander Prices
-**Symptom**: Price displays old format (e.g., "USD" instead of "FRNTR")
+**Symptom**: Price displays old format (e.g., "USD" instead of "ASCEND")
 
 **Why**: Browser cached an old version of the page
 
@@ -272,10 +272,10 @@ STEPS:
 1. Open game
 2. Go to Commander tab
 3. Look at Phantom row
-4. Price shows "25 USD" instead of "25 FRNTR"
+4. Price shows "25 USD" instead of "25 ASCEND"
 
 EXPECTED:
-Price shows "25 FRNTR + 0.001 ALGO"
+Price shows "25 ASCEND + 0.001 ALGO"
 
 ACTUAL:
 Price shows "25 USD" (and ALGO fee missing)

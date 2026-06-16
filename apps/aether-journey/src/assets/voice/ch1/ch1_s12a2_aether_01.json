@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s12a2_aether_01",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "Alone is — alone is a word for people, I think. I had your telemetry. I had your breathing. I had the radio, when it worked. I had... I had myself.",
+  "content_hash": "9f86b2b8472dd8202245b84ac01b78af5065e5504f55c0a029bd0538ec7edc86",
+  "generated_at": "2026-06-15T23:37:56.024Z",
+  "duration_seconds": null,
+  "version": 1
+}

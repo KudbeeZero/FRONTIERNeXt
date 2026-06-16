@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LAND_DAILY_FRNTR_RATE, LAND_PURCHASE_ALGO_ACTIVE, COMMANDER_MINT_FRNTR_ACTIVE } from "./economy-config";
+import { LAND_DAILY_ASCEND_RATE, LAND_PURCHASE_ALGO_ACTIVE, COMMANDER_MINT_ASCEND_ACTIVE } from "./economy-config";
 
 // ── Phase 2: Rare Minerals & Loot System ──────────────────────────────────────
 
@@ -135,44 +135,44 @@ export const DEFENSE_IMPROVEMENT_INFO: Record<DefenseImprovementType, {
 export const FACILITY_INFO: Record<FacilityType, {
   name: string;
   description: string;
-  costFrontier: number[];
+  costAscend: number[];
   maxLevel: number;
-  frontierPerDay: number[];
+  ascendPerDay: number[];
   effect: string;
   prerequisite?: FacilityType;
 }> = {
   electricity: {
     name: "Electricity",
     description: "Power grid required by all advanced facilities. Provides baseline token income.",
-    costFrontier: [30],
+    costAscend: [30],
     maxLevel: 1,
-    frontierPerDay: [1],
-    effect: "+1 FRNTR/day. Unlocks advanced facilities.",
+    ascendPerDay: [1],
+    effect: "+1 ASCEND/day. Unlocks advanced facilities.",
   },
   blockchain_node: {
     name: "Blockchain Node",
-    description: "Decentralized computing node. Pure passive FRONTIER token income.",
-    costFrontier: [120, 270, 480],
+    description: "Decentralized computing node. Pure passive ASCEND token income.",
+    costAscend: [120, 270, 480],
     maxLevel: 3,
-    frontierPerDay: [2, 3, 4],
-    effect: "+2/3/4 FRNTR/day per level",
+    ascendPerDay: [2, 3, 4],
+    effect: "+2/3/4 ASCEND/day per level",
     prerequisite: "electricity",
   },
   data_centre: {
     name: "Data Centre",
     description: "High-performance processing that boosts all resource yields from this plot.",
-    costFrontier: [120, 270, 480],
+    costAscend: [120, 270, 480],
     maxLevel: 3,
-    frontierPerDay: [0, 0, 0],
+    ascendPerDay: [0, 0, 0],
     effect: "+5/10/15% resource yield per level",
     prerequisite: "electricity",
   },
   ai_lab: {
     name: "AI Lab",
     description: "AI-optimised mining routines that reduce the mine cooldown on this plot.",
-    costFrontier: [120, 270, 480],
+    costAscend: [120, 270, 480],
     maxLevel: 3,
-    frontierPerDay: [0, 0, 0],
+    ascendPerDay: [0, 0, 0],
     effect: "-30s/-60s/-90s mine cooldown per level",
     prerequisite: "electricity",
   },
@@ -186,8 +186,8 @@ export const IMPROVEMENT_INFO: Record<ImprovementType, {
   effect: string;
 }> = {
   ...DEFENSE_IMPROVEMENT_INFO,
-  electricity: { name: "Electricity", description: "Power grid", cost: { iron: 0, fuel: 0 }, maxLevel: 1, effect: "+1 FRNTR/day" },
-  blockchain_node: { name: "Blockchain Node", description: "Computing node", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "+2/3/4 FRNTR/day" },
+  electricity: { name: "Electricity", description: "Power grid", cost: { iron: 0, fuel: 0 }, maxLevel: 1, effect: "+1 ASCEND/day" },
+  blockchain_node: { name: "Blockchain Node", description: "Computing node", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "+2/3/4 ASCEND/day" },
   data_centre: { name: "Data Centre", description: "High-performance processing that boosts all resource yields from this plot.", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "+5/10/15% resource yield per level" },
   ai_lab: { name: "AI Lab", description: "AI-optimised mining routines that reduce the mine cooldown on this plot.", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "-30s/-60s/-90s mine cooldown per level" },
 };
@@ -211,9 +211,9 @@ export interface LandParcel {
   yieldMultiplier: number;
   improvements: Improvement[];
   purchasePriceAlgo: number | null;
-  frontierAccumulated: number;
-  lastFrontierClaimTs: number;
-  frontierPerDay: number;
+  ascendAccumulated: number;
+  lastAscendClaimTs: number;
+  ascendPerDay: number;
   influence: number;
   influenceRepairRate: number;
   // Reconquest tracking — set when human captures AI land
@@ -224,6 +224,8 @@ export interface LandParcel {
   isSubdivided?: boolean;
   /** Owner IDs for each of the 9 sub-parcels (index 0–8, null = unowned) */
   subParcelOwnerIds?: (string | null)[];
+  /** Assigned archetype for each of the 9 sub-parcels (index 0–8, null = unassigned) — for globe rendering */
+  subParcelArchetypes?: (SubParcelArchetype | null)[];
   /** Terraforming: environmental hazard level (0–100, 0 = safe) */
   hazardLevel: number;
   /** Terraforming: terrain stability (0–100, 100 = fully stable) */
@@ -249,15 +251,15 @@ export interface Player {
   iron: number;
   fuel: number;
   crystal: number;
-  frontier: number;
+  ascend: number;
   ownedParcels: string[];
   isAI: boolean;
   aiBehavior?: "expansionist" | "defensive" | "raider" | "economic" | "adaptive";
   totalIronMined: number;
   totalFuelMined: number;
   totalCrystalMined: number;
-  totalFrontierEarned: number;
-  totalFrontierBurned: number;
+  totalAscendEarned: number;
+  totalAscendBurned: number;
   attacksWon: number;
   attacksLost: number;
   territoriesCaptured: number;
@@ -314,7 +316,7 @@ export interface Battle {
 
 export interface GameEvent {
   id: string;
-  type: "mine" | "upgrade" | "attack" | "battle_resolved" | "ai_action" | "purchase" | "build" | "claim_frontier" | "mint_avatar" | "special_attack" | "deploy_drone" | "deploy_satellite" | "orbital_event" | "terraform";
+  type: "mine" | "upgrade" | "attack" | "battle_resolved" | "ai_action" | "purchase" | "build" | "claim_ascend" | "mint_avatar" | "special_attack" | "deploy_drone" | "deploy_satellite" | "orbital_event" | "terraform";
   playerId: string;
   parcelId?: string;
   battleId?: string;
@@ -393,7 +395,7 @@ export interface LeaderboardEntry {
   totalIronMined: number;
   totalFuelMined: number;
   totalCrystalMined: number;
-  totalFrontierEarned: number;
+  totalAscendEarned: number;
   attacksWon: number;
   attacksLost: number;
   isAI: boolean;
@@ -409,8 +411,8 @@ export interface GameState {
   lastUpdateTs: number;
   totalPlots: number;
   claimedPlots: number;
-  frontierTotalSupply: number;
-  frontierCirculating: number;
+  ascendTotalSupply: number;
+  ascendCirculating: number;
   /** Current season metadata (null if no season started yet) */
   currentSeason: Season | null;
 }
@@ -456,7 +458,7 @@ export interface SlimGameState {
   battles: Battle[];
   leaderboard: LeaderboardEntry[];
   claimedPlots: number;
-  frontierCirculating: number;
+  ascendCirculating: number;
   lastUpdateTs: number;
   /** Season countdown — millisecond Unix timestamp when current season ends. null if no season active. */
   seasonEndsAt: number | null;
@@ -473,6 +475,10 @@ export const upgradeActionSchema = z.object({
   playerId: z.string(),
   parcelId: z.string(),
   upgradeType: z.enum(["defense", "yield", "mine", "bunker"]),
+  // Idempotency nonce — the server requires it to block double-submit/replay of
+  // an upgrade (which spends ASCEND and levels up a base). Optional in the schema
+  // so the route returns a specific 400 rather than a generic ZodError.
+  idempotencyKey: z.string().optional(),
 });
 
 export const attackActionSchema = z.object({
@@ -492,6 +498,10 @@ export const buildActionSchema = z.object({
   playerId: z.string(),
   parcelId: z.string(),
   improvementType: z.enum(["turret", "shield_gen", "storage_depot", "radar", "fortress", "electricity", "blockchain_node", "data_centre", "ai_lab"]),
+  // Idempotency nonce — the server requires it to block double-submit/replay of
+  // a build (which spends ASCEND and adds/levels an improvement). Optional in the
+  // schema so the route returns a specific 400 rather than a generic ZodError.
+  idempotencyKey: z.string().optional(),
 });
 
 export const purchaseActionSchema = z.object({
@@ -504,8 +514,13 @@ export const collectActionSchema = z.object({
   playerId: z.string(),
 });
 
-export const claimFrontierActionSchema = z.object({
+export const claimAscendActionSchema = z.object({
   playerId: z.string(),
+  // Idempotency nonce — the server requires it to block double-submit/replay of
+  // the ASCEND claim (the route rejects a missing/malformed key via the
+  // idempotency guard). Optional in the schema so the route returns a specific
+  // 400 rather than a generic ZodError.
+  idempotencyKey: z.string().optional(),
 });
 
 export type MineAction = z.infer<typeof mineActionSchema>;
@@ -514,7 +529,7 @@ export type AttackAction = z.infer<typeof attackActionSchema>;
 export type BuildAction = z.infer<typeof buildActionSchema>;
 export type PurchaseAction = z.infer<typeof purchaseActionSchema>;
 export type CollectAction = z.infer<typeof collectActionSchema>;
-export type ClaimFrontierAction = z.infer<typeof claimFrontierActionSchema>;
+export type ClaimAscendAction = z.infer<typeof claimAscendActionSchema>;
 
 // ── Terraforming ──────────────────────────────────────────────────────────────
 
@@ -563,8 +578,8 @@ export const UPGRADE_COSTS: Record<string, { iron: number; fuel: number; descrip
 export const ATTACK_BASE_COST = { iron: 30, fuel: 20 };
 
 export const TOTAL_PLOTS = 21000;
-export const FRONTIER_TOTAL_SUPPLY = 1_000_000_000;
-export const WELCOME_BONUS_FRONTIER = 500;
+export const ASCEND_TOTAL_SUPPLY = 1_000_000_000;
+export const WELCOME_BONUS_ASCEND = 500;
 
 /**
  * Land purchase prices in ALGO per biome.
@@ -593,7 +608,7 @@ export interface CommanderAvatar {
 export const COMMANDER_INFO: Record<CommanderTier, {
   name: string;
   description: string;
-  mintCostFrontier: number;
+  mintCostAscend: number;
   baseAttackBonus: number;
   baseDefenseBonus: number;
   specialAbility: string;
@@ -603,7 +618,7 @@ export const COMMANDER_INFO: Record<CommanderTier, {
   sentinel: {
     name: "Sentinel",
     description: "Balanced tactical commander with reliable stats",
-    mintCostFrontier: COMMANDER_MINT_FRNTR_ACTIVE["sentinel"],
+    mintCostAscend: COMMANDER_MINT_ASCEND_ACTIVE["sentinel"],
     baseAttackBonus: 10,
     baseDefenseBonus: 10,
     specialAbility: "Fortify",
@@ -613,7 +628,7 @@ export const COMMANDER_INFO: Record<CommanderTier, {
   phantom: {
     name: "Phantom",
     description: "Stealth specialist excelling at sabotage and infiltration",
-    mintCostFrontier: COMMANDER_MINT_FRNTR_ACTIVE["phantom"],
+    mintCostAscend: COMMANDER_MINT_ASCEND_ACTIVE["phantom"],
     baseAttackBonus: 18,
     baseDefenseBonus: 6,
     specialAbility: "Cloak",
@@ -623,7 +638,7 @@ export const COMMANDER_INFO: Record<CommanderTier, {
   reaper: {
     name: "Reaper",
     description: "Elite destroyer with maximum offensive firepower",
-    mintCostFrontier: COMMANDER_MINT_FRNTR_ACTIVE["reaper"],
+    mintCostAscend: COMMANDER_MINT_ASCEND_ACTIVE["reaper"],
     baseAttackBonus: 30,
     baseDefenseBonus: 5,
     specialAbility: "Annihilate",
@@ -642,7 +657,7 @@ export interface SpecialAttackRecord {
 export const SPECIAL_ATTACK_INFO: Record<SpecialAttackType, {
   name: string;
   description: string;
-  costFrontier: number;
+  costAscend: number;
   cooldownMs: number;
   damageMultiplier: number;
   effect: string;
@@ -651,7 +666,7 @@ export const SPECIAL_ATTACK_INFO: Record<SpecialAttackType, {
   orbital_strike: {
     name: "Orbital Strike",
     description: "Devastating bombardment from orbit, bypasses shields",
-    costFrontier: 25,
+    costAscend: 25,
     cooldownMs: 30 * 60 * 1000,
     damageMultiplier: 3.0,
     effect: "Ignores 50% of target defense",
@@ -660,7 +675,7 @@ export const SPECIAL_ATTACK_INFO: Record<SpecialAttackType, {
   emp_blast: {
     name: "EMP Blast",
     description: "Disables turrets and shield generators temporarily",
-    costFrontier: 15,
+    costAscend: 15,
     cooldownMs: 20 * 60 * 1000,
     damageMultiplier: 1.5,
     effect: "Disables improvements for 10 minutes",
@@ -669,7 +684,7 @@ export const SPECIAL_ATTACK_INFO: Record<SpecialAttackType, {
   siege_barrage: {
     name: "Siege Barrage",
     description: "Area bombardment hitting target and nearby plots",
-    costFrontier: 40,
+    costAscend: 40,
     cooldownMs: 45 * 60 * 1000,
     damageMultiplier: 2.0,
     effect: "Damages up to 3 nearby enemy plots",
@@ -678,7 +693,7 @@ export const SPECIAL_ATTACK_INFO: Record<SpecialAttackType, {
   sabotage: {
     name: "Sabotage",
     description: "Covert ops reducing enemy resource production",
-    costFrontier: 10,
+    costAscend: 10,
     cooldownMs: 15 * 60 * 1000,
     damageMultiplier: 0.5,
     effect: "Halves target mining yield for 30 minutes",
@@ -695,7 +710,7 @@ export interface ReconDrone {
   scoutReportReady: boolean;
 }
 
-export const DRONE_MINT_COST_FRONTIER = 20;
+export const DRONE_MINT_COST_ASCEND = 20;
 export const DRONE_SCOUT_DURATION_MS = 15 * 60 * 1000;
 export const MAX_DRONES = 5;
 
@@ -718,7 +733,7 @@ export interface OrbitalSatellite {
   status: "active" | "expired";
 }
 
-export const SATELLITE_DEPLOY_COST_FRONTIER = 50;
+export const SATELLITE_DEPLOY_COST_ASCEND = 50;
 export const SATELLITE_ORBIT_DURATION_MS = 60 * 60 * 1000; // 1 hour
 export const MAX_SATELLITES = 2;
 export const SATELLITE_YIELD_BONUS = 0.25; // +25% mining yield
@@ -751,7 +766,7 @@ export type DeploySatelliteAction = z.infer<typeof deploySatelliteActionSchema>;
 
 // ─── Trade Station ────────────────────────────────────────────────────────────
 
-export type TradeResource = "iron" | "fuel" | "crystal" | "frontier";
+export type TradeResource = "iron" | "fuel" | "crystal" | "ascend";
 
 export interface TradeOrder {
   id: string;
@@ -769,9 +784,9 @@ export interface TradeOrder {
 }
 
 export const createTradeOrderSchema = z.object({
-  giveResource: z.enum(["iron", "fuel", "crystal", "frontier"]),
+  giveResource: z.enum(["iron", "fuel", "crystal", "ascend"]),
   giveAmount: z.number().int().min(1).max(10000),
-  wantResource: z.enum(["iron", "fuel", "crystal", "frontier"]),
+  wantResource: z.enum(["iron", "fuel", "crystal", "ascend"]),
   wantAmount: z.number().int().min(1).max(10000),
 }).refine(d => d.giveResource !== d.wantResource, {
   message: "Cannot trade a resource for itself",
@@ -883,6 +898,37 @@ export const ARCHETYPE_FACTION_BONUSES: Record<SubParcelArchetype, Partial<Recor
 export const MAX_SAME_ARCHETYPE_PER_GRID = 3;
 
 /**
+ * Which existing improvements each archetype permits a player to build on a
+ * sub-parcel. The archetype determines the buildable structures (the core of
+ * the archetype system). Prerequisites still apply on top of this (e.g.
+ * blockchain_node/data_centre/ai_lab require electricity, so electricity is
+ * included wherever those are). An UNASSIGNED sub-parcel (archetype === null)
+ * can build anything — assigning an archetype specialises (and restricts) it.
+ */
+export const ARCHETYPE_BUILDING_CATALOG: Record<SubParcelArchetype, ImprovementType[]> = {
+  // Mining & refining — yield boosts, cooldown reduction, storage.
+  resource: ["electricity", "data_centre", "ai_lab", "storage_depot"],
+  // Economic — token generation (blockchain node) + storage for goods.
+  trade:    ["electricity", "blockchain_node", "storage_depot"],
+  // Power generation & compute distribution.
+  energy:   ["electricity", "blockchain_node", "data_centre"],
+  // Military — weapons, shields, fortifications, detection.
+  fortress: ["turret", "shield_gen", "fortress", "radar"],
+};
+
+/**
+ * Whether `type` may be built on a sub-parcel with the given archetype.
+ * Null/undefined archetype = unrestricted (backwards compatible).
+ */
+export function isImprovementAllowedForArchetype(
+  archetype: SubParcelArchetype | null | undefined,
+  type: ImprovementType,
+): boolean {
+  if (!archetype) return true;
+  return ARCHETYPE_BUILDING_CATALOG[archetype].includes(type);
+}
+
+/**
  * Fortress archetype level labels.
  * archetypeLevel 1 = Outpost, 2 = Garrison, 3 = Citadel.
  */
@@ -911,7 +957,7 @@ export interface SubParcel {
   ownerType: "player" | "ai" | null;
   improvements: Improvement[];
   resourceYieldFraction: number; // fraction of parent plot yield (default 1/9)
-  purchasePriceFrontier: number;
+  purchasePriceAscend: number;
   acquiredAt: number | null;     // timestamp when current owner claimed it
   activeBattleId: string | null;
   // ── Archetype fields ──────────────────────────────────────────────────────
@@ -929,7 +975,7 @@ export interface SubParcelListing {
   subIndex: number;
   sellerId: string;
   sellerName: string;
-  askPriceFrontier: number;
+  askPriceAscend: number;
   status: "open" | "sold" | "cancelled";
   createdAt: number;
   buyerId: string | null;
@@ -939,7 +985,7 @@ export interface SubParcelListing {
 
 export const createSubParcelListingSchema = z.object({
   subParcelId: z.string(),
-  askPriceFrontier: z.number().int().min(1).max(100000),
+  askPriceAscend: z.number().int().min(1).max(100000),
 });
 
 export type CreateSubParcelListingAction = z.infer<typeof createSubParcelListingSchema>;
@@ -982,16 +1028,53 @@ export interface SeasonLeaderboardEntry extends LeaderboardEntry {
   seasonId: string;
   seasonNumber: number;
   rank: number;
-  rewardFrontier: number;
+  rewardAscend: number;
 }
 
-// ─── calculateFrontierPerDay ──────────────────────────────────────────────────
+// ─── calculateAscendPerDay ──────────────────────────────────────────────────
 
 // ─── Prediction Markets ───────────────────────────────────────────────────────
 
 export type MarketStatus = "open" | "closed" | "resolved" | "cancelled";
 export type MarketCategory = "battle" | "faction" | "season" | "orbital" | "economy";
 export type MarketOutcome = "a" | "b";
+
+/**
+ * A market's RESOLUTION SOURCE — a deterministic function of public data, declared
+ * at creation and IMMUTABLE thereafter. The trustless resolver reads the fact this
+ * source points at and DERIVES the outcome; no human ever chooses a winner.
+ *
+ * Outcome convention: the derived fact maps to outcome "a" when the predicted
+ * condition holds (attacker won / owner matches / threshold met), else "b".
+ * Note: `ownerId` is the in-engine owner identity (player or AI-faction UUID) the
+ * parcel/territory is predicted to belong to — the game's real ownership key.
+ */
+export type ResolutionSource =
+  | { type: "battle_outcome"; battleId: string }
+  | { type: "ownership_at_turn"; plotId: number; ownerId: string; turn: number }
+  | { type: "burn_threshold"; amount: number; byTurn: number }
+  | { type: "territory_count"; ownerId: string; turn: number; threshold: number };
+
+export const resolutionSourceSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("battle_outcome"), battleId: z.string().min(1) }),
+  z.object({
+    type: z.literal("ownership_at_turn"),
+    plotId: z.number().int().nonnegative(),
+    ownerId: z.string().min(1),
+    turn: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal("burn_threshold"),
+    amount: z.number().positive(),
+    byTurn: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal("territory_count"),
+    ownerId: z.string().min(1),
+    turn: z.number().int().positive(),
+    threshold: z.number().int().positive(),
+  }),
+]);
 
 export interface PredictionMarket {
   id: string;
@@ -1010,6 +1093,11 @@ export interface PredictionMarket {
   createdBy: string;
   relatedEventId: string | null;
   createdAt: number;
+  // ── Provably-fair resolution (declared at creation, immutable) ──────────────
+  resolutionSource: ResolutionSource | null; // what this market resolves from
+  resolutionCutoffTs: number | null;         // staking closes here (before fact knowable)
+  resolvedInputs: Record<string, unknown> | null; // exact public facts read at resolution
+  resolutionHash: string | null;             // sha256(source+inputs+outcome) for verification
 }
 
 export interface MarketPosition {
@@ -1039,33 +1127,33 @@ export const createMarketSchema = z.object({
   outcomeBLabel: z.string().min(1).max(100).default("No"),
   resolvesAt: z.number().int().positive(),
   relatedEventId: z.string().optional(),
-});
-
-export const resolveMarketSchema = z.object({
-  winningOutcome: z.enum(["a", "b"]),
+  // Provably-fair: every new market MUST declare a deterministic resolution source.
+  // There is no admin-chosen-outcome path — the source IS the judge.
+  resolutionSource: resolutionSourceSchema,
+  // Staking closes at the cutoff (must be before the resolving fact is knowable).
+  resolutionCutoffTs: z.number().int().positive(),
 });
 
 export type PlaceBetAction = z.infer<typeof placeBetSchema>;
 export type CreateMarketAction = z.infer<typeof createMarketSchema>;
-export type ResolveMarketAction = z.infer<typeof resolveMarketSchema>;
 
-export function calculateFrontierPerDay(improvements: Improvement[]): number {
+export function calculateAscendPerDay(improvements: Improvement[]): number {
   // Base rate sourced from centralized economy config — see shared/economy-config.ts
-  // Currently set to LAND_DAILY_FRNTR_RATE_TEST (50 FRNTR/day) for testing phase.
-  let perDay: number = LAND_DAILY_FRNTR_RATE;
+  // Currently set to LAND_DAILY_ASCEND_RATE_TEST (50 ASCEND/day) for testing phase.
+  let perDay: number = LAND_DAILY_ASCEND_RATE;
 
   const electricity = improvements.find(i => i.type === "electricity");
   if (electricity) {
     perDay += 1;
 
     const bcNode = improvements.find(i => i.type === "blockchain_node");
-    if (bcNode) perDay += FACILITY_INFO.blockchain_node.frontierPerDay[bcNode.level - 1];
+    if (bcNode) perDay += FACILITY_INFO.blockchain_node.ascendPerDay[bcNode.level - 1];
 
     const dc = improvements.find(i => i.type === "data_centre");
-    if (dc) perDay += FACILITY_INFO.data_centre.frontierPerDay[dc.level - 1];
+    if (dc) perDay += FACILITY_INFO.data_centre.ascendPerDay[dc.level - 1];
 
     const aiLab = improvements.find(i => i.type === "ai_lab");
-    if (aiLab) perDay += FACILITY_INFO.ai_lab.frontierPerDay[aiLab.level - 1];
+    if (aiLab) perDay += FACILITY_INFO.ai_lab.ascendPerDay[aiLab.level - 1];
   }
 
   return perDay;

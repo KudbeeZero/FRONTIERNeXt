@@ -43,7 +43,7 @@ FRONTIER-AL is a persistent globe-based strategy game powered by the Algorand bl
 ### Getting Started
 
 1. **Connect your wallet** — Pera Wallet (mobile + web) or LUTE Wallet (browser extension)
-2. **Receive your welcome bonus** — 500 FRNTR credited on first wallet connection
+2. **Receive your welcome bonus** — 500 ASCEND credited on first wallet connection
 3. **Purchase your first plot** — Pay ALGO to claim a territory on the globe
 4. **Start mining** — Extract Iron, Fuel, and Crystal from your plots
 5. **Build and expand** — Construct improvements, facilities, and landmarks to grow your empire
@@ -52,7 +52,7 @@ FRONTIER-AL is a persistent globe-based strategy game powered by the Algorand bl
 
 - **3D Globe** — Three.js GPU-accelerated rendering of all 21,000 plots on a rotating planet
 - **Bottom Navigation** — Map, Inventory, Battles, Rankings, Commander tabs
-- **Resource HUD** — Top bar showing Iron, Fuel, Crystal, FRNTR balances with daily generation rate
+- **Resource HUD** — Top bar showing Iron, Fuel, Crystal, ASCEND balances with daily generation rate
 
 ---
 
@@ -91,9 +91,9 @@ Each plot has a **richness score from 1–100** that affects resource yield qual
 | **Fuel** | 12 | Operations, improvements, attacks |
 | **Crystal** | 4 | High-level upgrades, advanced crafting |
 
-### FRONTIER Token (FRNTR)
+### FRONTIER Token (ASCEND)
 
-- Passive generation: every owned plot earns a baseline **1 FRNTR/day**
+- Passive generation: every owned plot earns a baseline **1 ASCEND/day**
 - Enhanced by FRONTIER Facilities (Electricity, Blockchain Node)
 - Used for: Commanders, special attacks, drones, satellites, facilities, landmarks
 
@@ -108,22 +108,23 @@ Each plot has a **richness score from 1–100** that affects resource yield qual
 
 ## 4. Rare Minerals
 
-Rare minerals are an advanced resource tier found during mining and orbital events. They are used for Landmark construction, advanced upgrades, and Legendary loot box crafting.
+Rare minerals are an advanced resource tier that drops while mining, based on the plot's biome. They are used for Landmark construction and advanced upgrades.
 
-### Mineral Types
+### Mineral Types & Drop Rates
 
-| Mineral | Primary Biomes | Drop Rate (per mine) | Description |
-|---------|---------------|---------------------|-------------|
-| **Xenorite** | Volcanic, Mountain | 2.0% | Crystallized volcanic compounds. Used for Launchpad and Quantum Forge construction |
-| **Void Shard** | Tundra, Water | 1.5% | Frozen dark-energy fragments. Required for Orbital Alien Dome access and Commander upgrades |
-| **Plasma Core** | Desert, Swamp | 1.0% | Condensed thermal plasma. Powers Launchpad operations and Siege-tier weaponry |
-| **Dark Matter** | Any biome (orbital events only) | 0.3% during impacts | Ultra-rare exotic matter. Used for Legendary loot boxes and endgame upgrades |
+Each mine action rolls **independently** for every mineral its biome can yield — so a single mine can return more than one. Drop chances per mine (verified against `shared/schema.ts` and `server/storage/db.ts`):
+
+| Mineral | Drops in (chance per mine) | Description |
+|---------|---------------------------|-------------|
+| **Xenorite** | Volcanic 8% · Mountain 4% · Desert 3% · Plains 2% | Crystallized volcanic compounds. Used for the Launchpad and Quantum Forge |
+| **Void Shard** | Tundra 6% · Forest 4% · Mountain 3% · Swamp 2% | Frozen dark-energy fragments. Required for the Orbital Alien Dome and Commander upgrades |
+| **Plasma Core** | Volcanic 5% · Desert 5% · Forest 2% · Water 2% | Condensed thermal plasma. Powers Launchpad operations and Siege-tier weaponry |
+| **Dark Matter** | Swamp 3% · Water 2% · Tundra 1% | Ultra-rare exotic matter. Used for the Orbital Alien Dome and endgame upgrades |
 
 ### Storage Rules
 
 - Rare minerals have a **dedicated vault** — they do not count against your standard storage capacity
-- Vault capacity: **50 units per mineral type** (200 total)
-- Dark Matter can only drop during active orbital impact events
+- Vault capacity: **50 units per mineral type**, enforced independently per type
 - Rare minerals are tradeable through the Trading system
 
 ---
@@ -145,11 +146,15 @@ The AI Lab facility reduces mining cooldown:
 
 ### Rare Mineral Drops
 
-Every mine action has a chance to drop rare minerals based on the plot's biome:
-- Volcanic/Mountain plots: 2% chance for Xenorite
-- Tundra/Water plots: 1.5% chance for Void Shard
-- Desert/Swamp plots: 1% chance for Plasma Core
-- During orbital impact events: additional 0.3% chance for Dark Matter on any biome
+Every mine action rolls independently for rare minerals based on the plot's biome (chance per mine):
+- **Volcanic:** Xenorite 8%, Plasma Core 5%
+- **Mountain:** Xenorite 4%, Void Shard 3%
+- **Forest:** Void Shard 4%, Plasma Core 2%
+- **Desert:** Plasma Core 5%, Xenorite 3%
+- **Tundra:** Void Shard 6%, Dark Matter 1%
+- **Swamp:** Dark Matter 3%, Void Shard 2%
+- **Water:** Dark Matter 2%, Plasma Core 2%
+- **Plains:** Xenorite 2%
 
 ### Collection
 
@@ -208,13 +213,13 @@ Sub-parcel indices are row-major (0 = top-left, 4 = center, 8 = bottom-right).
 
 - **4-hour hold requirement** — You must own the macro-plot for at least 4 hours before subdividing
 - **Human-exclusive** — AI factions cannot subdivide plots; they own whole macro-plots only
-- **Cost**: Subdivision cost scales by biome (10–100 FRNTR per sub-parcel)
+- **Cost**: Subdivision cost scales by biome (10–100 ASCEND per sub-parcel)
 
 ### Yield Mechanics
 
 - Each sub-parcel generates **1/9 of the parent plot's daily FRONTIER yield**
 - **Full Control Bonus**: If you own all 9 sub-parcels of a plot, you receive a **+50% yield bonus** (1.5x multiplier)
-- Example: A plot generating 6 FRNTR/day, fully subdivided and controlled = 6 × 1.5 = **9 FRNTR/day**
+- Example: A plot generating 6 ASCEND/day, fully subdivided and controlled = 6 × 1.5 = **9 ASCEND/day**
 
 ### Defense
 
@@ -270,13 +275,13 @@ Base upgrades are one-time improvements purchased with Iron and Fuel.
 
 ## 10. FRONTIER Facilities
 
-FRONTIER Facilities are advanced structures that require FRNTR tokens to build. All advanced facilities require Electricity as a prerequisite.
+FRONTIER Facilities are advanced structures that require ASCEND tokens to build. All advanced facilities require Electricity as a prerequisite.
 
 ### Facility Chain
 
 ```
 Electricity (Lv1)
-├── Blockchain Node (Lv1-3) → Pure FRNTR income
+├── Blockchain Node (Lv1-3) → Pure ASCEND income
 ├── Data Centre (Lv1-3)     → Resource yield bonus
 └── AI Lab (Lv1-3)          → Mining cooldown reduction
 ```
@@ -285,27 +290,27 @@ Electricity (Lv1)
 
 | Facility | Prerequisite | Lv1 Cost | Lv2 Cost | Lv3 Cost | Effect |
 |----------|-------------|----------|----------|----------|--------|
-| **Electricity** | — | 30 FRNTR | — | — | +1 FRNTR/day, unlocks advanced facilities |
-| **Blockchain Node** | Electricity | 120 FRNTR | 270 FRNTR | 480 FRNTR | +2 / +3 / +4 FRNTR/day |
-| **Data Centre** | Electricity | 120 FRNTR | 270 FRNTR | 480 FRNTR | +5% / +10% / +15% resource yield |
-| **AI Lab** | Electricity | 120 FRNTR | 270 FRNTR | 480 FRNTR | -30s / -60s / -90s mine cooldown |
+| **Electricity** | — | 30 ASCEND | — | — | +1 ASCEND/day, unlocks advanced facilities |
+| **Blockchain Node** | Electricity | 120 ASCEND | 270 ASCEND | 480 ASCEND | +2 / +3 / +4 ASCEND/day |
+| **Data Centre** | Electricity | 120 ASCEND | 270 ASCEND | 480 ASCEND | +5% / +10% / +15% resource yield |
+| **AI Lab** | Electricity | 120 ASCEND | 270 ASCEND | 480 ASCEND | -30s / -60s / -90s mine cooldown |
 
-### FRNTR/Day Breakdown
+### ASCEND/Day Breakdown
 
-> **Important:** Data Centre and AI Lab produce **0 FRNTR/day** — they provide yield bonuses and cooldown reductions instead. Only Electricity and Blockchain Node generate passive FRNTR.
+> **Important:** Data Centre and AI Lab produce **0 ASCEND/day** — they provide yield bonuses and cooldown reductions instead. Only Electricity and Blockchain Node generate passive ASCEND.
 
-A fully-upgraded plot's daily FRNTR generation:
+A fully-upgraded plot's daily ASCEND generation:
 
-| Source | FRNTR/day |
+| Source | ASCEND/day |
 |--------|-----------|
 | Base plot ownership | 1 |
 | Electricity Lv1 | +1 |
 | Blockchain Node Lv3 | +4 |
 | Data Centre Lv3 | +0 (gives +15% yield instead) |
 | AI Lab Lv3 | +0 (gives -90s cooldown instead) |
-| **Total** | **6 FRNTR/day** |
+| **Total** | **6 ASCEND/day** |
 
-Total investment for max FRNTR output per plot: 30 + 120 + 270 + 480 = **900 FRNTR**
+Total investment for max ASCEND output per plot: 30 + 120 + 270 + 480 = **900 ASCEND**
 
 ---
 
@@ -319,7 +324,7 @@ Landmarks are unique mega-structures that provide powerful, game-changing effect
 
 | Property | Value |
 |----------|-------|
-| **Cost** | 500 FRNTR + 50 Xenorite + 30 Plasma Core |
+| **Cost** | 500 ASCEND + 50 Xenorite + 30 Plasma Core |
 | **Limit** | 1 per player |
 | **Requirement** | Own 10+ plots, Electricity facility on plot |
 | **Effects** | -50% satellite deploy cost, -50% drone deploy cost, +1 max satellite slot (3 total), +2 max drone slots (7 total) |
@@ -331,10 +336,10 @@ Landmarks are unique mega-structures that provide powerful, game-changing effect
 
 | Property | Value |
 |----------|-------|
-| **Cost** | 800 FRNTR + 40 Void Shard + 20 Dark Matter |
+| **Cost** | 800 ASCEND + 40 Void Shard + 20 Dark Matter |
 | **Limit** | 1 per server (first to build claims it for the season) |
 | **Requirement** | Own 25+ plots, active season must be running |
-| **Effects** | +100% FRNTR generation during active season, +10% defense bonus to all players within 3-plot radius |
+| **Effects** | +100% ASCEND generation during active season, +10% defense bonus to all players within 3-plot radius |
 | **Special** | Season Nexus — houses the Season Leaderboard hologram. Dome owner receives a bonus **5% of the season reward pool** at season end |
 
 ### Quantum Forge
@@ -343,7 +348,7 @@ Landmarks are unique mega-structures that provide powerful, game-changing effect
 
 | Property | Value |
 |----------|-------|
-| **Cost** | 600 FRNTR + 30 Xenorite + 25 Void Shard + 10 Plasma Core |
+| **Cost** | 600 ASCEND + 30 Xenorite + 25 Void Shard + 10 Plasma Core |
 | **Limit** | 1 per player |
 | **Requirement** | Own 15+ plots, Data Centre Lv2+ on plot |
 | **Effects** | Rare mineral refining (convert 10 of any type → 3 of another), craft 1 Legendary loot box per 48h, +30% Crystal mining yield on this plot |
@@ -354,10 +359,10 @@ Landmarks are unique mega-structures that provide powerful, game-changing effect
 
 | Property | Value |
 |----------|-------|
-| **Cost** | 400 FRNTR + 20 Plasma Core + 15 Void Shard |
+| **Cost** | 400 ASCEND + 20 Plasma Core + 15 Void Shard |
 | **Limit** | 1 per player |
 | **Requirement** | Own 20+ plots, AI Lab Lv2+ on plot |
-| **Effects** | Instant resource teleport between all owned plots (no need to collect individually), +2 FRNTR/day passive, -25% attack cooldown for attacks from this plot |
+| **Effects** | Instant resource teleport between all owned plots (no need to collect individually), +2 ASCEND/day passive, -25% attack cooldown for attacks from this plot |
 | **Special** | Detects cloaked Phantom commanders within 4-plot radius |
 
 ---
@@ -370,9 +375,9 @@ Commanders are unique on-chain avatars minted by burning FRONTIER tokens. You ca
 
 | Tier | Cost | ATK Bonus | DEF Bonus | Special Ability | Max Concurrent Attacks |
 |------|------|-----------|-----------|-----------------|----------------------|
-| **Sentinel** | 50 FRNTR | +10% | +10% | Fortify | 1 |
-| **Phantom** | 150 FRNTR | +18% | +6% | Cloak | 2 |
-| **Reaper** | 400 FRNTR | +30% | +5% | Annihilate | 3 |
+| **Sentinel** | 50 ASCEND | +10% | +10% | Fortify | 1 |
+| **Phantom** | 150 ASCEND | +18% | +6% | Cloak | 2 |
+| **Reaper** | 400 ASCEND | +30% | +5% | Annihilate | 3 |
 
 ### Deployment Rules
 
@@ -391,14 +396,14 @@ Commanders are unique on-chain avatars minted by burning FRONTIER tokens. You ca
 
 ## 13. Special Attacks
 
-Special attacks are powerful abilities that require an active commander and cost FRNTR to execute.
+Special attacks are powerful abilities that require an active commander and cost ASCEND to execute.
 
 | Attack | Cost | Cooldown | Damage Multiplier | Effect | Required Commander |
 |--------|------|----------|-------------------|--------|-------------------|
-| **Orbital Strike** | 25 FRNTR | 30 min | 3.0x | Ignores 50% of target defense | Any tier |
-| **EMP Blast** | 15 FRNTR | 20 min | 1.5x | Disables all improvements for 10 minutes | Phantom or Reaper |
-| **Siege Barrage** | 40 FRNTR | 45 min | 2.0x | Damages up to 3 nearby enemy plots | Reaper only |
-| **Sabotage** | 10 FRNTR | 15 min | 0.5x | Halves target mining yield for 30 minutes | Phantom or Reaper |
+| **Orbital Strike** | 25 ASCEND | 30 min | 3.0x | Ignores 50% of target defense | Any tier |
+| **EMP Blast** | 15 ASCEND | 20 min | 1.5x | Disables all improvements for 10 minutes | Phantom or Reaper |
+| **Siege Barrage** | 40 ASCEND | 45 min | 2.0x | Damages up to 3 nearby enemy plots | Reaper only |
+| **Sabotage** | 10 ASCEND | 15 min | 0.5x | Halves target mining yield for 30 minutes | Phantom or Reaper |
 
 > **Tip:** Chain EMP Blast (disable improvements) immediately before an Orbital Strike for maximum damage against fortified targets.
 
@@ -500,7 +505,7 @@ When a territory is captured, all **adjacent plots** owned by the defender lose 
 
 | Property | Value |
 |----------|-------|
-| **Cost** | 20 FRNTR per drone |
+| **Cost** | 20 ASCEND per drone |
 | **Duration** | 15 minutes per scout mission |
 | **Maximum** | 5 drones per player (7 with Launchpad) |
 | **Effect** | Reveals enemy resource stockpiles and improvement layouts |
@@ -522,7 +527,7 @@ When a territory is captured, all **adjacent plots** owned by the defender lose 
 
 | Property | Value |
 |----------|-------|
-| **Cost** | 50 FRNTR per satellite (25 FRNTR with Launchpad) |
+| **Cost** | 50 ASCEND per satellite (25 ASCEND with Launchpad) |
 | **Duration** | 1 hour per orbit |
 | **Maximum** | 2 per player (3 with Launchpad) |
 | **Effect** | +25% mining yield on ALL owned parcels while active |
@@ -538,18 +543,28 @@ When a territory is captured, all **adjacent plots** owned by the defender lose 
 
 ## 18. Loot Boxes
 
-Loot boxes contain randomized rewards including resources, FRNTR, rare minerals, and exclusive items.
+Loot boxes are designed to contain randomized rewards including resources, ASCEND, rare minerals, and exclusive items.
 
-### How to Obtain
+> ⚠️ **Status: Planned — not yet active.** The loot-box system is defined in code
+> (`shared/schema.ts`) but is **not yet awarded or openable at runtime** as of this
+> version — no mine, battle, or orbital outcome currently grants a box, and there is no
+> open/reward logic. The values below describe the **intended design**, not live mechanics.
 
-| Source | Common | Rare | Epic | Legendary |
-|--------|--------|------|------|-----------|
-| **Mining** (per action) | 5% | 1% | 0.2% | — |
-| **Battle Victory** | Guaranteed | 15% | 3% | — |
-| **Orbital Impact Event** | — | 25% | 5% | 1% |
-| **Quantum Forge** (crafting) | — | — | — | 1 per 48h |
+### How to Obtain (designed)
 
-### Tiers & Contents
+Each trigger is designed to award a single box tier at the rate defined in `shared/schema.ts`:
+
+| Source | Box tier | Drop chance |
+|--------|----------|-------------|
+| **Mining** (per action) | Common | 3% |
+| **Battle Victory** | Rare | 25% |
+| **Orbital Impact Event** | Epic | 50% |
+| **Quantum Forge** (crafting) | Legendary | planned |
+
+### Tiers & Contents *(designed — not yet implemented)*
+
+> The reward tables below are the intended contents; no reward-granting logic exists in
+> the current runtime.
 
 #### Common (Gray)
 
@@ -557,7 +572,7 @@ Loot boxes contain randomized rewards including resources, FRNTR, rare minerals,
 |--------|--------|
 | Iron / Fuel | 50–200 |
 | Crystal | 10–50 |
-| FRNTR | 5–20 |
+| ASCEND | 5–20 |
 | Rare Mineral (random) | 1% chance of 1 unit |
 
 #### Rare (Blue)
@@ -566,7 +581,7 @@ Loot boxes contain randomized rewards including resources, FRNTR, rare minerals,
 |--------|--------|
 | Iron / Fuel | 200–500 |
 | Crystal | 50–150 |
-| FRNTR | 20–80 |
+| ASCEND | 20–80 |
 | Rare Minerals (random) | 15% chance of 2–5 units |
 | 1h Satellite Boost | 5% chance |
 
@@ -576,10 +591,10 @@ Loot boxes contain randomized rewards including resources, FRNTR, rare minerals,
 |--------|--------|
 | Iron / Fuel | 500–1,000 |
 | Crystal | 150–400 |
-| FRNTR | 80–200 |
+| ASCEND | 80–200 |
 | Rare Minerals (guaranteed) | 5–10 units |
 | Free Commander Reroll | 20% chance |
-| 24h Double FRNTR | 10% chance |
+| 24h Double ASCEND | 10% chance |
 
 #### Legendary (Gold)
 
@@ -587,15 +602,15 @@ Loot boxes contain randomized rewards including resources, FRNTR, rare minerals,
 |--------|--------|
 | Iron / Fuel | 1,000–2,500 |
 | Crystal | 400–1,000 |
-| FRNTR | 200–500 |
+| ASCEND | 200–500 |
 | Rare Minerals (guaranteed) | 10–25 units (including 1–3 Dark Matter) |
-| 24h Double FRNTR | Guaranteed |
+| 24h Double ASCEND | Guaranteed |
 | Exclusive Cosmetic Title | 25% chance |
 | Golden Plot NFT Badge | 5% chance |
 
-### Inventory Rules
+### Inventory Rules *(designed)*
 
-- Maximum **20 unopened boxes** at a time
+- Designed maximum: **20 unopened boxes** at a time
 - Must open boxes to make room for new drops
 - Opening is instant with an animated reveal sequence
 - Results are added to your inventory immediately
@@ -700,7 +715,7 @@ Build up defense on captured plots during the 6-hour grace period. High defense 
 | **Resource Burst** | +50% yield | 10 minutes | Boosted mining output on affected plot |
 | **Tile Hazard** | -40% yield | 8 minutes | Reduced mining output; -20% defense in battle |
 
-> **Note:** During impact events, there is a **0.3% chance** of dropping Dark Matter when mining the affected plot.
+> **Note:** Dark Matter is **not** exclusive to orbital events — it drops from normal mining in Swamp (3%), Water (2%), and Tundra (1%). See §4 for the full per-biome table.
 
 ---
 
@@ -715,7 +730,7 @@ Players can trade resources directly with each other through the trading system.
 - Iron
 - Fuel
 - Crystal
-- FRONTIER (FRNTR)
+- FRONTIER (ASCEND)
 - Rare Minerals (Xenorite, Void Shard, Plasma Core, Dark Matter)
 
 ### Trade Rules
@@ -745,9 +760,9 @@ Seasons are **~90-day meta-cycles** that add progression, phases, and competitiv
 
 | Phase | Days | Modifiers |
 |-------|------|-----------|
-| **Expansion** | 1–30 | Land purchase prices -20%, welcome bonus doubled to 1,000 FRNTR, AI factions start with minimal territory |
+| **Expansion** | 1–30 | Land purchase prices -20%, welcome bonus doubled to 1,000 ASCEND, AI factions start with minimal territory |
 | **Conflict** | 31–60 | Attack cooldowns -25%, pillage rate increased to 40% (from 30%), orbital event frequency doubled |
-| **Domination** | 61–90 | FRNTR generation +50% globally, leaderboard positions locked in final 24h, Orbital Alien Dome bonus active |
+| **Domination** | 61–90 | ASCEND generation +50% globally, leaderboard positions locked in final 24h, Orbital Alien Dome bonus active |
 
 ### Season Rewards
 
@@ -787,7 +802,7 @@ Top 10 players at season end receive FRONTIER from the reward pool:
 
 ### Orbital Alien Dome Integration
 
-The player who builds the Orbital Alien Dome claims the Season Nexus. During the Domination phase, the Dome provides +100% FRNTR generation and the owner receives a bonus 5% of the season reward pool.
+The player who builds the Orbital Alien Dome claims the Season Nexus. During the Domination phase, the Dome provides +100% ASCEND generation and the owner receives a bonus 5% of the season reward pool.
 
 ---
 
@@ -795,13 +810,13 @@ The player who builds the Orbital Alien Dome claims the Season Nexus. During the
 
 ### Total Supply
 
-**1,000,000,000 FRNTR** — immutable, set at ASA creation on Algorand TestNet.
+**1,000,000,000 ASCEND** — immutable, set at ASA creation on Algorand TestNet.
 
 ### Supply Breakdown
 
 | Metric | Description |
 |--------|-------------|
-| **Max Supply** | 1 billion FRNTR (on-chain ASA `total` field) |
+| **Max Supply** | 1 billion ASCEND (on-chain ASA `total` field) |
 | **In Circulation** | Tokens actively held by all players (DB: sum of `frntr_balance_micro`) |
 | **Burned** | Tokens permanently spent in-game (commanders, facilities, drones, attacks) |
 | **Treasury Reserve** | Undistributed tokens held by the admin wallet |
@@ -815,19 +830,19 @@ The player who builds the Orbital Alien Dome claims the Season Nexus. During the
 
 ### Welcome Bonus
 
-- **500 FRNTR** credited on first wallet connection
+- **500 ASCEND** credited on first wallet connection
 - One-time only — tracked by `welcomeBonusReceived` flag
 
 ### Token Sinks
 
 | Sink | Cost Range |
 |------|-----------|
-| FRONTIER Facilities | 30–480 FRNTR per level |
-| Commander Minting | 50–400 FRNTR per tier |
-| Special Attacks | 10–40 FRNTR per attack |
-| Recon Drones | 20 FRNTR each |
-| Orbital Satellites | 50 FRNTR each |
-| Landmarks | 400–800 FRNTR each (+ rare minerals) |
+| FRONTIER Facilities | 30–480 ASCEND per level |
+| Commander Minting | 50–400 ASCEND per tier |
+| Special Attacks | 10–40 ASCEND per attack |
+| Recon Drones | 20 ASCEND each |
+| Orbital Satellites | 50 ASCEND each |
+| Landmarks | 400–800 ASCEND each (+ rare minerals) |
 | Loot Box Crafting | 5 Dark Matter + rare minerals per Legendary box |
 
 ---
@@ -847,7 +862,7 @@ The player who builds the Orbital Alien Dome claims the Season Nexus. During the
 2. If a saved wallet is found, reconnection is attempted automatically
 3. On successful connect: address saved to `localStorage`, ALGO balance fetched
 4. Player record created (or loaded) from the server
-5. Welcome bonus (500 FRNTR) granted if first-time player
+5. Welcome bonus (500 ASCEND) granted if first-time player
 6. ASA transfer fires in the background if opted in
 
 ### Network
@@ -858,7 +873,7 @@ The player who builds the Orbital Alien Dome claims the Season Nexus. During the
 
 ### Opt-In
 
-Your wallet must be opted into the FRONTIER ASA to receive FRNTR tokens and Plot NFTs on-chain. The app will prompt you to opt-in if needed.
+Your wallet must be opted into the FRONTIER ASA to receive ASCEND tokens and Plot NFTs on-chain. The app will prompt you to opt-in if needed.
 
 ### Tester Fallback
 
@@ -874,8 +889,8 @@ If no wallet is connected, a placeholder address (`PLAYER_WALLET`) is used so th
 | **Parcel** | Synonym for plot; also refers to the data record of a plot |
 | **Sub-Parcel** | One of 9 subdivisions within a macro-plot (3×3 grid) |
 | **Biome** | Environmental type of a plot (Forest, Desert, Mountain, etc.) |
-| **FRNTR** | FRONTIER token — the in-game currency on Algorand |
-| **ASA** | Algorand Standard Asset — the token standard for FRNTR and NFTs |
+| **ASCEND** | FRONTIER token — the in-game currency on Algorand |
+| **ASA** | Algorand Standard Asset — the token standard for ASCEND and NFTs |
 | **NFT** | Non-Fungible Token — each purchased plot is minted as a unique ARC-3 NFT |
 | **ARC-3** | Algorand Request for Comment #3 — the metadata standard for NFTs |
 | **Commander** | A mintable avatar (Sentinel/Phantom/Reaper) that provides combat bonuses |

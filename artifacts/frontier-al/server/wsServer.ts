@@ -23,9 +23,15 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server, IncomingMessage } from "http";
 import type { IStorage } from "./storage";
+import type { GameState } from "@shared/schema";
 import { getPoolStats } from "./db";
+import { verifySession, isWalletAuthRequired, SESSION_COOKIE } from "./auth";
+import { scopeGameStateFor } from "./stateScope";
 
 const FLUSH_INTERVAL_MS = 1_500;
+
+/** A connected socket annotated with the authenticated player (null = anon). */
+type WsClient = WebSocket & { playerId?: string | null };
 
 // ── Connection limits (DoS hardening) ────────────────────────────────────────
 // Inbound frames are only small ping/pong JSON, so cap payload size well above
@@ -38,6 +44,9 @@ const _perIpRaw = Number(process.env.WS_MAX_CONN_PER_IP);
 const WS_MAX_CONN_PER_IP = Number.isFinite(_perIpRaw) ? _perIpRaw : 25;
 const _globalRaw = Number(process.env.WS_MAX_CONN);
 const WS_MAX_CONN = Number.isFinite(_globalRaw) ? _globalRaw : 0;
+// Per-IP connection counter is intentionally per-instance (NOT Redis-backed): a
+// distributed counter would leak on crash/ungraceful disconnect and wrongly
+// block real users. Per-instance caps already bound connection spam on each node.
 const _connByIp = new Map<string, number>();
 
 /** Real client IP, honouring the trust-proxy X-Forwarded-For first hop. */
@@ -45,6 +54,30 @@ function clientIpFromReq(req: IncomingMessage): string {
   const fwd = req.headers["x-forwarded-for"];
   const first = Array.isArray(fwd) ? fwd[0] : (fwd ?? "").split(",")[0];
   return (first || req.socket.remoteAddress || "unknown").trim();
+}
+
+/**
+ * Extract the session token from the upgrade request. Browsers cannot set
+ * custom headers on a WebSocket, so the token arrives via the `?token=` query
+ * param (primary) or the session cookie (same-/cross-site with SameSite=None).
+ */
+function tokenFromReq(req: IncomingMessage): string | null {
+  try {
+    const url = new URL(req.url ?? "", "http://localhost");
+    const q = url.searchParams.get("token");
+    if (q) return q;
+  } catch { /* malformed url */ }
+  const cookie = req.headers.cookie;
+  if (cookie) {
+    for (const part of cookie.split(";")) {
+      const i = part.indexOf("=");
+      if (i < 0) continue;
+      if (part.slice(0, i).trim() === SESSION_COOKIE) {
+        return decodeURIComponent(part.slice(i + 1).trim());
+      }
+    }
+  }
+  return null;
 }
 
 // ── Diagnostic counters ──────────────────────────────────────────────────────
@@ -65,6 +98,17 @@ export function initWsServer(httpServer: Server, storage: IStorage): WebSocketSe
 
   _wss.on("connection", (ws, req: IncomingMessage) => {
     const ip = clientIpFromReq(req);
+
+    // ── Authentication ───────────────────────────────────────────────────────
+    // Tie the realtime feed to a verified wallet session. The per-connection
+    // playerId also drives broadcast scoping (below) so each client only ever
+    // receives their own economic data.
+    const auth = verifySession(tokenFromReq(req));
+    if (isWalletAuthRequired() && !auth) {
+      ws.close(1008, "authentication required");
+      return;
+    }
+    (ws as WsClient).playerId = auth?.playerId ?? null;
 
     // Enforce connection caps before doing any work (0 = disabled).
     if (WS_MAX_CONN > 0 && _wss!.clients.size > WS_MAX_CONN) {
@@ -123,9 +167,8 @@ export function initWsServer(httpServer: Server, storage: IStorage): WebSocketSe
 
     try {
       const gameState = await _storage.getGameState();
-      const payload = { type: "game_state_update", payload: gameState };
-      const msg = JSON.stringify(payload);
-      const payloadSize = msg.length;
+      // Approximate payload size from the full (pre-scope) state for metrics.
+      const payloadSize = JSON.stringify(gameState).length;
 
       // Track payload size metrics
       if (payloadSize > _maxPayloadSize) {
@@ -137,7 +180,8 @@ export function initWsServer(httpServer: Server, storage: IStorage): WebSocketSe
         console.warn(`[ws] Large broadcast payload: ${(payloadSize / 1024).toFixed(1)} KB to ${clientCount} clients`);
       }
 
-      _broadcastRaw(payload);
+      // Per-connection scoped broadcast (fog of war / EPI protection).
+      _broadcastGameState(gameState);
 
       const flushDuration = Date.now() - flushStart;
       _totalFlushTimeMs += flushDuration;
@@ -237,6 +281,23 @@ function _broadcastRaw(obj: unknown): void {
 }
 
 /**
+ * Broadcast the game state, scoped per connection. Each client receives full
+ * detail only for their own player/parcels; everyone else's stored resources
+ * and balances are redacted (see scopeGameStateFor). Cost is O(clients) state
+ * copies per flush — fine at current scale; revisit with a shared public base
+ * if the connected-client count grows large.
+ */
+function _broadcastGameState(full: GameState): void {
+  if (!_wss) return;
+  for (const client of _wss.clients) {
+    if (client.readyState !== WebSocket.OPEN) continue;
+    const pid = (client as WsClient).playerId ?? null;
+    const scoped = scopeGameStateFor(full, pid);
+    client.send(JSON.stringify({ type: "game_state_update", payload: scoped }));
+  }
+}
+
+/**
  * broadcastRaw — send any custom message envelope to all connected clients.
  * Use for non-game-state events such as TRADE_FILLED notifications.
  */
@@ -252,7 +313,9 @@ export function broadcastRaw(obj: unknown): void {
  */
 export function broadcastGameState(payload: unknown): void {
   _dirty = false;
-  _broadcastRaw({ type: "game_state_update", payload });
+  // Scope per connection — the caller passes the FULL state; each client gets
+  // only their own economic detail.
+  _broadcastGameState(payload as GameState);
 }
 
 /**

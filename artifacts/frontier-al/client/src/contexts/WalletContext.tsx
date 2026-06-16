@@ -6,6 +6,7 @@ import {
   fetchBlockchainStatus,
   registerWalletSigner,
 } from "@/lib/algorand";
+import { authenticateWallet, logoutWallet } from "@/lib/auth";
 
 type WalletStatus = "restoring" | "connected" | "disconnected";
 
@@ -29,9 +30,13 @@ interface WalletContextValue {
   signerReady: boolean;
   blockchainReady: boolean;
   isReady: boolean;
+  isAuthenticated: boolean;
+  isAuthenticating: boolean;
+  authError: string | null;
   availableWallets: WalletInfo[];
   connect: (walletId: string) => Promise<void>;
   disconnect: () => void;
+  authenticate: () => Promise<void>;
   clearError: () => void;
   refreshBalance: () => Promise<void>;
 }
@@ -40,7 +45,6 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 
 interface WalletProviderProps {
   children: ReactNode;
-  enableAutoConnect?: boolean;
 }
 
 // Broad set of strings that indicate user-cancelled / modal-dismissed — not real errors.
@@ -90,7 +94,7 @@ function friendlyErrorMessage(walletId: string, msg: string): string {
   return msg || "Connection failed — please try again.";
 }
 
-export function WalletProvider({ children, enableAutoConnect = false }: WalletProviderProps) {
+export function WalletProvider({ children }: WalletProviderProps) {
   const { wallets, activeAddress, signTransactions } = useWalletLib();
 
   const [balance, setBalance] = useState(0);
@@ -98,6 +102,10 @@ export function WalletProvider({ children, enableAutoConnect = false }: WalletPr
   const [error, setError] = useState<string | null>(null);
   const [blockchainReady, setBlockchainReady] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const authAttemptedFor = useRef<string | null>(null);
   const isReconnecting = useRef(false);
 
   useEffect(() => {
@@ -127,6 +135,44 @@ export function WalletProvider({ children, enableAutoConnect = false }: WalletPr
       }
     }
   }, [activeAddress, signTransactions]);
+
+  // ── Wallet-signature authentication ─────────────────────────────────────────
+  // Prove control of the connected wallet to the server and obtain a session
+  // token. One signature prompt per connected address.
+  const authenticate = useCallback(async () => {
+    if (!activeAddress) return;
+    setIsAuthenticating(true);
+    setAuthError(null);
+    try {
+      await authenticateWallet(activeAddress);
+      setIsAuthenticated(true);
+    } catch (err) {
+      const msg = (err as { message?: string })?.message || "Authentication failed";
+      setIsAuthenticated(false);
+      // Allow a manual retry (e.g. user dismissed the signature prompt).
+      authAttemptedFor.current = null;
+      if (!isUserCancellation(msg)) setAuthError(msg);
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }, [activeAddress]);
+
+  // Auto-authenticate once per connected address.
+  useEffect(() => {
+    if (!activeAddress || !signTransactions) return;
+    if (authAttemptedFor.current === activeAddress) return;
+    authAttemptedFor.current = activeAddress;
+    void authenticate();
+  }, [activeAddress, signTransactions, authenticate]);
+
+  // Reset auth state on disconnect.
+  useEffect(() => {
+    if (!activeAddress) {
+      setIsAuthenticated(false);
+      setAuthError(null);
+      authAttemptedFor.current = null;
+    }
+  }, [activeAddress]);
 
   // Refresh balance whenever the active address changes
   useEffect(() => {
@@ -200,6 +246,10 @@ export function WalletProvider({ children, enableAutoConnect = false }: WalletPr
     setError(null);
     setBalance(0);
     registerWalletSigner(null);
+    setIsAuthenticated(false);
+    setAuthError(null);
+    authAttemptedFor.current = null;
+    void logoutWallet();
   }, [wallets]);
 
   const isConnected = !!activeAddress;
@@ -237,9 +287,13 @@ export function WalletProvider({ children, enableAutoConnect = false }: WalletPr
         signerReady,
         blockchainReady,
         isReady,
+        isAuthenticated,
+        isAuthenticating,
+        authError,
         availableWallets,
         connect,
         disconnect,
+        authenticate,
         clearError,
         refreshBalance,
       }}

@@ -30,6 +30,7 @@ import type {
   RareMineralType,
 } from "@shared/schema";
 import type { TradeOrder, InsertTradeOrder } from "../db-schema";
+import type { PlayerWeaponProfile } from "@shared/weapons";
 
 export interface IStorage {
   /** Initialize storage (run seeder if needed). */
@@ -52,15 +53,15 @@ export interface IStorage {
   purchaseLand(action: PurchaseAction): Promise<LandParcel>;
   collectAll(playerId: string): Promise<{ iron: number; fuel: number; crystal: number }>;
   updatePlayerAddress(playerId: string, address: string): Promise<void>;
-  claimFrontier(playerId: string): Promise<{ amount: number }>;
-  restoreFrontier(playerId: string, amount: number): Promise<void>;
+  claimAscend(playerId: string): Promise<{ amount: number }>;
+  restoreAscend(playerId: string, amount: number): Promise<void>;
   mintAvatar(action: MintAvatarAction): Promise<CommanderAvatar>;
   executeSpecialAttack(action: SpecialAttackAction): Promise<{ damage: number; effect: string }>;
   deployDrone(action: DeployDroneAction): Promise<ReconDrone>;
   deploySatellite(action: DeploySatelliteAction): Promise<OrbitalSatellite>;
   updatePlayerName(playerId: string, name: string): Promise<void>;
   updateTestnetProgress(playerId: string, completedMissions: string[]): Promise<void>;
-  /** Grant the 500 FRONTIER welcome bonus (idempotent). */
+  /** Grant the 500 ASCEND welcome bonus (idempotent). */
   grantWelcomeBonus(playerId: string): Promise<void>;
   /**
    * Atomically switch a player's active commander and emit a game event.
@@ -97,7 +98,7 @@ export interface IStorage {
    * the center sub-parcel (index 4) for free. Fails if the plot cannot be subdivided.
    */
   subdivideParcel(plotId: number, playerId: string): Promise<{ subParcels: SubParcel[]; error?: string }>;
-  /** Purchase an unowned sub-parcel with FRONTIER tokens. */
+  /** Purchase an unowned sub-parcel with ASCEND tokens. */
   purchaseSubParcel(subParcelId: string, playerId: string): Promise<{ subParcel: SubParcel; error?: string }>;
   /** Check whether a macro-plot has been subdivided. */
   isSubdivided(parentPlotId: number): Promise<boolean>;
@@ -112,7 +113,7 @@ export interface IStorage {
   /** List all open sub-parcel listings. */
   getOpenSubParcelListings(): Promise<SubParcelListing[]>;
   /** Create a listing to sell a sub-parcel. */
-  createSubParcelListing(sellerId: string, subParcelId: string, askPriceFrontier: number): Promise<{ listing: SubParcelListing; error?: string }>;
+  createSubParcelListing(sellerId: string, subParcelId: string, askPriceAscend: number): Promise<{ listing: SubParcelListing; error?: string }>;
   /** Cancel an open listing. */
   cancelSubParcelListing(sellerId: string, listingId: string): Promise<{ error?: string }>;
   /** Buy a sub-parcel listing (transfers ownership + FRONTIER). */
@@ -137,7 +138,16 @@ export interface IStorage {
   createMarket(action: CreateMarketAction, createdBy?: string): Promise<PredictionMarket>;
   placeBet(marketId: string, playerId: string, outcome: MarketOutcome, amount: number): Promise<{ position: MarketPosition; market: PredictionMarket } | { error: string }>;
   claimWinnings(marketId: string, playerId: string): Promise<{ payout: number } | { error: string }>;
-  resolveMarket(marketId: string, winningOutcome: MarketOutcome): Promise<PredictionMarket | { error: string }>;
+  /**
+   * Provably-fair resolution: DERIVES the outcome from the market's immutable
+   * resolution source. No winning outcome is accepted from any caller. Returns
+   * { error: "Not yet resolvable" } until the resolving fact is knowable.
+   */
+  resolveMarketTrustlessly(marketId: string): Promise<PredictionMarket | { error: string }>;
+  /** Markets with a source whose staking cutoff has passed (candidates to resolve). */
+  getResolvableMarkets(): Promise<PredictionMarket[]>;
+  /** Automated resolver — resolves every market whose condition is met (no human input). */
+  resolveReadyMarkets(): Promise<void>;
   getPlayerPositions(playerId: string): Promise<(MarketPosition & { market: PredictionMarket })[]>;
   resolveExpiredMarkets(): Promise<void>;
 
@@ -167,4 +177,26 @@ export interface IStorage {
   getSeasonHistory(): Promise<Season[]>;
   /** Get protocol treasury balance from the economics ledger. */
   getTreasuryBalance(): Promise<{ unsettledMicro: number; totalMicro: number }>;
+
+  // ── Weapon System (persisted progression "memory layer") ──────────────────
+  /**
+   * Get a player's weapon profile, creating (but not yet persisting) a default
+   * one if they have none. The returned profile always has consistent derived
+   * fields (archetype/badges/animations).
+   */
+  getWeaponProfile(playerId: string): Promise<PlayerWeaponProfile>;
+  /**
+   * Merge a patch into a player's weapon profile, recompute derived fields, and
+   * persist. Returns the updated profile.
+   */
+  updateWeaponProfile(
+    playerId: string,
+    patch: Partial<PlayerWeaponProfile>,
+  ): Promise<PlayerWeaponProfile>;
+  /**
+   * Deduct ASCEND from a player (game currency burn), throwing if the balance is
+   * insufficient. Mirrors the existing special-attack/mint spend mechanics in
+   * each storage backend. Used by weapon fire/unlock/deploy costs.
+   */
+  spendAscend(playerId: string, amountAscend: number): Promise<void>;
 }

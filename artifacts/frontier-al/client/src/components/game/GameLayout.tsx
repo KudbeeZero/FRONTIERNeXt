@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { TopBar } from "./TopBar";
 import PlanetGlobe from "./PlanetGlobe";
 import type { LivePulse } from "@/components/game/PlanetGlobe";
-import { AttackModal } from "./AttackModal";
 import { BattleWatchModal } from "./BattleWatchModal";
-import { BottomNav, type NavTab } from "./BottomNav";
+import { type NavTab } from "./BottomNav";
+import { HudShell } from "./hud/HudShell";
 import { LandSheet } from "./LandSheet";
 import { InventoryPanel } from "./InventoryPanel";
 import { BattlesPanel } from "./BattlesPanel";
@@ -15,6 +15,7 @@ import { EconomicsPanel } from "./EconomicsPanel";
 import { GamerTagModal } from "./GamerTagModal";
 import { CommandCenterPanel } from "./CommandCenterPanel";
 import { WarRoomPanel } from "./WarRoomPanel";
+import { ArmoryPanel } from "./armory/ArmoryPanel";
 import { WorldIntelPanel } from "./WorldIntelPanel";
 import { FactionPanel } from "./FactionPanel";
 import { PredictionMarketsPanel } from "./PredictionMarkets";
@@ -23,22 +24,23 @@ import { WalletConnect } from "./WalletConnect";
 import { OrbitalEventToast } from "./OrbitalEventToast";
 import { useOrbitalEngine } from "@/hooks/useOrbitalEngine";
 import { useWallet } from "@/hooks/useWallet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { TEST_GLOBE } from "@/lib/testMode";
 import { useBlockchainActions } from "@/hooks/useBlockchainActions";
 import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
 import { useQuery, useQueries } from "@tanstack/react-query";
-import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimFrontier, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite } from "@/hooks/useGameState";
+import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimAscend, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite } from "@/hooks/useGameState";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, BookOpen, Swords } from "lucide-react";
+import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { safeUuid } from "@/lib/safeUuid";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
-import { TutorialOverlay } from "./TutorialOverlay";
 import { SelectedPlotPanel } from "./SelectedPlotPanel";
-import { useTutorial, TUTORIAL_STEPS } from "@/hooks/useTutorial";
 import { sendPaymentTransaction } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
@@ -48,7 +50,7 @@ export function GameLayout() {
   const { isConnected, balance, walletStatus } = wallet;
   const {
     signPurchaseAction,
-    signOptInToFrontier,
+    signOptInToAscend,
     signOptInToPlotNft,
     signCommanderMintAction,
     queueMineAction,
@@ -61,37 +63,22 @@ export function GameLayout() {
     queueDeployDroneAction,
     queueDeploySatelliteAction,
     isWalletConnected,
-    frontierAsaId,
-    isOptedInToFrontier,
+    ascendAsaId,
+    isOptedInToAscend,
     treasuryAddress,
   } = useBlockchainActions();
-  useGameSocket();
+  // Reconnect the socket (with the session token) once wallet auth completes,
+  // so the server can authenticate it and scope broadcasts to this player.
+  useGameSocket(wallet.isAuthenticated);
   const { data: gameState, isLoading, error } = useGameState();
   const player = useCurrentPlayer(wallet.address);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const { events: orbitalEvents, impactEvents } = useOrbitalEngine();
-  const tutorial = useTutorial();
-
-  // When tutorial step changes, update camera coords if the step defines them
-  useEffect(() => {
-    if (!tutorial.isOpen) return;
-    const s = tutorial.currentStepDef;
-    if (s?.cameraLat != null && s?.cameraLng != null) {
-      setTutorialLat(s.cameraLat);
-      setTutorialLng(s.cameraLng);
-      setFlyRequestId((prev) => prev + 1);
-    } else {
-      setTutorialLat(null);
-      setTutorialLng(null);
-    }
-  }, [tutorial.step, tutorial.isOpen, tutorial.currentStepDef]);
-
-  // Notify tutorial when a parcel is selected (any click on the globe)
   const handleParcelSelect = useCallback((id: string) => {
     setSelectedParcelId(id);
     setShowFullLandSheet(false); // Always open lightweight panel first
-    tutorial.notifyEvent("plot_selected");
-  }, [tutorial.notifyEvent]);
+  }, []);
 
   const initializedAddressRef = useRef<string | null>(null);
   const ambienceStartedRef = useRef(false);
@@ -112,10 +99,12 @@ export function GameLayout() {
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
   /** Controls whether the full LandSheet is open (vs. the lightweight SelectedPlotPanel) */
   const [showFullLandSheet, setShowFullLandSheet] = useState(false);
-  const [attackModalOpen, setAttackModalOpen] = useState(false);
+  /** Bumped each time the player requests an attack — signals the Commander
+   *  Battlefront to open (replaces the retired global AttackModal). */
+  const [attackIntent, setAttackIntent] = useState(0);
   const [watchingBattleId, setWatchingBattleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>("map");
-  const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "rankings" | "trade" | "factions" | "markets" | "commander">("warroom");
+  const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "armory" | "rankings" | "trade" | "factions" | "markets" | "commander">("warroom");
   const [showGamerTag, setShowGamerTag] = useState(false);
   const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -123,10 +112,6 @@ export function GameLayout() {
   const [livePulses, setLivePulses] = useState<LivePulse[]>([]);
   const [flyRequestId, setFlyRequestId] = useState(0);
   const [mapTransitioning, setMapTransitioning] = useState(false);
-
-  // Tutorial-driven camera override — set when a tutorial step has camera coords
-  const [tutorialLat, setTutorialLat] = useState<number | null>(null);
-  const [tutorialLng, setTutorialLng] = useState<number | null>(null);
 
   // ── Stream mode & season countdown ────────────────────────────────────────
   /** Detect ?stream=1 in URL to enable the fullscreen streaming HUD. */
@@ -192,7 +177,7 @@ export function GameLayout() {
   const buildMutation = useBuild();
   const purchaseMutation = usePurchase();
   const collectMutation = useCollectAll();
-  const claimFrontierMutation = useClaimFrontier();
+  const claimAscendMutation = useClaimAscend();
   const mintAvatarMutation = useMintAvatar();
   const specialAttackMutation = useSpecialAttack();
   const switchCommanderMutation = useSwitchCommander();
@@ -226,14 +211,6 @@ export function GameLayout() {
   const selectedParcel = gameState?.parcels.find((p) => p.id === selectedParcelId) || null;
   const activeBattleCount = gameState?.battles.filter(b => b.status === "pending").length || 0;
 
-  // Notify tutorial when LandSheet becomes visible (parcel selected on map tab)
-  useEffect(() => {
-    if (selectedParcel && activeTab === "map") {
-      tutorial.notifyEvent("landsheet_opened");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedParcel?.id]);
-
   const handleMine = async () => {
     if (!isConnected) {
       toast({ title: "Authorization Required", description: "Connect your wallet to perform game actions.", variant: "destructive" });
@@ -252,7 +229,6 @@ export function GameLayout() {
             ? `+${yields.iron} Iron, +${yields.fuel} Fuel, +${yields.crystal} Crystal`
             : "Resources extracted successfully.";
           toast({ title: "Mining Complete", description: desc });
-          tutorial.notifyEvent("land_action_completed");
           if (selectedParcel) {
             const pulse: LivePulse = {
               id: `pulse-${Date.now()}-${Math.random()}`,
@@ -321,8 +297,9 @@ export function GameLayout() {
       return;
     }
     if (!player || !selectedParcelId || !selectedParcel) return;
+    // One nonce per logical action — reused if React-Query retries this mutate().
     upgradeMutation.mutate(
-      { playerId: player.id, parcelId: selectedParcelId, upgradeType: type as any },
+      { playerId: player.id, parcelId: selectedParcelId, upgradeType: type as any, idempotencyKey: safeUuid() },
       {
         onSuccess: () => {
           queueUpgradeAction(selectedParcel.plotId, type);
@@ -333,7 +310,19 @@ export function GameLayout() {
     );
   };
 
-  const handleAttackClick = () => setAttackModalOpen(true);
+  /**
+   * Route an attack request to the Commander flow instead of the (retired)
+   * global AttackModal. Prefills the target from the selected parcel, surfaces
+   * the Commander panel (right rail on desktop, fullscreen on mobile), and
+   * signals the Battlefront to open. The on-chain attack still fires via
+   * handleAttackConfirm → attackMutation (unchanged).
+   */
+  const handleRequestAttack = (parcelId?: string) => {
+    if (parcelId) setSelectedParcelId(parcelId);
+    setDesktopRightTab("commander");
+    if (isMobile) setActiveTab("commander");
+    setAttackIntent((n) => n + 1);
+  };
 
   const handleAttackConfirm = async (troops: number, iron: number, fuel: number, crystal: number, commanderId?: string, sourceParcelId?: string) => {
     if (!isConnected) {
@@ -348,7 +337,6 @@ export function GameLayout() {
           queueAttackAction(selectedParcel.plotId, troops, iron, fuel, crystal);
           const battleId = data?.id as string | undefined;
           toast({ title: "Attack Deployed", description: "Battle will resolve in 10 minutes." });
-          setAttackModalOpen(false);
           if (battleId) setWatchingBattleId(battleId);
         },
         onError: (error) => toast({ title: "Attack Failed", description: error.message, variant: "destructive" }),
@@ -362,8 +350,9 @@ export function GameLayout() {
       return;
     }
     if (!player || !selectedParcelId || !selectedParcel) return;
+    // One nonce per logical action — reused if React-Query retries this mutate().
     buildMutation.mutate(
-      { playerId: player.id, parcelId: selectedParcelId, improvementType: type },
+      { playerId: player.id, parcelId: selectedParcelId, improvementType: type, idempotencyKey: safeUuid() },
       {
         onSuccess: () => {
           queueBuildAction(selectedParcel.plotId, type);
@@ -404,7 +393,6 @@ export function GameLayout() {
       {
         onSuccess: () => {
           toast({ title: "Territory Acquired", description: "New land is now yours." });
-          tutorial.notifyEvent("plot_purchased");
           setSelectedParcelId(null);
         },
         onError: (error) => toast({ title: "Purchase Failed", description: error.message, variant: "destructive" }),
@@ -435,11 +423,9 @@ export function GameLayout() {
     if (!player) return;
     setIsRetryingCommanderMintId(commanderId);
     try {
-      const res = await fetch(`/api/nft/retry-commander/${commanderId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId: player.id }),
-      });
+      // apiRequest attaches the session (Bearer token + credentials); the
+      // retry endpoint is session-bound, so a raw fetch would be rejected 401.
+      const res = await apiRequest("POST", `/api/nft/retry-commander/${commanderId}`, { playerId: player.id });
       const data = await res.json();
       if (data.success) {
         toast({ title: "Mint Restarted", description: "Your Commander NFT is being minted. The badge will update when it's ready to claim." });
@@ -460,18 +446,18 @@ export function GameLayout() {
   const handleMintAvatar = async (tier: CommanderTier) => {
     if (!player) return;
 
-    // Fetch pricing — response now returns frntrCost (primary currency) and
+    // Fetch pricing — response now returns ascendCost (primary currency) and
     // algoNetworkFee (unavoidable Algorand tx fee, ~0.001 ALGO, wallet handles automatically).
-    let frntrCost = 0;
+    let ascendCost = 0;
     try {
       const priceRes = await fetch(`/api/nft/commander-price/${tier}`);
       if (!priceRes.ok) throw new Error("Could not fetch commander price");
-      const priceData: { frntrCost: number; algoNetworkFee: number; note: string; economyMode: string } = await priceRes.json();
-      frntrCost = priceData.frntrCost;
+      const priceData: { ascendCost: number; algoNetworkFee: number; note: string; economyMode: string } = await priceRes.json();
+      ascendCost = priceData.ascendCost;
 
       toast({
         title: "Minting Commander",
-        description: `Cost: ${frntrCost} ASCEND${priceData.economyMode === "testing" ? " (testing price)" : ""}. The Algorand network fee (~${priceData.algoNetworkFee} ALGO) is handled by your wallet automatically.`,
+        description: `Cost: ${ascendCost} ASCEND${priceData.economyMode === "testing" ? " (testing price)" : ""}. The Algorand network fee (~${priceData.algoNetworkFee} ALGO) is handled by your wallet automatically.`,
       });
     } catch (fetchErr) {
       toast({
@@ -489,7 +475,7 @@ export function GameLayout() {
       return;
     }
     let algoPaymentTxId: string | undefined;
-    const txResult = await signCommanderMintAction(tier, frntrCost);
+    const txResult = await signCommanderMintAction(tier, ascendCost);
     if (!txResult || txResult === "cancelled") return; // wallet rejected or closed
     if (typeof txResult === "string") algoPaymentTxId = txResult;
 
@@ -502,7 +488,7 @@ export function GameLayout() {
           if (nft?.assetId) {
             toast({
               title: "Commander Minted + NFT Created!",
-              description: `${data.avatar?.name || tier} Commander is ready. ${frntrCost} ASCEND spent. NFT ASA ${nft.assetId} held in custody — open Commander Panel to claim.`,
+              description: `${data.avatar?.name || tier} Commander is ready. ${ascendCost} ASCEND spent. NFT ASA ${nft.assetId} held in custody — open Commander Panel to claim.`,
             });
           } else {
             toast({
@@ -742,7 +728,7 @@ export function GameLayout() {
     );
   }
 
-  if (!isConnected) {
+  if (!isConnected && !TEST_GLOBE) {
     return (
       <div className="min-h-screen overflow-y-auto bg-background flex flex-col" data-testid="wallet-gate">
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
@@ -782,7 +768,7 @@ export function GameLayout() {
     onMineParcel: handleMineParcel,
     isMiningParcel,
     onUpgrade: handleUpgrade,
-    onAttack: handleAttackClick,
+    onAttack: () => handleRequestAttack(),
     isMining: mineMutation.isPending,
     isUpgrading: upgradeMutation.isPending,
     isCollecting: collectMutation.isPending,
@@ -798,14 +784,14 @@ export function GameLayout() {
     <div className="relative h-screen w-screen overflow-hidden bg-black" data-testid="game-layout">
       {gameState ? (
         <>
-          <div className="absolute inset-0 w-full h-full" data-tutorial="map-area">
+          <div className="absolute inset-0 w-full h-full">
             <PlanetGlobe
               parcels={gameState.parcels}
               players={gameState.players}
               currentPlayerId={player?.id || null}
               selectedParcelId={selectedParcelId}
               onParcelSelect={handleParcelSelect}
-              onAttack={handleAttackClick}
+              onAttack={() => handleRequestAttack()}
               onMine={handleMine}
               onBuild={() => { /* LandSheet handles upgrades — stay on map */ }}
               onPurchase={handlePurchase}
@@ -818,8 +804,6 @@ export function GameLayout() {
               replayVisibleTypes={replayVisibleTypes}
               streamMode={streamMode}
               flyRequestId={flyRequestId}
-              tutorialLat={tutorialLat}
-              tutorialLng={tutorialLng}
               nftInfo={null}
               onDeliverNft={undefined}
               isDeliveringNft={false}
@@ -913,21 +897,21 @@ export function GameLayout() {
         </div>
       )}
 
-      {isConnected && frontierAsaId && isOptedInToFrontier === false && (
+      {isConnected && ascendAsaId && isOptedInToAscend === false && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30" data-testid="opt-in-banner">
           <Button
-            onClick={signOptInToFrontier}
+            onClick={signOptInToAscend}
             className="gap-2 font-display uppercase tracking-wide text-xs animate-pulse"
             data-testid="button-opt-in-frontier"
           >
             <Coins className="w-4 h-4" />
-            Opt-In to ASCEND Token (ASA #{frontierAsaId})
+            Opt-In to ASCEND Token (ASA #{ascendAsaId})
           </Button>
         </div>
       )}
 
 
-      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 left-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-r border-border overflow-hidden" data-tutorial="buy-plot">
+      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 left-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-r border-border overflow-hidden">
         {isLoading ? (
           <div className="p-4 space-y-3">
             <Skeleton className="h-24 w-full" />
@@ -939,11 +923,15 @@ export function GameLayout() {
         )}
       </aside>
 
-      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden">
+      <aside 
+        className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
+        style={{ "--right-menu-width": "18rem" } as React.CSSProperties}
+      >
         <div className="flex border-b border-border shrink-0">
           {(
             [
               { id: "warroom",   icon: Swords,          label: "War"      },
+              { id: "armory",    icon: Crosshair,       label: "Armory"   },
               { id: "commander", icon: Shield,          label: "Commander"},
               { id: "rankings",  icon: Trophy,          label: "Rankings" },
               { id: "trade",     icon: ArrowLeftRight,  label: "Trade"    },
@@ -973,6 +961,16 @@ export function GameLayout() {
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-48 w-full" />
           </div>
+        ) : desktopRightTab === "armory" ? (
+          <div className="flex-1 overflow-y-auto">
+            {player ? (
+              <ArmoryPanel playerId={player.id} />
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                Connect your wallet to access the Armory.
+              </div>
+            )}
+          </div>
         ) : desktopRightTab === "trade" ? (
           <TradeStationPanel
             currentPlayerId={player?.id ?? ""}
@@ -987,7 +985,7 @@ export function GameLayout() {
         ) : desktopRightTab === "markets" ? (
           <PredictionMarketsPanel
             currentPlayerId={player?.id ?? ""}
-            currentPlayerFrontier={player?.frontier ?? 0}
+            currentPlayerAscend={player?.ascend ?? 0}
             className="flex-1 border-0 rounded-none overflow-hidden"
           />
         ) : desktopRightTab === "commander" ? (
@@ -1004,6 +1002,7 @@ export function GameLayout() {
             isDeployingSatellite={deploySatelliteMutation.isPending}
             isClaimingCommanderNft={isClaimingCommanderNft}
             isAttacking={attackMutation.isPending}
+            openBattlefrontSignal={attackIntent}
             selectedParcel={selectedParcel}
             ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
             wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
@@ -1052,6 +1051,17 @@ export function GameLayout() {
               onViewOnGlobe={handleViewOnGlobe}
             />
           )}
+          {activeTab === "armory" && (
+            <div className="h-full overflow-y-auto">
+              {player ? (
+                <ArmoryPanel playerId={player.id} />
+              ) : (
+                <div className="p-8 text-center text-muted-foreground">
+                  Connect your wallet to access the Armory.
+                </div>
+              )}
+            </div>
+          )}
           {activeTab === "commander" && gameState && (
             <CommanderPanel
               player={player}
@@ -1066,6 +1076,7 @@ export function GameLayout() {
               isDeployingSatellite={deploySatelliteMutation.isPending}
               isClaimingCommanderNft={isClaimingCommanderNft}
               isAttacking={attackMutation.isPending}
+              openBattlefrontSignal={attackIntent}
               selectedParcel={selectedParcel}
               ownedParcels={gameState.parcels.filter(p => p.ownerId === player?.id)}
               wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
@@ -1096,7 +1107,7 @@ export function GameLayout() {
           {activeTab === "markets" && (
             <PredictionMarketsPanel
               currentPlayerId={player?.id ?? ""}
-              currentPlayerFrontier={player?.frontier ?? 0}
+              currentPlayerAscend={player?.ascend ?? 0}
               className="h-full"
             />
           )}
@@ -1113,8 +1124,11 @@ export function GameLayout() {
       )}
 
       {/* ── Plot Action Surface ─────────────────────────────────────────────────
-           Shown for ANY selected plot (mobile + desktop).
-           Mobile: slides above BottomNav (z-55). Desktop: floating card (z-55).
+           Shown for ANY selected plot (mobile + desktop). Real parcel data + the
+           live claim CTA (no mock/demo values). SelectedPlotPanel portals to body
+           with its own stacking context and clamps clear of the right rail, so it
+           can never sit behind a menu.
+           Mobile → MobilePlotSheet (above BottomNav). Desktop → floating card.
            The full LandSheet opens separately when the player taps "Manage Plot".
       ────────────────────────────────────────────────────────────────────────── */}
       {activeTab === "map" && selectedParcel && (
@@ -1125,10 +1139,7 @@ export function GameLayout() {
           onClaim={handlePurchase}
           isClaiming={purchaseMutation.isPending}
           isWalletConnected={isWalletConnected}
-          onOpenFullSheet={() => {
-            setShowFullLandSheet(true);
-            tutorial.notifyEvent("landsheet_opened");
-          }}
+          onOpenFullSheet={() => setShowFullLandSheet(true)}
           onClose={() => setSelectedParcelId(null)}
         />
       )}
@@ -1140,7 +1151,7 @@ export function GameLayout() {
           player={player}
           onMine={handleMine}
           onUpgrade={handleUpgrade}
-          onAttack={handleAttackClick}
+          onAttack={() => handleRequestAttack()}
           onBuild={handleBuild}
           onPurchase={handlePurchase}
           onSpecialAttack={handleSpecialAttack}
@@ -1161,21 +1172,7 @@ export function GameLayout() {
         />
       )}
 
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} battleCount={activeBattleCount} />
-
-      <AttackModal
-        open={attackModalOpen}
-        onOpenChange={setAttackModalOpen}
-        targetParcel={selectedParcel}
-        attacker={player}
-        ownedParcels={
-          gameState
-            ? gameState.parcels.filter((p) => player && p.ownerId === player.id)
-            : []
-        }
-        onAttack={handleAttackConfirm}
-        isAttacking={attackMutation.isPending}
-      />
+      <HudShell activeTab={activeTab} onTabChange={handleTabChange} battleCount={activeBattleCount} />
 
       <BattleWatchModal
         open={!!watchingBattleId}
@@ -1199,45 +1196,6 @@ export function GameLayout() {
           seasonName={seasonName ?? null}
         />
       )}
-
-      {/* Tutorial test button — lower left, always visible for testing */}
-      <button
-        onClick={tutorial.resetAndOpen}
-        className="absolute bottom-20 left-3 z-40 md:bottom-4 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full select-none transition-opacity opacity-60 hover:opacity-100"
-        style={{
-          background: "rgba(4,8,20,0.85)",
-          border: "1px solid rgba(0,229,255,0.3)",
-          backdropFilter: "blur(8px)",
-          fontFamily: "monospace",
-          fontSize: 10,
-          letterSpacing: "0.15em",
-          color: "rgba(0,229,255,0.85)",
-        }}
-        title="Restart Tutorial"
-        data-testid="button-tutorial-restart"
-      >
-        <BookOpen style={{ width: 11, height: 11 }} />
-        TUTORIAL
-      </button>
-
-      {/* Onboarding tutorial — shown to first-time users */}
-      <TutorialOverlay
-        isOpen={tutorial.isOpen}
-        step={tutorial.step}
-        steps={TUTORIAL_STEPS}
-        onNext={tutorial.next}
-        onBack={tutorial.back}
-        onSkip={tutorial.complete}
-        onFinish={tutorial.complete}
-        onClaim={async () => {
-          if (!player || !selectedParcel || !selectedParcelId) return;
-          // Trigger the purchase (which will pop the wallet and sign)
-          handlePurchase();
-          // Wait a bit for the mutation to be called
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }}
-        isClaimingPlot={purchaseMutation.isPending}
-      />
 
       {/* Live Activity Feed overlay — streams world events in real-time */}
       <ActivityFeed />

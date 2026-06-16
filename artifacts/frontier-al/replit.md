@@ -5,7 +5,7 @@ Frontier AL is a massive-scale strategy game set on a 3D globe, where players co
 ## Project Status
 - **Phase**: Production Ready
 - **Network**: Algorand Testnet
-- **ASA ID**: 755818217 (FRONTIER / FRNTR)
+- **ASA ID**: 755818217 (FRONTIER / ASCEND)
 - **Factions**:
   - NEXUS-7 (756388635)
   - KRONOS (756388636)
@@ -165,7 +165,7 @@ Frontier AL is a massive-scale strategy game set on a 3D globe, where players co
 - [ ] Record new mainnet ASA IDs, update this file's Project Status section
 - [ ] Set `FORCE_NEW_ASA=false` (remove or set to false)
 - [ ] Verify `GET /health` returns 200 on mainnet
-- [ ] Test wallet connect (Pera) + ASA opt-in + FRNTR claim on mainnet
+- [ ] Test wallet connect (Pera) + ASA opt-in + ASCEND claim on mainnet
 - [ ] Test land purchase + NFT mint on mainnet
 - [ ] Confirm WebSocket broadcasts work (open two browser tabs)
 - [ ] Set `AI_ENABLED=false` confirmed
@@ -203,7 +203,7 @@ The app is now **production-ready** with all core systems stable and tested:
 - ✅ Commander NFT pipeline working (Sentinel, Phantom, Reaper tiers)
 - ✅ Landing page mobile responsive
 - ✅ Terraform DB fields initialized on all 21,000 parcels
-- ✅ Economy mode active (50 FRNTR/day testing emission)
+- ✅ Economy mode active (50 ASCEND/day testing emission)
 
 ### Focus Areas for Testers
 1. **Critical Loops**: Commander NFT minting, land ownership, faction AI behavior

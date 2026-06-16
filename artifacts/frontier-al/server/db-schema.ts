@@ -17,6 +17,7 @@ import {
   text,
   index,
 } from "drizzle-orm/pg-core";
+import type { ResolutionSource } from "@shared/schema";
 
 // ─── plot_nfts ─────────────────────────────────────────────────────────────
 // Tracks on-chain Algorand ASA (NFT) minting state per plot.
@@ -74,6 +75,43 @@ export const commanderMintIdempotency = pgTable("commander_mint_idempotency", {
   updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
 
+// ─── redeemed_payments ────────────────────────────────────────────────────────
+// Replay protection for ALGO payment transactions. A payment txid may be
+// redeemed for EXACTLY ONE purchase (plot or commander) — the PRIMARY KEY on
+// tx_id is the atomic guard: the first INSERT wins, every later attempt
+// conflicts. verifyAlgoPayment() alone is a stateless indexer read and must
+// never be the only gate.
+// Rows are deleted only when the downstream mutation fails after claiming
+// (so a failed purchase does not burn the buyer's payment).
+
+export const redeemedPayments = pgTable("redeemed_payments", {
+  txId:       text("tx_id").primaryKey(),                    // Algorand payment txid
+  purpose:    varchar("purpose", { length: 20 }).notNull(),  // 'plot_purchase' | 'commander_mint'
+  refId:      text("ref_id"),                                // parcelId / commander tier
+  playerId:   varchar("player_id", { length: 36 }),
+  redeemedAt: bigint("redeemed_at", { mode: "number" }).notNull(),
+});
+
+// ─── action_nonces ────────────────────────────────────────────────────────────
+// Idempotency guard for mutating game actions. The PRIMARY KEY on `key`
+// (`${action}:${playerId}[:${target}]:${nonce}`) makes the first claim win
+// atomically across instances. Two-phase: the first request claims the key
+// (`response_json` NULL → in-flight), then persists its success body into
+// `response_json` so a later duplicate of the same nonce REPLAYS the original
+// response (200) instead of erroring. A duplicate seen while the first is still
+// in-flight (response_json NULL) gets 409. See createActionIdempotencyGuard.
+export const actionNonces = pgTable("action_nonces", {
+  key:          text("key").primaryKey(),                       // `${action}:${playerId}[:${target}]:${nonce}`
+  playerId:     varchar("player_id", { length: 36 }).notNull(),
+  action:       varchar("action", { length: 40 }).notNull(),
+  createdAt:    bigint("created_at", { mode: "number" }).notNull(),
+  responseJson: text("response_json"),                          // success body for replay; NULL while in-flight
+  completedAt:  bigint("completed_at", { mode: "number" }),     // when the success body was persisted
+}, (t) => ({
+  // Supports the ID-004 TTL prune (DELETE WHERE created_at < cutoff).
+  createdIdx: index("action_nonces_created_idx").on(t.createdAt),
+}));
+
 // ─── ai_faction_identities ────────────────────────────────────────────────────
 // One row per AI faction. Records the on-chain Algorand ASA that serves as
 // that faction's permanent identity token. Minted once at world init.
@@ -111,14 +149,14 @@ export const players = pgTable("players", {
   iron:                 integer("iron").notNull().default(0),
   fuel:                 integer("fuel").notNull().default(0),
   crystal:              integer("crystal").notNull().default(0),
-  frontier:             integer("frontier").notNull().default(0),
+  ascend:             integer("frontier").notNull().default(0),
   isAi:                 boolean("is_ai").notNull().default(false),
   aiBehavior:           varchar("ai_behavior", { length: 20 }),
   totalIronMined:       integer("total_iron_mined").notNull().default(0),
   totalFuelMined:       integer("total_fuel_mined").notNull().default(0),
   totalCrystalMined:    real("total_crystal_mined").notNull().default(0),
-  totalFrontierEarned:  real("total_frontier_earned").notNull().default(0),
-  totalFrontierBurned:  real("total_frontier_burned").notNull().default(0),
+  totalAscendEarned:  real("total_frontier_earned").notNull().default(0),
+  totalAscendBurned:  real("total_frontier_burned").notNull().default(0),
   attacksWon:           integer("attacks_won").notNull().default(0),
   attacksLost:          integer("attacks_lost").notNull().default(0),
   territoriesCaptured:  integer("territories_captured").notNull().default(0),
@@ -127,10 +165,12 @@ export const players = pgTable("players", {
   specialAttacks:       jsonb("special_attacks").$type<object[]>().notNull().default([]),
   drones:               jsonb("drones").$type<object[]>().notNull().default([]),
   satellites:           jsonb("satellites").$type<object[]>().notNull().default([]),
+  /** Weapon-system progression (archetype/attributes/badges/loadout/stats). NULL until first built. */
+  weaponProfile:        jsonb("weapon_profile").$type<import("../shared/weapons").PlayerWeaponProfile>(),
   welcomeBonusReceived: boolean("welcome_bonus_received").notNull().default(false),
-  frntrBalanceMicro:    bigint("frntr_balance_micro", { mode: "number" }).notNull().default(0),
-  frntrReadyMicro:      bigint("frntr_ready_micro",   { mode: "number" }).notNull().default(0),
-  frntrClaimedMicro:    bigint("frntr_claimed_micro",  { mode: "number" }).notNull().default(0),
+  ascendBalanceMicro:    bigint("frntr_balance_micro", { mode: "number" }).notNull().default(0),
+  ascendReadyMicro:      bigint("frntr_ready_micro",   { mode: "number" }).notNull().default(0),
+  ascendClaimedMicro:    bigint("frntr_claimed_micro",  { mode: "number" }).notNull().default(0),
   /** Timestamp (ms) until which morale debuff is active — reduces attack power. */
   moraleDebuffUntil:    bigint("morale_debuff_until", { mode: "number" }).notNull().default(0),
   /** Timestamp (ms) until which new attacks cannot be launched (cooldown). */
@@ -180,9 +220,9 @@ export const parcels = pgTable(
     yieldMultiplier:      real("yield_multiplier").notNull().default(1.0),
     improvements:         jsonb("improvements").$type<object[]>().notNull().default([]),
     purchasePriceAlgo:    real("purchase_price_algo"),
-    frontierAccumulated:  real("frontier_accumulated").notNull().default(0),
-    lastFrontierClaimTs:  bigint("last_frontier_claim_ts", { mode: "number" }).notNull().default(0),
-    frontierPerDay:       real("frontier_per_day").notNull().default(1),
+    ascendAccumulated:  real("frontier_accumulated").notNull().default(0),
+    lastAscendClaimTs:  bigint("last_frontier_claim_ts", { mode: "number" }).notNull().default(0),
+    ascendPerDay:       real("frontier_per_day").notNull().default(1),
 
     // ── Reconquest Tracking ────────────────────────────────────────────────
     // Set when a human player captures a plot previously owned by an AI faction.
@@ -332,7 +372,7 @@ export const subParcels = pgTable(
     ownerType:             varchar("owner_type", { length: 10 }),
     improvements:          jsonb("improvements").$type<object[]>().notNull().default([]),
     resourceYieldFraction: real("resource_yield_fraction").notNull().default(1.0 / 9.0),
-    purchasePriceFrontier: real("purchase_price_frontier").notNull().default(50),
+    purchasePriceAscend: real("purchase_price_frontier").notNull().default(50),
     acquiredAt:            bigint("acquired_at", { mode: "number" }),
     activeBattleId:        varchar("active_battle_id", { length: 36 }),
     createdAt:             bigint("created_at", { mode: "number" }).notNull(),
@@ -366,7 +406,7 @@ export const subParcelListings = pgTable(
     subIndex:            integer("sub_index").notNull(),
     sellerId:            varchar("seller_id", { length: 36 }).notNull(),
     sellerName:          varchar("seller_name", { length: 100 }).notNull(),
-    askPriceFrontier:    real("ask_price_frontier").notNull(),
+    askPriceAscend:    real("ask_price_frontier").notNull(),
     status:              varchar("status", { length: 20 }).notNull().default("open"),
     createdAt:           bigint("created_at", { mode: "number" }).notNull(),
     buyerId:             varchar("buyer_id", { length: 36 }),
@@ -433,7 +473,7 @@ export type TreasuryLedgerRow    = typeof treasuryLedger.$inferSelect;
 export type InsertTreasuryLedger = typeof treasuryLedger.$inferInsert;
 
 // ─── prediction_markets ───────────────────────────────────────────────────────
-// Binary outcome prediction markets where players wager FRONTIER tokens.
+// Binary outcome prediction markets where players wager ASCEND tokens.
 // Status lifecycle: open → closed → resolved | cancelled
 // All payouts remain as in-game FRONTIER balance (no on-chain settlement in v1).
 
@@ -456,6 +496,11 @@ export const predictionMarkets = pgTable(
     createdBy:           varchar("created_by", { length: 36 }).notNull().default("admin"),
     relatedEventId:      varchar("related_event_id", { length: 36 }),
     createdAt:           bigint("created_at", { mode: "number" }).notNull(),
+    // ── Provably-fair resolution (additive, nullable for legacy rows) ──────────
+    resolutionSource:    jsonb("resolution_source").$type<ResolutionSource>(),       // immutable, declared at creation
+    resolutionCutoffTs:  bigint("resolution_cutoff_ts", { mode: "number" }),          // staking lock
+    resolvedInputs:      jsonb("resolved_inputs").$type<Record<string, unknown>>(),   // facts read at resolution
+    resolutionHash:      varchar("resolution_hash", { length: 64 }),                  // sha256 proof
   },
   (t) => ({
     statusIdx:     index("prediction_markets_status_idx").on(t.status),
@@ -520,14 +565,14 @@ export type InsertLootBoxInventory = typeof lootBoxInventory.$inferInsert;
 //
 // Status lifecycle: pending → sent | failed (failed after MAX_ATTEMPTS)
 
-export const pendingFrontierTransfers = pgTable(
+export const pendingAscendTransfers = pgTable(
   "pending_frontier_transfers",
   {
     id:                 text("id").primaryKey(),                                    // UUID
     recipientAddress:   text("recipient_address").notNull(),                        // Algorand wallet address
     recipientPlayerId:  text("recipient_player_id"),                               // nullable — populated for known players
-    amount:             bigint("amount", { mode: "number" }).notNull(),             // FRONTIER tokens (whole units, not micro)
-    reason:             text("reason").notNull(),                                   // 'welcome_bonus' | 'claim_frontier' | 'mining_yield'
+    amount:             bigint("amount", { mode: "number" }).notNull(),             // ASCEND tokens (whole units, not micro)
+    reason:             text("reason").notNull(),                                   // 'welcome_bonus' | 'claim_ascend' | 'mining_yield'
     status:             varchar("status", { length: 10 }).notNull().default("pending"), // pending | sent | failed
     attempts:           integer("attempts").notNull().default(0),
     lastError:          text("last_error"),
@@ -540,5 +585,5 @@ export const pendingFrontierTransfers = pgTable(
   })
 );
 
-export type PendingFrontierTransferRow    = typeof pendingFrontierTransfers.$inferSelect;
-export type InsertPendingFrontierTransfer = typeof pendingFrontierTransfers.$inferInsert;
+export type PendingAscendTransferRow    = typeof pendingAscendTransfers.$inferSelect;
+export type InsertPendingAscendTransfer = typeof pendingAscendTransfers.$inferInsert;

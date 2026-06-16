@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { queryClient } from "@/lib/queryClient";
+import { getAuthToken } from "@/lib/authToken";
 import type { GameState } from "@shared/schema";
 import type { WorldEvent } from "@shared/worldEvents";
 
@@ -76,20 +77,63 @@ function dispatchChainHealth(health: ChainHealth): void {
   }
 }
 
-export function useGameSocket() {
+// ── Global weapon-engagement bus (live missile/intercept FX) ──────────────────
+/** Serialized runtime engagement streamed from the server on `weapon_engagement`. */
+export interface WeaponEngagementEvent {
+  id: string;
+  weaponSpecId: string;
+  from: { lat: number; lng: number };
+  to: { lat: number; lng: number };
+  launchTs: number;
+  tof: number;
+  status: "in_flight" | "intercepted" | "impacted";
+  interceptAt?: { lat: number; lng: number };
+  interceptTs?: number;
+}
+type WeaponEngagementCallback = (e: WeaponEngagementEvent) => void;
+const _weaponCallbacks: Map<number, WeaponEngagementCallback> = new Map();
+let _weaponCallbackId = 0;
+
+/** Register a callback to receive live weapon engagements in real-time. */
+export function onWeaponEngagement(cb: WeaponEngagementCallback): () => void {
+  const id = ++_weaponCallbackId;
+  _weaponCallbacks.set(id, cb);
+  return () => _weaponCallbacks.delete(id);
+}
+
+function dispatchWeaponEngagement(e: WeaponEngagementEvent): void {
+  for (const cb of _weaponCallbacks.values()) {
+    try { cb(e); } catch { /* ignore */ }
+  }
+}
+
+/**
+ * @param authTrigger Pass a value that changes when wallet auth completes (e.g.
+ * `isAuthenticated`). The socket reconnects — now carrying the session token —
+ * so the server can authenticate it and scope broadcasts to this player.
+ */
+export function useGameSocket(authTrigger?: unknown) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectCount = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Auth state changed — restart the attempt budget so a previously
+    // exhausted (unauthenticated) loop reconnects with the new token.
+    reconnectCount.current = 0;
+
     function connect() {
       if (reconnectCount.current >= WS_MAX_RECONNECTS) return;
 
       // MIGRATION: WebSocket URL now driven by VITE_WS_URL env var
       const wsBase = import.meta.env.VITE_WS_URL;
-      const url = wsBase
+      const base = wsBase
         ? `${wsBase}/ws`
         : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+      // Browsers can't set headers on a WebSocket — pass the session token as a
+      // query param so the server can authenticate the connection.
+      const token = getAuthToken();
+      const url = token ? `${base}?token=${encodeURIComponent(token)}` : base;
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
@@ -119,6 +163,10 @@ export function useGameSocket() {
           if (msg.type === "chain_health" && msg.payload) {
             dispatchChainHealth(msg.payload as ChainHealth);
           }
+          // Live weapon engagement (missile launch / interception / impact)
+          if (msg.type === "weapon_engagement" && msg.payload) {
+            dispatchWeaponEngagement(msg.payload as WeaponEngagementEvent);
+          }
         } catch { /* ignore malformed */ }
       };
 
@@ -137,7 +185,7 @@ export function useGameSocket() {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
-  }, []);
+  }, [authTrigger]);
 }
 
 /**

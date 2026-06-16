@@ -51,7 +51,7 @@ interface PlayerStats {
   totalIronMined: number;
   totalFuelMined: number;
   totalCrystalMined: number;
-  totalFrontierEarned: number;
+  totalAscendEarned: number;
   attacksWon: number;
   attacksLost: number;
   hasCommander: boolean;
@@ -212,7 +212,7 @@ function autoDetectCompletions(stats: PlayerStats, isConnected: boolean): Set<st
   if (isConnected) auto.add("wallet-connect");
   if (stats.territories > 0) auto.add("purchase-land");
   if (stats.totalIronMined > 0 || stats.totalFuelMined > 0) auto.add("mine-resources");
-  if (stats.totalFrontierEarned > 0) auto.add("claim-frontier");
+  if (stats.totalAscendEarned > 0) auto.add("claim-frontier");
   if (stats.attacksWon > 0 || stats.attacksLost > 0) auto.add("pve-combat");
   if (stats.hasCommander) auto.add("commander-mint");
   return auto;
@@ -487,7 +487,7 @@ ${completedList}`;
                 <div className="text-[10px] font-display uppercase tracking-wider text-muted-foreground">Battles</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-primary">{stats.totalFrontierEarned.toFixed(1)}</div>
+                <div className="text-lg font-bold text-primary">{stats.totalAscendEarned.toFixed(1)}</div>
                 <div className="text-[10px] font-display uppercase tracking-wider text-muted-foreground">ASCEND Earned</div>
               </div>
             </div>
@@ -841,7 +841,7 @@ ${completedList}`;
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <a
-              href="https://github.com/KudbeeZero/Frontier-Al/issues/new"
+              href="https://github.com/KudbeeZero/FRONTIERNeXt/issues/new"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-4 p-4 bg-card border border-border rounded-md hover:border-primary/50 transition-all group"

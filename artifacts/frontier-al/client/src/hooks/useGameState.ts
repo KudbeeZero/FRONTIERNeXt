@@ -1,6 +1,8 @@
 import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { safeUuid } from "@/lib/safeUuid";
 import type { GameState, MineAction, UpgradeAction, AttackAction, BuildAction, PurchaseAction, MintAvatarAction, SpecialAttackAction, DeployDroneAction, DeploySatelliteAction } from "@shared/schema";
+import { COMMANDER_INFO } from "@shared/schema";
 
 export function useGameState() {
   return useQuery<GameState>({
@@ -77,7 +79,13 @@ export function useMine() {
 export function useUpgrade() {
   return useMutation({
     mutationFn: async (action: UpgradeAction) => {
-      const response = await apiRequest("POST", "/api/actions/upgrade", action);
+      // Idempotency nonce — reuse the key the caller generated for THIS logical
+      // action (stable across retries), or fall back to a fresh one. The server
+      // dedups a double-submit/replay and replays the original result.
+      const response = await apiRequest("POST", "/api/actions/upgrade", {
+        ...action,
+        idempotencyKey: action.idempotencyKey ?? safeUuid(),
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -101,7 +109,13 @@ export function useAttack() {
 export function useBuild() {
   return useMutation({
     mutationFn: async (action: BuildAction) => {
-      const response = await apiRequest("POST", "/api/actions/build", action);
+      // Idempotency nonce — reuse the key the caller generated for THIS logical
+      // action (stable across retries), or fall back to a fresh one. The server
+      // dedups a double-submit/replay and replays the original result.
+      const response = await apiRequest("POST", "/api/actions/build", {
+        ...action,
+        idempotencyKey: action.idempotencyKey ?? safeUuid(),
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -136,10 +150,15 @@ export function useCollectAll() {
   });
 }
 
-export function useClaimFrontier() {
+export function useClaimAscend() {
   return useMutation({
     mutationFn: async (playerId: string) => {
-      const response = await apiRequest("POST", "/api/actions/claim-frontier", { playerId });
+      // Idempotency nonce — the server dedups a double-submit/replay and replays
+      // the original result. safeUuid never throws in non-secure contexts.
+      const response = await apiRequest("POST", "/api/actions/claim-frontier", {
+        playerId,
+        idempotencyKey: safeUuid(),
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -163,7 +182,9 @@ export function useMintAvatar() {
           ...old,
           players: old.players.map(p =>
             p.id === action.playerId
-              ? { ...p, frontier: Math.max(0, p.frontier - 50) } // Optimistic: reduce by sentinel cost (minimum)
+              // Optimistic: deduct the real ASCEND mint cost for the chosen tier
+              // (server is authoritative; this just keeps the UI honest in-flight).
+              ? { ...p, ascend: Math.max(0, (p.ascend ?? 0) - (COMMANDER_INFO[action.tier]?.mintCostAscend ?? 0)) }
               : p
           ),
         };

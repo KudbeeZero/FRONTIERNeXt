@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "model_id": "music_v1",
+  "output_format": "mp3_44100_128",
+  "tracks": [
+    {
+      "id": "title_intro",
+      "length_ms": 15000,
+      "loop": false,
+      "notes": "Plays on BEGIN / scene open, under the title dissolve into the wake-up.",
+      "prompt": "Ambient cinematic sci-fi title cue, about fifteen seconds. A lone fragile female-coded synth pad drifting over deep space, a slow swelling string bed, a single distant piano note, faint shimmer like a damaged hologram. Hopeful but wounded — the sound of waking alone far from home, a small red planet ahead. No drums, no percussion, no vocals. Soft, spacious, emotional, builds gently then settles."
+    }
+  ]
+}

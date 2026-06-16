@@ -14,9 +14,10 @@ import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/rea
 import { cn } from "@/lib/utils";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
 import {
-  COMMANDER_INFO, SPECIAL_ATTACK_INFO, DRONE_MINT_COST_FRONTIER, MAX_DRONES,
-  DRONE_SCOUT_DURATION_MS, SATELLITE_DEPLOY_COST_FRONTIER, MAX_SATELLITES,
+  COMMANDER_INFO, SPECIAL_ATTACK_INFO, DRONE_MINT_COST_ASCEND, MAX_DRONES,
+  DRONE_SCOUT_DURATION_MS, SATELLITE_DEPLOY_COST_ASCEND, MAX_SATELLITES,
   SATELLITE_ORBIT_DURATION_MS, SATELLITE_YIELD_BONUS, ATTACK_BASE_COST, biomeBonuses,
+  BATTLE_DURATION_MS,
 } from "@shared/schema";
 import type { SubParcel } from "@shared/schema";
 import sentinelImg from "@assets/image_1771570491560.png";
@@ -407,6 +408,8 @@ export interface CommanderPanelProps {
   isDeployingSatellite: boolean;
   isClaimingCommanderNft?: boolean;
   isAttacking?: boolean;
+  /** Bumped by the parent when the player taps "Attack" elsewhere — opens the Battlefront. */
+  openBattlefrontSignal?: number;
   selectedParcel?: LandParcel | null;
   ownedParcels?: LandParcel[];
   wallet?: { isConnected: boolean; address: string | null };
@@ -418,7 +421,7 @@ export interface CommanderPanelProps {
 export function CommanderPanel({
   player, onMintAvatar, onDeployDrone, onDeploySatellite, onSwitchCommander,
   onClaimCommanderNft, onAttack, isMinting, isDeployingDrone, isDeployingSatellite,
-  isClaimingCommanderNft, isAttacking, selectedParcel, ownedParcels = [],
+  isClaimingCommanderNft, isAttacking, openBattlefrontSignal, selectedParcel, ownedParcels = [],
   wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
 }: CommanderPanelProps) {
   const queryClient = useQueryClient();
@@ -429,6 +432,7 @@ export function CommanderPanel({
 
   // Battlefront state
   const [battlefrontOpen, setBattlefrontOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [attackMode, setAttackMode] = useState<"plot" | "sub-parcel">("plot");
   const [targetParcelId, setTargetParcelId] = useState<string>("");
   const [targetPlotId, setTargetPlotId] = useState<string>("");
@@ -454,7 +458,21 @@ export function CommanderPanel({
     if (ownedParcels.length > 0 && !sourceParcelId) setSourceParcelId(ownedParcels[0].id);
   }, [ownedParcels]);
 
-  const { data: selectedTierPrice } = useQuery<{ frntrCost: number; algoNetworkFee: number; adminAddress: string; economyMode: string; currency: string }>({
+  // Open the Battlefront when the parent signals an attack request (e.g. the
+  // player tapped "Attack" on a plot/map). Ignores the initial 0 value.
+  const attackSignalRef = useRef(openBattlefrontSignal);
+  useEffect(() => {
+    if (openBattlefrontSignal === undefined) return;
+    if (openBattlefrontSignal !== attackSignalRef.current) {
+      attackSignalRef.current = openBattlefrontSignal;
+      if (openBattlefrontSignal > 0) {
+        setBattlefrontOpen(true);
+        setAttackMode("plot");
+      }
+    }
+  }, [openBattlefrontSignal]);
+
+  const { data: selectedTierPrice } = useQuery<{ ascendCost: number; algoNetworkFee: number; adminAddress: string; economyMode: string; currency: string }>({
     queryKey: ["/api/nft/commander-price", selectedTier],
     queryFn: async () => { const r = await fetch(`/api/nft/commander-price/${selectedTier}`); if (!r.ok) throw new Error(); return r.json(); },
     staleTime: 60_000, retry: false,
@@ -623,9 +641,9 @@ export function CommanderPanel({
             { icon: <Target className="w-3.5 h-3.5" />, value: totalBattles, label: "My Battles", color: "#4fc3f7" },
             { icon: <CheckCircle2 className="w-3.5 h-3.5" />, value: player.attacksWon ?? 0, label: "Victories", color: "#4ade80" },
             { icon: <Activity className="w-3.5 h-3.5" />, value: `${winRate}%`, label: "Win Rate", color: "#a78bfa" },
-            { icon: <Star className="w-3.5 h-3.5" />, value: player.frontier.toFixed(0), label: "ASCEND Balance", color: "#fbbf24" },
+            { icon: <Star className="w-3.5 h-3.5" />, value: player.ascend.toFixed(0), label: "ASCEND Balance", color: "#fbbf24" },
             { icon: <Shield className="w-3.5 h-3.5" />, value: commanders.length, label: "Commanders", color: "#60a5fa" },
-            { icon: <Clock className="w-3.5 h-3.5" />, value: player.totalFrontierBurned.toFixed(0), label: "ASCEND Burned", color: "#f472b6" },
+            { icon: <Clock className="w-3.5 h-3.5" />, value: player.totalAscendBurned.toFixed(0), label: "ASCEND Burned", color: "#f472b6" },
           ].map(({ icon, value, label, color }) => (
             <div key={label} className="flex items-center gap-2">
               <div
@@ -683,7 +701,7 @@ export function CommanderPanel({
             }}
           >
             MINT<br />
-            <span className="font-mono text-[9px] opacity-80">{COMMANDER_INFO[selectedTier]?.mintCostFrontier ?? 10} ASCEND</span>
+            <span className="font-mono text-[9px] opacity-80">{COMMANDER_INFO[selectedTier]?.mintCostAscend ?? 10} ASCEND</span>
           </button>
         </div>
 
@@ -839,7 +857,7 @@ export function CommanderPanel({
                       <div className="text-xl mb-0.5">{comp.emoji}</div>
                       <img src={COMMANDER_IMAGES[tier]} alt={info.name} className="w-12 h-12 mx-auto rounded-md object-cover mb-1" />
                       <span className="text-[9px] font-display uppercase font-bold block" style={{ color: TIER_COLORS[tier] }}>{info.name}</span>
-                      <span className={cn("text-[9px] font-mono block", player.frontier >= info.mintCostFrontier ? "text-muted-foreground" : "text-destructive")}>{info.mintCostFrontier} ASCEND</span>
+                      <span className={cn("text-[9px] font-mono block", player.ascend >= info.mintCostAscend ? "text-muted-foreground" : "text-destructive")}>{info.mintCostAscend} ASCEND</span>
                     </button>
                   );
                 })}
@@ -860,9 +878,9 @@ export function CommanderPanel({
                     <p className="text-[9px] text-cyan-300">NFT incl. — network fee ~{selectedTierPrice.algoNetworkFee} ALGO</p>
                   </div>
                 )}
-                <Button onClick={() => onMintAvatar(selectedTier)} disabled={isMinting || player.frontier < selectedInfo.mintCostFrontier} className="w-full font-display uppercase tracking-wide text-xs" data-testid="button-mint-avatar">
+                <Button onClick={() => onMintAvatar(selectedTier)} disabled={isMinting || player.ascend < selectedInfo.mintCostAscend} className="w-full font-display uppercase tracking-wide text-xs" data-testid="button-mint-avatar">
                   <Zap className="w-3.5 h-3.5 mr-2" />
-                  {isMinting ? "Minting…" : isRealWallet && selectedTierPrice ? `Mint · ${selectedInfo.mintCostFrontier} ASCEND + ${selectedTierPrice.algoNetworkFee} ALGO fee` : `Mint for ${selectedInfo.mintCostFrontier} ASCEND`}
+                  {isMinting ? "Minting…" : isRealWallet && selectedTierPrice ? `Mint · ${selectedInfo.mintCostAscend} ASCEND + ${selectedTierPrice.algoNetworkFee} ALGO fee` : `Mint for ${selectedInfo.mintCostAscend} ASCEND`}
                 </Button>
               </Card>
             </div>
@@ -973,7 +991,7 @@ export function CommanderPanel({
                   </div>
                 )}
 
-                {/* Resources */}
+                {/* Resources — Troops always visible; extras tucked behind Advanced ▾ */}
                 <div className="space-y-2">
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -987,29 +1005,47 @@ export function CommanderPanel({
                     <Slider value={[troops]} onValueChange={([v]) => setTroops(v)} min={1} max={Math.max(1, maxTroops)} step={1} className="w-full" />
                   </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Pickaxe className="w-2.5 h-2.5 text-iron" /> Extra Iron</span>
-                      <span className="font-mono text-[10px]">{extraIron}</span>
-                    </div>
-                    <Slider value={[extraIron]} onValueChange={([v]) => setExtraIron(v)} min={0} max={Math.max(0, player.iron - baseCostIron)} step={10} className="w-full" />
-                  </div>
+                  {/* Advanced ▾ — Extra Iron / Fuel / Crystal, hidden by default */}
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(v => !v)}
+                    className="flex items-center gap-1 text-[10px] font-display uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                    data-testid="button-toggle-advanced-attack"
+                  >
+                    {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    Advanced
+                    {!showAdvanced && (extraIron > 0 || extraFuel > 0 || extraCrystal > 0) && (
+                      <span className="text-cyan-400 normal-case">· boosted</span>
+                    )}
+                  </button>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Fuel className="w-2.5 h-2.5 text-fuel" /> Extra Fuel</span>
-                      <span className="font-mono text-[10px]">{extraFuel}</span>
-                    </div>
-                    <Slider value={[extraFuel]} onValueChange={([v]) => setExtraFuel(v)} min={0} max={Math.max(0, player.fuel - baseCostFuel)} step={10} className="w-full" />
-                  </div>
+                  {showAdvanced && (
+                    <div className="space-y-2 pl-2 border-l border-border/40">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Pickaxe className="w-2.5 h-2.5 text-iron" /> Extra Iron</span>
+                          <span className="font-mono text-[10px]">{extraIron}</span>
+                        </div>
+                        <Slider value={[extraIron]} onValueChange={([v]) => setExtraIron(v)} min={0} max={Math.max(0, player.iron - baseCostIron)} step={10} className="w-full" />
+                      </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" /> Crystal</span>
-                      <span className="font-mono text-[10px] text-cyan-400">{extraCrystal}</span>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Fuel className="w-2.5 h-2.5 text-fuel" /> Extra Fuel</span>
+                          <span className="font-mono text-[10px]">{extraFuel}</span>
+                        </div>
+                        <Slider value={[extraFuel]} onValueChange={([v]) => setExtraFuel(v)} min={0} max={Math.max(0, player.fuel - baseCostFuel)} step={10} className="w-full" />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" /> Crystal</span>
+                          <span className="font-mono text-[10px] text-cyan-400">{extraCrystal}</span>
+                        </div>
+                        <Slider value={[extraCrystal]} onValueChange={([v]) => setExtraCrystal(v)} min={0} max={Math.max(0, player.crystal)} step={1} className="w-full" />
+                      </div>
                     </div>
-                    <Slider value={[extraCrystal]} onValueChange={([v]) => setExtraCrystal(v)} min={0} max={Math.max(0, player.crystal)} step={1} className="w-full" />
-                  </div>
+                  )}
                 </div>
 
                 {/* Power display */}
@@ -1032,6 +1068,14 @@ export function CommanderPanel({
                     {allCommandersLocked && hasCommander && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> All commanders on cooldown</p>}
                     {isOnCooldown && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Attack cooldown active</p>}
                   </div>
+                )}
+
+                {/* Combat warning — single line above Confirm */}
+                {attackMode === "plot" && (
+                  <p className="text-[9px] text-muted-foreground flex items-center gap-1.5" data-testid="commander-combat-warning">
+                    <Clock className="w-3 h-3 shrink-0 text-destructive" />
+                    Battle resolves in {Math.round(BATTLE_DURATION_MS / 60000)} min · resources spent now.
+                  </p>
                 )}
 
                 {/* Launch button */}
@@ -1090,7 +1134,7 @@ export function CommanderPanel({
                       </div>
                       <span className="text-[8px] text-muted-foreground block">{info.effect}</span>
                       <div className="flex items-center gap-2 mt-1 text-[8px] font-mono">
-                        <span>{info.costFrontier} ASCEND</span>
+                        <span>{info.costAscend} ASCEND</span>
                         {isOnCooldownSA && <span className="text-warning flex items-center gap-0.5"><Clock className="w-2 h-2" />{formatCountdown(cooldownRemaining)}</span>}
                       </div>
                       {!isAvailable && <span className="text-[8px] text-destructive">Req. {info.requiredTier.join("/")}</span>}
@@ -1108,8 +1152,8 @@ export function CommanderPanel({
             </h3>
             <div className="flex items-center gap-2 mb-2">
               <img src={droneImg} alt="Recon Drone" className="w-9 h-9 rounded-md object-cover" />
-              <span className="text-[9px] text-muted-foreground flex-1">Scout enemy territory. {DRONE_MINT_COST_FRONTIER} ASCEND each.</span>
-              <Button size="sm" onClick={() => onDeployDrone()} disabled={isDeployingDrone || activeDrones.length >= MAX_DRONES || player.frontier < DRONE_MINT_COST_FRONTIER} className="font-display uppercase text-xs shrink-0" data-testid="button-deploy-drone">
+              <span className="text-[9px] text-muted-foreground flex-1">Scout enemy territory. {DRONE_MINT_COST_ASCEND} ASCEND each.</span>
+              <Button size="sm" onClick={() => onDeployDrone()} disabled={isDeployingDrone || activeDrones.length >= MAX_DRONES || player.ascend < DRONE_MINT_COST_ASCEND} className="font-display uppercase text-xs shrink-0" data-testid="button-deploy-drone">
                 <Radio className="w-3 h-3 mr-1" />{isDeployingDrone ? "…" : "Deploy"}
               </Button>
             </div>
@@ -1129,8 +1173,8 @@ export function CommanderPanel({
               <div className="w-9 h-9 rounded-md bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center shrink-0">
                 <Satellite className="w-4 h-4 text-yellow-400" />
               </div>
-              <span className="text-[9px] text-muted-foreground flex-1">+{SATELLITE_YIELD_BONUS * 100}% yield · 1h · {SATELLITE_DEPLOY_COST_FRONTIER} ASCEND</span>
-              <Button size="sm" onClick={() => onDeploySatellite()} disabled={isDeployingSatellite || activeSatellites.length >= MAX_SATELLITES || player.frontier < SATELLITE_DEPLOY_COST_FRONTIER} className="font-display uppercase text-xs shrink-0" data-testid="button-deploy-satellite">
+              <span className="text-[9px] text-muted-foreground flex-1">+{SATELLITE_YIELD_BONUS * 100}% yield · 1h · {SATELLITE_DEPLOY_COST_ASCEND} ASCEND</span>
+              <Button size="sm" onClick={() => onDeploySatellite()} disabled={isDeployingSatellite || activeSatellites.length >= MAX_SATELLITES || player.ascend < SATELLITE_DEPLOY_COST_ASCEND} className="font-display uppercase text-xs shrink-0" data-testid="button-deploy-satellite">
                 <Satellite className="w-3 h-3 mr-1" />{isDeployingSatellite ? "…" : "Launch"}
               </Button>
             </div>

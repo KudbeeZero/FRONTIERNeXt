@@ -101,6 +101,25 @@ export function assertChainConfig(): void {
       throw new Error(`[FRONTIER] Missing required secrets: ${missingChain.join(', ')}`);
     }
     console.warn(`[FRONTIER] WARNING: Missing chain secrets (blockchain features disabled): ${missingChain.join(', ')}`);
+  } else {
+    // Fail fast: chain creds are present, so the admin account MUST derive. A
+    // malformed ALGORAND_ADMIN_MNEMONIC otherwise leaves getAdminAddress() empty
+    // and the payment verifier silently rejects every payment (receiver !== "").
+    // Surface it at boot instead of as confusing 402s in production.
+    let derivedAdmin = '';
+    try {
+      derivedAdmin = getAdminAccount().addr.toString();
+    } catch (err) {
+      const msg = `[FRONTIER] ALGORAND_ADMIN_MNEMONIC is set but the admin account could not be derived: ${err instanceof Error ? err.message : String(err)}`;
+      if (isProd) throw new Error(msg);
+      console.warn(`WARNING: ${msg}`);
+    }
+    const expectedAdmin = process.env.ALGORAND_ADMIN_ADDRESS;
+    if (derivedAdmin && expectedAdmin && derivedAdmin !== expectedAdmin) {
+      const msg = `[FRONTIER] Derived admin address ${derivedAdmin} does not match ALGORAND_ADMIN_ADDRESS ${expectedAdmin}`;
+      if (isProd) throw new Error(msg);
+      console.warn(`WARNING: ${msg}`);
+    }
   }
 
   const network = process.env.ALGORAND_NETWORK;
@@ -175,7 +194,7 @@ export function getAdminAddress(): string {
   }
 }
 
-export async function getAdminBalance(frontierAsaId?: number | null): Promise<{ algo: number; frontierAsa: number }> {
+export async function getAdminBalance(ascendAsaId?: number | null): Promise<{ algo: number; ascendAsa: number }> {
   try {
     const account     = getAdminAccount();
     const algod       = getAlgodClient();
@@ -184,20 +203,20 @@ export async function getAdminBalance(frontierAsaId?: number | null): Promise<{ 
     );
     const algoBalance = Number(accountInfo.amount) / 1_000_000;
 
-    let frontierAsa = 0;
-    if (frontierAsaId) {
+    let ascendAsa = 0;
+    if (ascendAsaId) {
       const assets: any[] = (accountInfo as any).assets ?? [];
       const assetEntry = Array.isArray(assets)
-        ? assets.find((a: any) => Number(a.assetId ?? a["asset-id"] ?? a.assetIndex) === frontierAsaId)
+        ? assets.find((a: any) => Number(a.assetId ?? a["asset-id"] ?? a.assetIndex) === ascendAsaId)
         : undefined;
       if (assetEntry) {
-        frontierAsa = Number(assetEntry.amount ?? 0) / 1_000_000;
+        ascendAsa = Number(assetEntry.amount ?? 0) / 1_000_000;
       }
     }
 
-    return { algo: algoBalance, frontierAsa };
+    return { algo: algoBalance, ascendAsa };
   } catch (err) {
     console.error("[chain/client] getAdminBalance failed:", err);
-    return { algo: 0, frontierAsa: 0 };
+    return { algo: 0, ascendAsa: 0 };
   }
 }

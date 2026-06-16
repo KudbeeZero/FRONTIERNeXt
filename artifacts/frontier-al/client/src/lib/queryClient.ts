@@ -1,4 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getAuthToken } from "./authToken";
+
+/** Attach the wallet session token (if any) as a Bearer header. */
+function withAuthHeaders(base: Record<string, string> = {}): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
+}
 
 // ── API base URL ──────────────────────────────────────────────────────────────
 // In production (split-host: Vercel SPA + separate Node backend) set
@@ -27,7 +34,7 @@ export async function apiRequest(
 ): Promise<Response> {
   const res = await fetch(resolveApiUrl(url), {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: withAuthHeaders(data ? { "Content-Type": "application/json" } : {}),
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -44,6 +51,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const url = resolveApiUrl(queryKey[0] as string);
     const res = await fetch(url, {
+      headers: withAuthHeaders(),
       credentials: "include",
     });
 

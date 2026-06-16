@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { WalletProvider as UseWalletProvider } from "@txnlab/use-wallet-react";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { walletManager } from "@/lib/walletManager";
+import { TEST_GLOBE } from "@/lib/testMode";
 import NotFound from "@/pages/not-found";
 import GamePage from "@/pages/game";
 import TestnetPage from "@/pages/testnet";
@@ -17,6 +18,7 @@ import LandingFeatures from "@/pages/landing-features";
 import LandingUpdates from "@/pages/landing-updates";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import BattlesPage from "@/pages/battles";
+import ArmoryPage from "@/pages/armory";
 import AdminDashboard from "@/pages/admin";
 
 function App() {
@@ -28,55 +30,60 @@ function App() {
           <UseWalletProvider manager={walletManager}>
             <Switch>
               <Route path="/game">
-                <WalletProvider enableAutoConnect={true}>
+                <WalletProvider>
                   <GamePage />
                 </WalletProvider>
               </Route>
               <Route path="/">
-                <WalletProvider enableAutoConnect={false}>
-                  <LandingPage />
+                <WalletProvider>
+                  {TEST_GLOBE ? <GamePage /> : <LandingPage />}
                 </WalletProvider>
               </Route>
               <Route path="/info/economics">
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <LandingEconomics />
                 </WalletProvider>
               </Route>
               <Route path="/info/gameplay">
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <LandingGameplay />
                 </WalletProvider>
               </Route>
               <Route path="/info/features">
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <LandingFeatures />
                 </WalletProvider>
               </Route>
               <Route path="/info/updates">
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <LandingUpdates />
                 </WalletProvider>
               </Route>
               <Route path="/testnet">
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <TestnetPage />
                 </WalletProvider>
               </Route>
               <Route path="/battles">
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <BattlesPage />
+                </WalletProvider>
+              </Route>
+              <Route path="/armory">
+                <WalletProvider>
+                  <ArmoryPage />
                 </WalletProvider>
               </Route>
               <Route path="/admin">
                 <AdminDashboard />
               </Route>
               <Route path="/privacy-policy">
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <PrivacyPolicy />
                 </WalletProvider>
               </Route>
               <Route>
-                <WalletProvider enableAutoConnect={false}>
+                <WalletProvider>
                   <NotFound />
                 </WalletProvider>
               </Route>

@@ -105,14 +105,14 @@ async function _tick(): Promise<void> {
 
 /**
  * Calculate FRONTIER rewards for a given reward pool and leaderboard.
- * Returns array of { playerId, rewardFrontier } for top-10.
+ * Returns array of { playerId, rewardAscend } for top-10.
  */
 export function computeSeasonRewards(
   rewardPool: number,
   leaderboard: { playerId: string; territories: number }[]
-): { playerId: string; rewardFrontier: number }[] {
+): { playerId: string; rewardAscend: number }[] {
   return leaderboard.slice(0, REWARD_TIERS.length).map((entry, i) => ({
     playerId:      entry.playerId,
-    rewardFrontier: Math.floor(rewardPool * REWARD_TIERS[i]),
+    rewardAscend: Math.floor(rewardPool * REWARD_TIERS[i]),
   }));
 }

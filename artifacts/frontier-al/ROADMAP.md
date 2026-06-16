@@ -170,7 +170,7 @@ client/src/hooks/
 ### 3.3 Orbital Alien Dome
 
 - [ ] Implement server-wide singleton constraint (first to build claims it)
-- [ ] Implement +100% FRNTR generation during active season
+- [ ] Implement +100% ASCEND generation during active season
 - [ ] Implement +10% defense bonus for nearby players (3-plot radius)
 - [ ] Integrate with season end reward distribution (+5% bonus)
 - [ ] Add Season Leaderboard hologram data endpoint
@@ -185,7 +185,7 @@ client/src/hooks/
 ### 3.5 Ancient Relay
 
 - [ ] Implement instant resource teleport (collect all from any plot, anywhere)
-- [ ] Implement +2 FRNTR/day passive generation
+- [ ] Implement +2 ASCEND/day passive generation
 - [ ] Implement -25% attack cooldown for attacks from relay plot
 - [ ] Implement Phantom commander detection (4-plot radius)
 
@@ -206,7 +206,7 @@ client/src/hooks/
 - [ ] Implement three-phase season structure (Expansion/Conflict/Domination)
 - [ ] Expansion Phase modifiers: -20% land prices, 2x welcome bonus
 - [ ] Conflict Phase modifiers: -25% attack cooldown, 40% pillage rate, 2x orbital events
-- [ ] Domination Phase modifiers: +50% global FRNTR, leaderboard lock at 24h
+- [ ] Domination Phase modifiers: +50% global ASCEND, leaderboard lock at 24h
 - [ ] Phase transition broadcast notifications (to all connected clients)
 - [ ] Phase indicator in UI (countdown timer, phase name, active modifiers)
 
@@ -294,7 +294,7 @@ client/src/hooks/
 
 ### 5.8 Multi-Page Landing Site ✅
 
-- [x] `/info/economics` — live FRNTR data, pie chart, area chart, stat cards, earn mechanics
+- [x] `/info/economics` — live ASCEND data, pie chart, area chart, stat cards, earn mechanics
 - [x] `/info/gameplay` — game loop steps, commander tier table with companions, sub-parcel SVG diagram, season phases
 - [x] `/info/features` — deep-dive feature cards (3D Globe, AI Factions, Algorand, Territory Wars, Resource Economy, Commander NFTs)
 - [x] Shared `LandingNav` across all pages; "Enter Game →" CTA throughout
@@ -451,7 +451,7 @@ A public-facing page on the landing site showing transparent development progres
 - [ ] **Recent Changes log** — timestamped list of completed features per session
 - [ ] **Upcoming / In Progress** — current phase work with status badges (🚧 / ✅ / Planned)
 - [ ] **Backlog board** — future phases listed as cards with priority indicators
-- [ ] **Live world stats** — parcel count, active players, battles today, FRNTR in circulation (real data from API)
+- [ ] **Live world stats** — parcel count, active players, battles today, ASCEND in circulation (real data from API)
 - [ ] Shared `LandingNav` integration; auto-refreshes live stats every 30s
 
 ### 8.2 Commander Dashboard (In-Game)
@@ -461,7 +461,7 @@ A full analytics and control hub accessible from within the game for commanders 
 **Metrics Panels:**
 - [ ] Territory overview — owned parcels, sub-parcels, archetype breakdown per plot
 - [ ] Resource income — iron/fuel/crystal generated per hour with trend sparkline
-- [ ] FRONTIER earnings — daily FRNTR rate, accumulated, burn history
+- [ ] FRONTIER earnings — daily ASCEND rate, accumulated, burn history
 - [ ] Battle history — win/loss ratio, plots captured vs. lost, power trend
 - [ ] Archetype distribution — pie chart of resource/trade/fortress/energy across holdings
 - [ ] Power grid health — which grids have energy coverage, which fortress parcels are offline
@@ -473,7 +473,7 @@ A full analytics and control hub accessible from within the game for commanders 
 - [ ] Faction alignment — current faction, bonus preview per archetype
 
 **Data & Charts:**
-- [ ] Recharts AreaChart for FRNTR earnings over time
+- [ ] Recharts AreaChart for ASCEND earnings over time
 - [ ] Recharts BarChart for resources mined per biome
 - [ ] Recharts RadarChart for defensive rating across owned plots
 - [ ] Leaderboard position tracker (current season rank with delta)

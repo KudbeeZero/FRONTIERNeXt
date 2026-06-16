@@ -3,6 +3,8 @@
   "buildCommand": "npx vite build",
   "outputDirectory": "dist/public",
   "rewrites": [
+    { "source": "/story", "destination": "/story/index.html" },
+    { "source": "/story/", "destination": "/story/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

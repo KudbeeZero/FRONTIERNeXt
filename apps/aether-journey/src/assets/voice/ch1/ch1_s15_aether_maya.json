@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s15_aether_maya",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "... I read your file. I read all of it. I'm sorry. ... We don't have to talk about her now. We don't have to talk about her ever, if you don't want. But I read it. So you know that I know.",
+  "content_hash": "bf4e47cc1c06e2073474775e6b57e4a243255e3b104a8604f4b6673f1f3fc57a",
+  "generated_at": "2026-06-15T23:38:46.468Z",
+  "duration_seconds": null,
+  "version": 1
+}

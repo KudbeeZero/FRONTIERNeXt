@@ -10,7 +10,7 @@ import { describe, it, expect } from "vitest";
 import {
   projectedDailyEmissions,
   EMISSION_CHECK_PARCEL_COUNTS,
-  LAND_DAILY_FRNTR_RATE,
+  LAND_DAILY_ASCEND_RATE,
 } from "@shared/economy-config";
 
 describe("projectedDailyEmissions", () => {
@@ -19,8 +19,8 @@ describe("projectedDailyEmissions", () => {
   });
 
   it("scales linearly with parcel count at the active daily rate", () => {
-    expect(projectedDailyEmissions(1)).toBeCloseTo(LAND_DAILY_FRNTR_RATE, 9);
-    expect(projectedDailyEmissions(100)).toBeCloseTo(100 * LAND_DAILY_FRNTR_RATE, 6);
+    expect(projectedDailyEmissions(1)).toBeCloseTo(LAND_DAILY_ASCEND_RATE, 9);
+    expect(projectedDailyEmissions(100)).toBeCloseTo(100 * LAND_DAILY_ASCEND_RATE, 6);
   });
 
   it("is monotonically non-decreasing across the safety-check parcel counts", () => {
@@ -31,6 +31,6 @@ describe("projectedDailyEmissions", () => {
   });
 
   it("uses a positive active daily emission rate", () => {
-    expect(LAND_DAILY_FRNTR_RATE).toBeGreaterThan(0);
+    expect(LAND_DAILY_ASCEND_RATE).toBeGreaterThan(0);
   });
 });

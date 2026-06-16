@@ -42,17 +42,17 @@ import {
   BASE_STORAGE_CAPACITY,
   LAND_PURCHASE_ALGO,
   TOTAL_PLOTS,
-  FRONTIER_TOTAL_SUPPLY,
-  WELCOME_BONUS_FRONTIER,
+  ASCEND_TOTAL_SUPPLY,
+  WELCOME_BONUS_ASCEND,
   COMMANDER_INFO,
   SPECIAL_ATTACK_INFO,
-  DRONE_MINT_COST_FRONTIER,
+  DRONE_MINT_COST_ASCEND,
   MAX_DRONES,
-  SATELLITE_DEPLOY_COST_FRONTIER,
+  SATELLITE_DEPLOY_COST_ASCEND,
   SATELLITE_ORBIT_DURATION_MS,
   MAX_SATELLITES,
   SATELLITE_YIELD_BONUS,
-  calculateFrontierPerDay,
+  calculateAscendPerDay,
   MORALE_DEBUFF_BASE_MS,
   MORALE_ATTACK_PENALTY,
   ATTACK_COOLDOWN_PER_LOSS_MS,
@@ -74,7 +74,7 @@ import type {
   BiomeType as EngineBiomeType,
   ImprovementType as EngineImprovementType,
 } from "../engine/battle/types.js";
-import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP } from "@shared/schema";
+import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP, isImprovementAllowedForArchetype } from "@shared/schema";
 import type { RareMineralType } from "@shared/schema";
 import { sphereDistance } from "../sphereUtils";
 import {
@@ -89,7 +89,7 @@ import {
   MIN_INFLUENCE_DAMAGE,
   INFLUENCE_YIELD_THRESHOLD,
 } from "../engine/battle/tuning.js";
-import { eq, and, desc, lt, sql, sum } from "drizzle-orm";
+import { eq, and, desc, lt, sql, sum, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
   gameMeta,
@@ -118,15 +118,16 @@ import {
   canSubdivideParcel,
   buildSubParcelRows,
   computeSubParcelPrice,
-  fromMicroFRNTR,
-  toMicroFRNTR,
+  fromMicroASCEND,
+  toMicroASCEND,
   canAssignArchetype,
   computeArchetypeFactionBonus,
   type ParcelRow,
   type BattleRow,
 } from "./game-rules";
-import type { SubParcel, SubParcelListing, Season, PredictionMarket, MarketPosition, MarketOutcome, CreateMarketAction, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
+import type { SubParcel, SubParcelListing, Season, PredictionMarket, MarketPosition, MarketOutcome, CreateMarketAction, ResolutionSource, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
 import { MARKET_FEE_RATE } from "@shared/schema";
+import { deriveOutcome, isResolvable, hashResolution, type ResolutionFact } from "../engine/markets/resolve.js";
 import {
   SUB_PARCEL_HOLD_HOURS,
   SUB_PARCEL_FULL_CONTROL_BONUS,
@@ -137,6 +138,7 @@ import { runAITurn as runAITurnFn } from "./ai-engine";
 import { buildBattleNote } from "../services/chain/battleNotes";
 import { buildNarrative, detectMilestone } from "../engine/narrative/commentator";
 import type { IStorage } from "./interface";
+import { createDefaultProfile, recomputeDerived, type PlayerWeaponProfile } from "@shared/weapons";
 
 type DB = typeof db;
 
@@ -215,10 +217,10 @@ export class DbStorage implements IStorage {
 
     for (const row of damaged) {
       // Use lastMineTs as the elapsed reference — it reflects actual player
-      // activity. Falls back to lastFrontierClaimTs for plots never mined.
+      // activity. Falls back to lastAscendClaimTs for plots never mined.
       const lastActivity = Math.max(
         Number(row.lastMineTs) || 0,
-        Number(row.lastFrontierClaimTs) || 0
+        Number(row.lastAscendClaimTs) || 0
       );
       const elapsedMs = now - lastActivity;
       if (elapsedMs <= 0) continue;
@@ -240,11 +242,11 @@ export class DbStorage implements IStorage {
   }
 
   /** Compute how much FRONTIER has accumulated on a parcel and update the row. */
-  private accumulatedFrontier(parcel: LandParcel, now: number): number {
+  private accumulatedAscend(parcel: LandParcel, now: number): number {
     if (!parcel.ownerId) return 0;
-    const days = (now - parcel.lastFrontierClaimTs) / (1000 * 60 * 60 * 24);
+    const days = (now - parcel.lastAscendClaimTs) / (1000 * 60 * 60 * 24);
     if (days <= 0) return 0;
-    const perDay = calculateFrontierPerDay(parcel.improvements);
+    const perDay = calculateAscendPerDay(parcel.improvements);
     return perDay * days;
   }
 
@@ -436,7 +438,7 @@ export class DbStorage implements IStorage {
       iron: 200,
       fuel: 150,
       crystal: 50,
-      frontier: 0,
+      ascend: 0,
     });
 
     const [created] = await this.db
@@ -463,17 +465,21 @@ export class DbStorage implements IStorage {
         parentPlotId: subParcelsTable.parentPlotId,
         subIndex:     subParcelsTable.subIndex,
         ownerId:      subParcelsTable.ownerId,
+        archetype:    subParcelsTable.archetype,
       }).from(subParcelsTable),
       this.getCurrentSeason(),
     ]);
 
-    // Build sub-parcel map: parentPlotId → array of 9 owner ids
+    // Build sub-parcel maps: parentPlotId → array of 9 owner ids / archetypes
     const subParcelMap = new Map<number, (string | null)[]>();
+    const subParcelArchetypeMap = new Map<number, (SubParcelArchetype | null)[]>();
     for (const sp of allSubParcels) {
       if (!subParcelMap.has(sp.parentPlotId)) {
         subParcelMap.set(sp.parentPlotId, new Array(9).fill(null));
+        subParcelArchetypeMap.set(sp.parentPlotId, new Array(9).fill(null));
       }
       subParcelMap.get(sp.parentPlotId)![sp.subIndex] = sp.ownerId ?? null;
+      subParcelArchetypeMap.get(sp.parentPlotId)![sp.subIndex] = (sp.archetype as SubParcelArchetype | null) ?? null;
     }
 
     // Build ownedParcels arrays from the parcel rows (avoids a separate join).
@@ -486,7 +492,7 @@ export class DbStorage implements IStorage {
     }
 
     const claimedPlots = allParcels.filter((p) => p.ownerId !== null).length;
-    const frontierCirculating = allPlayers.reduce((sum, p) => sum + fromMicroFRNTR(p.frntrBalanceMicro), 0);
+    const ascendCirculating = allPlayers.reduce((sum, p) => sum + fromMicroASCEND(p.ascendBalanceMicro), 0);
 
     return {
       parcels: allParcels.map(r => {
@@ -495,6 +501,7 @@ export class DbStorage implements IStorage {
         if (ownerIds) {
           parcel.isSubdivided = true;
           parcel.subParcelOwnerIds = ownerIds;
+          parcel.subParcelArchetypes = subParcelArchetypeMap.get(r.plotId);
         }
         return parcel;
       }),
@@ -506,8 +513,8 @@ export class DbStorage implements IStorage {
       lastUpdateTs:       Number(meta?.lastUpdateTs ?? 0),
       totalPlots:         TOTAL_PLOTS,
       claimedPlots,
-      frontierTotalSupply: FRONTIER_TOTAL_SUPPLY,
-      frontierCirculating,
+      ascendTotalSupply: ASCEND_TOTAL_SUPPLY,
+      ascendCirculating,
       currentSeason,
     };
   }
@@ -550,8 +557,8 @@ export class DbStorage implements IStorage {
 
     const claimedPlots = allParcels.filter(p => p.ownerId !== null).length;
     const allPlayersFull = await this.db.select().from(playersTable);
-    const frontierCirculating = allPlayersFull.reduce(
-      (sum, p) => sum + fromMicroFRNTR(p.frntrBalanceMicro), 0
+    const ascendCirculating = allPlayersFull.reduce(
+      (sum, p) => sum + fromMicroASCEND(p.ascendBalanceMicro), 0
     );
 
     const ownedPlotIds = allParcels.filter(p => p.ownerId).map(p => p.plotId);
@@ -612,7 +619,7 @@ export class DbStorage implements IStorage {
       battles,
       leaderboard,
       claimedPlots,
-      frontierCirculating,
+      ascendCirculating,
       lastUpdateTs:       Number(meta?.lastUpdateTs ?? 0),
       seasonEndsAt:       currentSeason?.endsAt ?? null,
       seasonName:         currentSeason?.name ?? null,
@@ -822,6 +829,58 @@ export class DbStorage implements IStorage {
       .where(eq(playersTable.id, playerId));
   }
 
+  async getWeaponProfile(playerId: string): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    const [row] = await this.db
+      .select({ weaponProfile: playersTable.weaponProfile })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+    if (!row) throw new Error("Player not found");
+    return row.weaponProfile ? recomputeDerived(row.weaponProfile) : createDefaultProfile();
+  }
+
+  async updateWeaponProfile(
+    playerId: string,
+    patch: Partial<PlayerWeaponProfile>,
+  ): Promise<PlayerWeaponProfile> {
+    await this.initialize();
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ weaponProfile: playersTable.weaponProfile })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const base = row.weaponProfile ?? createDefaultProfile();
+      const merged = recomputeDerived({ ...base, ...patch, updatedAt: Date.now() });
+      await tx
+        .update(playersTable)
+        .set({ weaponProfile: merged })
+        .where(eq(playersTable.id, playerId));
+      return merged;
+    });
+  }
+
+  async spendAscend(playerId: string, amountAscend: number): Promise<void> {
+    await this.initialize();
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const micro = toMicroASCEND(amountAscend);
+      if (row.ascendBalanceMicro < micro) {
+        throw new Error(
+          `Insufficient ASCEND. Need ${amountAscend}, have ${fromMicroASCEND(row.ascendBalanceMicro).toFixed(2)}`,
+        );
+      }
+      await tx
+        .update(playersTable)
+        .set({
+          ascendBalanceMicro: row.ascendBalanceMicro - micro,
+          totalAscendBurned: row.totalAscendBurned + amountAscend,
+        })
+        .where(eq(playersTable.id, playerId));
+    });
+  }
+
   async grantWelcomeBonus(playerId: string): Promise<void> {
     await this.initialize();
     await this.db.transaction(async (tx) => {
@@ -832,23 +891,23 @@ export class DbStorage implements IStorage {
       const now = Date.now();
       await tx.update(playersTable)
         .set({
-          frntrBalanceMicro:    row.frntrBalanceMicro    + toMicroFRNTR(WELCOME_BONUS_FRONTIER),
-          totalFrontierEarned:  row.totalFrontierEarned + WELCOME_BONUS_FRONTIER,
+          ascendBalanceMicro:    row.ascendBalanceMicro    + toMicroASCEND(WELCOME_BONUS_ASCEND),
+          totalAscendEarned:  row.totalAscendEarned + WELCOME_BONUS_ASCEND,
           welcomeBonusReceived: true,
         })
         .where(eq(playersTable.id, playerId));
 
       await this.addEvent({
-        type:        "claim_frontier",
+        type:        "claim_ascend",
         playerId,
-        description: `${row.name} received ${WELCOME_BONUS_FRONTIER} FRONTIER welcome bonus!`,
+        description: `${row.name} received ${WELCOME_BONUS_ASCEND} ASCEND welcome bonus!`,
         timestamp:   now,
       }, tx);
       await this.bumpLastTs(now, tx);
     });
   }
 
-  async claimFrontier(playerId: string): Promise<{ amount: number }> {
+  async claimAscend(playerId: string): Promise<{ amount: number }> {
     await this.initialize();
     return this.db.transaction(async (tx) => {
       const [[playerRow], ownedRows] = await Promise.all([
@@ -862,35 +921,35 @@ export class DbStorage implements IStorage {
 
       for (const row of ownedRows) {
         const parcel  = rowToParcel(row);
-        // Parcels below the influence threshold generate no FRNTR until repaired
+        // Parcels below the influence threshold generate no ASCEND until repaired
         const influenceOk = (parcel.influence ?? 100) >= INFLUENCE_YIELD_THRESHOLD;
         if (!influenceOk) continue;
         // Calculate earned frontier from time elapsed since last claim
-        const days = (now - parcel.lastFrontierClaimTs) / (1000 * 60 * 60 * 24);
-        const perDay = calculateFrontierPerDay(parcel.improvements);
+        const days = (now - parcel.lastAscendClaimTs) / (1000 * 60 * 60 * 24);
+        const perDay = calculateAscendPerDay(parcel.improvements);
         const earned = perDay * days;
-        const newAccum = parcel.frontierAccumulated + earned;
+        const newAccum = parcel.ascendAccumulated + earned;
         total += newAccum;
         await tx.update(parcelsTable)
-          .set({ frontierAccumulated: 0, lastFrontierClaimTs: now, frontierPerDay: calculateFrontierPerDay(parcel.improvements) })
+          .set({ ascendAccumulated: 0, lastAscendClaimTs: now, ascendPerDay: calculateAscendPerDay(parcel.improvements) })
           .where(eq(parcelsTable.id, row.id));
       }
 
-      const microTotal = toMicroFRNTR(total);
-      const rounded = fromMicroFRNTR(microTotal);
+      const microTotal = toMicroASCEND(total);
+      const rounded = fromMicroASCEND(microTotal);
       if (microTotal > 0) {
         await tx.update(playersTable)
           .set({
-            frntrBalanceMicro:   playerRow.frntrBalanceMicro   + microTotal,
-            frntrClaimedMicro:   playerRow.frntrClaimedMicro   + microTotal,
-            totalFrontierEarned: playerRow.totalFrontierEarned + rounded,
+            ascendBalanceMicro:   playerRow.ascendBalanceMicro   + microTotal,
+            ascendClaimedMicro:   playerRow.ascendClaimedMicro   + microTotal,
+            totalAscendEarned: playerRow.totalAscendEarned + rounded,
           })
           .where(eq(playersTable.id, playerId));
 
         await this.addEvent({
-          type:        "claim_frontier",
+          type:        "claim_ascend",
           playerId,
-          description: `${playerRow.name} claimed ${rounded.toFixed(2)} FRONTIER tokens`,
+          description: `${playerRow.name} claimed ${rounded.toFixed(2)} ASCEND tokens`,
           timestamp:   now,
         }, tx);
         await this.bumpLastTs(now, tx);
@@ -900,17 +959,17 @@ export class DbStorage implements IStorage {
     });
   }
 
-  async restoreFrontier(playerId: string, amount: number): Promise<void> {
+  async restoreAscend(playerId: string, amount: number): Promise<void> {
     await this.initialize();
     if (amount <= 0) return;
     await this.db.transaction(async (tx) => {
       const [row] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
       if (!row) return;
-      const microAmount = toMicroFRNTR(amount);
+      const microAmount = toMicroASCEND(amount);
       await tx.update(playersTable)
         .set({
-          frntrBalanceMicro:   row.frntrBalanceMicro   - microAmount,
-          totalFrontierEarned: row.totalFrontierEarned - amount,
+          ascendBalanceMicro:   row.ascendBalanceMicro   - microAmount,
+          totalAscendEarned: row.totalAscendEarned - amount,
         })
         .where(eq(playersTable.id, playerId));
       console.log(`Restored ${amount} FRONTIER for player ${row.name} due to failed transfer`);
@@ -992,13 +1051,13 @@ export class DbStorage implements IStorage {
           const hasPrereq = parcel.improvements.find((i) => i.type === info.prerequisite);
           if (!hasPrereq) throw new Error(`Requires ${FACILITY_INFO[info.prerequisite!].name} first`);
         }
-        const cost = info.costFrontier[level - 1];
-        const microBalance = playerRow.frntrBalanceMicro;
-        const microCost = toMicroFRNTR(cost);
-        if (microBalance < microCost) throw new Error(`Insufficient FRONTIER (need ${cost})`);
+        const cost = info.costAscend[level - 1];
+        const microBalance = playerRow.ascendBalanceMicro;
+        const microCost = toMicroASCEND(cost);
+        if (microBalance < microCost) throw new Error(`Insufficient ASCEND (need ${cost})`);
         playerUpdates = {
-          frntrBalanceMicro:   microBalance - microCost,
-          totalFrontierBurned: playerRow.totalFrontierBurned + cost,
+          ascendBalanceMicro:   microBalance - microCost,
+          totalAscendBurned: playerRow.totalAscendBurned + cost,
         };
       } else {
         const info = DEFENSE_IMPROVEMENT_INFO[action.improvementType as DefenseImprovementType];
@@ -1026,12 +1085,12 @@ export class DbStorage implements IStorage {
       else if (action.improvementType === "storage_depot") newCapacity  += 200;
       else if (action.improvementType === "data_centre")   newYieldMult += 0.05 * level;
 
-      const newFpd = calculateFrontierPerDay(newImprovements);
+      const newFpd = calculateAscendPerDay(newImprovements);
 
       const now = Date.now();
       await Promise.all([
         tx.update(parcelsTable)
-          .set({ improvements: newImprovements, defenseLevel: newDefense, storageCapacity: newCapacity, yieldMultiplier: newYieldMult, frontierPerDay: newFpd })
+          .set({ improvements: newImprovements, defenseLevel: newDefense, storageCapacity: newCapacity, yieldMultiplier: newYieldMult, ascendPerDay: newFpd })
           .where(eq(parcelsTable.id, parcel.id)),
         tx.update(playersTable).set(playerUpdates).where(eq(playersTable.id, player.id)),
       ]);
@@ -1049,7 +1108,7 @@ export class DbStorage implements IStorage {
       }, tx);
       await this.bumpLastTs(now, tx);
 
-      return rowToParcel({ ...parcelRow, improvements: newImprovements, defenseLevel: newDefense, storageCapacity: newCapacity, yieldMultiplier: newYieldMult, frontierPerDay: newFpd });
+      return rowToParcel({ ...parcelRow, improvements: newImprovements, defenseLevel: newDefense, storageCapacity: newCapacity, yieldMultiplier: newYieldMult, ascendPerDay: newFpd });
     });
   }
 
@@ -1063,17 +1122,32 @@ export class DbStorage implements IStorage {
       if (!parcelRow || !playerRow) throw new Error("Invalid parcel or player");
       if (parcelRow.ownerId) throw new Error("Territory is already owned");
       if (parcelRow.purchasePriceAlgo === null) throw new Error("Territory is not for sale");
+      // A battle on this parcel already has a locked outcome — selling it
+      // mid-battle guarantees either the buyer or the attacker gets robbed
+      // when resolution lands. Refuse up front; the purchase route releases
+      // the payment claim so the buyer's ALGO stays redeemable.
+      if (parcelRow.activeBattleId) throw new Error("Territory is under attack and cannot be purchased");
 
       const now      = Date.now();
       const ownerType = playerRow.isAi ? "ai" : "player";
-      await Promise.all([
-        tx.update(parcelsTable)
-          .set({ ownerId: playerRow.id, ownerType, purchasePriceAlgo: null, lastFrontierClaimTs: now })
-          .where(eq(parcelsTable.id, parcelRow.id)),
-        tx.update(playersTable)
-          .set({ territoriesCaptured: playerRow.territoriesCaptured + 1 })
-          .where(eq(playersTable.id, playerRow.id)),
-      ]);
+      // Conditional claim: the ownership pre-check above read an unlocked
+      // snapshot, so a concurrent purchase or battle resolution may have
+      // taken the parcel since. Exactly one owner-write wins; losers roll
+      // back rather than silently overwriting.
+      const claimedParcel = await tx.update(parcelsTable)
+        .set({ ownerId: playerRow.id, ownerType, purchasePriceAlgo: null, lastAscendClaimTs: now })
+        .where(and(
+          eq(parcelsTable.id, parcelRow.id),
+          isNull(parcelsTable.ownerId),
+          // also refuse if a deploy claimed the parcel since our pre-check
+          isNull(parcelsTable.activeBattleId),
+        ))
+        .returning({ id: parcelsTable.id });
+      if (claimedParcel.length === 0) throw new Error("Territory is no longer available for purchase");
+
+      await tx.update(playersTable)
+        .set({ territoriesCaptured: playerRow.territoriesCaptured + 1 })
+        .where(eq(playersTable.id, playerRow.id));
 
       await this.addEvent({
         type:        "purchase",
@@ -1101,7 +1175,7 @@ export class DbStorage implements IStorage {
 
       await this.bumpLastTs(now, tx);
 
-      return rowToParcel({ ...parcelRow, ownerId: playerRow.id, ownerType, purchasePriceAlgo: null, lastFrontierClaimTs: now });
+      return rowToParcel({ ...parcelRow, ownerId: playerRow.id, ownerType, purchasePriceAlgo: null, lastAscendClaimTs: now });
     });
   }
 
@@ -1230,9 +1304,24 @@ export class DbStorage implements IStorage {
       const playerUpdates: Record<string, any> = { iron: attackerRow.iron - iron, fuel: attackerRow.fuel - fuel, crystal: attackerRow.crystal - crystal };
       if (commanderId) playerUpdates.commanders = commanders;
 
+      // Atomically claim the parcel for this battle. The activeBattleId
+      // pre-check above read an unlocked snapshot — two concurrent deploys can
+      // both pass it. The conditional write lets exactly one through; the
+      // loser's transaction rolls back (resources refunded implicitly).
+      const claimedParcel = await tx.update(parcelsTable)
+        .set({ activeBattleId: battleId })
+        .where(and(
+          eq(parcelsTable.id, target.id),
+          isNull(parcelsTable.activeBattleId),
+          // the battle's defenderId snapshot is only valid if ownership hasn't
+          // changed since our read (e.g. a concurrent purchase)
+          target.ownerId ? eq(parcelsTable.ownerId, target.ownerId) : isNull(parcelsTable.ownerId),
+        ))
+        .returning({ id: parcelsTable.id });
+      if (claimedParcel.length === 0) throw new Error("Territory is already under attack");
+
       await Promise.all([
         tx.insert(battlesTable).values(battleValues),
-        tx.update(parcelsTable).set({ activeBattleId: battleId }).where(eq(parcelsTable.id, target.id)),
         tx.update(playersTable).set(playerUpdates).where(eq(playersTable.id, attacker.id)),
       ]);
 
@@ -1258,9 +1347,9 @@ export class DbStorage implements IStorage {
 
       const info = COMMANDER_INFO[action.tier];
       if (!info) throw new Error("Invalid commander tier");
-      const microCost = toMicroFRNTR(info.mintCostFrontier);
-      if (row.frntrBalanceMicro < microCost)
-        throw new Error(`Insufficient FRONTIER. Need ${info.mintCostFrontier}, have ${fromMicroFRNTR(row.frntrBalanceMicro).toFixed(2)}`);
+      const microCost = toMicroASCEND(info.mintCostAscend);
+      if (row.ascendBalanceMicro < microCost)
+        throw new Error(`Insufficient ASCEND. Need ${info.mintCostAscend}, have ${fromMicroASCEND(row.ascendBalanceMicro).toFixed(2)}`);
 
       const commanders = (row.commanders ?? []) as CommanderAvatar[];
       const bonusRoll  = Math.random() * 0.3;
@@ -1281,8 +1370,8 @@ export class DbStorage implements IStorage {
       const now = Date.now();
       await tx.update(playersTable)
         .set({
-          frntrBalanceMicro:    row.frntrBalanceMicro   - microCost,
-          totalFrontierBurned:  row.totalFrontierBurned + info.mintCostFrontier,
+          ascendBalanceMicro:    row.ascendBalanceMicro   - microCost,
+          totalAscendBurned:  row.totalAscendBurned + info.mintCostAscend,
           commanders:           newCommanders,
           activeCommanderIndex: newActiveIndex,
         })
@@ -1291,7 +1380,7 @@ export class DbStorage implements IStorage {
       await this.addEvent({
         type:        "mint_avatar",
         playerId:    action.playerId,
-        description: `${row.name} minted a ${info.name} Commander (${action.tier.toUpperCase()}) for ${info.mintCostFrontier} FRONTIER`,
+        description: `${row.name} minted a ${info.name} Commander (${action.tier.toUpperCase()}) for ${info.mintCostAscend} FRONTIER`,
         timestamp:   now,
       }, tx);
       await this.bumpLastTs(now, tx);
@@ -1320,9 +1409,9 @@ export class DbStorage implements IStorage {
       if (!attackInfo) throw new Error("Invalid attack type");
       if (!attackInfo.requiredTier.includes(player.commander.tier))
         throw new Error(`${attackInfo.name} requires a ${attackInfo.requiredTier.join(" or ")} Commander`);
-      const microCostSA = toMicroFRNTR(attackInfo.costFrontier);
-      if (playerRow.frntrBalanceMicro < microCostSA)
-        throw new Error(`Insufficient FRONTIER. Need ${attackInfo.costFrontier}, have ${fromMicroFRNTR(playerRow.frntrBalanceMicro).toFixed(2)}`);
+      const microCostSA = toMicroASCEND(attackInfo.costAscend);
+      if (playerRow.ascendBalanceMicro < microCostSA)
+        throw new Error(`Insufficient ASCEND. Need ${attackInfo.costAscend}, have ${fromMicroASCEND(playerRow.ascendBalanceMicro).toFixed(2)}`);
 
       const existing = player.specialAttacks.find((sa) => sa.type === action.attackType);
       if (existing) {
@@ -1387,8 +1476,8 @@ export class DbStorage implements IStorage {
           : []),
         tx.update(playersTable)
           .set({
-            frntrBalanceMicro:   playerRow.frntrBalanceMicro   - microCostSA,
-            totalFrontierBurned: playerRow.totalFrontierBurned + attackInfo.costFrontier,
+            ascendBalanceMicro:   playerRow.ascendBalanceMicro   - microCostSA,
+            totalAscendBurned: playerRow.totalAscendBurned + attackInfo.costAscend,
             commanders:          newCommanders,
             specialAttacks:      newSpecialAttacks,
           })
@@ -1416,9 +1505,9 @@ export class DbStorage implements IStorage {
 
       const drones = (row.drones ?? []) as ReconDrone[];
       if (drones.length >= MAX_DRONES) throw new Error(`Maximum ${MAX_DRONES} drones allowed`);
-      const microDroneCost = toMicroFRNTR(DRONE_MINT_COST_FRONTIER);
-      if (row.frntrBalanceMicro < microDroneCost)
-        throw new Error(`Insufficient FRONTIER. Need ${DRONE_MINT_COST_FRONTIER}, have ${fromMicroFRNTR(row.frntrBalanceMicro).toFixed(2)}`);
+      const microDroneCost = toMicroASCEND(DRONE_MINT_COST_ASCEND);
+      if (row.ascendBalanceMicro < microDroneCost)
+        throw new Error(`Insufficient ASCEND. Need ${DRONE_MINT_COST_ASCEND}, have ${fromMicroASCEND(row.ascendBalanceMicro).toFixed(2)}`);
 
       // Pick a random enemy target if none specified
       let targetId = action.targetParcelId ?? null;
@@ -1446,8 +1535,8 @@ export class DbStorage implements IStorage {
       const now = Date.now();
       await tx.update(playersTable)
         .set({
-          frntrBalanceMicro:   row.frntrBalanceMicro   - microDroneCost,
-          totalFrontierBurned: row.totalFrontierBurned + DRONE_MINT_COST_FRONTIER,
+          ascendBalanceMicro:   row.ascendBalanceMicro   - microDroneCost,
+          totalAscendBurned: row.totalAscendBurned + DRONE_MINT_COST_ASCEND,
           drones:              [...drones, drone],
         })
         .where(eq(playersTable.id, action.playerId));
@@ -1478,9 +1567,9 @@ export class DbStorage implements IStorage {
       const activeSatellites = satellites.filter(s => s.status === "active");
       if (activeSatellites.length >= MAX_SATELLITES)
         throw new Error(`Maximum ${MAX_SATELLITES} active satellites allowed`);
-      const microSatCost = toMicroFRNTR(SATELLITE_DEPLOY_COST_FRONTIER);
-      if (row.frntrBalanceMicro < microSatCost)
-        throw new Error(`Insufficient FRONTIER. Need ${SATELLITE_DEPLOY_COST_FRONTIER}, have ${fromMicroFRNTR(row.frntrBalanceMicro).toFixed(2)}`);
+      const microSatCost = toMicroASCEND(SATELLITE_DEPLOY_COST_ASCEND);
+      if (row.ascendBalanceMicro < microSatCost)
+        throw new Error(`Insufficient ASCEND. Need ${SATELLITE_DEPLOY_COST_ASCEND}, have ${fromMicroASCEND(row.ascendBalanceMicro).toFixed(2)}`);
 
       const satellite: OrbitalSatellite = {
         id:          randomUUID(),
@@ -1491,8 +1580,8 @@ export class DbStorage implements IStorage {
 
       await tx.update(playersTable)
         .set({
-          frntrBalanceMicro:   row.frntrBalanceMicro   - microSatCost,
-          totalFrontierBurned: row.totalFrontierBurned + SATELLITE_DEPLOY_COST_FRONTIER,
+          ascendBalanceMicro:   row.ascendBalanceMicro   - microSatCost,
+          totalAscendBurned: row.totalAscendBurned + SATELLITE_DEPLOY_COST_ASCEND,
           satellites:          [...satellites, satellite],
         })
         .where(eq(playersTable.id, action.playerId));
@@ -1593,9 +1682,19 @@ export class DbStorage implements IStorage {
           ? Math.max(0, currentInfluence - rawInfluenceDamage)
           : currentInfluence;
 
-        await tx.update(battlesTable)
+        // ── Atomic claim ──────────────────────────────────────────────────────
+        // The pending fetch above runs OUTSIDE any transaction, so the 15 s
+        // interval, the admin /api/game/resolve-battles endpoint, and any
+        // second server instance can all hold this same battle row. The
+        // conditional status flip is the claim: exactly one resolver gets a
+        // row back; everyone else skips ALL effects (no double pillage,
+        // double defender penalties, or duplicated events). Worst case of a
+        // lost claim is a no-op, never a double effect.
+        const claimedBattle = await tx.update(battlesTable)
           .set({ status: "resolved", outcome, randFactor, influenceDamage: rawInfluenceDamage })
-          .where(eq(battlesTable.id, battleRow.id));
+          .where(and(eq(battlesTable.id, battleRow.id), eq(battlesTable.status, "pending")))
+          .returning({ id: battlesTable.id });
+        if (claimedBattle.length === 0) return;
 
         await tx.update(parcelsTable)
           .set({ activeBattleId: null })
@@ -1692,7 +1791,7 @@ export class DbStorage implements IStorage {
                 crystalStored:        targetRow.crystalStored - pillagedCrystal,
                 influence:            newInfluence,
                 purchasePriceAlgo:    null,
-                lastFrontierClaimTs:  now,
+                lastAscendClaimTs:  now,
                 ...reconquestUpdates,
               })
               .where(eq(parcelsTable.id, targetRow.id)),
@@ -1956,7 +2055,7 @@ export class DbStorage implements IStorage {
       if (!fillerRow)  { result = { success: false, error: "Filler not found" };  return; }
 
       // 3. Verify balances — resource columns are iron/fuel/crystal/frontier (all integers)
-      const resourceCols = { iron: playersTable.iron, fuel: playersTable.fuel, crystal: playersTable.crystal, frontier: playersTable.frontier } as const;
+      const resourceCols = { iron: playersTable.iron, fuel: playersTable.fuel, crystal: playersTable.crystal, ascend: playersTable.ascend } as const;
       type ResKey = keyof typeof resourceCols;
       const giveCol = resourceCols[order.giveResource as ResKey];
       const wantCol = resourceCols[order.wantResource as ResKey];
@@ -2077,13 +2176,13 @@ export class DbStorage implements IStorage {
       .where(eq(playersTable.id, playerId));
     if (!playerRow) return { subParcel: null as any, error: "Player not found" };
 
-    const playerFrontier = fromMicroFRNTR(playerRow.frntrBalanceMicro);
-    if (playerFrontier < row.purchasePriceFrontier) {
-      return { subParcel: null as any, error: `Insufficient FRONTIER — need ${row.purchasePriceFrontier}, have ${playerFrontier.toFixed(2)}` };
+    const playerAscend = fromMicroASCEND(playerRow.ascendBalanceMicro);
+    if (playerAscend < row.purchasePriceAscend) {
+      return { subParcel: null as any, error: `Insufficient ASCEND — need ${row.purchasePriceAscend}, have ${playerAscend.toFixed(2)}` };
     }
 
     const now = Date.now();
-    const costMicro = toMicroFRNTR(row.purchasePriceFrontier);
+    const costMicro = toMicroASCEND(row.purchasePriceAscend);
 
     // 4-way revenue split:
     //   30% → protocol treasury
@@ -2130,7 +2229,7 @@ export class DbStorage implements IStorage {
     // Deduct full cost from buyer
     await this.db
       .update(playersTable)
-      .set({ frntrBalanceMicro: sql`${playersTable.frntrBalanceMicro} - ${costMicro}` })
+      .set({ ascendBalanceMicro: sql`${playersTable.ascendBalanceMicro} - ${costMicro}` })
       .where(eq(playersTable.id, playerId));
 
     // 30% → protocol treasury
@@ -2140,7 +2239,7 @@ export class DbStorage implements IStorage {
     if (factionLeaderId) {
       await this.db
         .update(playersTable)
-        .set({ frntrBalanceMicro: sql`${playersTable.frntrBalanceMicro} + ${factionShareMicro}` })
+        .set({ ascendBalanceMicro: sql`${playersTable.ascendBalanceMicro} + ${factionShareMicro}` })
         .where(eq(playersTable.id, factionLeaderId));
     } else {
       await this.recordTreasuryFee(factionShareMicro, playerId, "sub_parcel_purchase_no_faction");
@@ -2150,7 +2249,7 @@ export class DbStorage implements IStorage {
     if (centerOwnerId && centerOwnerId !== playerId) {
       await this.db
         .update(playersTable)
-        .set({ frntrBalanceMicro: sql`${playersTable.frntrBalanceMicro} + ${landTaxMicro}` })
+        .set({ ascendBalanceMicro: sql`${playersTable.ascendBalanceMicro} + ${landTaxMicro}` })
         .where(eq(playersTable.id, centerOwnerId));
     }
     // remaining 20% is burned by omission
@@ -2184,6 +2283,11 @@ export class DbStorage implements IStorage {
       const isDefense  = improvementType in DEFENSE_IMPROVEMENT_INFO;
       if (!isFacility && !isDefense) return { subParcel: null as any, error: "Invalid improvement type" };
 
+      // Archetype gating — the assigned archetype determines buildable structures.
+      if (!isImprovementAllowedForArchetype(spRow.archetype as SubParcelArchetype | null, improvementType)) {
+        return { subParcel: null as any, error: `${improvementType} can't be built on a ${spRow.archetype} sub-parcel` };
+      }
+
       const level = existing ? existing.level + 1 : 1;
       let playerUpdates: Partial<typeof playerRow> = {};
 
@@ -2195,11 +2299,11 @@ export class DbStorage implements IStorage {
         }
         const rawCost = SUB_PARCEL_FACILITY_COSTS[improvementType as FacilityType][level - 1];
         const cost = Math.ceil(rawCost * biomeMultiplier);
-        const microCost = toMicroFRNTR(cost);
-        if (playerRow.frntrBalanceMicro < microCost) return { subParcel: null as any, error: `Insufficient FRONTIER (need ${cost})` };
+        const microCost = toMicroASCEND(cost);
+        if (playerRow.ascendBalanceMicro < microCost) return { subParcel: null as any, error: `Insufficient ASCEND (need ${cost})` };
         playerUpdates = {
-          frntrBalanceMicro:   playerRow.frntrBalanceMicro - microCost,
-          totalFrontierBurned: playerRow.totalFrontierBurned + cost,
+          ascendBalanceMicro:   playerRow.ascendBalanceMicro - microCost,
+          totalAscendBurned: playerRow.totalAscendBurned + cost,
         };
       } else {
         const info = DEFENSE_IMPROVEMENT_INFO[improvementType as DefenseImprovementType];
@@ -2421,10 +2525,10 @@ export class DbStorage implements IStorage {
       if (!playerRow) return { parcel: null as any, error: "Player not found" };
       if (parcelRow.ownerId !== playerId) return { parcel: rowToParcel(parcelRow), error: "You do not own this plot" };
 
-      const costFrontier = TERRAFORM_COSTS[action.type] ?? 10;
-      const playerFrontier = fromMicroFRNTR(playerRow.frntrBalanceMicro);
-      if (playerFrontier < costFrontier) {
-        return { parcel: rowToParcel(parcelRow), error: `Insufficient FRONTIER — need ${costFrontier}, have ${playerFrontier.toFixed(2)}` };
+      const costAscend = TERRAFORM_COSTS[action.type] ?? 10;
+      const playerAscend = fromMicroASCEND(playerRow.ascendBalanceMicro);
+      if (playerAscend < costAscend) {
+        return { parcel: rowToParcel(parcelRow), error: `Insufficient ASCEND — need ${costAscend}, have ${playerAscend.toFixed(2)}` };
       }
 
       const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
@@ -2478,11 +2582,11 @@ export class DbStorage implements IStorage {
       (updates as any).metadataVersion      = prevMetadataVersion + 1;
       (updates as any).visualStateRevision  = isVisualChange ? prevVisualRevision + 1 : prevVisualRevision;
 
-      const costMicro = toMicroFRNTR(costFrontier);
+      const costMicro = toMicroASCEND(costAscend);
       await Promise.all([
         tx.update(parcelsTable).set(updates).where(eq(parcelsTable.plotId, plotId)),
         tx.update(playersTable)
-          .set({ frntrBalanceMicro: playerRow.frntrBalanceMicro - costMicro })
+          .set({ ascendBalanceMicro: playerRow.ascendBalanceMicro - costMicro })
           .where(eq(playersTable.id, playerId)),
       ]);
 
@@ -2511,7 +2615,7 @@ export class DbStorage implements IStorage {
       subIndex:         r.subIndex,
       sellerId:         r.sellerId,
       sellerName:       r.sellerName,
-      askPriceFrontier: r.askPriceFrontier,
+      askPriceAscend: r.askPriceAscend,
       status:           r.status as SubParcelListing["status"],
       createdAt:        r.createdAt,
       buyerId:          r.buyerId ?? null,
@@ -2520,7 +2624,7 @@ export class DbStorage implements IStorage {
     }));
   }
 
-  async createSubParcelListing(sellerId: string, subParcelId: string, askPriceFrontier: number): Promise<{ listing: SubParcelListing; error?: string }> {
+  async createSubParcelListing(sellerId: string, subParcelId: string, askPriceAscend: number): Promise<{ listing: SubParcelListing; error?: string }> {
     await this.initialize();
 
     const [spRow] = await this.db.select().from(subParcelsTable).where(eq(subParcelsTable.id, subParcelId));
@@ -2544,7 +2648,7 @@ export class DbStorage implements IStorage {
       subIndex:         spRow.subIndex,
       sellerId,
       sellerName:       sellerRow.name,
-      askPriceFrontier,
+      askPriceAscend,
       status:           "open",
       createdAt:        now,
     }).returning();
@@ -2554,7 +2658,7 @@ export class DbStorage implements IStorage {
         id: inserted.id, subParcelId: inserted.subParcelId,
         parentPlotId: inserted.parentPlotId, subIndex: inserted.subIndex,
         sellerId: inserted.sellerId, sellerName: inserted.sellerName,
-        askPriceFrontier: inserted.askPriceFrontier,
+        askPriceAscend: inserted.askPriceAscend,
         status: inserted.status as SubParcelListing["status"],
         createdAt: inserted.createdAt,
         buyerId: null, buyerName: null, soldAt: null,
@@ -2589,16 +2693,16 @@ export class DbStorage implements IStorage {
       if (!buyerRow) return { listing: null as any, error: "Buyer not found" };
       if (!spRow || spRow.ownerId !== listing.sellerId) return { listing: null as any, error: "Sub-parcel ownership changed — listing invalid" };
 
-      const costMicro = toMicroFRNTR(listing.askPriceFrontier);
-      if (buyerRow.frntrBalanceMicro < costMicro) return { listing: null as any, error: `Insufficient FRONTIER — need ${listing.askPriceFrontier}` };
+      const costMicro = toMicroASCEND(listing.askPriceAscend);
+      if (buyerRow.ascendBalanceMicro < costMicro) return { listing: null as any, error: `Insufficient ASCEND — need ${listing.askPriceAscend}` };
 
       const now = Date.now();
       const buyerName = buyerRow.name;
 
       // Transfer FRONTIER buyer → seller
       await Promise.all([
-        tx.update(playersTable).set({ frntrBalanceMicro: sql`${playersTable.frntrBalanceMicro} - ${costMicro}` }).where(eq(playersTable.id, buyerId)),
-        tx.update(playersTable).set({ frntrBalanceMicro: sql`${playersTable.frntrBalanceMicro} + ${costMicro}` }).where(eq(playersTable.id, listing.sellerId)),
+        tx.update(playersTable).set({ ascendBalanceMicro: sql`${playersTable.ascendBalanceMicro} - ${costMicro}` }).where(eq(playersTable.id, buyerId)),
+        tx.update(playersTable).set({ ascendBalanceMicro: sql`${playersTable.ascendBalanceMicro} + ${costMicro}` }).where(eq(playersTable.id, listing.sellerId)),
         // Transfer sub-parcel ownership
         tx.update(subParcelsTable).set({ ownerId: buyerId, ownerType: "player", acquiredAt: now }).where(eq(subParcelsTable.id, listing.subParcelId)),
         // Mark listing sold
@@ -2610,7 +2714,7 @@ export class DbStorage implements IStorage {
           id: listing.id, subParcelId: listing.subParcelId,
           parentPlotId: listing.parentPlotId, subIndex: listing.subIndex,
           sellerId: listing.sellerId, sellerName: listing.sellerName,
-          askPriceFrontier: listing.askPriceFrontier,
+          askPriceAscend: listing.askPriceAscend,
           status: "sold" as SubParcelListing["status"],
           createdAt: listing.createdAt,
           buyerId, buyerName, soldAt: now,
@@ -2785,6 +2889,10 @@ export class DbStorage implements IStorage {
       createdBy: row.createdBy,
       relatedEventId: row.relatedEventId ?? null,
       createdAt: Number(row.createdAt),
+      resolutionSource: (row.resolutionSource as ResolutionSource | null) ?? null,
+      resolutionCutoffTs: row.resolutionCutoffTs != null ? Number(row.resolutionCutoffTs) : null,
+      resolvedInputs: (row.resolvedInputs as Record<string, unknown> | null) ?? null,
+      resolutionHash: row.resolutionHash ?? null,
     };
   }
 
@@ -2849,6 +2957,9 @@ export class DbStorage implements IStorage {
         relatedEventId: action.relatedEventId ?? null,
         createdBy,
         createdAt: now,
+        // Provably-fair: source is recorded at creation and never changes.
+        resolutionSource: action.resolutionSource,
+        resolutionCutoffTs: action.resolutionCutoffTs,
       })
       .returning();
     return this.rowToMarket(row);
@@ -2869,6 +2980,13 @@ export class DbStorage implements IStorage {
     if (!marketRow) return { error: "Market not found" };
     if (marketRow.status !== "open") return { error: "Market is not open for betting" };
     if (Number(marketRow.resolvesAt) <= Date.now()) return { error: "Market has expired" };
+    // Provably-fair: staking MUST close at the resolution cutoff (before the resolving
+    // fact is knowable), so no one can bet on a known/derivable outcome. Without this,
+    // a player could stake in the window after a battle resolves but before the
+    // automated resolver fires — the exact front-running hole the design forbids.
+    if (marketRow.resolutionCutoffTs != null && Date.now() >= Number(marketRow.resolutionCutoffTs)) {
+      return { error: "Staking is closed (resolution cutoff passed)" };
+    }
 
     const [playerRow] = await this.db
       .select()
@@ -2876,12 +2994,12 @@ export class DbStorage implements IStorage {
       .where(eq(playersTable.id, playerId));
     if (!playerRow) return { error: "Player not found" };
     if (playerRow.isAi) return { error: "AI players cannot place bets" };
-    if (playerRow.frontier < amount) return { error: "Insufficient FRONTIER balance" };
+    if (playerRow.ascend < amount) return { error: "Insufficient ASCEND balance" };
 
     // Deduct from player
     await this.db
       .update(playersTable)
-      .set({ frontier: playerRow.frontier - amount })
+      .set({ ascend: playerRow.ascend - amount })
       .where(eq(playersTable.id, playerId));
 
     // Update pool
@@ -2962,7 +3080,7 @@ export class DbStorage implements IStorage {
     if (playerRow) {
       await this.db
         .update(playersTable)
-        .set({ frontier: playerRow.frontier + payout })
+        .set({ ascend: playerRow.ascend + payout })
         .where(eq(playersTable.id, playerId));
     }
 
@@ -2982,7 +3100,86 @@ export class DbStorage implements IStorage {
     return { payout };
   }
 
-  async resolveMarket(marketId: string, winningOutcome: MarketOutcome): Promise<PredictionMarket | { error: string }> {
+  // ── Provably-fair resolution ────────────────────────────────────────────────
+  // There is NO admin-chosen-outcome path. Outcomes are DERIVED from deterministic
+  // public facts by code anyone can re-run; the dev has no hand on the lever.
+
+  /** Read the on-chain / deterministic fact a market resolves from. */
+  private async computeOutcome(
+    source: ResolutionSource,
+  ): Promise<{ outcome: MarketOutcome; inputs: Record<string, unknown> } | { error: string }> {
+    switch (source.type) {
+      case "battle_outcome": {
+        const battle = await this.getBattle(source.battleId);
+        if (!battle) return { error: "Battle not found" };
+        if (battle.status !== "resolved" || !battle.outcome) return { error: "Battle not yet resolved" };
+        const fact: ResolutionFact = { attackerWon: battle.outcome === "attacker_wins" };
+        // Record the seed so anyone can replay the deterministic battle and confirm.
+        const inputs = {
+          battleId: battle.id,
+          seed: hashSeed(battle.id, battle.startTs),
+          outcome: battle.outcome,
+          attackerWon: (fact as { attackerWon: boolean }).attackerWon,
+        };
+        return { outcome: deriveOutcome(source, fact), inputs };
+      }
+      case "ownership_at_turn": {
+        const [parcelRow] = await this.db
+          .select({ ownerId: parcelsTable.ownerId })
+          .from(parcelsTable)
+          .where(eq(parcelsTable.plotId, source.plotId));
+        const owner = parcelRow?.ownerId ?? null;
+        const fact: ResolutionFact = { owner };
+        return { outcome: deriveOutcome(source, fact), inputs: { plotId: source.plotId, owner, turn: source.turn } };
+      }
+      case "burn_threshold": {
+        const [agg] = await this.db
+          .select({ total: sum(playersTable.totalAscendBurned) })
+          .from(playersTable);
+        const burned = Number(agg?.total ?? 0);
+        const fact: ResolutionFact = { burned };
+        return { outcome: deriveOutcome(source, fact), inputs: { burned, amount: source.amount, byTurn: source.byTurn } };
+      }
+      case "territory_count": {
+        const [agg] = await this.db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(parcelsTable)
+          .where(eq(parcelsTable.ownerId, source.ownerId));
+        const count = Number(agg?.c ?? 0);
+        const fact: ResolutionFact = { count };
+        return { outcome: deriveOutcome(source, fact), inputs: { ownerId: source.ownerId, count, threshold: source.threshold, turn: source.turn } };
+      }
+      default: {
+        const _never: never = source;
+        return { error: `Unknown resolution source: ${JSON.stringify(_never)}` };
+      }
+    }
+  }
+
+  /** Markets that have a source and whose staking cutoff has passed (candidates to resolve). */
+  async getResolvableMarkets(): Promise<PredictionMarket[]> {
+    await this.initialize();
+    const now = Date.now();
+    const rows = await this.db
+      .select()
+      .from(predictionMarketsTable)
+      .where(
+        and(
+          sql`${predictionMarketsTable.resolutionSource} IS NOT NULL`,
+          sql`${predictionMarketsTable.resolutionCutoffTs} IS NOT NULL`,
+          lt(predictionMarketsTable.resolutionCutoffTs, now),
+          sql`${predictionMarketsTable.status} IN ('open', 'closed')`,
+        ),
+      );
+    return rows.map((r) => this.rowToMarket(r));
+  }
+
+  /**
+   * Resolve a market by DERIVING its outcome from the declared source. No winning
+   * outcome is accepted from any caller. Records the exact inputs + a sha256 hash so
+   * anyone can re-run the computation and verify. Payouts stay pull-based (claimWinnings).
+   */
+  async resolveMarketTrustlessly(marketId: string): Promise<PredictionMarket | { error: string }> {
     await this.initialize();
 
     const [marketRow] = await this.db
@@ -2992,14 +3189,61 @@ export class DbStorage implements IStorage {
     if (!marketRow) return { error: "Market not found" };
     if (marketRow.status === "resolved") return { error: "Market already resolved" };
     if (marketRow.status === "cancelled") return { error: "Market is cancelled" };
+    const source = marketRow.resolutionSource as ResolutionSource | null;
+    if (!source) return { error: "Market has no resolution source (legacy market)" };
+
+    const now = Date.now();
+    const cutoffTs = marketRow.resolutionCutoffTs != null ? Number(marketRow.resolutionCutoffTs) : Number(marketRow.resolvesAt);
+
+    // Gate on knowability (cheap, no chain read) before computing.
+    let battleResolved: boolean | undefined;
+    if (source.type === "battle_outcome") {
+      const battle = await this.getBattle(source.battleId);
+      battleResolved = battle?.status === "resolved" && !!battle.outcome;
+    }
+    const [meta] = await this.db.select({ currentTurn: gameMeta.currentTurn }).from(gameMeta).where(eq(gameMeta.id, 1));
+    const currentTurn = meta?.currentTurn ?? 1;
+    if (!isResolvable(source, { now, cutoffTs, currentTurn, battleResolved })) {
+      return { error: "Not yet resolvable" };
+    }
+
+    const computed = await this.computeOutcome(source);
+    if ("error" in computed) return computed;
+    const { outcome, inputs } = computed;
+    const resolutionHash = hashResolution(source, inputs, outcome);
 
     const [updated] = await this.db
       .update(predictionMarketsTable)
-      .set({ status: "resolved", winningOutcome, resolvedAt: Date.now() })
+      .set({
+        status: "resolved",
+        winningOutcome: outcome,
+        resolvedAt: now,
+        resolvedInputs: inputs,
+        resolutionHash,
+      })
       .where(eq(predictionMarketsTable.id, marketId))
       .returning();
 
     return this.rowToMarket(updated);
+  }
+
+  /** Automated resolver — resolves every market whose condition is met. No human in the loop. */
+  async resolveReadyMarkets(): Promise<void> {
+    let candidates: PredictionMarket[];
+    try {
+      candidates = await this.getResolvableMarkets();
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string };
+      if (pgErr?.code === "42P01") return; // table not yet created in this env — skip
+      throw err;
+    }
+    for (const m of candidates) {
+      const result = await this.resolveMarketTrustlessly(m.id);
+      // "Not yet resolvable" simply means the fact isn't knowable yet; leave it pending.
+      if (result && "error" in result && result.error !== "Not yet resolvable") {
+        console.warn(`[markets] resolveReadyMarkets ${m.id}: ${result.error}`);
+      }
+    }
   }
 
   async getPlayerPositions(playerId: string): Promise<(MarketPosition & { market: PredictionMarket })[]> {

@@ -12,18 +12,18 @@ import algosdk from "algosdk";
 import { getAlgodClient, getAdminAccount, getNetwork } from "./client";
 import type { AssetId, CreateAsaParams } from "./types";
 
-const FRONTIER_ASA_TOTAL_SUPPLY = 1_000_000_000n;
-const FRONTIER_ASA_DECIMALS     = 6;
+const ASCEND_ASA_TOTAL_SUPPLY = 1_000_000_000n;
+const ASCEND_ASA_DECIMALS     = 6;
 
 // Module-scoped singleton — set once on startup, never changes during process lifetime.
-let _frontierAsaId: AssetId | null = null;
+let _ascendAsaId: AssetId | null = null;
 
-export function getFrontierAsaId(): AssetId | null {
-  return _frontierAsaId;
+export function getAscendAsaId(): AssetId | null {
+  return _ascendAsaId;
 }
 
-export function setFrontierAsaId(id: AssetId): void {
-  _frontierAsaId = id;
+export function setAscendAsaId(id: AssetId): void {
+  _ascendAsaId = id;
   console.log(`[chain/asa] FRONTIER ASA ID set to: ${id}`);
 }
 
@@ -69,7 +69,7 @@ export async function lookupAsaByCreator(
 /**
  * Create a new Algorand Standard Asset.
  * Caller is responsible for ensuring this is intentional (check FORCE_NEW_ASA
- * or use getOrCreateFrontierAsa for the FRONTIER token).
+ * or use getOrCreateAscendAsa for the FRONTIER token).
  */
 export async function createAsa(params: CreateAsaParams): Promise<{ assetId: AssetId; txId: string }> {
   const algod   = getAlgodClient();
@@ -114,12 +114,12 @@ export async function createAsa(params: CreateAsaParams): Promise<{ assetId: Ass
  *
  * Decision log is emitted to console so it surfaces in monitoring.
  */
-export async function getOrCreateFrontierAsa(
+export async function getOrCreateAscendAsa(
   { forceNew = false }: { forceNew?: boolean } = {}
 ): Promise<AssetId> {
   // 1. Already resolved in this process run
-  if (_frontierAsaId) {
-    return _frontierAsaId;
+  if (_ascendAsaId) {
+    return _ascendAsaId;
   }
 
   const adminAddr = getAdminAccount().addr.toString();
@@ -135,7 +135,7 @@ export async function getOrCreateFrontierAsa(
       );
     } else {
       console.log(`[chain/asa] Using existing Ascend ASA: ${existing}`);
-      _frontierAsaId = existing;
+      _ascendAsaId = existing;
       return existing;
     }
   }
@@ -146,26 +146,26 @@ export async function getOrCreateFrontierAsa(
     console.log("[chain/asa] No existing Ascend ASA found. Creating new token.");
   }
 
-  // 3. Create — clawback MUST be set so fireBurn / clawbackFrontierAsa work on-chain.
+  // 3. Create — clawback MUST be set so fireBurn / clawbackAscendAsa work on-chain.
   const { assetId } = await createAsa({
     name:     "Ascend",
     unitName: "ASCEND",
-    total:    FRONTIER_ASA_TOTAL_SUPPLY * BigInt(Math.pow(10, FRONTIER_ASA_DECIMALS)),
-    decimals: FRONTIER_ASA_DECIMALS,
+    total:    ASCEND_ASA_TOTAL_SUPPLY * BigInt(Math.pow(10, ASCEND_ASA_DECIMALS)),
+    decimals: ASCEND_ASA_DECIMALS,
     url:      process.env.PUBLIC_BASE_URL ?? "https://frontier-al.app",
     note:     `Ascend Game Token - ${getNetwork()}`,
-    // SEV1 fix: clawback role = admin so clawbackFrontierAsa / fireBurn succeed on-chain.
+    // SEV1 fix: clawback role = admin so clawbackAscendAsa / fireBurn succeed on-chain.
     clawback: adminAddr,
   });
 
-  _frontierAsaId = assetId;
+  _ascendAsaId = assetId;
   return assetId;
 }
 
 // ── Opt-in Check ──────────────────────────────────────────────────────────────
 
 export async function isAddressOptedIn(address: string, assetId?: AssetId): Promise<boolean> {
-  const targetId = assetId ?? _frontierAsaId;
+  const targetId = assetId ?? _ascendAsaId;
   if (!targetId) return false;
 
   try {
@@ -193,7 +193,7 @@ interface PendingTransfer {
   reject: (err: Error) => void;
 }
 
-class FrontierTransferBatcher {
+class AscendTransferBatcher {
   private _pending: PendingTransfer[] = [];
   private _flushTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly MAX_BATCH  = 16;
@@ -232,8 +232,8 @@ class FrontierTransferBatcher {
 async function _sendAtomicTransfers(
   transfers: Array<{ toAddress: string; amount: number }>
 ): Promise<string[]> {
-  const targetId = _frontierAsaId;
-  if (!targetId) throw new Error("[chain/asa] batchedTransferFrontierAsa: no ASA ID available");
+  const targetId = _ascendAsaId;
+  if (!targetId) throw new Error("[chain/asa] batchedTransferAscendAsa: no ASA ID available");
 
   const algod   = getAlgodClient();
   const account = getAdminAccount();
@@ -242,7 +242,7 @@ async function _sendAtomicTransfers(
   const batchTs = Date.now();
 
   const txns = transfers.map(({ toAddress, amount }, index) => {
-    const amountUnits = Math.floor(amount * Math.pow(10, FRONTIER_ASA_DECIMALS));
+    const amountUnits = Math.floor(amount * Math.pow(10, ASCEND_ASA_DECIMALS));
     const note = JSON.stringify({
       game: "FRONTIER", v: 1, type: "batch_claim",
       amt: amount, to: toAddress, batchIdx: index,
@@ -251,7 +251,7 @@ async function _sendAtomicTransfers(
     return algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
       sender: account.addr.toString(), receiver: toAddress,
       amount: amountUnits, assetIndex: targetId, suggestedParams: sp,
-      note: new TextEncoder().encode(`FRNTR:${note}`),
+      note: new TextEncoder().encode(`ASCEND:${note}`),
     });
   });
 
@@ -267,31 +267,31 @@ async function _sendAtomicTransfers(
 }
 
 /** Singleton — import and call .queue() from route handlers */
-const _batcher = new FrontierTransferBatcher();
+const _batcher = new AscendTransferBatcher();
 
 /**
  * Queue a FRONTIER ASA transfer. Batches up to 16 transfers per Algorand
  * atomic group; flushes after 5s of inactivity or when the group is full.
  * Resolves with the on-chain txId once the batch confirms.
  */
-export function batchedTransferFrontierAsa(toAddress: string, amount: number): Promise<string> {
+export function batchedTransferAscendAsa(toAddress: string, amount: number): Promise<string> {
   return _batcher.queue(toAddress, amount);
 }
 
 /**
- * Clawback FRONTIER tokens from a player wallet back to the admin wallet.
+ * Clawback ASCEND tokens from a player wallet back to the admin wallet.
  * Used when a player spends tokens on in-game actions (build, attack, commander mint, etc).
  * The admin wallet must be the clawback address on the FRONTIER ASA.
  * Fire-and-forget safe — logs failure without throwing so game action is not blocked.
  */
-export async function clawbackFrontierAsa(
+export async function clawbackAscendAsa(
   fromAddress: string,
   amount: number,
   note?: string
 ): Promise<string | null> {
-  const asaId = _frontierAsaId;
+  const asaId = _ascendAsaId;
   if (!asaId) {
-    console.warn('[chain/asa] clawbackFrontierAsa: ASA ID not set, skipping clawback');
+    console.warn('[chain/asa] clawbackAscendAsa: ASA ID not set, skipping clawback');
     return null;
   }
   if (amount <= 0) return null;
@@ -320,7 +320,7 @@ export async function clawbackFrontierAsa(
     console.log(`[chain/asa] clawback ${amount} FRONTIER from ${fromAddress} txId=${txId}`);
     return txId;
   } catch (err) {
-    console.error(`[chain/asa] clawbackFrontierAsa failed for ${fromAddress}:`, err);
+    console.error(`[chain/asa] clawbackAscendAsa failed for ${fromAddress}:`, err);
     return null;
   }
 }
@@ -332,7 +332,7 @@ export async function transferAsa(
   amount: number,
   { assetId, note }: { assetId?: AssetId; note?: string } = {}
 ): Promise<string> {
-  const targetId = assetId ?? _frontierAsaId;
+  const targetId = assetId ?? _ascendAsaId;
   if (!targetId) throw new Error("[chain/asa] transferAsa: no ASA ID available");
 
   const algod   = getAlgodClient();
@@ -340,7 +340,7 @@ export async function transferAsa(
   const sp      = await algod.getTransactionParams().do();
   const network = getNetwork();
 
-  const amountUnits = Math.floor(amount * Math.pow(10, FRONTIER_ASA_DECIMALS));
+  const amountUnits = Math.floor(amount * Math.pow(10, ASCEND_ASA_DECIMALS));
   const noteData    = note ?? JSON.stringify({
     game: "FRONTIER", v: 1, type: "claim",
     amt: amount, to: toAddress, ts: Date.now(), network,
@@ -352,7 +352,7 @@ export async function transferAsa(
     amount:         amountUnits,
     assetIndex:     targetId,
     suggestedParams: sp,
-    note:           new TextEncoder().encode(`FRNTR:${noteData}`),
+    note:           new TextEncoder().encode(`ASCEND:${noteData}`),
   });
 
   const signed   = txn.signTxn(account.sk);

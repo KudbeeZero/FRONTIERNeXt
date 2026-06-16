@@ -2,7 +2,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { registerRoutes } from "./routes";
+import { registerRoutes, pruneActionNonces, ACTION_NONCE_PRUNE_INTERVAL_MS } from "./routes";
 import { initSeasonManager } from "./engine/season/manager";
 import { hydrateWorldEventsFromRedis } from "./worldEventStore";
 import { warmUpDb, logPoolStats } from "./db";
@@ -12,6 +12,8 @@ import { createServer } from "http";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
+import { apiReadLimiter } from "./security";
+import { isRedisEnabled } from "./services/redis";
 
 const app = express();
 const httpServer = createServer(app);
@@ -139,6 +141,15 @@ const actionsLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many actions — slow down and try again shortly." },
 });
+
+// Coarse per-IP ceiling across the ENTIRE /api surface (read + write). This is
+// the backstop against bulk scraping of off-chain game-economy data — e.g. a
+// bot walking /api/game/parcel/:id or /api/game/player/:id to harvest which
+// plots hold the most resources. Deliberately generous (default 1000/min) so a
+// single legitimate player session is never affected; per-endpoint limiters in
+// security.ts apply tighter caps to the enumerable lookups. Registered before
+// the actions limiter so both counters apply to /api/actions.
+app.use("/api", apiReadLimiter);
 app.use("/api/actions", actionsLimiter);
 
 export function log(message: string, source = "express") {
@@ -231,13 +242,31 @@ app.use((req, res, next) => {
   // Hydrate world event feed from Redis (no-op if Redis unavailable)
   await hydrateWorldEventsFromRedis();
   await registerRoutes(httpServer, app);
+  // ID-004: periodically reap expired action_nonces (completed rows now carry
+  // response_json + crash-orphaned in-flight rows). Best-effort and `unref`'d so it
+  // never holds the process open or surfaces errors on the request path.
+  const _actionNoncePruneInterval = setInterval(() => {
+    pruneActionNonces()
+      .then((n) => { if (n > 0) console.log(`[action_nonces] pruned ${n} expired row(s)`); })
+      .catch(() => {});
+  }, ACTION_NONCE_PRUNE_INTERVAL_MS);
+  _actionNoncePruneInterval.unref();
   // Start season lifecycle manager (auto-expiry + countdown broadcasts)
   initSeasonManager(storage);
   console.log("[startup] Season manager initialised ✓");
   // Start persistent FRONTIER transfer retry worker (SEV2 #6 + #7 fix)
-  const { startFrontierTransferWorker } = await import("./services/chain/transferQueue");
-  startFrontierTransferWorker();
+  const { startAscendTransferWorker } = await import("./services/chain/transferQueue");
+  startAscendTransferWorker();
   console.log("[startup] FRONTIER transfer retry worker started ✓");
+
+  // Surface whether security state (auth nonces + enumeration/auth rate limits)
+  // is shared across instances (Redis) or per-instance (memory). The latter is
+  // only correct for a single instance.
+  console.log(
+    isRedisEnabled()
+      ? "[startup] Distributed mode ✓ — auth nonces + security rate limits backed by Redis (multi-instance safe)"
+      : "[startup] Per-instance mode — no Redis (UPSTASH_REDIS_REST_URL/TOKEN unset); auth nonces + rate limits are local. Safe for a single instance only.",
+  );
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -1,0 +1,83 @@
+# deep-health — the 5-minute checkup. Polls the admin status endpoint, which
+# probes the Algorand node, the database, and the AI factions from inside the
+# backend (server/routes.ts → GET /api/admin/status).
+#
+# Severity mapping:
+#   ok=false (chain or DB unreachable)            → SEV2
+#   ok=true but latencies above thresholds        → SEV3 (degraded, no ping)
+#   endpoint itself unreachable/non-200           → handled by the uptime flow;
+#                                                   here it's SEV2 (deep probe
+#                                                   broken while /health may
+#                                                   still be green)
+#
+# Required Kestra secret: FRONTIER_ADMIN_KEY (the backend's ADMIN_KEY).
+# Edit `variables` after import.
+id: deep-health
+namespace: frontier.ops
+
+variables:
+  targetUrl: "https://YOUR-REPLIT-DEPLOYMENT.replit.app"
+  maxAlgodLatencyMs: 4000
+  maxDbPingMs: 1500
+
+tasks:
+  - id: probe
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.targetUrl }}/api/admin/status"
+    method: GET
+    headers:
+      x-admin-key: "{{ secret('FRONTIER_ADMIN_KEY') }}"
+    options:
+      allowFailed: true
+
+  - id: evaluate
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ outputs.probe.code != 200 }}"
+    then:
+      - id: probe_broken
+        type: io.kestra.plugin.core.flow.Subflow
+        flowId: severity-router
+        namespace: frontier.ops
+        wait: true
+        inputs:
+          severity: "SEV2"
+          title: "deep-health probe failed"
+          detail: "GET /api/admin/status → HTTP {{ outputs.probe.code }} (admin key wrong, server erroring, or endpoint unreachable)"
+    else:
+      - id: check_ok
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{ fromJson(outputs.probe.body).ok != true }}"
+        then:
+          - id: dependency_down
+            type: io.kestra.plugin.core.flow.Subflow
+            flowId: severity-router
+            namespace: frontier.ops
+            wait: true
+            inputs:
+              severity: "SEV2"
+              title: "backend dependency down (chain or DB)"
+              detail: |
+                algorand.connected={{ fromJson(outputs.probe.body).algorand.connected }}
+                db.connected={{ fromJson(outputs.probe.body).db.connected }}
+                algorand.error={{ fromJson(outputs.probe.body).algorand.error ?? "n/a" }}
+        else:
+          - id: check_latency
+            type: io.kestra.plugin.core.flow.If
+            condition: "{{ (fromJson(outputs.probe.body).algorand.latencyMs ?? 0) > vars.maxAlgodLatencyMs or (fromJson(outputs.probe.body).db.pingMs ?? 0) > vars.maxDbPingMs }}"
+            then:
+              - id: degraded
+                type: io.kestra.plugin.core.flow.Subflow
+                flowId: severity-router
+                namespace: frontier.ops
+                wait: true
+                inputs:
+                  severity: "SEV3"
+                  title: "backend degraded (latency over threshold)"
+                  detail: |
+                    algod latency: {{ fromJson(outputs.probe.body).algorand.latencyMs }}ms (max {{ vars.maxAlgodLatencyMs }}ms)
+                    db ping:       {{ fromJson(outputs.probe.body).db.pingMs }}ms (max {{ vars.maxDbPingMs }}ms)
+
+triggers:
+  - id: every_five_minutes
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "*/5 * * * *"

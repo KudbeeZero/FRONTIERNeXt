@@ -1,5 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { WalletConnect } from "@/components/game/WalletConnect";
+
+// ─── Social / external links ──────────────────────────────────────────────────
+// Only entries with a non-empty url render. Add Discord/Telegram invite URLs
+// here and their icons reappear automatically.
+const SOCIAL_URLS = {
+  x:        "https://x.com/ascendancyalgox",
+  github:   "https://github.com/KudbeeZero/FRONTIERNeXt",
+  discord:  "", // TODO: add invite URL
+  telegram: "", // TODO: add invite URL
+};
+export const SOCIAL_LINKS = [
+  { label: "Twitter/X", url: SOCIAL_URLS.x,        glyph: "𝕏" },
+  { label: "Discord",   url: SOCIAL_URLS.discord,  glyph: "◆" },
+  { label: "Telegram",  url: SOCIAL_URLS.telegram, glyph: "✈" },
+  { label: "GitHub",    url: SOCIAL_URLS.github,   glyph: "⚙" },
+].filter((s) => s.url);
 
 // ─── Shared Nav Links ─────────────────────────────────────────────────────────
 export const NAV_LINKS = [
@@ -118,6 +135,8 @@ export function LandingNav({ activePath }: { activePath: string }) {
             letterSpacing: "0.12em", textTransform: "uppercase",
             cursor: "pointer", fontWeight: 700, fontFamily: "inherit",
           }}>Enter Game →</button>
+          {/* Global wallet integration — persistent across all static pages */}
+          <WalletConnect className="ml-2 h-8 text-[11px]" />
         </div>
 
         <button className="hamburger" onClick={() => setMenuOpen(v => !v)} aria-label="Toggle menu" style={{
@@ -151,6 +170,8 @@ export function LandingNav({ activePath }: { activePath: string }) {
             cursor: "pointer", fontWeight: 700, textAlign: "center", width: "100%",
             marginTop: 4, fontFamily: "inherit",
           }}>▶ Enter Game</button>
+          {/* Global wallet integration in mobile menu */}
+          <WalletConnect className="w-full mt-1" />
         </div>
       )}
     </>
@@ -232,24 +253,14 @@ export function LandingFooter() {
         <div style={{
           display: "flex", justifyContent: "center", alignItems: "center", gap: 20, marginBottom: 24,
         }}>
-          <a href="https://x.com/ascendancyalgox" target="_blank" rel="noopener noreferrer" title="Twitter/X" style={{
-            fontSize: 24, color: "rgba(150,200,255,0.7)", transition: "all 0.3s",
-            cursor: "pointer", textDecoration: "none",
-          }} onMouseEnter={(e) => e.currentTarget.style.color = "rgba(79,195,247,0.95)"}
-             onMouseLeave={(e) => e.currentTarget.style.color = "rgba(150,200,255,0.7)"}
-          >𝕏</a>
-          <div title="Discord" style={{
-            fontSize: 24, color: "rgba(150,200,255,0.5)", cursor: "default",
-          }}>◆</div>
-          <div title="Telegram" style={{
-            fontSize: 24, color: "rgba(150,200,255,0.5)", cursor: "default",
-          }}>✈</div>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer" title="GitHub" style={{
-            fontSize: 24, color: "rgba(150,200,255,0.7)", transition: "all 0.3s",
-            cursor: "pointer", textDecoration: "none",
-          }} onMouseEnter={(e) => e.currentTarget.style.color = "rgba(79,195,247,0.95)"}
-             onMouseLeave={(e) => e.currentTarget.style.color = "rgba(150,200,255,0.7)"}
-          >⚙</a>
+          {SOCIAL_LINKS.map(({ label, url, glyph }) => (
+            <a key={label} href={url} target="_blank" rel="noopener noreferrer" title={label} style={{
+              fontSize: 24, color: "rgba(150,200,255,0.7)", transition: "all 0.3s",
+              cursor: "pointer", textDecoration: "none",
+            }} onMouseEnter={(e) => e.currentTarget.style.color = "rgba(79,195,247,0.95)"}
+               onMouseLeave={(e) => e.currentTarget.style.color = "rgba(150,200,255,0.7)"}
+            >{glyph}</a>
+          ))}
         </div>
       </div>
 
@@ -261,7 +272,7 @@ export function LandingFooter() {
         {[
           { label: "Network",          value: "Algorand TestNet" },
           { label: "Parcels Reserved", value: "4,218 / 21,000" },
-          { label: "Status",           value: "UNDER CONSTRUCTION" },
+          { label: "Status",           value: "TestNet Alpha" },
         ].map(({ label, value }) => (
           <div key={label} style={{ textAlign: "center" }}>
             <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "rgba(100,130,200,0.5)", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>

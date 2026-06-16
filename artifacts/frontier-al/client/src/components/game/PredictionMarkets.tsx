@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { PredictionMarket, MarketPosition } from "@shared/schema";
+import type { PredictionMarket, MarketPosition, ResolutionSource } from "@shared/schema";
 
 interface PredictionMarketsPanelProps {
   currentPlayerId: string;
-  currentPlayerFrontier: number;
+  currentPlayerAscend: number;
   className?: string;
 }
 
@@ -45,17 +45,62 @@ function oddsLabel(poolA: number, poolB: number): { a: string; b: string } {
   };
 }
 
+/** Human-readable description of how a market resolves — shown up front so players
+ *  see exactly what deterministic fact decides the outcome (provably-fair). */
+function formatResolutionSource(source: ResolutionSource | null): string {
+  if (!source) return "Legacy market (no declared resolution source).";
+  switch (source.type) {
+    case "battle_outcome":
+      return `Resolves from the deterministic outcome of battle ${source.battleId.slice(0, 8)}… (replayable by anyone from its seed).`;
+    case "ownership_at_turn":
+      return `Resolves from on-chain ownership of plot ${source.plotId} at turn ${source.turn}.`;
+    case "burn_threshold":
+      return `Resolves from total $ASCEND burned reaching ${source.amount.toLocaleString()} by turn ${source.byTurn}.`;
+    case "territory_count":
+      return `Resolves from a holder controlling ≥ ${source.threshold} parcels at turn ${source.turn}.`;
+    default:
+      return "Resolves from a deterministic on-chain fact.";
+  }
+}
+
+// ── Verify proof (re-run the resolution yourself) ──────────────────────────────
+
+function VerifyProof({ marketId }: { marketId: string }) {
+  const [open, setOpen] = useState(false);
+  const { data, isFetching } = useQuery({
+    queryKey: ["/api/markets", marketId, "proof"],
+    queryFn: () => fetch(`/api/markets/${marketId}/proof`).then(r => r.json()),
+    enabled: open,
+  });
+
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-[10px] text-blue-400 hover:underline font-mono"
+      >
+        {open ? "Hide proof" : "Verify resolution"}
+      </button>
+      {open && (
+        <pre className="text-[9px] leading-relaxed bg-background/60 border border-border/50 rounded-md p-2 overflow-x-auto text-muted-foreground">
+          {isFetching ? "Loading proof…" : JSON.stringify(data, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 // ── Market Card ───────────────────────────────────────────────────────────────
 
 function MarketCard({
   market,
   currentPlayerId,
-  currentPlayerFrontier,
+  currentPlayerAscend,
   onBetPlaced,
 }: {
   market: PredictionMarket;
   currentPlayerId: string;
-  currentPlayerFrontier: number;
+  currentPlayerAscend: number;
   onBetPlaced: () => void;
 }) {
   const { toast } = useToast();
@@ -106,7 +151,7 @@ function MarketCard({
       toast({ title: "Invalid Bet", description: "Select an outcome and enter a valid amount.", variant: "destructive" });
       return;
     }
-    if (amount > currentPlayerFrontier) {
+    if (amount > currentPlayerAscend) {
       toast({ title: "Insufficient Balance", description: "You don't have enough ASCEND.", variant: "destructive" });
       return;
     }
@@ -117,6 +162,9 @@ function MarketCard({
   const totalPool = market.tokenPoolA + market.tokenPoolB;
   const isOpen = market.status === "open";
   const isResolved = market.status === "resolved";
+  // Staking locks at the resolution cutoff (before the fact is knowable) — mirror the
+  // server guard so we don't show a bet form that can only error.
+  const stakingOpen = isOpen && (market.resolutionCutoffTs == null || Date.now() < market.resolutionCutoffTs);
 
   return (
     <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
@@ -162,11 +210,11 @@ function MarketCard({
             return (
               <button
                 key={side}
-                disabled={!isOpen || betMutation.isPending}
+                disabled={!stakingOpen || betMutation.isPending}
                 onClick={() => setBetOutcome(betOutcome === side ? null : side)}
                 className={cn(
                   "w-full text-left rounded-md border px-3 py-2 transition-all",
-                  isOpen ? "cursor-pointer hover:border-primary/50" : "cursor-default",
+                  stakingOpen ? "cursor-pointer hover:border-primary/50" : "cursor-default",
                   betOutcome === side ? "border-primary bg-primary/10" : "border-border/50 bg-background/30",
                   isWinner && "border-blue-500/50 bg-blue-500/10",
                 )}
@@ -190,8 +238,22 @@ function MarketCard({
           Total pool: {totalPool.toLocaleString()} ASCEND · 5% protocol fee
         </div>
 
+        {/* Provably-fair: how this market resolves (immutable, declared at creation) */}
+        <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+          <CheckCircle className="w-3 h-3 mt-px shrink-0 text-emerald-400/70" />
+          <span className="leading-snug">{formatResolutionSource(market.resolutionSource)}</span>
+        </div>
+        {isResolved && <VerifyProof marketId={market.id} />}
+
+        {/* Staking closed but not yet resolved */}
+        {isOpen && !stakingOpen && (
+          <div className="text-[10px] text-yellow-400/80 font-mono">
+            Staking closed — awaiting trustless resolution.
+          </div>
+        )}
+
         {/* Bet form */}
-        {isOpen && (
+        {stakingOpen && (
           <div className="flex gap-2">
             <Input
               type="number"
@@ -231,7 +293,7 @@ function MarketCard({
 
 // ── Markets Tab ───────────────────────────────────────────────────────────────
 
-function MarketsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerId: string; currentPlayerFrontier: number }) {
+function MarketsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: string; currentPlayerAscend: number }) {
   const queryClient = useQueryClient();
   const { data: markets = [], isFetching, refetch } = useQuery<PredictionMarket[]>({
     queryKey: ["/api/markets"],
@@ -268,7 +330,7 @@ function MarketsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerI
           key={m.id}
           market={m}
           currentPlayerId={currentPlayerId}
-          currentPlayerFrontier={currentPlayerFrontier}
+          currentPlayerAscend={currentPlayerAscend}
           onBetPlaced={invalidate}
         />
       ))}
@@ -278,7 +340,7 @@ function MarketsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerI
 
 // ── My Bets Tab ───────────────────────────────────────────────────────────────
 
-function MyBetsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerId: string; currentPlayerFrontier: number }) {
+function MyBetsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: string; currentPlayerAscend: number }) {
   const queryClient = useQueryClient();
   const { data: positions = [], isFetching } = useQuery<(MarketPosition & { market: PredictionMarket })[]>({
     queryKey: ["/api/markets/player", currentPlayerId],
@@ -325,7 +387,7 @@ function MyBetsTab({ currentPlayerId, currentPlayerFrontier }: { currentPlayerId
           <MarketCard
             market={m}
             currentPlayerId={currentPlayerId}
-            currentPlayerFrontier={currentPlayerFrontier}
+            currentPlayerAscend={currentPlayerAscend}
             onBetPlaced={invalidate}
           />
         </div>
@@ -369,14 +431,18 @@ function HistoryTab() {
                 {m.status}
               </Badge>
             </div>
+            <p className="text-[10px] text-muted-foreground">{formatResolutionSource(m.resolutionSource)}</p>
             {m.status === "resolved" && m.winningOutcome && (
-              <p className="text-xs text-muted-foreground">
-                Winner: <span className="text-blue-400 font-medium">{m.winningOutcome === "a" ? m.outcomeALabel : m.outcomeBLabel}</span>
-                {" · "}Pool: {(m.tokenPoolA + m.tokenPoolB).toLocaleString()} ASCEND
-              </p>
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Winner: <span className="text-blue-400 font-medium">{m.winningOutcome === "a" ? m.outcomeALabel : m.outcomeBLabel}</span>
+                  {" · "}Pool: {(m.tokenPoolA + m.tokenPoolB).toLocaleString()} ASCEND
+                </p>
+                <VerifyProof marketId={m.id} />
+              </>
             )}
             {m.status === "closed" && (
-              <p className="text-xs text-muted-foreground">Awaiting admin resolution.</p>
+              <p className="text-xs text-muted-foreground">Awaiting trustless resolution (outcome derived automatically when the fact is knowable).</p>
             )}
           </CardContent>
         </Card>
@@ -387,7 +453,7 @@ function HistoryTab() {
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
-export function PredictionMarketsPanel({ currentPlayerId, currentPlayerFrontier, className }: PredictionMarketsPanelProps) {
+export function PredictionMarketsPanel({ currentPlayerId, currentPlayerAscend, className }: PredictionMarketsPanelProps) {
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Header */}
@@ -399,7 +465,7 @@ export function PredictionMarketsPanel({ currentPlayerId, currentPlayerFrontier,
         </div>
         <div className="ml-auto text-right">
           <p className="text-[10px] text-muted-foreground">Balance</p>
-          <p className="text-sm font-mono font-bold text-emerald-400">{currentPlayerFrontier.toLocaleString()} ASCEND</p>
+          <p className="text-sm font-mono font-bold text-emerald-400">{currentPlayerAscend.toLocaleString()} ASCEND</p>
         </div>
       </div>
 
@@ -412,10 +478,10 @@ export function PredictionMarketsPanel({ currentPlayerId, currentPlayerFrontier,
             <TabsTrigger value="history" className="flex-1 text-xs">Resolved</TabsTrigger>
           </TabsList>
           <TabsContent value="open">
-            <MarketsTab currentPlayerId={currentPlayerId} currentPlayerFrontier={currentPlayerFrontier} />
+            <MarketsTab currentPlayerId={currentPlayerId} currentPlayerAscend={currentPlayerAscend} />
           </TabsContent>
           <TabsContent value="mybets">
-            <MyBetsTab currentPlayerId={currentPlayerId} currentPlayerFrontier={currentPlayerFrontier} />
+            <MyBetsTab currentPlayerId={currentPlayerId} currentPlayerAscend={currentPlayerAscend} />
           </TabsContent>
           <TabsContent value="history">
             <HistoryTab />

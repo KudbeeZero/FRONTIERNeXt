@@ -7,17 +7,27 @@
 | DATABASE_URL | Neon PostgreSQL connection string | `postgres://user:pass@host/db?sslmode=require` |
 | ALGORAND_ADMIN_MNEMONIC | Admin wallet mnemonic | 25-word phrase |
 | ALGORAND_ADMIN_ADDRESS | Admin wallet address | Algorand public address |
-| SESSION_SECRET | express-session secret | random 64-char string |
+| SESSION_SECRET | HMAC key for wallet-auth session tokens (≥16 chars). **Now actively used** — if unset in production the server falls back to an ephemeral per-process key (sessions die on restart and cannot be shared across instances). Set a strong value. | random 64-char string |
 | PUBLIC_BASE_URL | Railway service base URL (used for NFT metadata URLs) | `https://api.ascendancyalgo.xyz` |
 | ALGORAND_NETWORK | `testnet` or `mainnet` | `mainnet` |
-| UPSTASH_REDIS_REST_URL | Upstash Redis REST URL | `https://....upstash.io` |
+| UPSTASH_REDIS_REST_URL | Upstash Redis REST URL. **Required for multi-instance**: when set, auth nonces + the enumeration/auth rate limiters are shared across instances; when unset, they fall back to per-instance memory (correct for a single instance only). Also backs world events / battle replays. | `https://....upstash.io` |
 | UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token | |
 | CLIENT_ORIGIN | Vercel frontend URL for CORS | `https://ascendancyalgo.xyz` |
 | NODE_ENV | Environment flag | `production` |
 | PORT | Server listen port (Railway injects automatically) | `5000` |
 | AI_ENABLED | Enable/disable AI faction turns | `false` |
 | FORCE_NEW_ASA | Force new ASA creation on startup | `false` |
-| ADMIN_KEY | Admin API key for privileged endpoints | random secret string |
+| ADMIN_KEY | Admin API key for privileged endpoints. **In production a missing key now FAILS CLOSED** (admin endpoints return 503) instead of granting open access. Sent via `x-admin-key` header only in prod. | random secret string |
+| API_RATE_LIMIT | Coarse per-IP request ceiling across all `/api/*` (per minute). Anti-bulk-scrape / DoS backstop. | `1000` (default) |
+| ENUMERATION_RATE_LIMIT | Strict per-IP limit (per minute) on ID/address-enumerable read endpoints (`/api/game/parcel/:id`, `/api/game/player/:id`, `/api/game/player-by-address/:address`, `/api/parcels/attackable`, etc.). Primary defense against scraping off-chain economic data. **Redis-backed** when Upstash is configured (shared across instances). | `90` (default) |
+| AUTH_RATE_LIMIT | Per-IP limit (per minute) on `/api/auth/*` (nonce/verify). Blunts auth spam / signature-guessing. **Redis-backed** when Upstash is configured. | `20` (default) |
+| ACTIONS_RATE_LIMIT | Per-IP limit (per minute) on `/api/actions/*` mutating game actions. | `60` (default) |
+| ACTION_NONCE_TTL_MS | Age after which an `action_nonces` idempotency row is reaped by the periodic prune. Replay protection lasts this long, so it MUST exceed the legitimate retry window; normal play uses a fresh nonce per action and never relies on an older one. Floor `600000` (10 min — kept well above max request duration so the prune can never reap a still-in-flight claim). | `86400000` (24h default) |
+| ACTION_NONCE_PRUNE_INTERVAL_MS | How often the server prunes expired `action_nonces` rows. Best-effort; failures never affect request handling. Floor `60000` (1 min). | `3600000` (hourly default) |
+| ADVICE_RATE_LIMIT | Per-IP limit (per minute) on the LLM terraform-advice endpoint. | `30` (default) |
+| WALLET_AUTH_REQUIRED | Enforce wallet-signature auth on all mutating game endpoints. **Defaults to ON** (any value except `false`). Set to `false` ONLY during a split-host rollout window where the new client is not yet deployed, then flip back. | `true` (default) |
+| WELCOME_BONUS_SYBIL_CHECK | Gate the 500 FRONTIER welcome bonus behind an on-chain minimum-balance check (anti-Sybil). **Defaults to ON**; set `false` to disable. | `true` (default) |
+| WELCOME_BONUS_MIN_ALGO | Minimum wallet ALGO balance required to claim the welcome bonus. `0` disables the balance gate. | `1` (default) |
 | ALGOD_URL | Custom Algorand node URL (optional, defaults to algonode) | `https://mainnet-api.algonode.cloud` |
 | INDEXER_URL | Custom Algorand indexer URL (optional, defaults to algonode) | `https://mainnet-idx.algonode.cloud` |
 | ALGOD_TOKEN | Algorand node API token (optional) | |

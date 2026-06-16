@@ -79,6 +79,7 @@ function isWalletLikelyAvailable(
 export function WalletConnect({ className }: { className?: string }) {
   const {
     isConnected,
+    walletStatus,
     address,
     displayAddress,
     balance,
@@ -96,6 +97,22 @@ export function WalletConnect({ className }: { className?: string }) {
     clearError();
     setShowPicker(true);
   };
+
+  // While the provider is resuming a stored session, show a stable placeholder
+  // instead of flashing "Connect Wallet" before snapping to the connected state.
+  if (walletStatus === "restoring" && !isConnected) {
+    return (
+      <Button
+        variant="outline"
+        disabled
+        className={cn("gap-2 font-display uppercase tracking-wide", className)}
+        data-testid="button-wallet-restoring"
+      >
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Restoring...
+      </Button>
+    );
+  }
 
   if (isConnecting) {
     return (

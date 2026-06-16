@@ -1,0 +1,19 @@
+{
+  "line_id": "ch1_s11_aether_01",
+  "chapter": "ch1",
+  "speaker": "aether_damaged",
+  "voice_id": "EXAVITQu4vr4xnSDxMaL",
+  "voice_name": "Sarah",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.3,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "text": "Hi. ... Hi. Are you... are you with me? Don't try to move yet. Your hands won't know how, for about ninety seconds. That's normal. I promise that's normal.",
+  "content_hash": "9df70d9e3b11e6a11082af93cf6c0d84e4debf52956418b2c3a6b9a8ba5b4ea4",
+  "generated_at": "2026-06-15T23:37:33.096Z",
+  "duration_seconds": null,
+  "version": 1
+}
