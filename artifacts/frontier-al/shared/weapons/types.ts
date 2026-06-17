@@ -19,6 +19,7 @@ export type WeaponCategory =
   | "hypersonic"       // boost-glide / depressed hypersonic
   | "artillery"        // towed/self-propelled gun (parabolic shell)
   | "rocket_artillery" // MLRS / HIMARS-class rockets
+  | "loitering"        // loitering munition / one-way attack drone (cheap, attritable, mass)
   | "anti_air"         // surface-to-air interceptor missile
   | "missile_defense"; // dedicated missile-defense battery
 
@@ -29,6 +30,7 @@ export const OFFENSIVE_CATEGORIES: WeaponCategory[] = [
   "hypersonic",
   "artillery",
   "rocket_artillery",
+  "loitering",
 ];
 
 /** Defensive categories that intercept incoming fire. */

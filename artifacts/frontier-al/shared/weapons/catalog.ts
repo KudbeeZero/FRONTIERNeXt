@@ -10,6 +10,7 @@ import type { WeaponCategory, WeaponSpec } from "./types";
 import { isDefenseSpec } from "./types";
 import { MISSILES } from "./missiles";
 import { ARTILLERY } from "./artillery";
+import { LOITERING } from "./loitering";
 import { ANTI_AIR } from "./antiAir";
 import { DEFENSE_SYSTEMS } from "./defense";
 
@@ -17,6 +18,7 @@ import { DEFENSE_SYSTEMS } from "./defense";
 export const ALL_WEAPONS: WeaponSpec[] = [
   ...MISSILES,
   ...ARTILLERY,
+  ...LOITERING,
   ...ANTI_AIR,
   ...DEFENSE_SYSTEMS,
 ];

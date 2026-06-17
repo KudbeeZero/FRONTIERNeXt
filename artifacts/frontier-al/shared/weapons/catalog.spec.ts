@@ -25,6 +25,20 @@ describe("weapon catalog", () => {
     expect(validateCatalog()).toEqual([]);
   });
 
+  it("ships a loitering-munition line — the logistics/quartermaster payoff", () => {
+    const loiter = weaponsByCategory("loitering");
+    expect(loiter.length).toBeGreaterThanOrEqual(4);
+    // offensive (no intercept envelope), logistics-affined, quartermaster-gated
+    expect(loiter.every((w) => !w.intercept)).toBe(true);
+    expect(loiter.every((w) => w.attributeAffinity === "logistics")).toBe(true);
+    expect(loiter.every((w) => w.unlock.badge === "quartermaster")).toBe(true);
+    // damage ascends with tier across the line
+    const byTier = [...loiter].sort((a, b) => a.tier - b.tier);
+    for (let i = 1; i < byTier.length; i++) {
+      expect(byTier[i].damage).toBeGreaterThan(byTier[i - 1].damage);
+    }
+  });
+
   it("has unique ids and a working lookup", () => {
     const ids = new Set(ALL_WEAPONS.map((w) => w.id));
     expect(ids.size).toBe(ALL_WEAPONS.length);

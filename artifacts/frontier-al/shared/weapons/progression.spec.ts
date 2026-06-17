@@ -17,7 +17,7 @@ import {
   BADGE_TIER_THRESHOLDS,
 } from "./badges";
 import { isWeaponUnlocked, resolveUnlockedWeapons, emptyBadges } from "./unlocks";
-import { getWeapon } from "./catalog";
+import { getWeapon, ALL_WEAPONS } from "./catalog";
 import { createDefaultProfile, recomputeDerived } from "./profile";
 
 function build(p: Partial<AttributeBuild>): AttributeBuild {
@@ -54,6 +54,28 @@ describe("archetype derivation", () => {
     expect(aegis.id).toBe("aegis_interceptor");
     const hyper = deriveArchetype(build({ firepower: 16, guidance: 12 }));
     expect(hyper.id).toBe("hypersonic_striker");
+  });
+});
+
+describe("logistics / quartermaster discipline has a real payoff", () => {
+  // Regression guard: before the loitering line + Swarm Commodore archetype existed,
+  // a logistics build had NO archetype identity and the quartermaster badge unlocked
+  // ZERO weapons. Both assertions reference symbols that did not exist before, so they
+  // fail on the pre-change tree and pass after.
+  it("derives a logistics-primary archetype (Swarm Commodore)", () => {
+    expect(deriveArchetype(build({ logistics: 16, firepower: 10 })).id).toBe("swarm_commodore");
+    expect(deriveArchetype(build({ logistics: 16 })).id).toBe("swarm_commodore");
+  });
+
+  it("makes the quartermaster badge unlock loitering munitions", () => {
+    const qm = computeBadges(build({ logistics: 20 }), { ...EMPTY_WEAPON_STATS, shotsFired: 200 });
+    expect(tierAtLeast(qm.quartermaster, "gold")).toBe(true);
+    const unlocked = resolveUnlockedWeapons(qm);
+    expect(unlocked.some((w) => w.category === "loitering")).toBe(true);
+    // every loitering weapon is gated behind quartermaster — the discipline's payoff
+    const loiter = ALL_WEAPONS.filter((w) => w.category === "loitering");
+    expect(loiter.length).toBeGreaterThan(0);
+    expect(loiter.every((w) => w.unlock.badge === "quartermaster")).toBe(true);
   });
 });
 

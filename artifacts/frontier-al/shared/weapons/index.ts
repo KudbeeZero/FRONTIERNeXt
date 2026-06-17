@@ -9,6 +9,7 @@ export * from "./types";
 export * from "./scale";
 export * from "./missiles";
 export * from "./artillery";
+export * from "./loitering";
 export * from "./antiAir";
 export * from "./defense";
 export * from "./catalog";

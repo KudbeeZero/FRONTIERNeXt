@@ -51,7 +51,9 @@ export const ANIMATION_UNLOCKS: AnimationUnlock[] = [
   { id: "intercept_kinetic_flash", name: "Kinetic Kill Flash", badge: "aegis", tier: "silver" },
   { id: "intercept_layered_dome", name: "Layered Dome Sweep", badge: "aegis", tier: "gold" },
   { id: "intercept_exo_burst", name: "Exo Burst", badge: "aegis", tier: "hall_of_fame" },
+  { id: "launch_drone_swarm_release", name: "Drone Swarm Release", badge: "quartermaster", tier: "bronze" },
   { id: "reload_rapid_cycle", name: "Rapid Cycle Reload", badge: "quartermaster", tier: "gold" },
+  { id: "launch_saturation_volley", name: "Saturation Volley", badge: "quartermaster", tier: "hall_of_fame" },
 ];
 
 /** Animation variant ids unlocked by the player's current badges. */

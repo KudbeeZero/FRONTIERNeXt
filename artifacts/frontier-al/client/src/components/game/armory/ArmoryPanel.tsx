@@ -57,6 +57,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   hypersonic: "Hypersonic Missiles",
   artillery: "Artillery",
   rocket_artillery: "Rocket Artillery",
+  loitering: "Loitering Munitions",
   anti_air: "Anti-Aircraft",
   missile_defense: "Missile Defense",
 };
