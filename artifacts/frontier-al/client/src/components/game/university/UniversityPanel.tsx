@@ -26,6 +26,11 @@ const SYSTEM_LABEL: Record<GameSystem, string> = {
   economy: "Economy",
   wallet: "Wallet",
   factions: "Factions",
+  commanders: "Commanders",
+  trade: "Trade",
+  markets: "Markets",
+  terraform: "Terraform",
+  seasons: "Seasons",
 };
 
 const SYSTEM_COLOR: Record<GameSystem, string> = {
@@ -35,6 +40,11 @@ const SYSTEM_COLOR: Record<GameSystem, string> = {
   economy: "#fbbf24",
   wallet: "#a78bfa",
   factions: "#34d399",
+  commanders: "#fb923c",
+  trade: "#2dd4bf",
+  markets: "#eab308",
+  terraform: "#84cc16",
+  seasons: "#e879f9",
 };
 
 export function UniversityPanel() {

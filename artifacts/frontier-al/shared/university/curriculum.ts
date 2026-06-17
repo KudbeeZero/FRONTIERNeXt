@@ -314,4 +314,268 @@ export const CURRICULUM: TutorialModule[] = [
       },
     ],
   },
+
+  // ── Commanders ───────────────────────────────────────────────────────────
+  {
+    id: "intro_commanders",
+    system: "commanders",
+    title: "Commanders",
+    summary: "Three tiers, four special attacks, and minting one as an NFT.",
+    estMinutes: 4,
+    steps: [
+      {
+        title: "Your champion on the field",
+        body: "A commander is a minted champion that buffs your attacks and defense and can unleash special attacks. You mint one for ASCEND, and each comes with a companion (Wolf, Fox, or Raptor).",
+      },
+      {
+        title: "Pick your tier",
+        body: "Three tiers trade offense for defense: Sentinel (+10 attack / +10 defense) is the balanced anchor; Phantom (+18 / +6) leans aggressive; Reaper (+30 / +5) is glass-cannon raw power. After a commander attacks, it's locked for 12 hours — commit your strikes wisely.",
+        tip: "More attack usually means less defense — match the tier to how you play.",
+      },
+      {
+        title: "Special attacks",
+        body: "Commanders wield tier-gated special attacks: Orbital Strike, EMP Blast, Siege Barrage (Reaper only), and Sabotage. Each costs ASCEND and has its own cooldown. You can hit a whole plot or a single cell of its 9-cell sub-parcel grid.",
+      },
+      {
+        title: "Mint it as an NFT",
+        body: "A commander can be minted as an on-chain NFT (an Algorand ASA) delivered to your wallet. The UI walks it from Minting → Ready → In Wallet — true ownership of your champion.",
+      },
+    ],
+    quiz: [
+      {
+        id: "cmd_q1",
+        prompt: "Which commander tier has the most raw attack?",
+        options: ["Sentinel", "Phantom", "Reaper", "They're all equal"],
+        correctIndex: 2,
+        explanation: "Reaper is the glass cannon: +30 attack but only +5 defense.",
+      },
+      {
+        id: "cmd_q2",
+        prompt: "What happens to a commander right after it attacks?",
+        options: ["It's destroyed", "It's locked for 12 hours", "It heals instantly", "It downgrades a tier"],
+        correctIndex: 1,
+        explanation: "A commander is locked for 12 hours after attacking, so timing matters.",
+      },
+      {
+        id: "cmd_q3",
+        prompt: "What powers a commander's special attacks?",
+        options: ["Nothing — they're free", "ASCEND, with a cooldown", "Iron ore", "Faction approval"],
+        correctIndex: 1,
+        explanation: "Special attacks cost ASCEND and each has its own cooldown.",
+      },
+    ],
+  },
+
+  // ── Trade Station ────────────────────────────────────────────────────────
+  {
+    id: "intro_trade",
+    system: "trade",
+    title: "The Trade Station",
+    summary: "Swap resources and buy/sell sub-parcels with other players.",
+    estMinutes: 3,
+    steps: [
+      {
+        title: "Post an order",
+        body: "The Trade Station is a player-to-player exchange. You post a 'give X for Y' order across four resources — Iron, Fuel, Crystal, and ASCEND — and another player accepts it to complete the swap.",
+      },
+      {
+        title: "The sub-parcel marketplace",
+        body: "Beyond resources, you can list sub-parcels you own for sale at an ASCEND ask price. Other players buy them outright; you can cancel a listing any time before it sells.",
+        tip: "Sub-parcels are the 9 cells inside a plot — tradeable real estate.",
+      },
+      {
+        title: "Climb the trader board",
+        body: "Trades you post and fill count toward the trader leaderboard. Active market-makers rise to the top.",
+      },
+    ],
+    quiz: [
+      {
+        id: "trade_q1",
+        prompt: "Which of these is a tradeable resource at the Trade Station?",
+        options: ["Plutonium", "Iron", "Mana", "XP"],
+        correctIndex: 1,
+        explanation: "The four resources are Iron, Fuel, Crystal, and ASCEND.",
+      },
+      {
+        id: "trade_q2",
+        prompt: "How is a resource order completed?",
+        options: [
+          "The server auto-fills it",
+          "Another player accepts your 'give X for Y' order",
+          "It expires into ASCEND",
+          "A faction buys it",
+        ],
+        correctIndex: 1,
+        explanation: "Orders are peer-to-peer: you post, another player accepts.",
+      },
+      {
+        id: "trade_q3",
+        prompt: "In what currency do you list a sub-parcel for sale?",
+        options: ["Iron", "ASCEND", "Fuel", "Real USD"],
+        correctIndex: 1,
+        explanation: "Sub-parcel listings carry an ASCEND ask price.",
+      },
+    ],
+  },
+
+  // ── Prediction Markets ───────────────────────────────────────────────────
+  {
+    id: "intro_markets",
+    system: "markets",
+    title: "Prediction Markets",
+    summary: "Stake ASCEND on outcomes — and verify the result can't be rigged.",
+    estMinutes: 4,
+    steps: [
+      {
+        title: "Bet on what happens next",
+        body: "Prediction markets let you stake ASCEND on binary outcomes across the game: battles, factions, the season, orbital events, and the economy. Your stake joins a liquidity pool; winners split it (minus a 5% protocol fee).",
+      },
+      {
+        title: "Open → Closed → Resolved",
+        body: "Each market is Open (you can stake), then Closed (staking locks while the real-world fact settles), then Resolved (the outcome is set and winners claim). You can't change a position once a market closes.",
+      },
+      {
+        title: "Provably fair — verify it yourself",
+        body: "When a market is created it commits to an immutable resolution source (e.g. a replayable battle outcome or an ownership snapshot at a turn). After it resolves, hit 'Verify proof': the resolver re-runs on the public inputs and checks the hash. That's how you know the admin cannot pick winners.",
+        tip: "If the re-run doesn't match, the proof fails — fairness you can check, not just trust.",
+      },
+    ],
+    quiz: [
+      {
+        id: "mkt_q1",
+        prompt: "What do you stake in a prediction market?",
+        options: ["Iron", "ASCEND", "Plots", "Nothing"],
+        correctIndex: 1,
+        explanation: "You wager ASCEND into a liquidity pool; winners split it minus a 5% fee.",
+      },
+      {
+        id: "mkt_q2",
+        prompt: "What does 'Verify proof' on a resolved market prove?",
+        options: [
+          "That you won",
+          "That the outcome wasn't tampered with — the admin can't pick winners",
+          "That the market is still open",
+          "Your wallet balance",
+        ],
+        correctIndex: 1,
+        explanation: "Verification re-runs the resolver on public inputs and checks the hash, proving the result is honest.",
+      },
+      {
+        id: "mkt_q3",
+        prompt: "When can you no longer change your position?",
+        options: ["Never", "Once the market is Closed", "Only after you claim", "After 12 hours"],
+        correctIndex: 1,
+        explanation: "Staking locks when a market moves from Open to Closed.",
+      },
+    ],
+  },
+
+  // ── Terraforming ─────────────────────────────────────────────────────────
+  {
+    id: "intro_terraform",
+    system: "terraform",
+    title: "Terraforming",
+    summary: "Reshape your land — and weaponize an enemy's.",
+    estMinutes: 3,
+    steps: [
+      {
+        title: "Reshape the land",
+        body: "Terraforming changes a plot's biome and condition. You can convert a biome between Desert, Forest, Ice, Toxic, and Plains, reduce its hazard, raise its stability, or boost its resource multiplier.",
+      },
+      {
+        title: "Watch hazard and stability",
+        body: "Two gauges run 0–100: hazard and stability. A plot becomes 'degraded' when hazard climbs above 60 or stability drops below 30 — degraded land underperforms. Converting a biome carries a small stability penalty, so don't flip biomes carelessly.",
+        tip: "Healthy land = low hazard, high stability, and a boosted resource multiplier.",
+      },
+      {
+        title: "Corrupt the enemy",
+        body: "Terraforming cuts both ways: 'corrupt land' raises an enemy plot's hazard and lowers its stability — an attack on their economy rather than their army.",
+      },
+    ],
+    quiz: [
+      {
+        id: "terra_q1",
+        prompt: "When is a plot considered 'degraded'?",
+        options: [
+          "When stability is above 70",
+          "When hazard > 60 or stability < 30",
+          "Only when it's a Toxic biome",
+          "Never",
+        ],
+        correctIndex: 1,
+        explanation: "Degraded = hazard above 60 OR stability below 30; such land underperforms.",
+      },
+      {
+        id: "terra_q2",
+        prompt: "What does 'corrupt land' do to an enemy plot?",
+        options: [
+          "Heals it",
+          "Raises hazard and lowers stability",
+          "Mints them an NFT",
+          "Gives them ASCEND",
+        ],
+        correctIndex: 1,
+        explanation: "Corrupting land raises hazard and lowers stability — an economic attack.",
+      },
+      {
+        id: "terra_q3",
+        prompt: "Boosting resources improves which value?",
+        options: ["The resource multiplier", "Your commander's attack", "Missile range", "Faction standing"],
+        correctIndex: 0,
+        explanation: "boost_resources raises the plot's resource multiplier.",
+      },
+    ],
+  },
+
+  // ── Seasons ──────────────────────────────────────────────────────────────
+  {
+    id: "intro_seasons",
+    system: "seasons",
+    title: "Seasons & Rewards",
+    summary: "A persistent world that pays out — without wiping your progress.",
+    estMinutes: 3,
+    steps: [
+      {
+        title: "The world persists",
+        body: "Unlike most games, FRONTIER does NOT hard-reset between seasons. Your plots, sub-parcels, and improvements carry forward. A season is a ~90-day competitive chapter layered on top of a world that keeps its memory.",
+      },
+      {
+        title: "Settlement day",
+        body: "When a season ends, the leaderboard is snapshotted and FRONTIER token rewards are paid to the top 10 players. The split is top-heavy — first place takes the largest share (about 30% of the pool).",
+        tip: "Rank matters most at the very end — position yourself before settlement.",
+      },
+      {
+        title: "Heed the countdown",
+        body: "As a season closes, the game broadcasts warnings at 24 hours, 6 hours, and 1 hour. Use them to lock in territory and standings before the snapshot.",
+      },
+    ],
+    quiz: [
+      {
+        id: "season_q1",
+        prompt: "What happens to your progress at the end of a season?",
+        options: [
+          "Everything resets to zero",
+          "It persists — ownership and improvements carry forward",
+          "Only ASCEND is kept",
+          "Your account is deleted",
+        ],
+        correctIndex: 1,
+        explanation: "The world is persistent; seasons settle rewards without wiping progress.",
+      },
+      {
+        id: "season_q2",
+        prompt: "Who receives the end-of-season FRONTIER token rewards?",
+        options: ["Everyone equally", "The top 10 players", "Only first place", "The factions"],
+        correctIndex: 1,
+        explanation: "The top 10 share a top-heavy reward pool, with first place taking the largest cut.",
+      },
+      {
+        id: "season_q3",
+        prompt: "When does the game warn you a season is ending?",
+        options: ["No warning", "At 24h, 6h, and 1h", "Only at the very end", "A week before"],
+        correctIndex: 1,
+        explanation: "Countdown warnings broadcast at 24 hours, 6 hours, and 1 hour before settlement.",
+      },
+    ],
+  },
 ];

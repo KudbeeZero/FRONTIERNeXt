@@ -15,15 +15,20 @@ describe("university curriculum integrity", () => {
 
   it("ships a module for every taught system, including the wallet how-to", () => {
     const systems = new Set(CURRICULUM.map((m) => m.system));
-    expect(systems.has("globe")).toBe(true);
-    expect(systems.has("builds")).toBe(true);
-    expect(systems.has("combat")).toBe(true);
-    expect(systems.has("economy")).toBe(true);
-    expect(systems.has("wallet")).toBe(true);
+    for (const s of [
+      "globe", "builds", "combat", "economy", "wallet", "factions",
+      "commanders", "trade", "markets", "terraform", "seasons",
+    ] as const) {
+      expect(systems.has(s)).toBe(true);
+    }
     // the wallet module is reachable and teaches opt-in
     const wallet = modulesBySystem(CURRICULUM, "wallet")[0];
     expect(wallet).toBeTruthy();
     expect(getModule(wallet.id)).toBe(wallet);
+  });
+
+  it("offers a broad catalog (grows as courses are added)", () => {
+    expect(CURRICULUM.length).toBeGreaterThanOrEqual(11);
   });
 
   it("catches a malformed module (correctIndex out of range, no steps)", () => {
