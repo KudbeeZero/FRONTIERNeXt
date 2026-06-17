@@ -20,6 +20,7 @@ import LandingUpdates from "@/pages/landing-updates";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import BattlesPage from "@/pages/battles";
 import ArmoryPage from "@/pages/armory";
+import UniversityPage from "@/pages/university";
 // Lazy-loaded so the dashboard's chart library (recharts) is code-split out of
 // the main bundle and only fetched when an operator opens /admin.
 const AdminDashboard = lazy(() => import("@/pages/admin"));
@@ -76,6 +77,9 @@ function App() {
                 <WalletProvider>
                   <ArmoryPage />
                 </WalletProvider>
+              </Route>
+              <Route path="/university">
+                <UniversityPage />
               </Route>
               <Route path="/admin">
                 <Suspense fallback={null}>
