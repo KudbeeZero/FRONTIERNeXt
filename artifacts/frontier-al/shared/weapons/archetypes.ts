@@ -54,6 +54,12 @@ export const ARCHETYPES: Record<string, Archetype> = {
     primary: "interception", secondary: "guidance",
     favoredCategories: ["missile_defense", "anti_air"],
   },
+  swarm_commodore: {
+    id: "swarm_commodore", name: "Swarm Commodore",
+    description: "Sustained, attritable volume of fire — drowns the enemy in cheap mass.",
+    primary: "logistics", secondary: "firepower",
+    favoredCategories: ["loitering", "rocket_artillery"],
+  },
 };
 
 export const DEFAULT_ARCHETYPE = ARCHETYPES.siege_baron;
