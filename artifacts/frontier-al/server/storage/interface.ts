@@ -199,4 +199,14 @@ export interface IStorage {
    * each storage backend. Used by weapon fire/unlock/deploy costs.
    */
   spendAscend(playerId: string, amountAscend: number): Promise<void>;
+
+  // ── University (persisted tutorial progress "memory layer") ───────────────
+  /** Module ids the player has passed. Returns [] if none. */
+  getPassedCourses(playerId: string): Promise<string[]>;
+  /**
+   * Record a module id as passed (idempotent set-union — passing an
+   * already-passed module is a no-op). Returns the full passed-id list.
+   * Throws if the player does not exist.
+   */
+  markCoursePassed(playerId: string, moduleId: string): Promise<string[]>;
 }

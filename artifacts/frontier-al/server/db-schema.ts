@@ -222,6 +222,8 @@ export const players = pgTable("players", {
   /** Running count of consecutive territory losses; resets on a successful defence. */
   consecutiveLosses:    integer("consecutive_losses").notNull().default(0),
   testnetProgress:      jsonb("testnet_progress").$type<string[]>().notNull().default([]),
+  /** University module ids the player has PASSED (>=70% quiz). NULL until first pass. */
+  universityPassed:     jsonb("university_passed").$type<string[]>(),
   treasury:             real("treasury").notNull().default(1000.0),
   /** Faction the human player has aligned with. NULL = unaligned. */
   playerFactionId:      varchar("player_faction_id", { length: 20 }),
