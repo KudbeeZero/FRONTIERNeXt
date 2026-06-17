@@ -35,6 +35,7 @@ import {
   mintWeaponNftActionSchema,
   getWeapon as getWeaponSpec,
 } from "@shared/weapons";
+import { getModule } from "@shared/university";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 
 // ── Chain Service ─────────────────────────────────────────────────────────────
@@ -2365,6 +2366,35 @@ export async function registerRoutes(
       res.json({ success: true, ...result });
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : "Catalog failed" });
+    }
+  });
+
+  // ── University tutorial progress (cosmetic; touches no chain/funds) ─────────
+  app.get("/api/university/passed", async (req, res) => {
+    try {
+      const queryId = typeof req.query.playerId === "string" ? req.query.playerId : undefined;
+      const playerId = await assertPlayerOwnership(req, res, queryId);
+      if (!playerId) return;
+      const passed = await storage.getPassedCourses(playerId);
+      res.json({ success: true, passed });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to load progress" });
+    }
+  });
+
+  app.post("/api/university/complete", async (req, res) => {
+    try {
+      const playerId = await assertPlayerOwnership(req, res);
+      if (!playerId) return;
+      const moduleId = typeof req.body?.moduleId === "string" ? req.body.moduleId : undefined;
+      if (!moduleId || !getModule(moduleId)) {
+        return res.status(400).json({ error: "Unknown module id" });
+      }
+      const passed = await storage.markCoursePassed(playerId, moduleId);
+      res.json({ success: true, passed });
+      markDirty();
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to record progress" });
     }
   });
 

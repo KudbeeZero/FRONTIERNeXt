@@ -11,6 +11,8 @@
  */
 
 import { useMemo, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   CURRICULUM,
   gradeQuiz,
@@ -53,22 +55,45 @@ const SYSTEM_COLOR: Record<GameSystem, string> = {
   basics: "#f97316",
 };
 
-export function UniversityPanel() {
+export function UniversityPanel({ playerId }: { playerId?: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
+
+  // Persisted progress — only when a player is present (the standalone page and
+  // tests render the panel bare, with no player and no network call).
+  const { data: passedData } = useQuery<{ passed: string[] }>({
+    queryKey: ["university-passed", playerId],
+    enabled: !!playerId,
+    queryFn: async () =>
+      (await apiRequest("GET", `/api/university/passed?playerId=${encodeURIComponent(playerId!)}`)).json(),
+  });
+  const passedSet = useMemo(() => new Set(passedData?.passed ?? []), [passedData]);
+
+  const markPassed = useMutation({
+    mutationFn: async (moduleId: string) =>
+      (await apiRequest("POST", "/api/university/complete", { playerId, moduleId })).json(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["university-passed", playerId] }),
+  });
+
   const openModule = useMemo(
     () => (openId ? CURRICULUM.find((m) => m.id === openId) ?? null : null),
     [openId],
   );
 
   if (openModule) {
-    return <ModuleView module={openModule} onExit={() => setOpenId(null)} />;
+    return (
+      <ModuleView
+        module={openModule}
+        onExit={() => setOpenId(null)}
+        onPassed={(id) => { if (playerId) markPassed.mutate(id); }}
+      />
+    );
   }
-  return <Catalog onOpen={setOpenId} />;
+  return <Catalog onOpen={setOpenId} passedSet={passedSet} />;
 }
 
 // ── Catalog ──────────────────────────────────────────────────────────────────
 
-function Catalog({ onOpen }: { onOpen: (id: string) => void }) {
+function Catalog({ onOpen, passedSet }: { onOpen: (id: string) => void; passedSet: Set<string> }) {
   return (
     <Shell>
       <h1 className="text-xl font-bold tracking-wide text-slate-100">FRONTIER UNIVERSITY</h1>
@@ -76,7 +101,9 @@ function Catalog({ onOpen }: { onOpen: (id: string) => void }) {
         Interactive how-to-play courses. Take any of them, any time — repeat as often as you like.
       </p>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {CURRICULUM.map((m) => (
+        {CURRICULUM.map((m) => {
+          const isPassed = passedSet.has(m.id);
+          return (
           <button
             key={m.id}
             onClick={() => onOpen(m.id)}
@@ -84,19 +111,27 @@ function Catalog({ onOpen }: { onOpen: (id: string) => void }) {
           >
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-100">{m.title}</span>
-              <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ color: SYSTEM_COLOR[m.system], border: `1px solid ${SYSTEM_COLOR[m.system]}55` }}
-              >
-                {SYSTEM_LABEL[m.system]}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {isPassed && (
+                  <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+                    ✓ Passed
+                  </span>
+                )}
+                <span
+                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ color: SYSTEM_COLOR[m.system], border: `1px solid ${SYSTEM_COLOR[m.system]}55` }}
+                >
+                  {SYSTEM_LABEL[m.system]}
+                </span>
+              </div>
             </div>
             <div className="mt-1 text-xs text-slate-400">{m.summary}</div>
             <div className="mt-2 text-[11px] text-slate-500">
               {m.steps.length} steps · {m.quiz.length} questions · ~{m.estMinutes} min
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
     </Shell>
   );
@@ -106,7 +141,9 @@ function Catalog({ onOpen }: { onOpen: (id: string) => void }) {
 
 type Phase = "walkthrough" | "quiz" | "result";
 
-function ModuleView({ module, onExit }: { module: TutorialModule; onExit: () => void }) {
+function ModuleView({
+  module, onExit, onPassed,
+}: { module: TutorialModule; onExit: () => void; onPassed: (moduleId: string) => void }) {
   const [phase, setPhase] = useState<Phase>("walkthrough");
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number | undefined>>({});
@@ -147,7 +184,9 @@ function ModuleView({ module, onExit }: { module: TutorialModule; onExit: () => 
           answers={answers}
           onPick={(qid, idx) => setAnswers((a) => ({ ...a, [qid]: idx }))}
           onSubmit={() => {
-            setResult(gradeQuiz(module, answers));
+            const r = gradeQuiz(module, answers);
+            setResult(r);
+            if (r.passed) onPassed(module.id);
             setPhase("result");
           }}
         />

@@ -975,7 +975,7 @@ export function GameLayout() {
           </div>
         ) : desktopRightTab === "university" ? (
           <div className="flex-1 overflow-y-auto">
-            <UniversityPanel />
+            <UniversityPanel playerId={player?.id} />
           </div>
         ) : desktopRightTab === "trade" ? (
           <TradeStationPanel

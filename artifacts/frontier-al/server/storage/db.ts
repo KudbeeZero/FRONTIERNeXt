@@ -860,6 +860,34 @@ export class DbStorage implements IStorage {
     });
   }
 
+  async getPassedCourses(playerId: string): Promise<string[]> {
+    await this.initialize();
+    const [row] = await this.db
+      .select({ universityPassed: playersTable.universityPassed })
+      .from(playersTable)
+      .where(eq(playersTable.id, playerId));
+    if (!row) throw new Error("Player not found");
+    return row.universityPassed ?? [];
+  }
+
+  async markCoursePassed(playerId: string, moduleId: string): Promise<string[]> {
+    await this.initialize();
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ universityPassed: playersTable.universityPassed })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId));
+      if (!row) throw new Error("Player not found");
+      const current = row.universityPassed ?? [];
+      const next = current.includes(moduleId) ? current : [...current, moduleId];
+      await tx
+        .update(playersTable)
+        .set({ universityPassed: next })
+        .where(eq(playersTable.id, playerId));
+      return next;
+    });
+  }
+
   async spendAscend(playerId: string, amountAscend: number): Promise<void> {
     await this.initialize();
     await this.db.transaction(async (tx) => {

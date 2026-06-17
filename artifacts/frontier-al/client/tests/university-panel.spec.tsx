@@ -11,6 +11,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { UniversityPanel } from "@/components/game/university/UniversityPanel";
 import { CURRICULUM } from "@shared/university";
 
@@ -24,7 +25,14 @@ function htmlEscape(s: string): string {
 }
 
 describe("UniversityPanel (course catalog)", () => {
-  const html = renderToStaticMarkup(<UniversityPanel />);
+  // The panel uses react-query (for persisted progress); rendered bare (no playerId)
+  // the query is disabled, but useQuery still needs a client in context.
+  const qc = new QueryClient();
+  const html = renderToStaticMarkup(
+    <QueryClientProvider client={qc}>
+      <UniversityPanel />
+    </QueryClientProvider>,
+  );
 
   it("renders the academy header", () => {
     expect(html).toContain("FRONTIER UNIVERSITY");

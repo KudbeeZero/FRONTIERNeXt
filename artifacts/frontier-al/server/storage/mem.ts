@@ -84,6 +84,7 @@ export class MemStorage implements IStorage {
   private players: Map<string, Player>;
   /** Persisted weapon-system progression, keyed by playerId (the "memory layer"). */
   private weaponProfiles: Map<string, PlayerWeaponProfile> = new Map();
+  private universityPassed: Map<string, string[]> = new Map();
   private battles: Map<string, Battle>;
   private events: GameEvent[];
   private currentTurn: number;
@@ -215,6 +216,7 @@ export class MemStorage implements IStorage {
     this.parcelByPlotId.clear();
     this.players.clear();
     this.weaponProfiles.clear();
+    this.universityPassed.clear();
     this.battles.clear();
     this.events = [];
     this.currentTurn = 1;
@@ -462,6 +464,21 @@ export class MemStorage implements IStorage {
     const merged = recomputeDerived({ ...base, ...patch, updatedAt: Date.now() });
     this.weaponProfiles.set(playerId, merged);
     return merged;
+  }
+
+  async getPassedCourses(playerId: string): Promise<string[]> {
+    await this.initialize();
+    if (!this.players.has(playerId)) throw new Error("Player not found");
+    return [...(this.universityPassed.get(playerId) ?? [])];
+  }
+
+  async markCoursePassed(playerId: string, moduleId: string): Promise<string[]> {
+    await this.initialize();
+    if (!this.players.has(playerId)) throw new Error("Player not found");
+    const current = this.universityPassed.get(playerId) ?? [];
+    const next = current.includes(moduleId) ? current : [...current, moduleId];
+    this.universityPassed.set(playerId, next);
+    return [...next];
   }
 
   async spendAscend(playerId: string, amountAscend: number): Promise<void> {
