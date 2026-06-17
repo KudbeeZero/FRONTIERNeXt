@@ -31,6 +31,9 @@ const SYSTEM_LABEL: Record<GameSystem, string> = {
   markets: "Markets",
   terraform: "Terraform",
   seasons: "Seasons",
+  orbital: "Orbital",
+  nft: "NFT Minting",
+  basics: "First Steps",
 };
 
 const SYSTEM_COLOR: Record<GameSystem, string> = {
@@ -45,6 +48,9 @@ const SYSTEM_COLOR: Record<GameSystem, string> = {
   markets: "#eab308",
   terraform: "#84cc16",
   seasons: "#e879f9",
+  orbital: "#8b5cf6",
+  nft: "#f472b6",
+  basics: "#f97316",
 };
 
 export function UniversityPanel() {

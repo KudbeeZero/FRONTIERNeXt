@@ -22,7 +22,10 @@ export type GameSystem =
   | "trade"      // the trade station: resource & sub-parcel swaps
   | "markets"    // prediction markets + provable fairness
   | "terraform"  // reshaping biomes: hazard/stability/resources
-  | "seasons";   // the persistent season cycle + rewards
+  | "seasons"    // the persistent season cycle + rewards
+  | "orbital"    // satellites (yield) + recon drones
+  | "nft"        // how plots/commanders/weapons mint as Algorand ASAs
+  | "basics";    // first-10-minutes onboarding path
 
 /** One screen of a guided walkthrough. */
 export interface TutorialStep {

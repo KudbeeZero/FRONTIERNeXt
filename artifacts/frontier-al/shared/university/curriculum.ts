@@ -578,4 +578,334 @@ export const CURRICULUM: TutorialModule[] = [
       },
     ],
   },
+
+  // ── Orbital: satellites & recon drones ───────────────────────────────────
+  {
+    id: "intro_orbital",
+    system: "orbital",
+    title: "Satellites & Recon Drones",
+    summary: "Put assets in orbit: scout the enemy with drones, boost your yield with satellites.",
+    estMinutes: 4,
+    steps: [
+      {
+        title: "Two things you put in the sky",
+        body: "Orbital assets come in two flavors. Recon drones are intelligence — you launch one at an enemy parcel and it scouts. Satellites are economy — you launch one over your own holdings and it boosts what they mine. They cost ASCEND and they expire, so you redeploy as the game moves.",
+      },
+      {
+        title: "Recon drones",
+        body: "A drone costs 20 ASCEND to deploy and scouts for 15 minutes before it returns. You can have up to 5 drones out at once. Aim one at enemy territory to gather intel on what that parcel holds — recon before you commit to a strike, not after.",
+        tip: "Drones have no range limit and no redeploy cooldown — once one returns, you can send it straight back out.",
+      },
+      {
+        title: "Satellites",
+        body: "A satellite costs 50 ASCEND and stays in orbit for 1 hour, granting +25% mining yield across ALL of your territories while it's up. You can run up to 2 satellites at once, and the bonus stacks — two active satellites is roughly +50% on your whole economy for that window.",
+        tip: "Satellites only ever help YOUR mining — they don't attack, defend, or touch enemy plots.",
+      },
+      {
+        title: "Don't confuse it with Orbital Strike",
+        body: "There's also an 'Orbital Strike' — but that's a commander special attack (25 ASCEND, 30-minute cooldown, 3x damage that ignores half the target's defense), not an orbital asset you deploy. Satellites boost income; drones gather intel; Orbital Strike is a one-off bombardment your commander fires.",
+      },
+    ],
+    quiz: [
+      {
+        id: "orbital_q1",
+        prompt: "What does deploying a recon drone do?",
+        options: [
+          "Boosts your mining yield",
+          "Scouts an enemy parcel for intel",
+          "Fires a bombardment at the target",
+          "Mints an NFT",
+        ],
+        correctIndex: 1,
+        explanation: "A drone (20 ASCEND, 15-minute scout, up to 5 at once) gathers intelligence on enemy territory — it's recon, not attack.",
+      },
+      {
+        id: "orbital_q2",
+        prompt: "What does an active satellite give you?",
+        options: [
+          "+25% mining yield on all your territories for 1 hour",
+          "A permanent defense bonus",
+          "Vision of the whole map forever",
+          "A free plot",
+        ],
+        correctIndex: 0,
+        explanation: "A satellite (50 ASCEND, 1-hour orbit, up to 2 at once) grants +25% mining yield across your holdings, and the bonus stacks per satellite.",
+      },
+      {
+        id: "orbital_q3",
+        prompt: "How is 'Orbital Strike' different from a satellite?",
+        options: [
+          "It's the same thing",
+          "Orbital Strike is a commander special attack; a satellite is a passive yield boost",
+          "Orbital Strike boosts mining; satellites attack",
+          "Neither exists",
+        ],
+        correctIndex: 1,
+        explanation: "Orbital Strike is a commander special attack (3x damage, ignores 50% defense); satellites are passive economy boosts you put over your own plots.",
+      },
+    ],
+  },
+
+  // ── NFT minting deep-dive ────────────────────────────────────────────────
+  {
+    id: "intro_nft",
+    system: "nft",
+    title: "How Minting Works",
+    summary: "Plots, commanders, and weapons become real Algorand ASAs — opt-in, delivery, and finality.",
+    estMinutes: 5,
+    steps: [
+      {
+        title: "Everything you own is an ASA",
+        body: "Your plots, commanders, and weapons aren't database rows pretending to be assets — each is minted as a 1-of-1 Algorand Standard Asset. A plot mints with the unit name PLOT; a commander as CMDR; a weapon as WPN. ASCEND, the currency, is a separate fungible ASA (asset 755818217, 6 decimals).",
+      },
+      {
+        title: "ARC-3 metadata",
+        body: "Each minted asset is ARC-3 compliant: its on-chain metadata URL ends in '#arc3', baked permanently into the asset at mint time. That '#arc3' tag is what tells any Algorand wallet or explorer how to read the asset's name, image, and properties.",
+        tip: "The '#arc3' fragment is the standard's fingerprint — it's literally part of the asset's metadata URL.",
+      },
+      {
+        title: "Opt-in comes first",
+        body: "On Algorand a wallet can't receive an asset it hasn't opted into. So a freshly-minted NFT is held in custody until your wallet has opted in — only then can it be transferred to you. The chain even checks your opt-in status before attempting delivery; until you opt in, the asset literally cannot land.",
+      },
+      {
+        title: "Finality, not just a click",
+        body: "Minting and delivery are real transactions that the server waits to confirm on-chain (waiting a couple of rounds for a mint to finalize) before treating it as done. Mints are tracked as pending → confirmed → (or failed), and an idempotency guard makes sure a rapid double-tap can never mint the same thing twice.",
+        tip: "'Confirmed' means the network agreed — that's when your asset is truly yours.",
+      },
+    ],
+    quiz: [
+      {
+        id: "nft_q1",
+        prompt: "What form do your plots, commanders, and weapons take on-chain?",
+        options: [
+          "Off-chain database entries only",
+          "1-of-1 Algorand Standard Assets (ASAs)",
+          "Ethereum ERC-721 tokens",
+          "Shares of the ASCEND token",
+        ],
+        correctIndex: 1,
+        explanation: "Each is minted as its own 1-of-1 ASA (PLOT / CMDR / WPN). ASCEND is a separate fungible ASA, 755818217.",
+      },
+      {
+        id: "nft_q2",
+        prompt: "What does the '#arc3' on an asset's metadata URL signify?",
+        options: [
+          "A version number",
+          "ARC-3 metadata compliance, baked into the asset at mint",
+          "That the asset is for sale",
+          "A discount code",
+        ],
+        correctIndex: 1,
+        explanation: "The '#arc3' fragment marks the asset as ARC-3 compliant so wallets and explorers can read its metadata.",
+      },
+      {
+        id: "nft_q3",
+        prompt: "Why is a freshly-minted NFT held in custody before you get it?",
+        options: [
+          "To charge you rent",
+          "Because Algorand requires your wallet to opt in before it can receive the asset",
+          "Because minting is reversible",
+          "It isn't — it's sent instantly",
+        ],
+        correctIndex: 1,
+        explanation: "A wallet can't receive an asset it hasn't opted into, so the asset is custodied until you opt in, then delivered.",
+      },
+    ],
+  },
+
+  // ── First 10 minutes (onboarding) ────────────────────────────────────────
+  {
+    id: "intro_basics",
+    system: "basics",
+    title: "Your First 10 Minutes",
+    summary: "Connect a wallet, claim ASCEND, own a plot, set a build, and fire your first shot.",
+    estMinutes: 5,
+    steps: [
+      {
+        title: "1. Connect your wallet",
+        body: "FRONTIER runs on Algorand TestNet, and your wallet is your identity. Choose Connect Wallet and pick one of the supported wallets — Pera, Defly, Kibisis, or LUTE — then approve the connection. Your address is now your player.",
+        tip: "This is TestNet: fund it from a TestNet faucet, never with real ALGO.",
+      },
+      {
+        title: "2. Claim your ASCEND",
+        body: "Every new player gets a 500 ASCEND welcome bonus — the fuel for almost everything you'll do. To claim it on-chain you must first be opted in to the ASCEND asset (Algorand requires opting in before a wallet can receive a token). Opt in, then claim, and wait for confirmation.",
+        tip: "If you haven't opted in to ASCEND, the claim can't deliver — opt in first.",
+      },
+      {
+        title: "3. Own a plot",
+        body: "The planet is 21,000 plots. To take one, you buy it with a TestNet ALGO payment (cheap in testing mode). The server verifies your payment on-chain, and your new plot mints as an ARC-3 NFT in your wallet. Note: plots cost ALGO, while shots and deploys cost ASCEND.",
+      },
+      {
+        title: "4. Set a build, then fire",
+        body: "Open the Armory and spend your 60-point budget across the five attributes — Firepower, Range, Guidance, Interception, Logistics — with no attribute above 20 (and push past the soft cap of 14 and you start taxing its partner). Then fire your first shot: you must own the firing plot, the target must be in range, and the shot costs ASCEND. Confirm the hit and you're playing.",
+        tip: "You can only fire from a plot you own at a target within range — that's why step 3 comes before step 4.",
+      },
+    ],
+    quiz: [
+      {
+        id: "basics_q1",
+        prompt: "How much ASCEND does a new player receive as a welcome bonus?",
+        options: ["0", "100", "500", "21,000"],
+        correctIndex: 2,
+        explanation: "New players get a 500 ASCEND welcome bonus to get started.",
+      },
+      {
+        id: "basics_q2",
+        prompt: "What do you pay to acquire your first plot?",
+        options: [
+          "ASCEND",
+          "A TestNet ALGO payment (the plot then mints as an ARC-3 NFT)",
+          "Iron",
+          "Nothing — every plot is free",
+        ],
+        correctIndex: 1,
+        explanation: "Plots are bought with an on-chain TestNet ALGO payment and mint as ARC-3 NFTs; ASCEND is for shots and deploys, not buying land.",
+      },
+      {
+        id: "basics_q3",
+        prompt: "What must be true before you can fire your first shot?",
+        options: [
+          "Nothing — you can fire from anywhere",
+          "You own the firing plot, the target is in range, and you have the ASCEND to pay",
+          "You must own all 21,000 plots",
+          "Your wallet must hold real ALGO",
+        ],
+        correctIndex: 1,
+        explanation: "You fire from a plot you own, only at a target within range, and each shot costs ASCEND.",
+      },
+    ],
+  },
+
+  // ── Advanced: layered defense tactics (combat) ───────────────────────────
+  {
+    id: "combat_layered_defense_adv",
+    system: "combat",
+    title: "Layered Defense Tactics",
+    summary: "Defense in depth: how point, area, and terminal-high/exo batteries combine to catch threats no single layer could.",
+    estMinutes: 8,
+    steps: [
+      {
+        title: "Why one battery is never enough",
+        body: "Every defense battery models a full system — radar, command, and a magazine — tuned for ONE layer. The four layers run point → area → terminal-high → exo. Low layers (C-RAM, Iron Dome) are cheap, react fast, and hold deep magazines, but can't reach high or far. High layers (THAAD, Aegis SM-6, Arrow-3) reach the exoatmosphere and hit hard, but are expensive, slow to cycle, and carry few rounds. No single battery covers the whole threat spectrum, so survivable bases STACK layers.",
+        tip: "Read a battery by its envelope: interceptRangeKm (reach), maxAltKm (ceiling), basePk (kill chance), magazine (shots), reactionMs (speed to engage).",
+      },
+      {
+        title: "The point layer — fast, close, cheap",
+        body: "Point defense is your last-ditch inner ring against short-range, low-flying threats — artillery, rockets, drones. C-RAM is the fastest reactor in the game (1500 ms) with the deepest magazine (40) and the lowest ceiling: range 4 km, alt 2 km, Pk 0.55. Iron Dome extends the bubble to 70 km / 10 km alt at Pk 0.65 with a 20-round magazine. These shine against cheap mass: many incoming, each easy to hit.",
+        tip: "Low ceiling is the point. C-RAM physically cannot touch a ballistic threat arcing at 100+ km altitude — that's a higher layer's job.",
+      },
+      {
+        title: "The area layer — the mid-altitude band",
+        body: "Area defense bridges point batteries and the exo shield. NASAMS- and Patriot-class interceptors live here, alongside David's Sling (range 300 km, alt 50 km, Pk 0.74). Patriot PAC-3 MSE reaches 120 km / 35 km alt at Pk 0.75. They trade C-RAM's deep magazine and instant reaction for far greater reach — David's Sling reacts in 6000 ms vs C-RAM's 1500 ms — catching cruise and shorter ballistic threats before they reach the point bubble.",
+        tip: "Layers overlap on purpose. A threat that survives the area layer should fly into a point battery for a second engagement — depth, not redundancy.",
+      },
+      {
+        title: "Terminal-high / exo — ceiling-busters, and the gate",
+        body: "The top layer catches ballistic and hypersonic threats in their terminal-high or exo phase. THAAD reaches 150 km altitude (Pk 0.8); Aegis SM-6 hits 370 km range / 110 km alt (Pk 0.82); Arrow-3 Shield tops out at 1000 km altitude with the highest Pk in the game (0.88) — but only 6 rounds and a long cooldown. These are gated by the aegis badge: C-RAM needs 'none', Iron Dome 'bronze', David's Sling 'silver', THAAD/Aegis SM-6 'gold', Arrow-3 'hall_of_fame'.",
+        tip: "Against a hypersonic or ballistic strike, your low layers have the wrong ceiling — only a gold+ exo battery can engage. Build defense to the HIGHEST threat you expect.",
+      },
+    ],
+    quiz: [
+      {
+        id: "def_adv_q1",
+        prompt: "An enemy launches a ballistic threat arcing well above 100 km. Which battery can engage it?",
+        options: [
+          "C-RAM Point Defense (alt 2 km)",
+          "Iron Dome Battery (alt 10 km)",
+          "Arrow-3 Shield (alt 1000 km)",
+          "NASAMS AMRAAM (alt 14 km)",
+        ],
+        correctIndex: 2,
+        explanation: "Only a high/exo battery has the ceiling. Arrow-3 reaches 1000 km altitude; C-RAM (2), Iron Dome (10), NASAMS (14) top out far too low.",
+      },
+      {
+        id: "def_adv_q2",
+        prompt: "Why pair a deep-magazine point battery with a long-reach area battery instead of relying on either alone?",
+        options: [
+          "They share one magazine, so pairing doubles ammo",
+          "The area layer engages far out at high Pk; leakers fly into the point layer for a fast second shot",
+          "Point batteries can't fire unless an area battery is present",
+          "Pairing raises each interceptor's basePk",
+        ],
+        correctIndex: 1,
+        explanation: "Defense in depth: overlapping layers give a threat multiple engagement chances. Magazines and Pk are per-battery — pairing doesn't merge them.",
+      },
+      {
+        id: "def_adv_q3",
+        prompt: "What unlocks Arrow-3 Shield, the top exo-layer battery?",
+        options: [
+          "The aegis badge at 'bronze'",
+          "The aegis badge at 'hall_of_fame'",
+          "No badge — it's available to everyone",
+          "The aegis badge at 'silver'",
+        ],
+        correctIndex: 1,
+        explanation: "Arrow-3 Shield is gated by aegis 'hall_of_fame' — the highest tier. The ladder: none → bronze → silver → gold → hall_of_fame.",
+      },
+    ],
+  },
+
+  // ── Advanced: archetype mastery (builds) ─────────────────────────────────
+  {
+    id: "builds_archetype_mastery_adv",
+    system: "builds",
+    title: "Archetype Mastery",
+    summary: "Land your points so your effective top-two attributes derive the exact archetype you want — without bleeding value to the tradeoff tax.",
+    estMinutes: 8,
+    steps: [
+      {
+        title: "The budget, the cap, and the tax",
+        body: "You distribute a fixed 60-point budget across five attributes, none above 20. The catch is the SOFT CAP at 14: every point above 14 costs 0.5 of its tensioned partner's EFFECTIVE value. Your raw allocation is what you spend; the effective values are what's derived after the tax. Push one attribute to 20 and you've spent 6 past the cap — 3.0 effective points bled out of its partner.",
+        tip: "Effective, not raw, is what counts. A raw 20 has already drained its partners by 3.0 on the way up.",
+      },
+      {
+        title: "The three tension pairs",
+        body: "Three symmetric pairs decide who pays: firepower ⟷ logistics (heavy hitters reload slower), range ⟷ guidance (reaching far costs precision), and interception ⟷ firepower (defense sacrifices offense). The penalty is two-way. Note firepower sits in TWO pairs, so over-stacking firepower bleeds BOTH logistics and interception — and is taxed by both.",
+        tip: "The tax is free when it lands on an attribute you don't want. A pure interception wall taxes firepower — which you weren't using anyway.",
+      },
+      {
+        title: "The archetype roster",
+        body: "Your archetype is purely a function of where your EFFECTIVE points land — its top two attributes. The roster: Siege Baron (firepower+range, the default), Artillery Marshal (range+logistics), Hypersonic Striker (firepower+guidance), Ghost Marksman (guidance+range), Aegis Interceptor (interception+guidance), and Swarm Commodore (logistics+firepower). The game scores each archetype against your top two and picks the best match.",
+        tip: "Swarm Commodore's primary is LOGISTICS, secondary firepower — the inverse of Siege Baron. Make logistics your single highest effective attribute with firepower second.",
+      },
+      {
+        title: "Hitting a target archetype on purpose",
+        body: "To land a specific archetype, make its PRIMARY your single highest effective attribute and its SECONDARY your second. The trap: the tradeoff tax can silently reorder your effective top two. The discipline — keep your two target attributes at or below the soft cap where possible, and never push a NON-target attribute past 14 if its partner is one of your two targets.",
+        tip: "Cheapest clean build: spend your two target attributes up toward 14 (no tax), then park leftover points in an attribute whose partner you don't need.",
+      },
+    ],
+    quiz: [
+      {
+        id: "build_adv_q1",
+        prompt: "You raw-allocate firepower to 20. With a soft cap of 14 and tradeoff rate 0.5, how much effective value is taxed out of EACH of firepower's tensioned partners?",
+        options: ["1.0 each", "3.0 each", "6.0 each", "0 — the tax only applies above 20"],
+        correctIndex: 1,
+        explanation: "Points above the cap = 20 − 14 = 6; tax = 6 × 0.5 = 3.0. Firepower is in two pairs (logistics, interception), so each partner loses 3.0.",
+      },
+      {
+        id: "build_adv_q2",
+        prompt: "Which pair defines the Swarm Commodore archetype (primary, secondary)?",
+        options: [
+          "firepower primary, range secondary",
+          "interception primary, guidance secondary",
+          "logistics primary, firepower secondary",
+          "range primary, logistics secondary",
+        ],
+        correctIndex: 2,
+        explanation: "Swarm Commodore is logistics primary, firepower secondary — sustained attritable volume. (firepower+range is Siege Baron; interception+guidance is Aegis Interceptor.)",
+      },
+      {
+        id: "build_adv_q3",
+        prompt: "What's the cleanest way to hit a target archetype while paying zero tradeoff tax?",
+        options: [
+          "Push the archetype's primary to its max of 20",
+          "Spread all 60 points evenly across five attributes",
+          "Keep your two target attributes at or below 14, and park leftover points in an attribute whose partner you don't need",
+          "Invest only in the secondary and leave the primary at zero",
+        ],
+        correctIndex: 2,
+        explanation: "The tax triggers only above 14. Keep both targets ≤14, and dump spare points where the tax (if any) lands on something you don't care about.",
+      },
+    ],
+  },
 ];

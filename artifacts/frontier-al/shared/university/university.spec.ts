@@ -18,6 +18,7 @@ describe("university curriculum integrity", () => {
     for (const s of [
       "globe", "builds", "combat", "economy", "wallet", "factions",
       "commanders", "trade", "markets", "terraform", "seasons",
+      "orbital", "nft", "basics",
     ] as const) {
       expect(systems.has(s)).toBe(true);
     }
@@ -28,7 +29,7 @@ describe("university curriculum integrity", () => {
   });
 
   it("offers a broad catalog (grows as courses are added)", () => {
-    expect(CURRICULUM.length).toBeGreaterThanOrEqual(11);
+    expect(CURRICULUM.length).toBeGreaterThanOrEqual(16);
   });
 
   it("catches a malformed module (correctIndex out of range, no steps)", () => {
