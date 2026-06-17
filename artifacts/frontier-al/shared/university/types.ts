@@ -12,12 +12,17 @@
 
 /** The game systems the academy can teach. One module may cover one system. */
 export type GameSystem =
-  | "globe"     // the planet, plots, biomes
-  | "builds"    // weapon attribute builds + archetypes
-  | "combat"    // strikes, defense, interception
-  | "economy"   // ASCEND + pricing
-  | "wallet"    // the Algorand wallet: connect, opt-in, claim
-  | "factions"; // the four AI factions
+  | "globe"      // the planet, plots, biomes
+  | "builds"     // weapon attribute builds + archetypes
+  | "combat"     // strikes, defense, interception
+  | "economy"    // ASCEND + pricing
+  | "wallet"     // the Algorand wallet: connect, opt-in, claim
+  | "factions"   // the four AI factions
+  | "commanders" // commander tiers, special attacks, NFT mint
+  | "trade"      // the trade station: resource & sub-parcel swaps
+  | "markets"    // prediction markets + provable fairness
+  | "terraform"  // reshaping biomes: hazard/stability/resources
+  | "seasons";   // the persistent season cycle + rewards
 
 /** One screen of a guided walkthrough. */
 export interface TutorialStep {
