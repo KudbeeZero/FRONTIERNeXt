@@ -144,6 +144,7 @@ FRONTIERNeXt/
 |---|---|
 | `check` | `tsc` typecheck |
 | `test:server` | server unit tests (battle engine, tuning, rng, economy) — **244/244 last green** |
+| `coverage:server` | **CI coverage gate** — fails if the deterministic game-math core drops below **80%** lines (curated `include`; ~93% today). `coverage:server:full` prints the whole-package figure (~22%) informationally — *not* a global-80% claim |
 | `test` | client unit tests (terraform, parcels) |
 | `dev` / `dev:server` / `dev:client` | run server (`:5000`) / client (`:3000`) |
 | `build` / `start` | production build (`script/build.ts`) / serve `dist/index.cjs` |
@@ -155,8 +156,11 @@ FRONTIERNeXt/
 `ELEVENLABS_API_KEY`).
 
 **CI** (`.github/workflows/ci.yml`, on every PR + push to `main`): pnpm install →
-frontier-al `check` → `test:server` → `test`. **This is the gate the audit checks** —
-the head commit of a PR must have a green run (not a stale or `[skip ci]` run).
+frontier-al `check` → `test:server` → `coverage:server` → `test`. **This is the gate
+the audit checks** — the head commit of a PR must have a green run (not a stale or
+`[skip ci]` run). The `coverage:server` step is a quantitative gate on the
+deterministic game-math core (≥80% lines); it does **not** assert whole-package
+coverage. See `artifacts/frontier-al/docs/COVERAGE_GATE.md`.
 
 ## Where things live (FRONTIER-AL)
 

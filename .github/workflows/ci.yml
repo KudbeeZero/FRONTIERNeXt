@@ -42,5 +42,8 @@ jobs:
       - name: Server unit tests (battle engine, tuning, rng, economy)
         run: pnpm --filter @workspace/frontier-al run test:server
 
+      - name: Coverage gate (deterministic game-math core ≥ 80%)
+        run: pnpm --filter @workspace/frontier-al run coverage:server
+
       - name: Client unit tests (terraform, parcels)
         run: pnpm --filter @workspace/frontier-al run test

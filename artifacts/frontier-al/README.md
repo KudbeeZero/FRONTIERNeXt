@@ -68,6 +68,7 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 | 🚢 | **[Deployment](DEPLOYMENT.md)** | Ship to Railway / Render / DigitalOcean, with the pre-go-live checklist |
 | 🔧 | **[Environment Variables](ENV_VARS.md)** | Every config knob and required secret |
 | 🧪 | **[Testing Mode](TESTING_MODE.md)** | Partner-testing emission rates and switches |
+| 📊 | **[Coverage Gate](docs/COVERAGE_GATE.md)** | CI ≥80% line-coverage gate on the deterministic game-math core (`coverage:server`) — and why it is not a whole-package claim |
 | 🔎 | **[Data Reconciliation Audit](docs/DATA_RECONCILIATION.md)** | Docs↔code number verification (run 2026-06-07) |
 
 > The deep technical reference — **Tech Stack, Project Structure, Database Schema, API Reference,** and the on-chain note format — lives further down this page.

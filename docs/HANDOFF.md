@@ -10,7 +10,7 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `claude/game-feature-scan-bnk4ie` (off `main` @ `9e53108`, after #59).
+- **Branch:** `claude/game-feature-scan-bnk4ie` (off `main` @ `8dc7a72`, after #61).
   **One open PR — AWAITING AUDIT.**
 - **Audit status:** `AWAITING_AUDIT` — the loot-box open-flow PR (below) needs the
   next chat's `/handoff-audit` before merge. Do NOT start a new unit until it lands.
@@ -25,8 +25,12 @@
   (+13), test **57**, build ✓. Note:
   `session-notes/2026-06-18-loot-box-open-flow.md`. Deferred: `battle_victory` /
   `orbital_impact` triggers (gated combat/orbital paths); loot-box→NFT minting (funds).
-- **Note:** the prior baton below referenced `main` @ `ca240d9` (post #52/#53); `main`
-  has since advanced through #58/#59 (university). Retained for history.
+- **Merge note:** `main` advanced to `8dc7a72` (#61 CI coverage gate, now MERGED — see
+  Recent merges). This branch was merged up to that tip; the only collision was this
+  baton's `## Current baton` section (docs-only — no code/schema/test overlap). The
+  audit chat should re-run `check` / `test:server` (now incl. the coverage gate) /
+  `test` / `build` post-integration. #61's gate `include` set does NOT cover
+  `server/engine/lootbox/open.ts`, so no coverage-gate risk from this PR.
 - **#52 retro-audit:** `CONCERNS` (non-blocking) — recorded in
   `docs/audits/feat-admin-chain-agent-dashboard.md`. #52 was merged by the owner
   *before* audit; an independent retro-audit verified every substantive claim
@@ -39,6 +43,14 @@
   (commander-mint instrumentation; the `purchase_intents.timeout` reaper; a
   DOM-based admin render test) — or the Globe/Story-mode units below. One unit, one PR.
 - **Recent merges (newest first):**
+  - **#61** — **CI coverage gate (deterministic game-math core ≥ 80%)** (tooling/CI/docs).
+    **MERGED** `8dc7a72` (commit `2505917`). Adds `@vitest/coverage-v8@4.1.6`, a v8 coverage
+    block in `vitest.server.config.ts` scoped to the game-math core (`shared/weapons/**`,
+    `shared/university/**`, `shared/economy-config.ts`, `shared/weapon-economy.ts`,
+    `server/engine/{battle,markets}/resolve.ts`) at lines/stmts/funcs 80, branches 70; the
+    `coverage:server` script; a CI step; `docs/COVERAGE_GATE.md`. **HONEST FLAG:** gate covers
+    the game-math core ONLY (whole server/shared ~22% via `coverage:server:full`, informational —
+    NOT a global-80% claim; client not gated). No game/chain behavior change.
   - **#53** — **Strike System design spec v0.1 + Clerk admin layer** (doc-only). **MERGED**
     `714bdb8` (merge `032c6ff`). Added `artifacts/frontier-al/docs/design/strike-system-design.md`
     — code-grounded; corrects the draft's unverified claims. No code/schema/config; CI green;
