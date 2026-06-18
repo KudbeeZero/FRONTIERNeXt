@@ -79,6 +79,7 @@ vi.mock("@/hooks/useGameState", () => {
     useGameState: () => h.gameState,
     useCurrentPlayer: () => null,
     useMine: noopMutation,
+    useOpenLootBox: noopMutation,
     useUpgrade: noopMutation,
     useAttack: noopMutation,
     useBuild: noopMutation,

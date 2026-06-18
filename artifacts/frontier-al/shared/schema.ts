@@ -81,6 +81,29 @@ export interface LootBoxRecord {
   openedAt?: number; // Unix ms — undefined if unopened
 }
 
+/** The rare-mineral reward yielded by opening a loot box. */
+export interface LootBoxReward {
+  mineral: RareMineralType;
+  amount:  number;
+}
+
+/** A player's four rare-mineral vault totals (post-mutation snapshot). */
+export interface RareMineralVaults {
+  xenoriteVault:   number;
+  voidShardVault:  number;
+  plasmaCoreVault: number;
+  darkMatterVault: number;
+}
+
+/**
+ * Result of attempting to open a loot box. Storage backends return this
+ * discriminated union so the route can map it to HTTP status codes without
+ * leaking internals (`not_found` → 404, `already_opened` → 409).
+ */
+export type OpenLootBoxResult =
+  | { ok: true; reward: LootBoxReward; vaults: RareMineralVaults }
+  | { ok: false; reason: "not_found" | "already_opened" };
+
 // ── End Phase 2 types ─────────────────────────────────────────────────────────
 
 export type BiomeType = "forest" | "desert" | "mountain" | "plains" | "water" | "tundra" | "volcanic" | "swamp";
@@ -523,8 +546,18 @@ export const claimAscendActionSchema = z.object({
   idempotencyKey: z.string().optional(),
 });
 
+export const openLootBoxActionSchema = z.object({
+  playerId: z.string(),
+  lootBoxId: z.string(),
+  // Idempotency nonce — keyed on lootBoxId so a double-submit replays the same
+  // recorded reward. Optional so a missing key yields a specific 400 (via the
+  // idempotency guard) rather than a generic ZodError.
+  idempotencyKey: z.string().optional(),
+});
+
 export type MineAction = z.infer<typeof mineActionSchema>;
 export type UpgradeAction = z.infer<typeof upgradeActionSchema>;
+export type OpenLootBoxAction = z.infer<typeof openLootBoxActionSchema>;
 export type AttackAction = z.infer<typeof attackActionSchema>;
 export type BuildAction = z.infer<typeof buildActionSchema>;
 export type PurchaseAction = z.infer<typeof purchaseActionSchema>;

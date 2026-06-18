@@ -76,6 +76,23 @@ export function useMine() {
   });
 }
 
+export function useOpenLootBox() {
+  return useMutation({
+    mutationFn: async (vars: { playerId: string; lootBoxId: string }) => {
+      // Idempotency nonce keyed (server-side) on lootBoxId — a double-submit
+      // replays the original reward rather than re-crediting the vault.
+      const response = await apiRequest("POST", "/api/actions/open-loot-box", {
+        ...vars,
+        idempotencyKey: safeUuid(),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
+    },
+  });
+}
+
 export function useUpgrade() {
   return useMutation({
     mutationFn: async (action: UpgradeAction) => {

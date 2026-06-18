@@ -12,6 +12,7 @@ import type {
   OrbitalSatellite,
   LeaderboardEntry,
   SubParcel,
+  LootBoxRecord,
 } from "@shared/schema";
 import {
   SUB_PARCEL_HOLD_HOURS,
@@ -21,13 +22,24 @@ import {
   ARCHETYPE_FACTION_BONUSES,
   MAX_SAME_ARCHETYPE_PER_GRID,
 } from "@shared/schema";
-import { parcels as parcelsTable, players as playersTable, battles as battlesTable, gameEvents as gameEventsTable, subParcels as subParcelsTable } from "../db-schema";
+import { parcels as parcelsTable, players as playersTable, battles as battlesTable, gameEvents as gameEventsTable, subParcels as subParcelsTable, lootBoxInventory as lootBoxTable } from "../db-schema";
 
 export type ParcelRow     = typeof parcelsTable.$inferSelect;
 export type PlayerRow     = typeof playersTable.$inferSelect;
 export type BattleRow     = typeof battlesTable.$inferSelect;
 export type EventRow      = typeof gameEventsTable.$inferSelect;
 export type SubParcelRow  = typeof subParcelsTable.$inferSelect;
+export type LootBoxRow    = typeof lootBoxTable.$inferSelect;
+
+/** Map a loot_box_inventory row to the client-facing LootBoxRecord. */
+export function rowToLootBox(row: LootBoxRow): LootBoxRecord {
+  return {
+    id:        row.id,
+    tier:      row.tier as LootBoxRecord["tier"],
+    awardedAt: Number(row.awardedAt),
+    openedAt:  row.openedAt == null ? undefined : Number(row.openedAt),
+  };
+}
 
 // ── Micro-FRONTIER helpers ───────────────────────────────────────────────────
 
@@ -110,7 +122,7 @@ export function rowToParcel(row: ParcelRow): LandParcel {
   };
 }
 
-export function rowToPlayer(row: PlayerRow, ownedParcelIds: string[]): Player {
+export function rowToPlayer(row: PlayerRow, ownedParcelIds: string[], lootBoxes: LootBoxRecord[] = []): Player {
   const commanders = (row.commanders ?? []) as CommanderAvatar[];
   return {
     id:                   row.id,
@@ -148,7 +160,7 @@ export function rowToPlayer(row: PlayerRow, ownedParcelIds: string[]): Player {
     voidShardVault:       (row as any).voidShardVault  ?? 0,
     plasmaCoreVault:      (row as any).plasmaCoreVault ?? 0,
     darkMatterVault:      (row as any).darkMatterVault ?? 0,
-    lootBoxes:            [],
+    lootBoxes,
   };
 }
 

@@ -10,11 +10,23 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `main` @ `ca240d9` (after #52 + #53 merges). **Zero open PRs.**
-  This `audit/pr52-chain-agent-dashboard` branch carries only the #52 retro-audit
-  record + this baton.
-- **Audit status:** `IDLE` — nothing awaiting audit. **Both #52 and #53 are merged
-  and accounted for.** Safe to start the next unit.
+- **Branch:** `claude/game-feature-scan-bnk4ie` (off `main` @ `9e53108`, after #59).
+  **One open PR — AWAITING AUDIT.**
+- **Audit status:** `AWAITING_AUDIT` — the loot-box open-flow PR (below) needs the
+  next chat's `/handoff-audit` before merge. Do NOT start a new unit until it lands.
+- **➡️ THIS PR — Loot Box Open Flow + Mining Award (code).** Finishes the inert
+  Phase-2 loot/rare-mineral economy: pure deterministic roll
+  (`server/engine/lootbox/open.ts`), `awardLootBox`/`openLootBox` storage (db + mem,
+  double-open safe, vault-capped), `POST /api/actions/open-loot-box`,
+  `migrations/0010_loot_box_inventory.sql` (backfills the table + 4 vault columns that
+  had no numbered migration), the `mine_action` award trigger (3%→common — the ONLY
+  trigger wired), and InventoryPanel Open UI. Also fixed a hydration bug
+  (`game-rules.ts` hard-coded `lootBoxes: []`). **Green:** check ✓, test:server **279**
+  (+13), test **57**, build ✓. Note:
+  `session-notes/2026-06-18-loot-box-open-flow.md`. Deferred: `battle_victory` /
+  `orbital_impact` triggers (gated combat/orbital paths); loot-box→NFT minting (funds).
+- **Note:** the prior baton below referenced `main` @ `ca240d9` (post #52/#53); `main`
+  has since advanced through #58/#59 (university). Retained for history.
 - **#52 retro-audit:** `CONCERNS` (non-blocking) — recorded in
   `docs/audits/feat-admin-chain-agent-dashboard.md`. #52 was merged by the owner
   *before* audit; an independent retro-audit verified every substantive claim

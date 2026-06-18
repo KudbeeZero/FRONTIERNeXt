@@ -37,6 +37,10 @@ import type {
   MarketPosition,
   MarketOutcome,
   CreateMarketAction,
+  LootBoxTier,
+  LootBoxRecord,
+  OpenLootBoxResult,
+  LootBoxReward,
 } from "@shared/schema";
 import {
   biomeBonuses,
@@ -68,10 +72,14 @@ import {
   CASCADE_DEFENSE_PENALTY,
   COMMANDER_LOCK_MS,
   ORBITAL_IMPACT_CHANCE,
+  LOOT_BOX_INVENTORY_CAP,
+  RARE_MINERAL_VAULT_CAP,
 } from "@shared/schema";
 import type { FacilityType, DefenseImprovementType } from "@shared/schema";
 import { generateFibonacciSphere, sphereDistance, type PlotCoord } from "../sphereUtils";
 import { biomeFromLatitude } from "./game-rules";
+import { hashSeed } from "../engine/battle/random.js";
+import { resolveLootBoxOpen, rollLootBoxAward, MINERAL_TO_VAULT_FIELD } from "../engine/lootbox/open.js";
 import type { IStorage } from "./interface";
 import { createDefaultProfile, recomputeDerived, type PlayerWeaponProfile } from "@shared/weapons";
 
@@ -321,7 +329,7 @@ export class MemStorage implements IStorage {
     return this.battles.get(id);
   }
 
-  async mineResources(action: MineAction): Promise<{ iron: number; fuel: number; crystal: number; mineralDrops: Partial<Record<string, number>> }> {
+  async mineResources(action: MineAction): Promise<{ iron: number; fuel: number; crystal: number; mineralDrops: Partial<Record<string, number>>; lootBoxAwarded?: LootBoxTier }> {
     await this.initialize();
 
     const parcel = this.parcels.get(action.parcelId);
@@ -380,8 +388,59 @@ export class MemStorage implements IStorage {
       timestamp: now,
     });
 
+    // ── Loot box award (mine_action trigger only — battle/orbital deferred) ──
+    const awardTier = rollLootBoxAward("mine_action", hashSeed(player.id, parcel.id, now, "lootbox"));
+    let lootBoxAwarded: LootBoxTier | undefined;
+    if (awardTier && this._awardLootBox(player, awardTier, now)) {
+      lootBoxAwarded = awardTier;
+    }
+
     this.lastUpdateTs = now;
-    return { iron: finalIron, fuel: finalFuel, crystal: finalCrystal, mineralDrops: {} };
+    return { iron: finalIron, fuel: finalFuel, crystal: finalCrystal, mineralDrops: {}, lootBoxAwarded };
+  }
+
+  // ── Phase 2: Loot Boxes ─────────────────────────────────────────────────────
+
+  /** Push a loot box onto a live player object, enforcing the unopened cap. */
+  private _awardLootBox(player: Player, tier: LootBoxTier, awardedAt: number): LootBoxRecord | null {
+    const boxes = (player.lootBoxes ??= []);
+    const unopened = boxes.filter((b) => b.openedAt == null).length;
+    if (unopened >= LOOT_BOX_INVENTORY_CAP) return null;
+    const record: LootBoxRecord = { id: randomUUID(), tier, awardedAt, openedAt: undefined };
+    boxes.push(record);
+    return record;
+  }
+
+  async awardLootBox(playerId: string, tier: LootBoxTier, awardedAt: number): Promise<LootBoxRecord | null> {
+    await this.initialize();
+    const player = this.players.get(playerId);
+    if (!player) return null;
+    return this._awardLootBox(player, tier, awardedAt);
+  }
+
+  async openLootBox(playerId: string, lootBoxId: string): Promise<OpenLootBoxResult> {
+    await this.initialize();
+    const player = this.players.get(playerId);
+    const box = player?.lootBoxes?.find((b) => b.id === lootBoxId);
+    if (!player || !box) return { ok: false, reason: "not_found" };
+    if (box.openedAt != null) return { ok: false, reason: "already_opened" };
+
+    const reward: LootBoxReward = resolveLootBoxOpen(box.tier, hashSeed(lootBoxId, playerId));
+    box.openedAt = Date.now();
+
+    const field = MINERAL_TO_VAULT_FIELD[reward.mineral];
+    player[field] = Math.min((player[field] ?? 0) + reward.amount, RARE_MINERAL_VAULT_CAP);
+
+    return {
+      ok: true,
+      reward,
+      vaults: {
+        xenoriteVault:   player.xenoriteVault ?? 0,
+        voidShardVault:  player.voidShardVault ?? 0,
+        plasmaCoreVault: player.plasmaCoreVault ?? 0,
+        darkMatterVault: player.darkMatterVault ?? 0,
+      },
+    };
   }
 
   async collectAll(playerId: string): Promise<{ iron: number; fuel: number; crystal: number }> {
