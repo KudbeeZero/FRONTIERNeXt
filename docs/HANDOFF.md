@@ -10,9 +10,35 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `claude/handoff-audit-jwfx7a` (off `main` @ `d5fe7d2`). **ONE open
-  PR** — this chat's audit-record PR (doc-only: the **#61 retro-audit** report + this baton).
-- **Audit status (this chat):** start-of-chat gate. Found the baton's `AWAITING_AUDIT`
+- **Branch:** `claude/project-next-steps-seoay7` (off `main` @ `e3a916c`). **ONE open
+  PR — #64** (**READY-FOR-REVIEW; CI green; owner-approved; awaiting owner merge**): a
+  **test-only** Postgres integration test for the loot-box DbStorage SQL path. **Do NOT
+  auto-merge** — owner merges. After merge, start the next unit only: **Globe pick-index
+  + parity**.
+- **What this chat did (for the auditor):** Retired the #60-audit open risk
+  *"DbStorage SQL path is NOT test-covered."* Added `server/storage/lootbox.db.spec.ts`
+  — real `node-postgres` + real Postgres, applies `migrations/0010` over a minimal
+  `players` stub, and covers award / inventory cap / open+vault-credit / serial **and
+  concurrent** double-open (real `FOR UPDATE` + `rowCount` guard) / `LEAST` vault clamp /
+  ownership `not_found`. Added a `test:server:db` script + a CI `postgres:16` service and
+  a dedicated step so it runs in CI; `test:server` stays DATABASE_URL-free so MemStorage
+  tests are unchanged. **No production code change, no new dependency, no lockfile change.**
+  Verified locally: `check` ✓ · `test:server` **279 pass / 7 skipped** · `test:server:db`
+  (local PG16) **7 pass** · `coverage:server` **93.12% PASS (unchanged — db.ts is outside
+  the gate include set)** · client `test` **57** · `build` ✓.
+  - **Why a real Postgres, not PGlite:** the drizzle pglite driver does not populate
+    `rowCount`, which the double-open guard depends on — pglite would make the first open
+    wrongly return `already_opened`. The block is `skipIf(!DATABASE_URL)` + dynamic
+    `import("./db.js")` so the no-DB suite skips without touching db.ts's module load.
+  - **Auditor focus:** confirm the **CI integration step itself is green** on the head
+    commit (that's where the 7 tests run; `test:server` shows them skipped); confirm scope
+    is test-only/additive.
+
+---
+
+### Prior baton (pre-#64, retained for context)
+- **Branch:** `claude/handoff-audit-jwfx7a` (off `main` @ `d5fe7d2`).
+- **Audit status:** start-of-chat gate. Found the baton's `AWAITING_AUDIT`
   unit (#61, coverage gate) had been **merged by the owner before audit** (like #52) and
   #60 (loot-box) **open** as the blocker. Independently **retro-audited #61 → PASS**
   (`docs/audits/claude-ci-green-light-percentage-drvneh.md`) and **audited #60 → PASS**,
@@ -107,7 +133,13 @@
 - `pnpm run typecheck` (root) → green (mockup-sandbox excluded).
 - three.js is **code-split**; `/admin` is now lazy-loaded (its own `admin-*.js` chunk).
 
-## NEXT chat — candidate units (pick ONE; one unit, one PR)
+## NEXT chat — after #64 is audited & merged
+- **Globe pick-index + parity** (owner-directed next unit): `perf/globe-pick-index` — replace
+  the O(n) `nearestPlot` scan (`GlobeParcels.tsx:100`) with a spatial index behind the **same
+  signature**; land `client/src/lib/globe/globeProjection.ts` (`SCOPE_BRIEF` §6 seam); **add
+  the missing client≡server Fibonacci parity test** (§4.1/§7).
+
+## Other candidate units (pick ONE; one unit, one PR)
 - **#52 dashboard follow-ups** (from the retro-audit, all additive/testnet-only): commander-mint
   instrumentation (only `/api/actions/purchase` is wired today); the `purchase_intents.timeout`
   reaper (state defined, never set); a DOM-based `admin.tsx` render test (current client suite is
@@ -130,11 +162,14 @@
   in `verifyAlgoPayment` (**funds → `algo-auditor` + `/security-pass`**).
 
 ## Open risks / honest flags
-- ⚠️ **(#60 loot-box, from audit) DbStorage SQL path is NOT test-covered.** All 6 loot-box
-  storage tests use **MemStorage only**; the Db-specific guards (`FOR UPDATE` lock,
-  conditional-`UPDATE`-on-`rowCount` double-open guard, SQL `LEAST(...)` cap, in-tx cap count)
-  are verified by-construction, **not test-backed** (need Postgres). A Postgres integration test
-  is a good follow-up unit.
+- ✅ **(#60 loot-box) DbStorage SQL path now test-backed — RESOLVED (CI green).** PR **#64**
+  adds `server/storage/lootbox.db.spec.ts` (real `node-postgres` + Postgres, applies
+  `migrations/0010`) covering the `FOR UPDATE` lock, conditional-`UPDATE`-on-`rowCount`
+  double-open guard (serial + concurrent), `LEAST(...)` cap, and in-tx cap count. The CI
+  "DbStorage integration tests" step ran **7/7 green** (run #194, head `7bee07f`): migration
+  applied cleanly on the `postgres:16` service, the concurrent two-connection open was not
+  flaky, and `test:server` showed the block **skipped** (no `DATABASE_URL` leak). Fully
+  closed once #64 merges.
 - ⚠️ **(#60 loot-box) migration `0010_loot_box_inventory.sql` must be applied before any deploy**
   that uses DbStorage (staged, not run at boot). Extends the "migrations 0000–0008 must be
   applied" rule to **0010** (0009 chain_events also pending).
