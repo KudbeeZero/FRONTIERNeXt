@@ -10,11 +10,27 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `main` @ `ca240d9` (after #52 + #53 merges). **Zero open PRs.**
-  This `audit/pr52-chain-agent-dashboard` branch carries only the #52 retro-audit
-  record + this baton.
-- **Audit status:** `IDLE` — nothing awaiting audit. **Both #52 and #53 are merged
-  and accounted for.** Safe to start the next unit.
+- **Branch:** `claude/ci-green-light-percentage-drvneh` (off `main` @ `9e53108`, after
+  #59). **ONE open PR** — the CI coverage gate (this unit).
+- **Audit status:** `AWAITING_AUDIT` — **CI coverage gate (deterministic game-math
+  core ≥ 80%)**. Additive tooling/CI/docs only; no game/chain behavior change.
+  - **What it does:** adds `@vitest/coverage-v8@4.1.6`, a v8 coverage block in
+    `vitest.server.config.ts` scoped to the deterministic game-math core
+    (`shared/weapons/**`, `shared/university/**`, `shared/economy-config.ts`,
+    `shared/weapon-economy.ts`, `server/engine/{battle,markets}/resolve.ts`) at
+    **lines/stmts/funcs 80, branches 70**, the `coverage:server` script, a new CI step,
+    and `docs/COVERAGE_GATE.md`.
+  - **Test-backed:** `coverage:server` PASS (lines **93%** / branches **78%**);
+    negative check at `lines=99` → exit 1 (gate bites); `check` green, `test:server`
+    **266**, `test` **57**.
+  - **HONEST FLAG (audit must preserve):** the gate covers the game-math core **only**.
+    Whole `server/shared` is **~22%** (`coverage:server:full`, informational) — **NOT a
+    global-80% claim.** Client not gated. Broad backfill = separate future PR.
+- **Audit checklist for the next chat:** rerun `coverage:server` + the `lines=99`
+  negative check; confirm the `include` set isn't number-gamed (excluded surfaces are
+  genuinely I/O/integration — DB/storage, services, routes, stateful managers, dev
+  tools); verify lockfile only adds coverage-v8 + istanbul/v8 deps; confirm docs don't
+  over-claim global 80%. PASS → merge; CONCERNS → ask.
 - **#52 retro-audit:** `CONCERNS` (non-blocking) — recorded in
   `docs/audits/feat-admin-chain-agent-dashboard.md`. #52 was merged by the owner
   *before* audit; an independent retro-audit verified every substantive claim
