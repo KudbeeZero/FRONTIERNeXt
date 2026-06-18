@@ -10,29 +10,44 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `claude/project-next-steps-seoay7` (off `main` @ `e3a916c`). **ONE open
-  PR — #64** (**READY-FOR-REVIEW; CI green; owner-approved; awaiting owner merge**): a
-  **test-only** Postgres integration test for the loot-box DbStorage SQL path. **Do NOT
-  auto-merge** — owner merges. After merge, start the next unit only: **Globe pick-index
-  + parity**.
-- **What this chat did (for the auditor):** Retired the #60-audit open risk
-  *"DbStorage SQL path is NOT test-covered."* Added `server/storage/lootbox.db.spec.ts`
-  — real `node-postgres` + real Postgres, applies `migrations/0010` over a minimal
-  `players` stub, and covers award / inventory cap / open+vault-credit / serial **and
-  concurrent** double-open (real `FOR UPDATE` + `rowCount` guard) / `LEAST` vault clamp /
-  ownership `not_found`. Added a `test:server:db` script + a CI `postgres:16` service and
-  a dedicated step so it runs in CI; `test:server` stays DATABASE_URL-free so MemStorage
-  tests are unchanged. **No production code change, no new dependency, no lockfile change.**
-  Verified locally: `check` ✓ · `test:server` **279 pass / 7 skipped** · `test:server:db`
-  (local PG16) **7 pass** · `coverage:server` **93.12% PASS (unchanged — db.ts is outside
-  the gate include set)** · client `test` **57** · `build` ✓.
-  - **Why a real Postgres, not PGlite:** the drizzle pglite driver does not populate
-    `rowCount`, which the double-open guard depends on — pglite would make the first open
-    wrongly return `already_opened`. The block is `skipIf(!DATABASE_URL)` + dynamic
-    `import("./db.js")` so the no-DB suite skips without touching db.ts's module load.
-  - **Auditor focus:** confirm the **CI integration step itself is green** on the head
-    commit (that's where the 7 tests run; `test:server` shows them skipped); confirm scope
-    is test-only/additive.
+- **Branch:** `perf/globe-pick-index-parity` (off `main` @ `fe1c3ab`, which now contains the
+  merged #64). **ONE open PR — #65** (`AWAITING_AUDIT`): the **Globe pick-index + Fibonacci
+  client≡server parity** unit. **Do NOT auto-merge** — owner merges. Next unit only after
+  audit+merge.
+- **What this chat did (for the auditor):**
+  - **Spatial pick-index** — new `client/src/lib/globe/pickIndex.ts` (`buildPickIndex`):
+    uniform 3D voxel-hash + expanding Chebyshev-ring nearest search with a provable stop
+    bound. Returns the **byte-identical index** the old O(n) brute scan did (lowest-index
+    tie-break preserved). Built once via `useMemo`, not per render/event.
+  - **Integration** — `GlobeParcels.tsx` `nearestPlot` now delegates to the index behind the
+    **same signature**; the O(n) per-pointer-event 21k scan is gone. No other behavior change.
+  - **Parity test** (the load-bearing §4.1 guard, previously MISSING) —
+    `client/tests/globe-fibonacci-parity.spec.ts`: asserts client `globeUtils` ≡ server
+    `sphereUtils` `(count, plotId, lat, lng)` for counts 50/1000/21000 + shared constants.
+  - **Pick-index test** — `client/tests/globe-pickindex.spec.ts`: equivalence vs brute force
+    over 400 on/off-radius + out-of-bounds random queries × {200, 21000}, exact index→plot
+    mapping, determinism, pole/dateline edges, tie-break, degenerate inputs.
+  - **Scope:** 4 files, all under `client/` (globe code + client tests). **No** server/
+    storage/economy/token/battle/dashboard/loot-box code touched; no new deps; no schema.
+    The parity test only *reads* `server/sphereUtils` for the assertion. **No render-output
+    change** — selection resolves to the same plot, proven against the brute force.
+  - Verified locally: `check` ✓ · client `test` **69 pass** (was 57; +12 new) ·
+    `test:server` **279 pass / 7 skipped (unchanged)** · `build` ✓.
+  - **Auditor focus:** confirm `nearestPlot` results are unchanged (the equivalence test is
+    the proof); confirm scope is client-only/additive; confirm parity test actually compares
+    both generators. **Deferred (not in this unit):** the full screen-space `globeProjection.ts`
+    seam (§6 `worldToScreen`/`surfaceHit`) — it needs camera plumbing + a screen-based caller
+    that doesn't exist without redesigning picking; landing it now would be dead code. It should
+    accompany the combat package that actually consumes it.
+
+---
+
+### Prior baton — #64 (loot-box DbStorage Postgres test) — MERGED `fe1c3ab`
+- Retired the #60-audit risk *"DbStorage SQL path is NOT test-covered."* `lootbox.db.spec.ts`
+  (real `node-postgres` + Postgres, applies `migrations/0010`) covers award / cap /
+  open+vault-credit / serial **and concurrent** double-open (`FOR UPDATE` + `rowCount`) /
+  `LEAST` clamp / ownership. `test:server:db` script + CI `postgres:16` service+step.
+  CI integration step ran **7/7 green** (run #194); merged by owner-approved gate.
 
 ---
 

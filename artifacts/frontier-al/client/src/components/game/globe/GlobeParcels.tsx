@@ -35,6 +35,7 @@ import {
   getPlotSizeVariant,
   tangentFrame,
 } from "@/lib/globe/globeUtils";
+import { buildPickIndex } from "@/lib/globe/pickIndex";
 import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 
 // ── PlotOverlay ────────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       .join("|");
   }, [parcels, currentPlayerId, prefs.territoryColor, prefs.enemyColor, prefs.fogOfWar]);
 
-  // Flat Float32Array of every plot's 3D position — used for O(n) nearest-neighbor on clicks/hover
+  // Flat Float32Array of every plot's 3D position — feeds the spatial pick index (below) for click/hover selection
   const plotPositions3D = useMemo(() => {
     const arr = new Float32Array(plotCoords.length * 3);
     for (let i = 0; i < plotCoords.length; i++) {
@@ -97,16 +98,14 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     return arr;
   }, [plotCoords]);
 
-  const nearestPlot = useCallback((px: number, py: number, pz: number): number => {
-    let minD2 = Infinity, best = 0;
-    const pos = plotPositions3D;
-    for (let i = 0; i < PLOT_COUNT; i++) {
-      const dx = pos[i*3] - px, dy = pos[i*3+1] - py, dz = pos[i*3+2] - pz;
-      const d2 = dx*dx + dy*dy + dz*dz;
-      if (d2 < minD2) { minD2 = d2; best = i; }
-    }
-    return best;
-  }, [plotPositions3D]);
+  // Spatial nearest-plot index — built once from plotPositions3D (not per render
+  // or per pointer event). Returns the SAME index the old O(n) brute scan did
+  // (proven in globe-pickindex.spec.ts), just without 21k compares per event.
+  const pickIndex = useMemo(() => buildPickIndex(plotPositions3D), [plotPositions3D]);
+  const nearestPlot = useCallback(
+    (px: number, py: number, pz: number): number => pickIndex.nearest(px, py, pz),
+    [pickIndex],
+  );
 
   // O(1) reverse-lookup: plotId → index in plotCoords array — built once, never changes
   const plotIdToIndex = useMemo(() => {
