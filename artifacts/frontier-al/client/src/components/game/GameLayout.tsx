@@ -30,7 +30,7 @@ import { TEST_GLOBE } from "@/lib/testMode";
 import { useBlockchainActions } from "@/hooks/useBlockchainActions";
 import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
 import { useQuery, useQueries } from "@tanstack/react-query";
-import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimAscend, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite } from "@/hooks/useGameState";
+import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimAscend, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite, useOpenLootBox } from "@/hooks/useGameState";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -173,6 +173,8 @@ export function GameLayout() {
   }, []);
 
   const mineMutation = useMine();
+  const openLootBoxMutation = useOpenLootBox();
+  const [openingLootBoxId, setOpeningLootBoxId] = useState<string | null>(null);
   const upgradeMutation = useUpgrade();
   const attackMutation = useAttack();
   const buildMutation = useBuild();
@@ -289,6 +291,35 @@ export function GameLayout() {
           });
         },
       }
+    );
+  };
+
+  const MINERAL_LABELS: Record<string, string> = {
+    xenorite: "Xenorite", void_shard: "Void Shard", plasma_core: "Plasma Core", dark_matter: "Dark Matter",
+  };
+
+  const handleOpenLootBox = async (lootBoxId: string) => {
+    if (!isConnected) {
+      toast({ title: "Authorization Required", description: "Connect your wallet to perform game actions.", variant: "destructive" });
+      return;
+    }
+    if (!player || openingLootBoxId) return;
+    setOpeningLootBoxId(lootBoxId);
+    openLootBoxMutation.mutate(
+      { playerId: player.id, lootBoxId },
+      {
+        onSuccess: (data: any) => {
+          const reward = data?.reward as { mineral: string; amount: number } | undefined;
+          toast({
+            title: "Loot Box Opened",
+            description: reward
+              ? `+${reward.amount} ${MINERAL_LABELS[reward.mineral] ?? reward.mineral}`
+              : "Reward credited to your vault.",
+          });
+        },
+        onError: (error: unknown) => toast({ title: "Open Failed", description: (error as Error).message, variant: "destructive" }),
+        onSettled: () => setOpeningLootBoxId(null),
+      },
     );
   };
 
@@ -1046,6 +1077,8 @@ export function GameLayout() {
               onMineParcel={handleMineParcel}
               isMiningParcel={isMiningParcel}
               isCollecting={collectMutation.isPending}
+              onOpenLootBox={handleOpenLootBox}
+              openingLootBoxId={openingLootBoxId}
             />
           )}
           {activeTab === "battles" && gameState && (

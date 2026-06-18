@@ -105,6 +105,7 @@ import {
   treasuryLedger as treasuryLedgerTable,
   predictionMarkets as predictionMarketsTable,
   marketPositions as marketPositionsTable,
+  lootBoxInventory as lootBoxTable,
   type TradeOrder,
   type InsertTradeOrder,
 } from "../db-schema";
@@ -114,6 +115,7 @@ import {
   rowToBattle,
   rowToEvent,
   rowToSubParcel,
+  rowToLootBox,
   computeLeaderboard,
   canSubdivideParcel,
   buildSubParcelRows,
@@ -125,8 +127,9 @@ import {
   type ParcelRow,
   type BattleRow,
 } from "./game-rules";
-import type { SubParcel, SubParcelListing, Season, PredictionMarket, MarketPosition, MarketOutcome, CreateMarketAction, ResolutionSource, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
-import { MARKET_FEE_RATE } from "@shared/schema";
+import type { SubParcel, SubParcelListing, Season, PredictionMarket, MarketPosition, MarketOutcome, CreateMarketAction, ResolutionSource, SubParcelArchetype, EnergyAlignment, LootBoxTier, LootBoxRecord, OpenLootBoxResult, LootBoxReward } from "@shared/schema";
+import { MARKET_FEE_RATE, LOOT_BOX_INVENTORY_CAP } from "@shared/schema";
+import { resolveLootBoxOpen, rollLootBoxAward, MINERAL_TO_VAULT_FIELD } from "../engine/lootbox/open.js";
 import { deriveOutcome, isResolvable, hashResolution, type ResolutionFact } from "../engine/markets/resolve.js";
 import {
   SUB_PARCEL_HOLD_HOURS,
@@ -419,12 +422,12 @@ export class DbStorage implements IStorage {
       .where(sql`lower(${playersTable.address}) = ${normalized}`);
 
     if (existing) {
-      const ownedRows = await this.db
-        .select({ id: parcelsTable.id })
-        .from(parcelsTable)
-        .where(eq(parcelsTable.ownerId, existing.id));
+      const [ownedRows, lootRows] = await Promise.all([
+        this.db.select({ id: parcelsTable.id }).from(parcelsTable).where(eq(parcelsTable.ownerId, existing.id)),
+        this.db.select().from(lootBoxTable).where(eq(lootBoxTable.playerId, existing.id)).orderBy(lootBoxTable.awardedAt),
+      ]);
 
-      return rowToPlayer(existing, ownedRows.map(r => r.id));
+      return rowToPlayer(existing, ownedRows.map(r => r.id), lootRows.map(rowToLootBox));
     }
 
     const id = randomUUID();
@@ -634,11 +637,12 @@ export class DbStorage implements IStorage {
 
   async getPlayer(id: string): Promise<Player | undefined> {
     await this.initialize();
-    const [[row], ownedRows] = await Promise.all([
+    const [[row], ownedRows, lootRows] = await Promise.all([
       this.db.select().from(playersTable).where(eq(playersTable.id, id)),
       this.db.select({ id: parcelsTable.id }).from(parcelsTable).where(eq(parcelsTable.ownerId, id)),
+      this.db.select().from(lootBoxTable).where(eq(lootBoxTable.playerId, id)).orderBy(lootBoxTable.awardedAt),
     ]);
-    return row ? rowToPlayer(row, ownedRows.map((r) => r.id)) : undefined;
+    return row ? rowToPlayer(row, ownedRows.map((r) => r.id), lootRows.map(rowToLootBox)) : undefined;
   }
 
   async getBattle(id: string): Promise<Battle | undefined> {
@@ -741,10 +745,18 @@ export class DbStorage implements IStorage {
           .where(eq(playersTable.id, player.id)),
       ]);
 
+      // ── Loot box award (mine_action trigger only — see plan; battle/orbital deferred)
+      const awardTier = rollLootBoxAward("mine_action", hashSeed(player.id, parcel.id, now, "lootbox"));
+      let lootBoxAwarded: LootBoxTier | undefined;
+      if (awardTier && await this._awardLootBoxTx(tx, player.id, awardTier, now)) {
+        lootBoxAwarded = awardTier;
+      }
+
       const mineralDropLog = Object.keys(mineralDrops).length > 0
         ? ` minerals=${JSON.stringify(mineralDrops)}`
         : "";
-      console.log(`[mine] plotId=${parcel.plotId} iron=${finalIron} fuel=${finalFuel} crystal=${finalCrystal} stored${mineralDropLog}`);
+      const lootLog = lootBoxAwarded ? ` lootBox=${lootBoxAwarded}` : "";
+      console.log(`[mine] plotId=${parcel.plotId} iron=${finalIron} fuel=${finalFuel} crystal=${finalCrystal} stored${mineralDropLog}${lootLog}`);
 
       await this.addEvent({
         type:        "mine",
@@ -755,7 +767,84 @@ export class DbStorage implements IStorage {
       }, tx);
       await this.bumpLastTs(now, tx);
 
-      return { iron: finalIron, fuel: finalFuel, crystal: finalCrystal, mineralDrops };
+      return { iron: finalIron, fuel: finalFuel, crystal: finalCrystal, mineralDrops, lootBoxAwarded };
+    });
+  }
+
+  // ── Phase 2: Loot Boxes ─────────────────────────────────────────────────────
+
+  /**
+   * Insert a loot box for a player inside an existing transaction, enforcing
+   * LOOT_BOX_INVENTORY_CAP on unopened boxes. Returns the record, or null if the
+   * player is at cap (silently dropped — mirrors the vault LEAST(...) cap posture).
+   * Shared by `mineResources` (in-tx award) and the public `awardLootBox`.
+   */
+  private async _awardLootBoxTx(
+    tx: Parameters<Parameters<DB["transaction"]>[0]>[0],
+    playerId: string,
+    tier: LootBoxTier,
+    awardedAt: number,
+  ): Promise<LootBoxRecord | null> {
+    const [{ count }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(lootBoxTable)
+      .where(and(eq(lootBoxTable.playerId, playerId), isNull(lootBoxTable.openedAt)));
+    if (count >= LOOT_BOX_INVENTORY_CAP) return null;
+
+    const id = randomUUID();
+    await tx.insert(lootBoxTable).values({ id, playerId, tier, awardedAt, openedAt: null });
+    return { id, tier, awardedAt, openedAt: undefined };
+  }
+
+  async awardLootBox(playerId: string, tier: LootBoxTier, awardedAt: number): Promise<LootBoxRecord | null> {
+    await this.initialize();
+    return this.db.transaction((tx) => this._awardLootBoxTx(tx, playerId, tier, awardedAt));
+  }
+
+  async openLootBox(playerId: string, lootBoxId: string): Promise<OpenLootBoxResult> {
+    await this.initialize();
+    return this.db.transaction(async (tx) => {
+      // Player-scoped lookup = ownership enforced at the data layer.
+      const [box] = await tx
+        .select()
+        .from(lootBoxTable)
+        .where(and(eq(lootBoxTable.id, lootBoxId), eq(lootBoxTable.playerId, playerId)))
+        .for("update");
+      if (!box) return { ok: false, reason: "not_found" } as const;
+      if (box.openedAt != null) return { ok: false, reason: "already_opened" } as const;
+
+      // Deterministic reward — stable per box (idempotent replay reproduces it).
+      const reward: LootBoxReward = resolveLootBoxOpen(
+        box.tier as LootBoxTier,
+        hashSeed(lootBoxId, playerId),
+      );
+
+      // Conditional UPDATE is the real double-open guard: if a concurrent open
+      // already set opened_at, this matches 0 rows and we bail without crediting.
+      const marked = await tx
+        .update(lootBoxTable)
+        .set({ openedAt: Date.now() })
+        .where(and(eq(lootBoxTable.id, lootBoxId), isNull(lootBoxTable.openedAt)));
+      if ((marked.rowCount ?? 0) === 0) return { ok: false, reason: "already_opened" } as const;
+
+      const field = MINERAL_TO_VAULT_FIELD[reward.mineral];
+      const col = { xenoriteVault: "xenorite_vault", voidShardVault: "void_shard_vault", plasmaCoreVault: "plasma_core_vault", darkMatterVault: "dark_matter_vault" }[field];
+      await tx
+        .update(playersTable)
+        .set({ [field]: sql`LEAST(${sql.raw(col)} + ${reward.amount}, ${RARE_MINERAL_VAULT_CAP})` } as any)
+        .where(eq(playersTable.id, playerId));
+
+      const [p] = await tx
+        .select({
+          xenoriteVault: playersTable.xenoriteVault,
+          voidShardVault: playersTable.voidShardVault,
+          plasmaCoreVault: playersTable.plasmaCoreVault,
+          darkMatterVault: playersTable.darkMatterVault,
+        })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId));
+
+      return { ok: true, reward, vaults: p } as const;
     });
   }
 

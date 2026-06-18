@@ -29,6 +29,9 @@ interface InventoryPanelProps {
   className?: string;
   onClaimAscend?: () => void;
   isClaimingAscend?: boolean;
+  onOpenLootBox?: (lootBoxId: string) => void;
+  /** The loot box currently being opened (disables its button), or null. */
+  openingLootBoxId?: string | null;
 }
 
 function LandCard({
@@ -149,6 +152,8 @@ export function InventoryPanel({
   isCollecting,
   isClaimingAscend,
   className,
+  onOpenLootBox,
+  openingLootBoxId,
 }: InventoryPanelProps) {
   if (!player) {
     return (
@@ -257,15 +262,43 @@ export function InventoryPanel({
           </div>
         )}
 
-        {/* Loot Box count */}
-        {(player.lootBoxes?.length ?? 0) > 0 && (
-          <div className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 mb-3 flex items-center gap-2">
-            <Package className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-[10px] font-display uppercase tracking-wide text-amber-400">
-              {player.lootBoxes!.length} Loot Box{player.lootBoxes!.length !== 1 ? "es" : ""} available
-            </span>
-          </div>
-        )}
+        {/* Loot Boxes — open unopened boxes for rare minerals */}
+        {(() => {
+          const unopened = (player.lootBoxes ?? []).filter((b) => b.openedAt == null);
+          if (unopened.length === 0) return null;
+          return (
+            <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-2.5 mb-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Package className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[10px] font-display uppercase tracking-wide text-amber-400">
+                  {unopened.length} Loot Box{unopened.length !== 1 ? "es" : ""}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {unopened.map((box) => {
+                  const opening = openingLootBoxId === box.id;
+                  return (
+                    <div key={box.id} className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-display uppercase tracking-wide text-amber-300/90 capitalize flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> {box.tier}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+                        disabled={opening || !!openingLootBoxId || !onOpenLootBox}
+                        onClick={() => onOpenLootBox?.(box.id)}
+                        data-testid={`button-open-loot-box-${box.id}`}
+                      >
+                        {opening ? "Opening…" : "Open"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Lifetime resource extraction totals */}
         <div className="rounded-md bg-muted/30 p-2.5 mb-3">

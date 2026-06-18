@@ -4,7 +4,7 @@ import { getBattleReplay, recordSubParcelWorldEvent, recordArchetypeWorldEvent }
 import { createServer, type Server } from "http";
 import algosdk from "algosdk";
 import { storage } from "./storage";
-import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimAscendActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, terraformActionSchema } from "@shared/schema";
+import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimAscendActionSchema, openLootBoxActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, terraformActionSchema } from "@shared/schema";
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
@@ -1676,6 +1676,41 @@ export async function registerRoutes(
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
       res.status(400).json({ error: error instanceof Error ? error.message : "Upgrade failed" });
+    }
+  });
+
+  // Open a loot box → deterministic rare-mineral reward credited to the vault.
+  // playerId is auth-verified by the global mutation middleware (path matches
+  // MUTATION_PATH_RE). Idempotency is keyed on lootBoxId so a double-submit
+  // replays the original 200 rather than re-crediting; the storage layer is also
+  // independently double-open safe (conditional UPDATE) as a backstop.
+  app.post("/api/actions/open-loot-box", async (req, res) => {
+    try {
+      const action = openLootBoxActionSchema.parse(req.body);
+      const scope = { playerId: action.playerId, action: "open-loot-box", target: encodeURIComponent(action.lootBoxId) };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (await guardClaimOrRespond(res, scope, nonce)) return;
+
+      try {
+        const result = await storage.openLootBox(action.playerId, action.lootBoxId);
+        if (!result.ok) {
+          // Not a successful mutation — release the claim so a later valid retry
+          // (or a different box) isn't permanently blocked, then surface the reason.
+          await actionIdempotencyGuard.release(scope, nonce);
+          const status = result.reason === "not_found" ? 404 : 409;
+          return res.status(status).json({ error: result.reason });
+        }
+        const body = { success: true, reward: result.reward, vaults: result.vaults };
+        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
+        res.json(body);
+        markDirty();
+      } catch (mutErr) {
+        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Open failed" });
     }
   });
 

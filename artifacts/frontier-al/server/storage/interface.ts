@@ -28,6 +28,9 @@ import type {
   MarketOutcome,
   CreateMarketAction,
   RareMineralType,
+  LootBoxTier,
+  LootBoxRecord,
+  OpenLootBoxResult,
 } from "@shared/schema";
 import type { TradeOrder, InsertTradeOrder } from "../db-schema";
 import type { PlayerWeaponProfile } from "@shared/weapons";
@@ -46,7 +49,20 @@ export interface IStorage {
   /** Find an existing player by wallet address (case-insensitive), or create a fresh one. */
   getOrCreatePlayerByAddress(address: string): Promise<Player>;
 
-  mineResources(action: MineAction): Promise<{ iron: number; fuel: number; crystal: number; mineralDrops: Partial<Record<RareMineralType, number>> }>;
+  mineResources(action: MineAction): Promise<{ iron: number; fuel: number; crystal: number; mineralDrops: Partial<Record<RareMineralType, number>>; lootBoxAwarded?: LootBoxTier }>;
+
+  // ── Phase 2: Loot Boxes ────────────────────────────────────────────────────
+  /**
+   * Award a loot box to a player. Returns the new record, or null if the player
+   * is already at LOOT_BOX_INVENTORY_CAP unopened boxes (silently dropped).
+   */
+  awardLootBox(playerId: string, tier: LootBoxTier, awardedAt: number): Promise<LootBoxRecord | null>;
+  /**
+   * Open one of a player's loot boxes. Idempotent and concurrency-safe: only the
+   * first open of a given box yields its (deterministic) reward and credits the
+   * vault. Returns a typed not_found / already_opened result otherwise.
+   */
+  openLootBox(playerId: string, lootBoxId: string): Promise<OpenLootBoxResult>;
   upgradeBase(action: UpgradeAction): Promise<LandParcel>;
   deployAttack(action: AttackAction): Promise<Battle>;
   buildImprovement(action: BuildAction): Promise<LandParcel>;
