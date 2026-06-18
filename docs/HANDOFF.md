@@ -9,38 +9,46 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton
-- **Branch:** `perf/globe-pick-index-parity` (off `main` @ `fe1c3ab`, which now contains the
-  merged #64). **ONE open PR — #65** (`AWAITING_AUDIT`): the **Globe pick-index + Fibonacci
-  client≡server parity** unit. **Do NOT auto-merge** — owner merges. Next unit only after
-  audit+merge.
-- **What this chat did (for the auditor):**
-  - **Spatial pick-index** — new `client/src/lib/globe/pickIndex.ts` (`buildPickIndex`):
-    uniform 3D voxel-hash + expanding Chebyshev-ring nearest search with a provable stop
-    bound. Returns the **byte-identical index** the old O(n) brute scan did (lowest-index
-    tie-break preserved). Built once via `useMemo`, not per render/event.
-  - **Integration** — `GlobeParcels.tsx` `nearestPlot` now delegates to the index behind the
-    **same signature**; the O(n) per-pointer-event 21k scan is gone. No other behavior change.
-  - **Parity test** (the load-bearing §4.1 guard, previously MISSING) —
-    `client/tests/globe-fibonacci-parity.spec.ts`: asserts client `globeUtils` ≡ server
-    `sphereUtils` `(count, plotId, lat, lng)` for counts 50/1000/21000 + shared constants.
-  - **Pick-index test** — `client/tests/globe-pickindex.spec.ts`: equivalence vs brute force
-    over 400 on/off-radius + out-of-bounds random queries × {200, 21000}, exact index→plot
-    mapping, determinism, pole/dateline edges, tie-break, degenerate inputs.
-  - **Scope:** 4 files, all under `client/` (globe code + client tests). **No** server/
-    storage/economy/token/battle/dashboard/loot-box code touched; no new deps; no schema.
-    The parity test only *reads* `server/sphereUtils` for the assertion. **No render-output
-    change** — selection resolves to the same plot, proven against the brute force.
-  - Verified locally: `check` ✓ · client `test` **69 pass** (was 57; +12 new) ·
-    `test:server` **279 pass / 7 skipped (unchanged)** · `build` ✓.
-  - **Auditor focus:** confirm `nearestPlot` results are unchanged (the equivalence test is
-    the proof); confirm scope is client-only/additive; confirm parity test actually compares
-    both generators. **Deferred (not in this unit):** the full screen-space `globeProjection.ts`
-    seam (§6 `worldToScreen`/`surfaceHit`) — it needs camera plumbing + a screen-based caller
-    that doesn't exist without redesigning picking; landing it now would be dead code. It should
-    accompany the combat package that actually consumes it.
+## Current baton — QUEUE CLEAR (no open PR)
+- **Main:** green at **`d6f6653`** (CI `ci.yml` run **#198 = success**). **No open PR.**
+  This chat (`claude/status-immediate-issues-8ltv13`) did a **doc/audit-only** unit: it
+  retro-audited the already-merged **#65** and repaired this baton (which had drifted —
+  it still described #65 as an *open* PR `AWAITING_AUDIT`).
+- **#65 status: MERGED `d6f6653` → retro-audited PASS** (non-blocking, it was already
+  merged) — record at `docs/audits/claude-status-immediate-issues-8ltv13.md`. #65 landed
+  **before** its start-of-chat audit ran (same "owner-merged pre-audit" pattern as #52/#61);
+  this unit reconstructed the independent diff-vs-claims review. Re-verified this chat:
+  `check` ✓ · client `test` **69 pass / 12 files** · `test:server` **279 pass / 7 skipped
+  (unchanged — no server code touched)**. Scope confirmed client-only/additive; the
+  equivalence + parity guarantees are test-backed (the pick-index spec uses its own
+  independent brute-force oracle; the parity spec imports **both** client `globeUtils` and
+  server `sphereUtils`). One non-verifiable claim noted: the session-note's "two independent
+  review agents" has no in-repo artifact — narrative, not evidence. Not browser-verified.
+
+### ⚖️ OWNER RULE (LOCKED, 2026-06-18) — ONE ACTIVE PR AT A TIME
+**One active PR → one audit → one baton → one owner decision → then the next PR.**
+No stacked PRs, no parallel feature PRs, no multi-PR chains **unless the owner explicitly
+approves an exception.** Nothing is merged by an agent — the **owner merges**. If another
+unit is discovered mid-flight, **queue it in this baton — do not open it.**
+
+### ➡️ NEXT — pick exactly ONE (do NOT start until this audit PR is reviewed)
+The queue is clean. Candidate next units (one unit, one PR, owner picks):
+- **Globe `globeProjection.ts` §6 seam** — the deferred `worldToScreen`/`surfaceHit`
+  interface; should land **with** the combat package that consumes it (else dead code).
+- **#52 dashboard follow-ups** (additive/testnet-only): commander-mint instrumentation;
+  the `purchase_intents.timeout` reaper; a DOM-based `admin.tsx` render test.
+- See "Other candidate units" / "Queued" below for the fuller menu.
 
 ---
+
+### Prior baton — #65 (Globe pick-index + parity) — MERGED `d6f6653`
+- Replaced the O(n) per-pointer-event `nearestPlot` scan with a deterministic 3D voxel-hash
+  pick-index (`client/src/lib/globe/pickIndex.ts`) behind the **same signature**; selection
+  resolves to the same plot (proven vs brute force). Added the load-bearing §4.1 client≡server
+  Fibonacci parity test (`globe-fibonacci-parity.spec.ts`) + the equivalence/edge spec
+  (`globe-pickindex.spec.ts`). 4 files under `client/` + session note. Retro-audited **PASS**
+  (`docs/audits/claude-status-immediate-issues-8ltv13.md`). Deferred: the §6 `globeProjection.ts`
+  screen-seam (needs a real screen-based caller — would be dead code now).
 
 ### Prior baton — #64 (loot-box DbStorage Postgres test) — MERGED `fe1c3ab`
 - Retired the #60-audit risk *"DbStorage SQL path is NOT test-covered."* `lootbox.db.spec.ts`
@@ -141,18 +149,13 @@
   PR — leave as-is); `test/gamelayout-entry-state` (another agent's experiment — unknown);
   `wip/atomic-purchase` (**OFF-LIMITS — do not merge**).
 
-## Repo state (verified this chat, HEAD `ca240d9`)
+## Repo state (verified this chat, HEAD `d6f6653`)
 - `pnpm --filter @workspace/frontier-al run check` (tsc) → **green**; `test:server` →
-  **252/252 pass** (was 244; +8 from #52 `chainEventLog.spec.ts`); `test` (client) →
-  **55/55 pass**.
-- `pnpm run typecheck` (root) → green (mockup-sandbox excluded).
-- three.js is **code-split**; `/admin` is now lazy-loaded (its own `admin-*.js` chunk).
-
-## NEXT chat — after #64 is audited & merged
-- **Globe pick-index + parity** (owner-directed next unit): `perf/globe-pick-index` — replace
-  the O(n) `nearestPlot` scan (`GlobeParcels.tsx:100`) with a spatial index behind the **same
-  signature**; land `client/src/lib/globe/globeProjection.ts` (`SCOPE_BRIEF` §6 seam); **add
-  the missing client≡server Fibonacci parity test** (§4.1/§7).
+  **279 pass / 7 skipped** (unchanged through #65 — no server code touched); `test` (client) →
+  **69 pass / 12 files** (+12 since #61's 57, from the #65 globe specs).
+- three.js is **code-split**; `/admin` is lazy-loaded (its own `admin-*.js` chunk).
+- The owner-directed **Globe pick-index + Fibonacci parity** unit is **DONE** (merged #65);
+  only the §6 `globeProjection.ts` screen-seam remains deferred (see NEXT, above).
 
 ## Other candidate units (pick ONE; one unit, one PR)
 - **#52 dashboard follow-ups** (from the retro-audit, all additive/testnet-only): commander-mint
@@ -165,10 +168,9 @@
   PROPOSED/untested. Do not start without an explicit go.
 
 ## Queued (one unit each, after the dashboard unit)
-- **Globe:** `perf/globe-pick-index` — replace the O(n) `nearestPlot` scan
-  (`GlobeParcels.tsx:100–109`) with a spatial index behind the **same signature**; land
-  `client/src/lib/globe/globeProjection.ts` (the brief's §6 `worldToScreen`/`surfaceHit` seam);
-  **add the missing client≡server Fibonacci parity test** (`SCOPE_BRIEF.md` §4.1/§7).
+- **Globe:** pick-index + Fibonacci parity test **DONE** (merged #65). Remaining: land
+  `client/src/lib/globe/globeProjection.ts` (the brief's §6 `worldToScreen`/`surfaceHit` seam)
+  **with** the combat package that consumes it (standalone now = dead code).
   Alt: `feat/globe-mission-layer` (additive overlay; nullable schema).
 - **Story mode:** reconcile `apps/aether-journey/src/data/dialogue.ts` to the Ch.1 script +
   assign `voiceId` to the remaining 14 VO lines; voice-regen CI workflow (needs repo secrets).
@@ -177,14 +179,13 @@
   in `verifyAlgoPayment` (**funds → `algo-auditor` + `/security-pass`**).
 
 ## Open risks / honest flags
-- ✅ **(#60 loot-box) DbStorage SQL path now test-backed — RESOLVED (CI green).** PR **#64**
-  adds `server/storage/lootbox.db.spec.ts` (real `node-postgres` + Postgres, applies
-  `migrations/0010`) covering the `FOR UPDATE` lock, conditional-`UPDATE`-on-`rowCount`
-  double-open guard (serial + concurrent), `LEAST(...)` cap, and in-tx cap count. The CI
-  "DbStorage integration tests" step ran **7/7 green** (run #194, head `7bee07f`): migration
-  applied cleanly on the `postgres:16` service, the concurrent two-connection open was not
-  flaky, and `test:server` showed the block **skipped** (no `DATABASE_URL` leak). Fully
-  closed once #64 merges.
+- ✅ **(#60 loot-box) DbStorage SQL path test-backed — RESOLVED & CLOSED (#64 MERGED `fe1c3ab`).**
+  `server/storage/lootbox.db.spec.ts` (real `node-postgres` + Postgres, applies `migrations/0010`)
+  covers the `FOR UPDATE` lock, conditional-`UPDATE`-on-`rowCount` double-open guard (serial +
+  concurrent), `LEAST(...)` cap, and in-tx cap count. The CI "DbStorage integration tests" step
+  ran **7/7 green** (run #194): migration applied cleanly on the `postgres:16` service, concurrent
+  two-connection open not flaky, and `test:server` showed the block **skipped** (no `DATABASE_URL`
+  leak). #64 is merged → fully closed.
 - ⚠️ **(#60 loot-box) migration `0010_loot_box_inventory.sql` must be applied before any deploy**
   that uses DbStorage (staged, not run at boot). Extends the "migrations 0000–0008 must be
   applied" rule to **0010** (0009 chain_events also pending).
