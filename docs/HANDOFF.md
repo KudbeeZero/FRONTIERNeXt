@@ -11,9 +11,10 @@
 
 ## Current baton
 - **Branch:** `claude/project-next-steps-seoay7` (off `main` @ `e3a916c`). **ONE open
-  PR — #64** (`AWAITING_AUDIT`): a **test-only** Postgres integration test for the
-  loot-box DbStorage SQL path. Audit it next chat with `/handoff-audit` (PASS → merge +
-  start the next unit: **Globe pick-index + parity**, per the owner's direction).
+  PR — #64** (**READY-FOR-REVIEW; CI green; owner-approved; awaiting owner merge**): a
+  **test-only** Postgres integration test for the loot-box DbStorage SQL path. **Do NOT
+  auto-merge** — owner merges. After merge, start the next unit only: **Globe pick-index
+  + parity**.
 - **What this chat did (for the auditor):** Retired the #60-audit open risk
   *"DbStorage SQL path is NOT test-covered."* Added `server/storage/lootbox.db.spec.ts`
   — real `node-postgres` + real Postgres, applies `migrations/0010` over a minimal
@@ -161,12 +162,14 @@
   in `verifyAlgoPayment` (**funds → `algo-auditor` + `/security-pass`**).
 
 ## Open risks / honest flags
-- ✅ **(#60 loot-box) DbStorage SQL path now test-backed** — PR **#64** (`AWAITING_AUDIT`)
+- ✅ **(#60 loot-box) DbStorage SQL path now test-backed — RESOLVED (CI green).** PR **#64**
   adds `server/storage/lootbox.db.spec.ts` (real `node-postgres` + Postgres, applies
   `migrations/0010`) covering the `FOR UPDATE` lock, conditional-`UPDATE`-on-`rowCount`
-  double-open guard (serial + concurrent), `LEAST(...)` cap, and in-tx cap count. Runs in CI
-  via a `postgres:16` service. **Pending audit confirmation that the CI integration step is
-  green** before this risk is fully closed.
+  double-open guard (serial + concurrent), `LEAST(...)` cap, and in-tx cap count. The CI
+  "DbStorage integration tests" step ran **7/7 green** (run #194, head `7bee07f`): migration
+  applied cleanly on the `postgres:16` service, the concurrent two-connection open was not
+  flaky, and `test:server` showed the block **skipped** (no `DATABASE_URL` leak). Fully
+  closed once #64 merges.
 - ⚠️ **(#60 loot-box) migration `0010_loot_box_inventory.sql` must be applied before any deploy**
   that uses DbStorage (staged, not run at boot). Extends the "migrations 0000–0008 must be
   applied" rule to **0010** (0009 chain_events also pending).
