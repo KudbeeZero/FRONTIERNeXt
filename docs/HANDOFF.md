@@ -10,8 +10,25 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `claude/handoff-audit-pr-60-eg7x5h` (off `main` @ `8dc7a72`). **ONE open
-  PR** — this chat's audit-record PR (doc-only: the #60 audit report + this baton).
+- **Branch:** `claude/handoff-audit-jwfx7a` (off `main` @ `d5fe7d2`). **ONE open
+  PR** — this chat's audit-record PR (doc-only: the **#61 retro-audit** report + this baton).
+- **Audit status (this chat):** start-of-chat gate. Found the baton's `AWAITING_AUDIT`
+  unit (#61, coverage gate) had been **merged by the owner before audit** (like #52) and
+  #60 (loot-box) **open** as the blocker. Independently **retro-audited #61 → PASS**
+  (`docs/audits/claude-ci-green-light-percentage-drvneh.md`) and **audited #60 → PASS**,
+  then merged #60. A **parallel session** (`pr-60-eg7x5h`, PR #62) independently audited #60
+  to the same PASS — corroboration, recorded below. Queue now clear (no open PRs but this one).
+- **#61 retro-audit:** **`PASS`** (non-blocking; #61 was already merged `8dc7a72`) —
+  `docs/audits/claude-ci-green-light-percentage-drvneh.md`. Independently re-derived: additive
+  (tooling/CI/docs only, zero behavior change); lockfile committed + `--frozen-lockfile` clean;
+  gate genuinely bites (measured **93.12%** lines, fails CI at higher thresholds run directly);
+  **`include` set is honest, NOT number-gamed** (excluded modules are I/O-bound or already
+  100%-covered — `random.ts`/`tuning.ts`; only `advisor.ts`'s LLM path modestly flatters).
+  Reproduced `check` ✓, `coverage:server` 93.12% PASS, `test:server` 266, `test` 57. Nits
+  (non-blocking): stale `~32%` comment in `vitest.server.config.ts:23` vs accurate ~22%; the
+  documented negative-check repro `pnpm … -- --coverage.thresholds.lines=99` silently PASSES
+  (pnpm arg-forwarding past vitest's `--`) — the gate bites only when run directly; optionally
+  fold the 100%-covered `random.ts`/`tuning.ts` into the gate `include`.
 - **Audit status (#60):** **`PASS` → MERGED.** The loot-box open-flow PR (#60) was
   independently audited (`docs/audits/claude-game-feature-scan-bnk4ie.md`) and merged
   `3adecc6` into `main`. The baton conflict with #61 was resolved as a union preserving
@@ -55,7 +72,8 @@
     `server/engine/{battle,markets}/resolve.ts`) at lines/stmts/funcs 80, branches 70; the
     `coverage:server` script; a CI step; `docs/COVERAGE_GATE.md`. **HONEST FLAG:** gate covers
     the game-math core ONLY (whole server/shared ~22% via `coverage:server:full`, informational —
-    NOT a global-80% claim; client not gated). No game/chain behavior change.
+    NOT a global-80% claim; client not gated). No game/chain behavior change. **Retro-audited
+    PASS** (`docs/audits/claude-ci-green-light-percentage-drvneh.md`) — was merged pre-audit.
   - **#53** — **Strike System design spec v0.1 + Clerk admin layer** (doc-only). **MERGED**
     `714bdb8` (merge `032c6ff`). Added `artifacts/frontier-al/docs/design/strike-system-design.md`
     — code-grounded; corrects the draft's unverified claims. No code/schema/config; CI green;
