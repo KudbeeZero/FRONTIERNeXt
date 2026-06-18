@@ -10,27 +10,24 @@
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
 ## Current baton
-- **Branch:** `claude/game-feature-scan-bnk4ie` (off `main` @ `8dc7a72`, after #61).
-  **One open PR — AWAITING AUDIT.**
-- **Audit status:** `AWAITING_AUDIT` — the loot-box open-flow PR (below) needs the
-  next chat's `/handoff-audit` before merge. Do NOT start a new unit until it lands.
-- **➡️ THIS PR — Loot Box Open Flow + Mining Award (code).** Finishes the inert
-  Phase-2 loot/rare-mineral economy: pure deterministic roll
-  (`server/engine/lootbox/open.ts`), `awardLootBox`/`openLootBox` storage (db + mem,
-  double-open safe, vault-capped), `POST /api/actions/open-loot-box`,
-  `migrations/0010_loot_box_inventory.sql` (backfills the table + 4 vault columns that
-  had no numbered migration), the `mine_action` award trigger (3%→common — the ONLY
-  trigger wired), and InventoryPanel Open UI. Also fixed a hydration bug
-  (`game-rules.ts` hard-coded `lootBoxes: []`). **Green:** check ✓, test:server **279**
-  (+13), test **57**, build ✓. Note:
-  `session-notes/2026-06-18-loot-box-open-flow.md`. Deferred: `battle_victory` /
-  `orbital_impact` triggers (gated combat/orbital paths); loot-box→NFT minting (funds).
-- **Merge note:** `main` advanced to `8dc7a72` (#61 CI coverage gate, now MERGED — see
-  Recent merges). This branch was merged up to that tip; the only collision was this
-  baton's `## Current baton` section (docs-only — no code/schema/test overlap). The
-  audit chat should re-run `check` / `test:server` (now incl. the coverage gate) /
-  `test` / `build` post-integration. #61's gate `include` set does NOT cover
-  `server/engine/lootbox/open.ts`, so no coverage-gate risk from this PR.
+- **Branch:** `claude/handoff-audit-pr-60-eg7x5h` (off `main` @ `8dc7a72`). **ONE open
+  PR** — this chat's audit-record PR (doc-only: the #60 audit report + this baton).
+- **Audit status (#60):** **`PASS` → MERGED.** The loot-box open-flow PR (#60) was
+  independently audited (`docs/audits/claude-game-feature-scan-bnk4ie.md`) and merged
+  `3adecc6` into `main`. The baton conflict with #61 was resolved as a union preserving
+  **both** the #61 coverage-gate status (MERGED) and the #60 loot-box status.
+  - **What #60 shipped:** the inert Phase-2 loot/rare-mineral economy made real — pure
+    deterministic roll (`server/engine/lootbox/open.ts`), `awardLootBox`/`openLootBox`
+    storage (db + mem; double-open safe; vault-capped), `POST /api/actions/open-loot-box`
+    (idempotent-mutation template + ownership mw), `migrations/0010_loot_box_inventory.sql`
+    (backfills the table + 4 vault columns), the `mine_action` award trigger (3%→common —
+    the ONLY trigger wired), InventoryPanel Open UI, and a hydration fix
+    (`game-rules.ts` no longer hard-codes `lootBoxes: []`).
+  - **Audit re-ran the gates on the post-#61-merge tree (this chat):** `check` ✓ ·
+    `test:server` **279** · `coverage:server` **93.12%** lines PASS · `test` **57** ·
+    `build` ✓. Scope strictly additive; no chain/funds/canvas; no security defects.
+    `server/engine/lootbox/**` is outside #61's coverage `include` set, so the gate is
+    unaffected. **Two non-blocking CONCERNS carried forward — see Open risks.**
 - **#52 retro-audit:** `CONCERNS` (non-blocking) — recorded in
   `docs/audits/feat-admin-chain-agent-dashboard.md`. #52 was merged by the owner
   *before* audit; an independent retro-audit verified every substantive claim
@@ -43,6 +40,14 @@
   (commander-mint instrumentation; the `purchase_intents.timeout` reaper; a
   DOM-based admin render test) — or the Globe/Story-mode units below. One unit, one PR.
 - **Recent merges (newest first):**
+  - **#60** — **loot-box open flow + mining award trigger** (code). **MERGED** `3adecc6`.
+    +730/−49, 17 files: pure roll `server/engine/lootbox/open.ts` (+13 tests),
+    `awardLootBox`/`openLootBox` storage (db + mem), `POST /api/actions/open-loot-box`,
+    `migrations/0010_loot_box_inventory.sql`, `mine_action` 3%→common trigger, InventoryPanel
+    Open UI, hydration fix. **Audited PASS** (`docs/audits/claude-game-feature-scan-bnk4ie.md`):
+    check ✓, test:server **279**, coverage:server **93.12%** PASS, test **57**, build ✓.
+    Additive; no chain/funds/canvas; no security defects. Deferred: `battle_victory` (25%) /
+    `orbital_impact` (50%) triggers (gated paths); loot-box→NFT minting (funds).
   - **#61** — **CI coverage gate (deterministic game-math core ≥ 80%)** (tooling/CI/docs).
     **MERGED** `8dc7a72` (commit `2505917`). Adds `@vitest/coverage-v8@4.1.6`, a v8 coverage
     block in `vitest.server.config.ts` scoped to the game-math core (`shared/weapons/**`,
@@ -107,6 +112,14 @@
   in `verifyAlgoPayment` (**funds → `algo-auditor` + `/security-pass`**).
 
 ## Open risks / honest flags
+- ⚠️ **(#60 loot-box, from audit) DbStorage SQL path is NOT test-covered.** All 6 loot-box
+  storage tests use **MemStorage only**; the Db-specific guards (`FOR UPDATE` lock,
+  conditional-`UPDATE`-on-`rowCount` double-open guard, SQL `LEAST(...)` cap, in-tx cap count)
+  are verified by-construction, **not test-backed** (need Postgres). A Postgres integration test
+  is a good follow-up unit.
+- ⚠️ **(#60 loot-box) migration `0010_loot_box_inventory.sql` must be applied before any deploy**
+  that uses DbStorage (staged, not run at boot). Extends the "migrations 0000–0008 must be
+  applied" rule to **0010** (0009 chain_events also pending).
 - ⚠️ **Aether's Journey NOT audibly/browser-verified** — typecheck/build/generator only.
   `eleven_v3` is alpha; takes are first-pass (recasting Sarah invalidates all 15 clips).
 - ⚠️ **REC-004 `AGENT_ORCHESTRATION_LEDGER.md`** — flagged ABSENT on `main` in a prior baton;
