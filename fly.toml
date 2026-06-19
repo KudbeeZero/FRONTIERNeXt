@@ -1,38 +1,34 @@
-# Fly.io config for the FRONTIER backend (artifacts/frontier-al).
-# Generated for the "Deploy from GitHub" flow, which scans the repo root of the
-# default branch. See docs/DEPLOY_FLY.md for secrets, certs and Cloudflare DNS.
+# fly.toml app configuration file generated for frontiernext on 2026-06-19T03:42:24Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "frontiernext"
-primary_region = "ord"
+app = 'frontiernext'
+primary_region = 'ord'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  NODE_ENV = "production"
-  PORT = "5000"
-  # ALGORAND_NETWORK must be explicit in production (server crashes otherwise).
-  # Override to "mainnet" only behind the /mainnet-gate + algo-auditor process.
-  ALGORAND_NETWORK = "testnet"
+  ALGORAND_NETWORK = 'testnet'
+  NODE_ENV = 'production'
+  PORT = '5000'
 
 [http_service]
   internal_port = 5000
   force_https = true
-  # Keep exactly one always-on machine: the server holds in-memory game state and
-  # runs background workers (season manager, ASCEND transfer retry, WS server).
-  # Without Redis it is single-instance-only (see DEPLOYMENT_ENV_CHECKLIST.md).
-  auto_stop_machines = false
+  auto_stop_machines = 'off'
   auto_start_machines = false
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
   [[http_service.checks]]
-    method = "GET"
-    path = "/health"
-    interval = "15s"
-    timeout = "2s"
-    grace_period = "20s"
+    interval = '15s'
+    timeout = '2s'
+    grace_period = '20s'
+    method = 'GET'
+    path = '/health'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "1gb"
+  size = 'shared-cpu-1x'
+  memory = '1gb'
