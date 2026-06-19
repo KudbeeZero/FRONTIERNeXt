@@ -52,3 +52,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Filled-in Fly secrets script (holds real DB URL / admin mnemonic) — never commit.
+# Only the placeholder template `set-fly-secrets.example.sh` is tracked.
+set-fly-secrets.sh
