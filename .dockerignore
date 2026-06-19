@@ -1,0 +1,45 @@
+# Keep the build context (and final image) lean. The runtime image is a
+# production-only `pnpm deploy` bundle, so this mainly trims the context that is
+# uploaded to the Docker daemon and prevents stale host artifacts leaking in.
+
+# Dependencies — reinstalled inside the image from the committed lockfile.
+node_modules
+**/node_modules
+
+# Build outputs — rebuilt inside the image.
+dist
+**/dist
+**/.vite
+**/.turbo
+*.tsbuildinfo
+
+# VCS / CI / editor.
+.git
+.github
+.gitignore
+.vscode
+.idea
+
+# Secrets / local env — never bake these into the image.
+.env
+.env.*
+!.env.example
+
+# Replit-specific runtime config (not used on Fly).
+.replit
+.replitignore
+replit.md
+
+# Heavy, non-build assets and run logs not needed to build the backend.
+attached_assets
+night-reports
+session-notes
+
+# Docker / Fly metadata.
+Dockerfile
+.dockerignore
+fly.toml
+
+# Logs and OS cruft.
+*.log
+.DS_Store
