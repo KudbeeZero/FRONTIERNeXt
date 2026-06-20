@@ -84,9 +84,33 @@ for the Cloudflare Pages preview) as extra comma-separated entries.
 
 Migrations are **applied manually** out-of-band (the app does not run them at
 boot, and there is intentionally **no Fly `release_command`** for them — schema
-changes are out of scope for deployment). Before first traffic, ensure
-migrations `0000`–`0010` are applied to `DATABASE_URL` (see
-`artifacts/frontier-al/migrations/` and the data-reconciliation docs).
+changes are out of scope for deployment). Before first traffic, ensure the
+schema is applied to `DATABASE_URL` (see `artifacts/frontier-al/migrations/` and
+the data-reconciliation docs).
+
+> **Symptom of an un-migrated DB:** `/health`, `/api/time`, and
+> `/api/blockchain/status` return `200`, but `GET /api/game/state` returns
+> **500 `{"error":"Failed to fetch game state"}`**. The first game-state read
+> lazily runs the seeder, whose first action is an `INSERT` into `game_meta`; if
+> the tables don't exist that throws. Apply the schema, then the **world
+> auto-seeds** (21,000 plots + 4 AI factions) on the next `/api/game/state` —
+> no manual seed step.
+
+### Applying the schema
+
+`drizzle-kit` is a **devDependency** and is **not** in the Fly production image,
+so `db:push` cannot run on the Fly machine. Run it from somewhere with the repo
++ dev deps + network access to the DB. Two options:
+
+- **Locally:** `DATABASE_URL="postgres://…?sslmode=require" pnpm --filter
+  @workspace/frontier-al run db:push`
+- **One-tap (no computer):** the **`.github/workflows/db-push.yml`** workflow
+  ("DB Push (migrate schema)"): Actions → Run workflow. It needs a **repo secret
+  `DATABASE_URL`** (same connection string as the Fly secret). The GitHub runner
+  must be able to reach the DB over the public internet — fine for Neon /
+  Supabase / any public Postgres, **not** a Fly-internal `*.flycast` /
+  `*.internal` address. `drizzle-kit push` is idempotent (re-runs are no-ops; a
+  first run on an empty DB only CREATEs tables).
 
 ## Deploy (owner runs these)
 
