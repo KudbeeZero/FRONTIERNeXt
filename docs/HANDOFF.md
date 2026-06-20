@@ -9,19 +9,29 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-1 PR3: CommanderPanel cooldown/lock drift, AWAITING_AUDIT)
-- **Main:** green at **`111dbf0`** (Merge #72; GameLayout cooldown badges → server time). Branch
-  **`phase/01-commander-drift`** carries Phase-1 PR3. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
+## Current baton — ONE OPEN PR (Phase-1 PR4: server `battle_tick` broadcast, AWAITING_AUDIT)
+- **Main:** green at **`e88cdc6`** (Merge #73; CommanderPanel drift). Branch
+  **`phase/01-battle-tick`** carries Phase-1 PR4. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
   auto-merge** — owner merges.
-- **What this unit did (for the auditor):** completes the drift sweep — `CommanderPanel.tsx` read
-  its own `Date.now()` for **9** comparisons against server timestamps (`satellite.expiresAt`/
-  `deployedAt`, `drone.deployedAt`, `cmd.lockedUntil`, `player.attackCooldownUntil`,
-  `record.lastUsedTs`). All 9 now use `serverNow()` from the `serverClock` shipped in #71. **1
-  file**, display/gating correctness only. **No** infra/combat/globe-canvas/schema/funds/deps
-  change. Verified: `check` ✓ · client `test` **76** · `build` ✓.
-  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`) + `/pr-gate`
-    run after green; report READY with verdicts.
-  - **Auditor focus:** uniform `Date.now()` → `serverNow()` swap; 0 `Date.now()` remain in file.
+- **NOTE (carried honesty):** the countdown was already smooth (1s local ticker, drift-corrected);
+  owner was told and chose to build `battle_tick` for the server-authoritative active-battle set.
+- **What this unit did (for the auditor):** a gated server `battle_tick` broadcast.
+  - Server: new `storage.getActiveBattles()` (pending + `resolveTs` future) on interface/db(`gt`)/mem;
+    `wsServer.wsClientCount()`; a `routes.ts` `setInterval(BATTLE_TICK_INTERVAL_MS)` that **returns
+    early when no clients or no active battles** (no DB query/broadcast), else
+    `broadcastRaw({type:"battle_tick", serverTime, battles:[{id,resolveTs}]})`. Never throws.
+  - Client: `useGameSocket` `battle_tick` handler (→ `setServerTime` + battle-tick bus +
+    `useBattleTick()`); `BattlesPanel` drops a pending battle whose countdown **elapsed** and the
+    server no longer lists active (future battles always show — no tick-race hiding).
+  - Env `BATTLE_TICK_INTERVAL_MS` (default 1000, floor 250) documented in `ENV_VARS.md` +
+    `DEPLOYMENT_ENV_CHECKLIST.md`. **No** combat-resolution/globe-canvas/schema-migration/funds/deps.
+  - Verified: `check` ✓ · `test:server` **291/11-skip** (+3 `active-battles.spec.ts`) · client `test`
+    **76** · `build` ✓.
+  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`) + `/pr-gate`.
+
+### Prior baton — #73 (Phase-1 PR3: CommanderPanel cooldown/lock drift) — MERGED `e88cdc6`
+- All 9 `Date.now()` in `CommanderPanel.tsx` → `serverNow()` (satellite/drone/lock/cooldown timers).
+  Through `/code-review` + `/security-pass` + `/pr-gate` (all PASS). CI green.
 
 ### Prior baton — #72 (Phase-1 PR2: GameLayout cooldown badges) — MERGED `111dbf0`
 - Morale + attack-cooldown HUD badges in `GameLayout.tsx` now use `serverNow()` (drift). 1 file. CI green.

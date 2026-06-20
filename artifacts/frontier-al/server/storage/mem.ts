@@ -1141,6 +1141,13 @@ export class MemStorage implements IStorage {
     return satellite;
   }
 
+  async getActiveBattles(): Promise<Battle[]> {
+    const now = Date.now();
+    return Array.from(this.battles.values()).filter(
+      (b) => b.status === "pending" && now < b.resolveTs,
+    );
+  }
+
   async resolveBattles(): Promise<Battle[]> {
     const now = Date.now();
     const resolvedBattles: Battle[] = [];

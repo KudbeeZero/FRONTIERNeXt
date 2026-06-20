@@ -21,7 +21,7 @@ const adviceLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many advice requests — try again shortly." },
 });
-import { broadcastGameState, broadcastRaw, markDirty } from "./wsServer";
+import { broadcastGameState, broadcastRaw, markDirty, wsClientCount } from "./wsServer";
 import * as weaponService from "./weapons/service";
 import { engagementStore } from "./weapons/engagementStore";
 import { mintWeaponNft, attemptWeaponDelivery } from "./services/chain/weapon";
@@ -2988,6 +2988,28 @@ export async function registerRoutes(
       console.warn("[ORBITAL] background check:", error instanceof Error ? error.message : error);
     }
   }, 5 * 60 * 1000);
+
+  // ── Battle countdown tick ──────────────────────────────────────────────────
+  // Push the server's current active-battle set so clients reflect resolutions
+  // promptly (between the 1.5s state flushes). Gated: skips all work — including the
+  // DB query — when no clients are connected or no battles are active. Cadence is
+  // env-tunable (`BATTLE_TICK_INTERVAL_MS`, default 1000ms, floored at 250ms).
+  // Best-effort: never throws on the interval.
+  const BATTLE_TICK_INTERVAL_MS = Math.max(250, Number(process.env.BATTLE_TICK_INTERVAL_MS) || 1000);
+  setInterval(async () => {
+    try {
+      if (wsClientCount() === 0) return;
+      const active = await withDbRetry(() => storage.getActiveBattles(), "getActiveBattles");
+      if (active.length === 0) return;
+      broadcastRaw({
+        type: "battle_tick",
+        serverTime: Date.now(),
+        battles: active.map((b) => ({ id: b.id, resolveTs: b.resolveTs })),
+      });
+    } catch (error) {
+      console.warn("Background task (battle_tick):", error instanceof Error ? error.message : error);
+    }
+  }, BATTLE_TICK_INTERVAL_MS);
 
   // ── Trade Station ────────────────────────────────────────────────────────────
 

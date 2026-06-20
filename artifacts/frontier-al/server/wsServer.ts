@@ -313,6 +313,11 @@ export function broadcastRaw(obj: unknown): void {
   _broadcastRaw(obj);
 }
 
+/** Number of currently-connected WS clients (0 if the server isn't up yet). */
+export function wsClientCount(): number {
+  return _wss?.clients.size ?? 0;
+}
+
 /**
  * broadcastGameState — kept for backward compatibility.
  * Callers that already have a fresh gameState object can push it immediately

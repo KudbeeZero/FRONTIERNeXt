@@ -89,7 +89,7 @@ import {
   MIN_INFLUENCE_DAMAGE,
   INFLUENCE_YIELD_THRESHOLD,
 } from "../engine/battle/tuning.js";
-import { eq, and, desc, lt, sql, sum, isNull } from "drizzle-orm";
+import { eq, and, desc, lt, gt, sql, sum, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
   gameMeta,
@@ -649,6 +649,15 @@ export class DbStorage implements IStorage {
     await this.initialize();
     const [row] = await this.db.select().from(battlesTable).where(eq(battlesTable.id, id));
     return row ? rowToBattle(row) : undefined;
+  }
+
+  /** Pending battles whose resolveTs is still in the future — drives the battle_tick broadcast. */
+  async getActiveBattles(): Promise<Battle[]> {
+    await this.initialize();
+    const now = Date.now();
+    const rows = await this.db.select().from(battlesTable)
+      .where(and(eq(battlesTable.status, "pending"), gt(battlesTable.resolveTs, now)));
+    return rows.map(rowToBattle);
   }
 
   async getLeaderboard(): Promise<LeaderboardEntry[]> {

@@ -86,6 +86,8 @@ export interface IStorage {
   switchCommander(playerId: string, commanderIndex: number): Promise<CommanderAvatar>;
 
   resolveBattles(): Promise<Battle[]>;
+  /** Pending battles whose resolveTs is still in the future (active countdown) — for battle_tick. */
+  getActiveBattles(): Promise<Battle[]>;
   runAITurn(): Promise<GameEvent[]>;
 
   // ── Orbital Event Engine ──────────────────────────────────────────────────
