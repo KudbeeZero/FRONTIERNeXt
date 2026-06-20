@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { serverNow } from "@/lib/serverClock";
+import { useBattleTick } from "@/hooks/useGameSocket";
 import type { Battle, GameEvent, Player } from "@shared/schema";
 
 interface BattlesPanelProps {
@@ -186,7 +187,16 @@ function EventItem({ event }: { event: GameEvent }) {
 }
 
 export function BattlesPanel({ battles, events, players, onWatchBattle, onViewOnGlobe, className }: BattlesPanelProps) {
-  const activeBattles = battles.filter((b) => b.status === "pending");
+  // A recent server battle_tick lets us drop a battle whose countdown has elapsed and
+  // the server no longer lists as active (resolved) — snappier than the 1.5s flush.
+  // Future battles (resolveTs ahead) always show, so a tick race can't hide a new one.
+  const tick = useBattleTick();
+  const tickFresh = tick !== null && Date.now() - tick.receivedAt < 5000;
+  const activeBattles = battles.filter((b) => {
+    if (b.status !== "pending") return false;
+    if (tickFresh && serverNow() >= b.resolveTs && !tick!.activeIds.has(b.id)) return false;
+    return true;
+  });
   const recentBattles = battles.filter((b) => b.status === "resolved").slice(0, 10);
   const battleEvents = events
     .filter((e) => ["attack", "battle_resolved"].includes(e.type))

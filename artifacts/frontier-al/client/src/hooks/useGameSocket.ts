@@ -102,6 +102,32 @@ export function onWeaponEngagement(cb: WeaponEngagementCallback): () => void {
   return () => _weaponCallbacks.delete(id);
 }
 
+// ── Global battle-tick bus (server-authoritative active-battle set) ───────────
+export interface BattleTickEntry { id: string; resolveTs: number; }
+export interface BattleTickState { activeIds: Set<string>; receivedAt: number; }
+type BattleTickCallback = (state: BattleTickState) => void;
+const _battleTickCallbacks: Map<number, BattleTickCallback> = new Map();
+let _battleTickCallbackId = 0;
+let _latestBattleTick: BattleTickState | null = null;
+
+/** Register a callback to receive battle ticks in real-time. */
+export function onBattleTick(cb: BattleTickCallback): () => void {
+  const id = ++_battleTickCallbackId;
+  _battleTickCallbacks.set(id, cb);
+  return () => _battleTickCallbacks.delete(id);
+}
+
+function dispatchBattleTick(entries: BattleTickEntry[]): void {
+  const state: BattleTickState = {
+    activeIds: new Set(entries.map((e) => e.id)),
+    receivedAt: Date.now(),
+  };
+  _latestBattleTick = state;
+  for (const cb of _battleTickCallbacks.values()) {
+    try { cb(state); } catch { /* ignore */ }
+  }
+}
+
 function dispatchWeaponEngagement(e: WeaponEngagementEvent): void {
   for (const cb of _weaponCallbacks.values()) {
     try { cb(e); } catch { /* ignore */ }
@@ -173,6 +199,12 @@ export function useGameSocket(authTrigger?: unknown) {
           if (msg.type === "weapon_engagement" && msg.payload) {
             dispatchWeaponEngagement(msg.payload as WeaponEngagementEvent);
           }
+          // Server-authoritative active-battle set (drops resolved battles promptly)
+          if (msg.type === "battle_tick" && Array.isArray(msg.battles)) {
+            if (typeof msg.serverTime === "number") setServerTime(msg.serverTime);
+            dispatchBattleTick(msg.battles as BattleTickEntry[]);
+            return;
+          }
         } catch { /* ignore malformed */ }
       };
 
@@ -210,6 +242,20 @@ export function useChainHealth(): ChainHealth | null {
   }, []);
 
   return health;
+}
+
+/**
+ * Latest server `battle_tick` (active-battle id set), or null until one arrives.
+ * Lets the battles UI drop a just-resolved battle promptly, between flushes.
+ */
+export function useBattleTick(): BattleTickState | null {
+  const [state, setState] = useState<BattleTickState | null>(_latestBattleTick);
+  useEffect(() => {
+    if (_latestBattleTick) setState(_latestBattleTick);
+    const unsub = onBattleTick((s) => setState(s));
+    return unsub;
+  }, []);
+  return state;
 }
 
 /**
