@@ -8,11 +8,12 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { WalletProvider as UseWalletProvider } from "@txnlab/use-wallet-react";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { walletManager } from "@/lib/walletManager";
-import { TEST_GLOBE } from "@/lib/testMode";
 import NotFound from "@/pages/not-found";
 import GamePage from "@/pages/game";
 import TestnetPage from "@/pages/testnet";
-import LandingPage from "@/pages/landing";
+// NOTE: landing page temporarily bypassed — "/" boots straight into the game
+// (owner request). LandingPage import + the "/" ternary are intentionally
+// removed; restore by re-adding the import and `{TEST_GLOBE ? <GamePage /> : <LandingPage />}`.
 import LandingEconomics from "@/pages/landing-economics";
 import LandingGameplay from "@/pages/landing-gameplay";
 import LandingFeatures from "@/pages/landing-features";
@@ -40,7 +41,7 @@ function App() {
               </Route>
               <Route path="/">
                 <WalletProvider>
-                  {TEST_GLOBE ? <GamePage /> : <LandingPage />}
+                  <GamePage />
                 </WalletProvider>
               </Route>
               <Route path="/info/economics">
