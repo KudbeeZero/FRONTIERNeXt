@@ -88,6 +88,8 @@ export interface IStorage {
   resolveBattles(): Promise<Battle[]>;
   /** Pending battles whose resolveTs is still in the future (active countdown) — for battle_tick. */
   getActiveBattles(): Promise<Battle[]>;
+  /** Resolved battles where the player was attacker or defender — for battle-stats aggregation. */
+  getPlayerBattles(playerId: string): Promise<Battle[]>;
   runAITurn(): Promise<GameEvent[]>;
 
   // ── Orbital Event Engine ──────────────────────────────────────────────────

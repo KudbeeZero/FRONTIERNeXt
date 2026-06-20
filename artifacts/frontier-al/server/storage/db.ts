@@ -90,7 +90,7 @@ import {
   MIN_INFLUENCE_DAMAGE,
   INFLUENCE_YIELD_THRESHOLD,
 } from "../engine/battle/tuning.js";
-import { eq, and, desc, lt, gt, sql, sum, isNull } from "drizzle-orm";
+import { eq, and, or, desc, lt, gt, sql, sum, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
   gameMeta,
@@ -658,6 +658,17 @@ export class DbStorage implements IStorage {
     const now = Date.now();
     const rows = await this.db.select().from(battlesTable)
       .where(and(eq(battlesTable.status, "pending"), gt(battlesTable.resolveTs, now)));
+    return rows.map(rowToBattle);
+  }
+
+  /** Resolved battles where the player was attacker or defender — for battle-stats aggregation. */
+  async getPlayerBattles(playerId: string): Promise<Battle[]> {
+    await this.initialize();
+    const rows = await this.db.select().from(battlesTable)
+      .where(and(
+        eq(battlesTable.status, "resolved"),
+        or(eq(battlesTable.attackerId, playerId), eq(battlesTable.defenderId, playerId)),
+      ));
     return rows.map(rowToBattle);
   }
 

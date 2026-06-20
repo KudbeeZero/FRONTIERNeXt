@@ -1148,6 +1148,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getPlayerBattles(playerId: string): Promise<Battle[]> {
+    return Array.from(this.battles.values()).filter(
+      (b) => b.status === "resolved" && (b.attackerId === playerId || b.defenderId === playerId),
+    );
+  }
+
   async resolveBattles(): Promise<Battle[]> {
     const now = Date.now();
     const resolvedBattles: Battle[] = [];

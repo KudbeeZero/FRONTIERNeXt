@@ -9,33 +9,37 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-2 PR1: deterministic battle replay log, AWAITING_AUDIT)
-- **Main:** green at **`604c74d`** (Merge #75; resolver cadence). Branch
-  **`phase/02-battle-depth`** carries Phase-2 PR1. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
-  auto-merge** — owner merges.
-- **NOTE (Phase 2 started):** owner chose to begin **Phase 2 — battle depth** (`V2_ROADMAP.md:37`)
-  after #75 merged. Phase 2 is heavily scaffolded already (Redis replay record, `/api/battle/replay/:id`,
-  `BattleWatchModal`, `/api/battles/history`, `LeaderboardPanel`, `pages/battles.tsx`). AskUserQuestion
-  picked the **replay-log** gap as the first unit.
+## Current baton — ONE OPEN PR (Phase-2 PR2: player battle-stats aggregator + endpoint, AWAITING_AUDIT)
+- **Main:** green at **`3ce61cd`** (Merge #76; replay log). Branch **`phase/02-battle-stats`** carries
+  Phase-2 PR2. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
+- **NOTE:** owner said to continue through the next Phase-2 features (`V2_ROADMAP.md:37` "stats +
+  commander performance tracking"). Existing surfaces cover totals (`/api/game/leaderboard`,
+  `/api/battles/history`, player `attacksWon/Lost` + commander `totalKills`); **the gap** = no per-player
+  derived battle-stats aggregator/endpoint.
 - **What this unit did (for the auditor):**
-  - **The gap:** the main resolver (`storage/db.ts`) hand-wrote a coarse **3-line** replay log and
-    discarded the engine's structured log; the sub-parcel path already persisted the full engine log.
-  - `server/engine/battle/replayLog.ts` (NEW) — pure `buildReplayLog(input): BattleLogEntry[]`:
-    `power_calc` (attacker committed troops/iron/fuel[/crystal][+commander] → snapshot power) +
-    `terrain` (biome, defense L, fortifications → defender power) + the engine's
-    `resolveBattleFromPowers` resolution entries spread verbatim + aftermath (conquest+pillage / repelled).
-    Pure (no DB/net/rng); messages carry only names/plotId/biome/powers — never addresses/UUIDs. +9 tests
-    (`server/engine/battle/replayLog.spec.ts`, incl. a no-address/UUID-leak assertion).
-  - `storage/db.ts` — resolve site builds the replay record `log` via `buildReplayLog(...)` from
-    `battleRow`/`targetRow`/`battleResult`; pillage hoisted to consts (reused by record + helper).
-  - **No schema / client / canvas / funds / math change.** Additive to a fire-and-forget Redis record;
-    `BattleWatchModal.tsx:368` already renders `replay.log` → zero client change. MemStorage writes no
-    replay → unaffected. Sub-parcel path untouched.
-  - Verified: `check` ✓ · `test:server` **309/11-skip** (+9 `replayLog.spec.ts`) · client `test`
-    **76** · `build` ✓. Manual (server+PG+Redis, not run here): resolve a battle → BattleWatchModal
-    "Battle Analysis" shows the deep breakdown.
-  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`; replay log is
-    client-served, check no address/secret leak) + `/pr-gate`. Owner merges.
+  - `server/storage/battle-stats.ts` (NEW) — pure `computePlayerBattleStats(battles, playerId)` (mirrors
+    `computeLeaderboard`): `attacks{total,wins,losses,winRate}`, `defenses{total,held,lost,holdRate}`,
+    `currentStreak{kind,count}`, `totals{troops,iron,fuel}`, `biggestVictory|null`, `recent[]` (≤10).
+    Integer percents, divide-by-zero guarded. Only already-public data (powers/counts/battleId — battleId
+    already in `/api/battles/history`); no addresses/player/parcel UUIDs. +9 tests (`battle-stats.spec.ts`).
+  - Storage `getPlayerBattles(playerId)` — `interface.ts` + `db.ts` (resolved + attacker|defender; added
+    `or` to drizzle import; reuses `attackerIdx`/`defenderIdx`) + `mem.ts`.
+  - `GET /api/players/:id/battle-stats` in `routes.ts` (mirrors `/api/battles/history`:
+    `withDbRetry` → `getPlayerBattles` → `computePlayerBattleStats`). Public read.
+  - **Read-only + additive. No schema/migration/client/canvas/funds/resolution-math change.**
+  - Verified: `check` ✓ · `test:server` **318/11-skip** (+9 `battle-stats.spec.ts`) · client `test`
+    **76** · `build` ✓. Manual (server+PG, not run here): `GET /api/players/<id>/battle-stats` → shape;
+    no-battles → zeroed.
+  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`; public read, no
+    address/secret leak) + `/pr-gate`. Owner merges.
+
+### Prior baton — #76 (Phase-2 PR1: deterministic battle replay log) — MERGED `3ce61cd`
+- Replaced the main resolver's coarse 3-line replay log with a pure `buildReplayLog`
+  (`server/engine/battle/replayLog.ts`): composition + terrain/fortifications + engine resolution log
+  (spread) + aftermath; wired into the Redis replay record in `storage/db.ts`. No schema/client/canvas/
+  funds/math change (`BattleWatchModal` already renders `replay.log`). `/code-review` (no findings) +
+  `/security-pass` (PASS, no findings — no address/UUID leak, test-pinned;
+  `docs/audit/2026-06-20-phase2-replay-log-security-pass.md`) + `/pr-gate` (GO). CI green on head.
 
 ### Prior baton — #75 (Phase-1 PR5: resolver cadence env-config + 5s default) — MERGED `604c74d`
 - Battle auto-resolver `15000` → `BATTLE_RESOLVE_INTERVAL_MS` (default 5000, floor 1000) via new pure
@@ -69,12 +73,14 @@ parallel / chained PRs unless the owner explicitly approves. The **owner merges*
 get **queued here**, not opened. **The 10 `phase/0X-…` branches exist as markers — a phase's PR
 opens only after the prior phase merges.**
 
-### ➡️ NEXT — Phase 2 (battle depth) IN PROGRESS on `phase/02-battle-depth`
-Phase 1 (battle clock) COMPLETE (#71–#75). Phase 2 first unit = deterministic replay log (this open
-PR). **Remaining Phase-2 units (one PR each, after this merges):** battle/commander **stats**
-aggregator + endpoint + panel (gap: `attacksWon`/`attacksLost` exist but no stats endpoint); veritas
-battle-verification flow (scaffolded, market flow done); persist the replay log to Postgres for >24h
-history. Optional carry-over: route the AI(20s)/orbital(5min) cadences through `clampIntervalMs`.
+### ➡️ NEXT — Phase 2 (battle depth) IN PROGRESS
+Phase 1 (battle clock) COMPLETE (#71–#75). Phase 2: PR1 replay log MERGED (#76); PR2 player
+battle-stats aggregator + endpoint is this open PR. **Remaining Phase-2 units (one PR each, after this
+merges):** (a) **client wire-up** — consume `/api/players/:id/battle-stats` in a combat-record surface
++ surface commander `totalKills` in `CommanderPanel`; (b) commander stats/leaderboard
+(`computeCommanderStats` + top-killers); (c) veritas battle-verification flow (scaffolded, market flow
+done); (d) persist the replay log to Postgres for >24h history (schema → own audited unit). Optional
+carry-over: route the AI(20s)/orbital(5min) cadences through `clampIntervalMs`.
 See `docs/V2_ROADMAP.md` for phases 2–10 + gates.
 
 ---
