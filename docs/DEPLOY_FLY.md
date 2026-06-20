@@ -130,6 +130,26 @@ Set these in the Cloudflare Pages project env and rebuild the frontend so it
 calls the Fly backend. (Also confirm `VITE_TEST_GLOBE` reads `false` before any
 deploy.)
 
+## Deploy via GitHub Actions (one-tap, no local flyctl)
+
+For deploying without a computer (e.g. from the GitHub mobile app), use the
+**`.github/workflows/fly-deploy.yml`** workflow ("Deploy to Fly"):
+
+1. **Create a Fly deploy token** (once, from any machine with flyctl):
+   `fly tokens create deploy -a frontiernext`
+2. **Add it as a repo secret**: GitHub → Settings → Secrets and variables →
+   Actions → New repository secret → name `FLY_API_TOKEN`, paste the token.
+3. **Run it**: Actions tab → "Deploy to Fly" → **Run workflow**. It builds the
+   Dockerfile on Fly's remote builder (`flyctl deploy --remote-only`) and ships
+   to `frontiernext.fly.dev`.
+
+The workflow is **manual-only** (`workflow_dispatch`) so nothing deploys until
+you trigger it. App runtime secrets (`ALGORAND_ADMIN_MNEMONIC`,
+`ALGORAND_ADMIN_ADDRESS`, `DATABASE_URL`, Redis, `ADMIN_KEY`, …) are set on the
+Fly app with `fly secrets set …` (see above) — they are **not** GitHub secrets.
+To make deploys automatic on merge to `main`, add a `push: { branches: [main] }`
+trigger to the workflow.
+
 ## Verification done in this change (no live deploy)
 
 - `pnpm --filter @workspace/frontier-al run build` — green (client + server).
