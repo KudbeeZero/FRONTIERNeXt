@@ -1,0 +1,44 @@
+name: Deploy to Fly
+
+# Manual, one-tap deploy of the FRONTIER backend (artifacts/frontier-al) to the
+# Fly app `frontiernext` (→ frontiernext.fly.dev). Trigger from the GitHub UI /
+# mobile app: Actions → "Deploy to Fly" → Run workflow. No local flyctl needed.
+#
+# Requires a repo secret FLY_API_TOKEN (create with:  fly tokens create deploy -a frontiernext).
+# Kept manual (workflow_dispatch) on purpose — nothing deploys until you tap it.
+# To enable auto-deploy on merge to main later, add a `push:` trigger.
+
+on:
+  workflow_dispatch: {}
+
+# Never let two deploys overlap.
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: flyctl deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify FLY_API_TOKEN is configured
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::FLY_API_TOKEN repo secret is not set. Create one with 'fly tokens create deploy -a frontiernext' and add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # --remote-only builds the Dockerfile on Fly's builder (no local Docker).
+      # Uses the repo-root fly.toml (app = frontiernext).
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --config fly.toml
