@@ -9,47 +9,44 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (faction/commander design doc, AWAITING_AUDIT)
-- **Main:** green at **`f2a2538`** (Merge #68; CI `ci.yml` run **#206 = success**). Branch
-  `claude/status-immediate-issues-8ltv13` carries the **next unit**: a **design/scope doc** for the
-  owner's big "faction economy & commander progression" program. **ONE open PR** (`AWAITING_AUDIT`).
-  **Doc-only** — no code/schema/funds/deps. **Do NOT auto-merge** — owner merges.
-- **Why a doc:** the owner asked to build per-faction Algorand wallets + treasuries, faction
-  onboarding, and commander tier progression with changing art. The wallet/treasury part is
-  funds/ASA/key-custody code (HARD-RULE gated: `/mainnet-gate` + `algo-auditor` + `/security-pass`)
-  and far too big for one safe PR. Owner chose (AskUserQuestion) to **start with a design/scope doc
-  only** that decomposes it into sequenced, gated units. Precedent: `strike-system-design.md`.
+## Current baton — ONE OPEN PR (v2.0.0 baseline + 10-phase roadmap, AWAITING_AUDIT)
+- **Main:** green at **`2d55d8a`** (Merge #69). Branch `claude/status-immediate-issues-8ltv13`
+  carries the **v2.0.0 baseline**: bumps the app to `2.0.0` and lands the **10-phase buildout
+  roadmap** (`docs/V2_ROADMAP.md`) toward **v2.1.0 = gold/mainnet**. **ONE open PR**
+  (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
 - **What this unit did (for the auditor):**
-  - **`docs/design/faction-economy-and-commander-progression-design.md`** (NEW) — code-grounded
-    (file:line cites from two read-only audits). Current state: factions already have identity ASAs
-    but **no wallets/treasury** (single admin-mnemonic custody); hybrid `treasury_ledger`;
-    **player↔faction membership ALREADY exists** off-chain (`playerFactionId`, join/leave,
-    `FactionPanel`); commander tier = **static buy-class**; commander art is mutable **off-chain via
-    the dynamic metadata endpoint** (no re-mint). Decomposition (safest→riskiest): **WS-A**
-    onboarding · **WS-B** progression math · **WS-C** progression art · **WS-D** off-chain faction
-    treasury accounting · **WS-E** on-chain faction wallets (**GATED + last**). Plus PR sequence + 5
-    open owner decisions.
-  - Baton rewrite (this) + session note. Also fixed the carried **cosmetic SHA lag** (main is
-    `f2a2538`; baton had cited `af0e62f`/`d6f6653`).
-  - **Scope:** docs only — `docs/design/**` + `session-notes/**` + this baton. **No** code, schema,
-    migration, funds/wallet/treasury/ASA/mint, or deps. Every number in the doc is **PROPOSED**.
-  - **Auditor focus:** confirm doc-only (no code/schema/secrets/funds); spot-check the current-state
-    file:line cites are accurate; confirm WS-E (funds) is explicitly gated + last, not started here.
+  - **`artifacts/frontier-al/package.json`** version `1.0.0` → **`2.0.0`** (the official v2.0.0 cut).
+  - **`docs/V2_ROADMAP.md`** (NEW) — 10 phases (battle clock → battle depth → realtime hardening →
+    config+telemetry → intel "telepathy" mechanic → Earth geo-ref foundation → Earth imagery
+    pipeline → 2D/2.5D map viewer → NFT imagery → mainnet gold v2.1.0), grounded by 3 audits; gates
+    flagged (Earth imagery = licensing+legal; Phase 10 funds = mainnet-gate+algo-auditor+security).
+    Folds the old options menu's backlog in. **Replaces `docs/NEXT_WORK_OPTIONS.md`** (removed).
+  - Owner decisions locked: geo-ref REAL Earth · telepathy = in-game intel mechanic · create all 10
+    branches now · Phase-1 opener = battle clock + auto-resolver.
+  - Baton rewrite (this) + session note. **#69 MERGED `2d55d8a`**.
+  - **Scope:** docs + the one-line version bump. **No** phase code, schema, funds, or deps.
+  - **Auditor focus:** confirm version reads `2.0.0`; doc-only otherwise; Earth-imagery + funds
+    phases are gated; one PR open.
 
 ### ⚖️ OWNER RULE (LOCKED) — ONE ACTIVE PR AT A TIME
 **One active PR → one audit → one baton → one owner decision → then the next PR.** No stacked /
 parallel / chained PRs unless the owner explicitly approves. The **owner merges**; discovered units
-get **queued here**, not opened.
+get **queued here**, not opened. **The 10 `phase/0X-…` branches exist as markers — a phase's PR
+opens only after the prior phase merges.**
 
-### ➡️ NEXT — after this PR is audited & merged (do NOT start until owner picks)
-- **Faction/commander program** (this doc): answer the 5 open decisions, then start **WS-A faction
-  onboarding** (smallest, no funds). WS-E (faction wallets) only via its own gated PR.
-- **Parked:** commander-mint **telemetry** instrumentation (small/safe — can slot in anytime).
-- **Queued:** Globe `globeProjection.ts` §6 seam (with combat package); jsdom/Testing-Library harness.
-- Carried owner-side: the **#65 globe visual click-test**; confirm out-of-band main commit `9ce0962`
-  (Fly secrets template, placeholders) was intentional.
+### ➡️ NEXT — after this v2.0.0 baseline merges: start Phase 1
+**`phase/01-battle-clock`** — wire `resolveBattles()` into a startup interval + a server-authoritative
+game-clock + `battle_tick` countdown + server-checked cooldowns (fixes the auto-resolve gap +
+client clock drift). Engine/realtime only — no globe/canvas. See `docs/V2_ROADMAP.md` for phases 2–10.
 
 ---
+
+### Prior baton — #69 (faction/commander design doc) — MERGED `2d55d8a`
+- Doc-only scope/design for the faction-economy + commander-progression program: current state
+  (factions have identity ASAs but no wallets/treasury; admin-mnemonic custody; player↔faction
+  membership already exists off-chain; commander tier = static buy-class; art mutable off-chain via
+  the dynamic metadata endpoint), 5-workstream decomposition (WS-A..E, funds last + gated), PR
+  sequence, 5 open owner decisions. `docs/design/faction-economy-and-commander-progression-design.md`.
 
 ### Prior baton — #68 (purchase-intent timeout reaper) — MERGED `f2a2538`
 - Server-only, off-chain reaper: flips abandoned `purchase_intents` (pending past a 7d TTL, env-
