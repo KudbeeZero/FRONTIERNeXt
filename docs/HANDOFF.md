@@ -9,29 +9,37 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-2 PR2: player battle-stats aggregator + endpoint, AWAITING_AUDIT)
-- **Main:** green at **`3ce61cd`** (Merge #76; replay log). Branch **`phase/02-battle-stats`** carries
-  Phase-2 PR2. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
-- **NOTE:** owner said to continue through the next Phase-2 features (`V2_ROADMAP.md:37` "stats +
-  commander performance tracking"). Existing surfaces cover totals (`/api/game/leaderboard`,
-  `/api/battles/history`, player `attacksWon/Lost` + commander `totalKills`); **the gap** = no per-player
-  derived battle-stats aggregator/endpoint.
+## Current baton — Comm Terminal (purchasable whisper widget + optional voice, AWAITING_AUDIT)
+- **Main:** green at **`34555b8`** (Merge #77; battle-stats). Branch **`feat/comm-terminal`**.
+  **Do NOT auto-merge** — owner merges.
+- **⚠️ TWO PRs OPEN (owner-directed):** the design-doc PR (**#78**, Strategic Depth Program) is open AND
+  this Comm Terminal PR. Owner directed this build in parallel via `/goal` (explicit approval — the
+  one-open-PR rule's "unless owner explicitly approves" exception). Merge #78 when ready.
+- **NOTE:** owner goal — a HUD "Comm Terminal" widget, purchasable in a lab, that surfaces eerie ambient
+  "lost souls of the world" whispers only its owner hears, with optional voice. No ElevenLabs key in this
+  env → built **text-only + graceful fallback**. Seeds toward the SD-F faction perception lens.
 - **What this unit did (for the auditor):**
-  - `server/storage/battle-stats.ts` (NEW) — pure `computePlayerBattleStats(battles, playerId)` (mirrors
-    `computeLeaderboard`): `attacks{total,wins,losses,winRate}`, `defenses{total,held,lost,holdRate}`,
-    `currentStreak{kind,count}`, `totals{troops,iron,fuel}`, `biggestVictory|null`, `recent[]` (≤10).
-    Integer percents, divide-by-zero guarded. Only already-public data (powers/counts/battleId — battleId
-    already in `/api/battles/history`); no addresses/player/parcel UUIDs. +9 tests (`battle-stats.spec.ts`).
-  - Storage `getPlayerBattles(playerId)` — `interface.ts` + `db.ts` (resolved + attacker|defender; added
-    `or` to drizzle import; reuses `attackerIdx`/`defenderIdx`) + `mem.ts`.
-  - `GET /api/players/:id/battle-stats` in `routes.ts` (mirrors `/api/battles/history`:
-    `withDbRetry` → `getPlayerBattles` → `computePlayerBattleStats`). Public read.
-  - **Read-only + additive. No schema/migration/client/canvas/funds/resolution-math change.**
-  - Verified: `check` ✓ · `test:server` **318/11-skip** (+9 `battle-stats.spec.ts`) · client `test`
-    **76** · `build` ✓. Manual (server+PG, not run here): `GET /api/players/<id>/battle-stats` → shape;
-    no-battles → zeroed.
-  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`; public read, no
-    address/secret leak) + `/pr-gate`. Owner merges.
+  - `server/engine/narrative/whispers.ts` (NEW) — pure `generateWhisper(playerId, now, {level})` (seeded
+    by player+~45s window; per-player; level tunes faint/clear/surge) + pure `commTerminalLevel(parcels,
+    playerId)`. Atmosphere only — no hidden game state. +8 tests.
+  - `server/services/voice/elevenlabs.ts` (NEW) — optional `synthesizeWhisper`: `null` (text-only) with
+    NO network call when `ELEVENLABS_API_KEY`/`COMM_TERMINAL_VOICE_ID` unset; fail-open. +6 tests.
+  - `shared/schema.ts` — new `comm_terminal` facility (FacilityType + FACILITY_INFO + IMPROVEMENT_INFO +
+    SUB_PARCEL_FACILITY_COSTS + buildActionSchema). Buys via existing `/api/actions/build` (ASCEND sink).
+  - `getPlayerCommTerminal(playerId)` (interface+db+mem); `GET /api/comm-terminal/whispers?playerId=`
+    (ownership-gated; returns whisper + optional `audioUrl`, else text-only).
+  - `client/.../CommTerminal.tsx` (NEW) — self-contained floating widget (polls 15s, self-hides for
+    non-owners, animated SVG "signal entity" placeholder, mute, plays audioUrl). Mounted in `GameLayout`
+    (1 line). SSR smoke test (+2). **NOT visually verified in-browser** (typecheck+build+SSR back it).
+  - **No globe/canvas/battle-math change; no ASA/funds movement; no secret committed.**
+  - Verified: `check` ✓ · `test:server` **332/11-skip** (+14) · client `test` **78** (+2) · `build` ✓.
+    Env documented in `ENV_VARS.md` + `DEPLOYMENT_ENV_CHECKLIST.md`.
+  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`; voice-key secrets +
+    client-served feed) + `/pr-gate`. Owner merges.
+
+### Prior baton — #77 (Phase-2 PR2: player battle-stats aggregator + endpoint) — MERGED `34555b8`
+- Pure `computePlayerBattleStats` + `getPlayerBattles` (db+mem) + `GET /api/players/:id/battle-stats`.
+  `/code-review` (clean) + `/security-pass` (PASS) + `/pr-gate` (GO). CI green.
 
 ### Prior baton — #76 (Phase-2 PR1: deterministic battle replay log) — MERGED `3ce61cd`
 - Replaced the main resolver's coarse 3-line replay log with a pure `buildReplayLog`

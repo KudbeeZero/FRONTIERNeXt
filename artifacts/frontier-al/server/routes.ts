@@ -57,6 +57,8 @@ import {
 } from "./services/chain/factions";
 import { fromMicroASCEND } from "./storage/game-rules";
 import { computePlayerBattleStats } from "./storage/battle-stats";
+import { generateWhisper } from "./engine/narrative/whispers";
+import { synthesizeWhisper, isVoiceConfigured } from "./services/voice/elevenlabs";
 import {
   ECONOMY_MODE,
   LAND_DAILY_ASCEND_RATE,
@@ -3757,6 +3759,39 @@ export async function registerRoutes(
       res.json(computePlayerBattleStats(battles, playerId));
     } catch (err) {
       console.error("[players/battle-stats]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /** GET /api/comm-terminal/whispers — the owning player's current ambient whisper.
+   *  Gated on owning a `comm_terminal` facility (the purchasable widget). Pure
+   *  atmosphere: deterministic per (player, ~45s window); higher terminal level
+   *  tunes in clearer transmissions. Optional ElevenLabs voice (text-only if no key). */
+  app.get("/api/comm-terminal/whispers", async (req, res) => {
+    try {
+      const playerId = String(req.query.playerId ?? "");
+      if (!playerId) return res.status(400).json({ error: "playerId required" });
+
+      const term = await withDbRetry(() => storage.getPlayerCommTerminal(playerId), "getPlayerCommTerminal");
+      if (!term.owned) {
+        return res.json({ unlocked: false, level: 0, voiceConfigured: isVoiceConfigured(), whisper: null });
+      }
+
+      const whisper = generateWhisper(playerId, Date.now(), { level: term.level });
+      // Voice is best-effort; null (text-only) unless ELEVENLABS_API_KEY + voice id are set.
+      const clip = await synthesizeWhisper(whisper.text);
+
+      res.json({
+        unlocked: true,
+        level: term.level,
+        voiceConfigured: isVoiceConfigured(),
+        whisper: {
+          ...whisper,
+          audioUrl: clip ? `data:${clip.mime};base64,${clip.audioBase64}` : null,
+        },
+      });
+    } catch (err) {
+      console.error("[comm-terminal/whispers]", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });

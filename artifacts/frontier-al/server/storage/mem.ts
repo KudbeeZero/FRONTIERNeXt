@@ -79,6 +79,7 @@ import type { FacilityType, DefenseImprovementType } from "@shared/schema";
 import { generateFibonacciSphere, sphereDistance, type PlotCoord } from "../sphereUtils";
 import { biomeFromLatitude } from "./game-rules";
 import { hashSeed } from "../engine/battle/random.js";
+import { commTerminalLevel } from "../engine/narrative/whispers.js";
 import { resolveLootBoxOpen, rollLootBoxAward, MINERAL_TO_VAULT_FIELD } from "../engine/lootbox/open.js";
 import type { IStorage } from "./interface";
 import { createDefaultProfile, recomputeDerived, type PlayerWeaponProfile } from "@shared/weapons";
@@ -1152,6 +1153,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.battles.values()).filter(
       (b) => b.status === "resolved" && (b.attackerId === playerId || b.defenderId === playerId),
     );
+  }
+
+  async getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }> {
+    return commTerminalLevel(Array.from(this.parcels.values()), playerId);
   }
 
   async resolveBattles(): Promise<Battle[]> {

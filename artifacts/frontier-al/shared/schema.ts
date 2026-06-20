@@ -133,7 +133,7 @@ export const biomeBonuses: Record<BiomeType, {
 };
 
 export type DefenseImprovementType = "turret" | "shield_gen" | "storage_depot" | "radar" | "fortress";
-export type FacilityType = "electricity" | "blockchain_node" | "data_centre" | "ai_lab";
+export type FacilityType = "electricity" | "blockchain_node" | "data_centre" | "ai_lab" | "comm_terminal";
 export type ImprovementType = DefenseImprovementType | FacilityType;
 
 export interface Improvement {
@@ -199,6 +199,15 @@ export const FACILITY_INFO: Record<FacilityType, {
     effect: "-30s/-60s/-90s mine cooldown per level",
     prerequisite: "electricity",
   },
+  comm_terminal: {
+    name: "Comm Terminal",
+    description: "A salvaged listening post. Tunes into the ambient transmissions of the world — voices and lost signals only its owner can hear. Higher levels pull in clearer, stranger broadcasts.",
+    costAscend: [150, 320, 540],
+    maxLevel: 3,
+    ascendPerDay: [0, 0, 0],
+    effect: "Unlocks the Comm Terminal whisper feed · clearer reception per level",
+    prerequisite: "electricity",
+  },
 };
 
 export const IMPROVEMENT_INFO: Record<ImprovementType, {
@@ -213,6 +222,7 @@ export const IMPROVEMENT_INFO: Record<ImprovementType, {
   blockchain_node: { name: "Blockchain Node", description: "Computing node", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "+2/3/4 ASCEND/day" },
   data_centre: { name: "Data Centre", description: "High-performance processing that boosts all resource yields from this plot.", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "+5/10/15% resource yield per level" },
   ai_lab: { name: "AI Lab", description: "AI-optimised mining routines that reduce the mine cooldown on this plot.", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "-30s/-60s/-90s mine cooldown per level" },
+  comm_terminal: { name: "Comm Terminal", description: "Tunes into the world's ambient transmissions — voices only its owner can hear.", cost: { iron: 0, fuel: 0 }, maxLevel: 3, effect: "Unlocks the whisper feed · clearer per level" },
 };
 
 export interface LandParcel {
@@ -520,7 +530,7 @@ export const attackActionSchema = z.object({
 export const buildActionSchema = z.object({
   playerId: z.string(),
   parcelId: z.string(),
-  improvementType: z.enum(["turret", "shield_gen", "storage_depot", "radar", "fortress", "electricity", "blockchain_node", "data_centre", "ai_lab"]),
+  improvementType: z.enum(["turret", "shield_gen", "storage_depot", "radar", "fortress", "electricity", "blockchain_node", "data_centre", "ai_lab", "comm_terminal"]),
   // Idempotency nonce — the server requires it to block double-submit/replay of
   // a build (which spends ASCEND and adds/levels an improvement). Optional in the
   // schema so the route returns a specific 400 rather than a generic ZodError.
@@ -859,6 +869,7 @@ export const SUB_PARCEL_FACILITY_COSTS: Record<FacilityType, number[]> = {
   blockchain_node: [60, 135, 240],
   data_centre:     [60, 135, 240],
   ai_lab:          [60, 135, 240],
+  comm_terminal:   [75, 160, 270],
 };
 
 /** Build costs (Iron/Fuel) for defense improvements on a sub-parcel — ≈50% of macro-parcel rates */
