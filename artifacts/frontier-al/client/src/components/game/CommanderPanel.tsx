@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { serverNow } from "@/lib/serverClock";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
 import {
   COMMANDER_INFO, SPECIAL_ATTACK_INFO, DRONE_MINT_COST_ASCEND, MAX_DRONES,
@@ -81,7 +82,7 @@ function formatCountdown(ms: number): string {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SatelliteCard({ satellite, index }: { satellite: Player["satellites"][0]; index: number }) {
-  const now = Date.now();
+  const now = serverNow();
   const remaining = Math.max(0, satellite.expiresAt - now);
   const elapsed = now - satellite.deployedAt;
   const progressPct = satellite.status === "active" ? Math.min(100, (elapsed / SATELLITE_ORBIT_DURATION_MS) * 100) : 100;
@@ -114,7 +115,7 @@ function SatelliteCard({ satellite, index }: { satellite: Player["satellites"][0
 }
 
 function DroneCard({ drone, index }: { drone: Player["drones"][0]; index: number }) {
-  const elapsed = Date.now() - drone.deployedAt;
+  const elapsed = serverNow() - drone.deployedAt;
   const remaining = Math.max(0, DRONE_SCOUT_DURATION_MS - elapsed);
   const isExpired = remaining === 0 && drone.status === "scouting";
   const progressPct = drone.status === "scouting" ? Math.min(100, (elapsed / DRONE_SCOUT_DURATION_MS) * 100) : 0;
@@ -218,7 +219,7 @@ function AvatarCard({ cmd, isActive, onDeploy, onClaim, isClaiming, walletConnec
 
   useEffect(() => {
     const update = () => {
-      const rem = cmd.lockedUntil ? Math.max(0, cmd.lockedUntil - Date.now()) : 0;
+      const rem = cmd.lockedUntil ? Math.max(0, cmd.lockedUntil - serverNow()) : 0;
       setCountdown(rem);
     };
     update();
@@ -549,8 +550,8 @@ export function CommanderPanel({
   const commanders = player.commanders || [];
   const hasCommander = commanders.length > 0;
   const activeCommander = player.commander;
-  const activeDrones = player.drones.filter(d => d.status !== "scouting" || Date.now() - d.deployedAt < DRONE_SCOUT_DURATION_MS + 300000);
-  const activeSatellites = (player.satellites ?? []).filter(s => s.status === "active" && s.expiresAt > Date.now());
+  const activeDrones = player.drones.filter(d => d.status !== "scouting" || serverNow() - d.deployedAt < DRONE_SCOUT_DURATION_MS + 300000);
+  const activeSatellites = (player.satellites ?? []).filter(s => s.status === "active" && s.expiresAt > serverNow());
   const isRealWallet = wallet?.isConnected && !!wallet?.address;
   const selectedInfo = COMMANDER_INFO[selectedTier];
 
@@ -566,8 +567,8 @@ export function CommanderPanel({
   const winChance = defenderPower > 0 ? Math.min(95, Math.max(5, (attackerPower / (attackerPower + defenderPower)) * 100)) : 75;
   const canAfford = player.iron >= totalIron && player.fuel >= totalFuel && player.crystal >= extraCrystal;
   const maxTroops = Math.min(10, Math.floor(player.iron / ATTACK_BASE_COST.iron), Math.floor(player.fuel / ATTACK_BASE_COST.fuel));
-  const isOnCooldown = player.attackCooldownUntil && Date.now() < player.attackCooldownUntil;
-  const allCommandersLocked = commanders.every(c => c.lockedUntil && Date.now() < c.lockedUntil);
+  const isOnCooldown = player.attackCooldownUntil && serverNow() < player.attackCooldownUntil;
+  const allCommandersLocked = commanders.every(c => c.lockedUntil && serverNow() < c.lockedUntil);
 
   const handleLaunchPlotAttack = () => {
     if (!onAttack || !targetParcelId) return;
@@ -1124,8 +1125,8 @@ export function CommanderPanel({
                   const Icon = ATTACK_ICONS[type];
                   const isAvailable = info.requiredTier.includes(activeCommander.tier);
                   const record = player.specialAttacks.find(sa => sa.type === type);
-                  const isOnCooldownSA = record ? (Date.now() - record.lastUsedTs) < info.cooldownMs : false;
-                  const cooldownRemaining = record ? Math.max(0, info.cooldownMs - (Date.now() - record.lastUsedTs)) : 0;
+                  const isOnCooldownSA = record ? (serverNow() - record.lastUsedTs) < info.cooldownMs : false;
+                  const cooldownRemaining = record ? Math.max(0, info.cooldownMs - (serverNow() - record.lastUsedTs)) : 0;
                   return (
                     <div key={type} className={cn("p-2 rounded-md border text-left", !isAvailable ? "border-border opacity-40" : isOnCooldownSA ? "border-warning/40" : "border-border")}>
                       <div className="flex items-center gap-1.5 mb-0.5">

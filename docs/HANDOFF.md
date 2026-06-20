@@ -9,17 +9,22 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-1 PR2: cooldown-badge drift, AWAITING_AUDIT)
-- **Main:** green at **`78b0991`** (Merge #71; **server clock / time-sync** landed). Branch
-  **`phase/01-cooldown-drift`** carries Phase-1 PR2. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
+## Current baton — ONE OPEN PR (Phase-1 PR3: CommanderPanel cooldown/lock drift, AWAITING_AUDIT)
+- **Main:** green at **`111dbf0`** (Merge #72; GameLayout cooldown badges → server time). Branch
+  **`phase/01-commander-drift`** carries Phase-1 PR3. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
   auto-merge** — owner merges.
-- **What this unit did (for the auditor):** continues #71 — the morale + attack-cooldown HUD
-  badges in `GameLayout.tsx` compared **server** timestamps (`moraleDebuffUntil`,
-  `attackCooldownUntil`) against the **client** `Date.now()` (drift). Now they use `serverNow()`
-  from the `serverClock` shipped in #71. **1 file**, HUD-display correctness only. **No** infra/
-  combat/globe-canvas/schema/funds/deps change. Verified: `check` ✓ · client `test` **76**.
-  - **Auditor focus:** purely a `Date.now()` → `serverNow()` swap on 2 HUD badges; no behavior
-    beyond drift correction.
+- **What this unit did (for the auditor):** completes the drift sweep — `CommanderPanel.tsx` read
+  its own `Date.now()` for **9** comparisons against server timestamps (`satellite.expiresAt`/
+  `deployedAt`, `drone.deployedAt`, `cmd.lockedUntil`, `player.attackCooldownUntil`,
+  `record.lastUsedTs`). All 9 now use `serverNow()` from the `serverClock` shipped in #71. **1
+  file**, display/gating correctness only. **No** infra/combat/globe-canvas/schema/funds/deps
+  change. Verified: `check` ✓ · client `test` **76** · `build` ✓.
+  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`) + `/pr-gate`
+    run after green; report READY with verdicts.
+  - **Auditor focus:** uniform `Date.now()` → `serverNow()` swap; 0 `Date.now()` remain in file.
+
+### Prior baton — #72 (Phase-1 PR2: GameLayout cooldown badges) — MERGED `111dbf0`
+- Morale + attack-cooldown HUD badges in `GameLayout.tsx` now use `serverNow()` (drift). 1 file. CI green.
 
 ### Prior baton — #71 (Phase-1 PR1: server clock / time-sync) — MERGED `78b0991`
 - **AUDIT CORRECTION carried:** the audits wrongly claimed the battle auto-resolver wasn't wired —
