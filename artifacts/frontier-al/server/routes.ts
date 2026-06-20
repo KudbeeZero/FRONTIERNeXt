@@ -56,6 +56,7 @@ import {
   FACTION_DEFINITIONS,
 } from "./services/chain/factions";
 import { fromMicroASCEND } from "./storage/game-rules";
+import { computePlayerBattleStats } from "./storage/battle-stats";
 import {
   ECONOMY_MODE,
   LAND_DAILY_ASCEND_RATE,
@@ -3742,6 +3743,20 @@ export async function registerRoutes(
       res.json({ battles: paged, total, hasMore: offset + limit < total });
     } catch (err) {
       console.error("[battles/history]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /** GET /api/players/:id/battle-stats — aggregated combat record (win/hold rate,
+   *  streak, biggest victory, recent battles) for a player. Public read of
+   *  already-public aggregate data. */
+  app.get("/api/players/:id/battle-stats", async (req, res) => {
+    try {
+      const playerId = req.params.id;
+      const battles = await withDbRetry(() => storage.getPlayerBattles(playerId), "getPlayerBattles");
+      res.json(computePlayerBattleStats(battles, playerId));
+    } catch (err) {
+      console.error("[players/battle-stats]", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
