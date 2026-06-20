@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { safeUuid } from "@/lib/safeUuid";
+import { serverNow } from "@/lib/serverClock";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
@@ -885,7 +886,7 @@ export function GameLayout() {
 
 
       {/* Morale debuff warning badge */}
-      {player?.moraleDebuffUntil && player.moraleDebuffUntil > Date.now() && (
+      {player?.moraleDebuffUntil && player.moraleDebuffUntil > serverNow() && (
         <div
           className="absolute top-16 right-4 mt-1 z-40 flex items-center gap-1.5 px-3 py-1 rounded-full pointer-events-none select-none"
           style={{
@@ -900,7 +901,7 @@ export function GameLayout() {
           data-testid="morale-debuff-badge"
         >
           <AlertTriangle style={{ width: 10, height: 10 }} />
-          MORALE LOW · {Math.ceil((player.moraleDebuffUntil - Date.now()) / 60000)}m
+          MORALE LOW · {Math.ceil((player.moraleDebuffUntil - serverNow()) / 60000)}m
           {(player.consecutiveLosses ?? 0) > 1 && (
             <span style={{ color: "rgba(255,60,60,0.7)", marginLeft: 4 }}>
               ×{player.consecutiveLosses} LOSSES
@@ -910,7 +911,7 @@ export function GameLayout() {
       )}
 
       {/* Attack cooldown warning badge */}
-      {player?.attackCooldownUntil && player.attackCooldownUntil > Date.now() && (
+      {player?.attackCooldownUntil && player.attackCooldownUntil > serverNow() && (
         <div
           className="absolute top-16 right-4 mt-8 z-40 flex items-center gap-1.5 px-3 py-1 rounded-full pointer-events-none select-none"
           style={{
@@ -925,7 +926,7 @@ export function GameLayout() {
           data-testid="attack-cooldown-badge"
         >
           <Clock style={{ width: 10, height: 10 }} />
-          ATK COOLDOWN · {Math.ceil((player.attackCooldownUntil - Date.now()) / 60000)}m
+          ATK COOLDOWN · {Math.ceil((player.attackCooldownUntil - serverNow()) / 60000)}m
         </div>
       )}
 

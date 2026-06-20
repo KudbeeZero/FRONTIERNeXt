@@ -9,27 +9,23 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-1 PR1: server clock / time-sync, AWAITING_AUDIT)
-- **Main:** green at **`fae20c3`** (Merge #70; **v2.0.0 baseline + roadmap** landed — version is
-  `2.0.0`, `docs/V2_ROADMAP.md` present, 10 `phase/0X-…` branches created). Branch
-  **`phase/01-battle-clock`** carries Phase-1 PR1. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
+## Current baton — ONE OPEN PR (Phase-1 PR2: cooldown-badge drift, AWAITING_AUDIT)
+- **Main:** green at **`78b0991`** (Merge #71; **server clock / time-sync** landed). Branch
+  **`phase/01-cooldown-drift`** carries Phase-1 PR2. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
   auto-merge** — owner merges.
-- **AUDIT CORRECTION (read this):** the pre-plan audits claimed the battle auto-resolver "isn't
-  wired into startup." **Wrong** — `resolveBattles()` already runs on a hardcoded
-  `setInterval(…,15000)` (`server/routes.ts:2895`, broadcasts `battle:resolved` + `markDirty()`).
-  So "wire the resolver" was redundant and was **not** built. The **real** drift gap (client uses
-  its own `Date.now()` for the battle countdown vs the server `resolveTs`) is what PR1 fixes.
-- **What this unit did (for the auditor):** a **server-authoritative time source** so battle
-  countdowns are drift-free.
-  - `client/src/lib/serverClock.ts` (NEW, pure: `computeOffsetMs`/`setServerTime`/`serverNow`).
-  - `server/wsServer.ts` sends `time_sync` on connect + every 25s; `server/routes.ts` adds
-    `GET /api/time`; `useGameSocket.ts` applies it; `BattlesPanel.tsx` countdown uses `serverNow()`.
-  - +5 pure tests (`client/tests/serverClock.spec.ts`).
-  - **Scope:** additive util + a tiny GET route + 2 WS sends + 1 client handler + a HUD countdown
-    using corrected time. **No** combat-resolution, globe/canvas, schema, funds, or deps change.
-  - Verified: `check` ✓ · client `test` **76** (+5) · `test:server` **288/11-skip** · `build` ✓.
-  - **Auditor focus:** confirm no combat-resolution / globe-canvas change; the change is a HUD
-    countdown using server-synced time; resolver/atomicity untouched.
+- **What this unit did (for the auditor):** continues #71 — the morale + attack-cooldown HUD
+  badges in `GameLayout.tsx` compared **server** timestamps (`moraleDebuffUntil`,
+  `attackCooldownUntil`) against the **client** `Date.now()` (drift). Now they use `serverNow()`
+  from the `serverClock` shipped in #71. **1 file**, HUD-display correctness only. **No** infra/
+  combat/globe-canvas/schema/funds/deps change. Verified: `check` ✓ · client `test` **76**.
+  - **Auditor focus:** purely a `Date.now()` → `serverNow()` swap on 2 HUD badges; no behavior
+    beyond drift correction.
+
+### Prior baton — #71 (Phase-1 PR1: server clock / time-sync) — MERGED `78b0991`
+- **AUDIT CORRECTION carried:** the audits wrongly claimed the battle auto-resolver wasn't wired —
+  `resolveBattles()` already runs every 15s (`routes.ts:2895`). PR1 instead fixed the real drift:
+  a server time source (`serverClock.ts` + WS `time_sync` + `GET /api/time`) so the `BattlesPanel`
+  countdown uses `serverNow()`. +5 pure tests. CI green.
 
 ### ⚖️ OWNER RULE (LOCKED) — ONE ACTIVE PR AT A TIME
 **One active PR → one audit → one baton → one owner decision → then the next PR.** No stacked /
@@ -37,8 +33,9 @@ parallel / chained PRs unless the owner explicitly approves. The **owner merges*
 get **queued here**, not opened. **The 10 `phase/0X-…` branches exist as markers — a phase's PR
 opens only after the prior phase merges.**
 
-### ➡️ NEXT — after PR1 merges (still Phase 1, `phase/01-battle-clock`)
-- Apply `serverNow()` to commander/morale/attack **cooldown** availability (same drift class).
+### ➡️ NEXT — after PR2 merges (still Phase 1)
+- **CommanderPanel drift** (`CommanderPanel.tsx:221,553,569,570` + drone/satellite "elapsed since")
+  → `serverNow()`, its own focused PR.
 - Make battle/AI/orbital background **cadences env-configurable** ("easy to toggle").
 - Optional `battle_tick` broadcast for sub-1.5s smooth countdowns.
 Then Phase 2 (`phase/02-battle-depth`). See `docs/V2_ROADMAP.md` for phases 2–10 + gates.
