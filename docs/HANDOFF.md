@@ -9,28 +9,35 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Next-Work Options menu, AWAITING_AUDIT)
-- **Main:** green at **`2d55d8a`** (Merge #69; faction/commander design doc). Branch
-  `claude/status-immediate-issues-8ltv13` carries a **doc-only** unit: `docs/NEXT_WORK_OPTIONS.md`,
-  a prioritized **menu of candidate next units** so the owner can pick the next single PR.
-  **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
+## Current baton — ONE OPEN PR (v2.0.0 baseline + 10-phase roadmap, AWAITING_AUDIT)
+- **Main:** green at **`2d55d8a`** (Merge #69). Branch `claude/status-immediate-issues-8ltv13`
+  carries the **v2.0.0 baseline**: bumps the app to `2.0.0` and lands the **10-phase buildout
+  roadmap** (`docs/V2_ROADMAP.md`) toward **v2.1.0 = gold/mainnet**. **ONE open PR**
+  (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
 - **What this unit did (for the auditor):**
-  - **`docs/NEXT_WORK_OPTIONS.md`** (NEW) — themed candidate menu (Faction program WS-A..E ·
-    telemetry/dashboard · security/hardening · globe · story mode · hygiene), each tagged
-    effort/gate and ⚠️FUNDS where relevant. Commits to nothing; owner picks one.
-  - Baton rewrite (this) + session note. **#69 MERGED `2d55d8a`** (design doc).
-  - **Scope:** docs only — `docs/**` + `session-notes/**`. **No** code/schema/funds/deps.
-  - **Auditor focus:** confirm doc-only; menu's funds items (WS-E, algod finality) flagged gated.
+  - **`artifacts/frontier-al/package.json`** version `1.0.0` → **`2.0.0`** (the official v2.0.0 cut).
+  - **`docs/V2_ROADMAP.md`** (NEW) — 10 phases (battle clock → battle depth → realtime hardening →
+    config+telemetry → intel "telepathy" mechanic → Earth geo-ref foundation → Earth imagery
+    pipeline → 2D/2.5D map viewer → NFT imagery → mainnet gold v2.1.0), grounded by 3 audits; gates
+    flagged (Earth imagery = licensing+legal; Phase 10 funds = mainnet-gate+algo-auditor+security).
+    Folds the old options menu's backlog in. **Replaces `docs/NEXT_WORK_OPTIONS.md`** (removed).
+  - Owner decisions locked: geo-ref REAL Earth · telepathy = in-game intel mechanic · create all 10
+    branches now · Phase-1 opener = battle clock + auto-resolver.
+  - Baton rewrite (this) + session note. **#69 MERGED `2d55d8a`**.
+  - **Scope:** docs + the one-line version bump. **No** phase code, schema, funds, or deps.
+  - **Auditor focus:** confirm version reads `2.0.0`; doc-only otherwise; Earth-imagery + funds
+    phases are gated; one PR open.
 
 ### ⚖️ OWNER RULE (LOCKED) — ONE ACTIVE PR AT A TIME
 **One active PR → one audit → one baton → one owner decision → then the next PR.** No stacked /
 parallel / chained PRs unless the owner explicitly approves. The **owner merges**; discovered units
-get **queued here**, not opened.
+get **queued here**, not opened. **The 10 `phase/0X-…` branches exist as markers — a phase's PR
+opens only after the prior phase merges.**
 
-### ➡️ NEXT — owner picks ONE from `docs/NEXT_WORK_OPTIONS.md` (do NOT start until picked)
-Recommended openers (both **S / no-funds / PR-gate**): **commander-mint telemetry** (continue the
-purchase-funnel lane) or **WS-A faction onboarding** (start the faction program). Funds items
-(WS-E faction wallets, algod-first finality) stay gated + later.
+### ➡️ NEXT — after this v2.0.0 baseline merges: start Phase 1
+**`phase/01-battle-clock`** — wire `resolveBattles()` into a startup interval + a server-authoritative
+game-clock + `battle_tick` countdown + server-checked cooldowns (fixes the auto-resolve gap +
+client clock drift). Engine/realtime only — no globe/canvas. See `docs/V2_ROADMAP.md` for phases 2–10.
 
 ---
 
