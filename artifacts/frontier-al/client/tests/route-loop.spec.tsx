@@ -16,12 +16,13 @@
  *   the wallet SDK + walletManager touch `window`/IndexedDB at import, so they
  *   are stubbed to inert passthroughs with a disconnected wallet — the real
  *   first-load state for a visitor who hasn't connected.
- * - The `/` (landing) and catch-all (404) routes render their REAL components.
- *   The `/game` route's page is a heavy WebGL globe (`@react-three/fiber`
- *   Canvas) that cannot render headless; it is stubbed at the page render
- *   BOUNDARY so this test asserts the router MOUNTS the gameplay page for
- *   `/game`. Rendering the real 3D entry state headless is out of scope (see the
- *   PR "not covered" note) — a focused GameLayout component test is the follow-up.
+ * - `/` currently boots straight into the gameplay page (the landing page is
+ *   temporarily bypassed — see App.tsx). The `/info/*` and catch-all (404)
+ *   routes render their REAL components. The gameplay page is a heavy WebGL
+ *   globe (`@react-three/fiber` Canvas) that cannot render headless; it is
+ *   stubbed at the page render BOUNDARY so this test asserts the router MOUNTS
+ *   the gameplay page for `/` and `/game`. Rendering the real 3D entry state
+ *   headless is out of scope — a focused GameLayout component test is the follow-up.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
@@ -51,7 +52,8 @@ vi.mock("@/contexts/WalletContext", () => ({
   }),
 }));
 
-// Force the landing branch of `/` deterministically (don't depend on env flags).
+// Inert test-mode flag (App no longer branches `/` on it — landing is bypassed —
+// but keep the stub so nothing transitively reads import.meta.env under SSR).
 vi.mock("@/lib/testMode", () => ({ TEST_GLOBE: false }));
 
 // Wallet connect button (a wallet/auth UI boundary, rendered in the landing nav
@@ -91,12 +93,11 @@ describe("client route loop (App router)", () => {
     expect(html.length).toBeGreaterThan(0);
   });
 
-  it("renders the landing shell on the core route '/'", () => {
+  it("boots straight into the gameplay page on the core route '/' (landing bypassed)", () => {
     const html = renderAt("/");
-    // Landing-specific copy (the token name pervades the landing page).
-    expect(html).toMatch(/\$ASCEND/);
-    // It is NOT the gameplay page nor the 404 fallback.
-    expect(html).not.toContain("GAME ROUTE ENTRY");
+    // '/' now mounts the gameplay page directly (landing temporarily bypassed).
+    expect(html).toContain("GAME ROUTE ENTRY");
+    // It is NOT the 404 fallback.
     expect(html).not.toContain("404 Page Not Found");
   });
 
@@ -114,13 +115,15 @@ describe("client route loop (App router)", () => {
   });
 
   it("transitions between routes — the loop is wired, not a single shared page", () => {
-    const landing = renderAt("/");
-    const game = renderAt("/game");
+    const home = renderAt("/");
+    const info = renderAt("/info/economics");
     const missing = renderAt("/definitely-not-a-route");
-    // Three distinct outputs prove the Switch selects per-path, so a dropped or
+    // '/' boots into the gameplay page; an /info page and the 404 fallback are
+    // distinct outputs, so the Switch still selects per-path — a dropped or
     // mis-wired <Route> would break at least one of these assertions.
-    expect(landing).not.toBe(game);
-    expect(game).not.toBe(missing);
-    expect(landing).not.toBe(missing);
+    expect(home).toContain("GAME ROUTE ENTRY");
+    expect(info).not.toBe(home);
+    expect(info).not.toBe(missing);
+    expect(home).not.toBe(missing);
   });
 });
