@@ -84,8 +84,10 @@ export const FLY_SPEED    = 0.055;
 export const FLY_DONE_SQ  = 0.0004;
 
 // ── PlotOverlay sizing ────────────────────────────────────────────────────────
-export const FILL_SIZE   = GLOBE_RADIUS * 0.022;
-export const BORDER_SIZE = GLOBE_RADIUS * 0.026;
+// Enlarged so tiles read as a near-continuous colored crust (less "screen-door"
+// gap between Fibonacci-sphere points) rather than tiny floating dots.
+export const FILL_SIZE   = GLOBE_RADIUS * 0.030;
+export const BORDER_SIZE = GLOBE_RADIUS * 0.034;
 
 // ── SubParcel sizing ──────────────────────────────────────────────────────────
 export const SUB_FILL_SIZE   = GLOBE_RADIUS * 0.018;  // visible 3×3 cell fill

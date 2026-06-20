@@ -154,12 +154,16 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
+  // Hug the surface: tiles sat ~3.6% above the globe (a visibly floating shell);
+  // dropped close to the terrain so they read as the planet's crust. Fill stays
+  // just above the border so the outline reads under it; both safely clear of the
+  // R=GLOBE_RADIUS terrain sphere to avoid z-fighting.
   const fillPositions3D = useMemo(() => {
-    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.018));
+    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.008));
   }, [plotCoords]);
 
   const borderPositions3D = useMemo(() => {
-    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.012));
+    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.005));
   }, [plotCoords]);
 
   const applyInstance = (
