@@ -2891,6 +2891,13 @@ export async function registerRoutes(
   });
 
 
+  // Server-authoritative clock source (HTTP fallback for the WS `time_sync`).
+  // Lets clients correct device-clock skew so battle countdowns / cooldowns are
+  // accurate. No auth, no state — just the server's current epoch-ms.
+  app.get("/api/time", (_req, res) => {
+    res.json({ serverTime: Date.now() });
+  });
+
   // Staggered background tasks — avoids hammering Neon with simultaneous queries
   setInterval(async () => {
     try {

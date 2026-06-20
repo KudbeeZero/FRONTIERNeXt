@@ -13,6 +13,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { queryClient } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/authToken";
+import { setServerTime } from "@/lib/serverClock";
 import type { GameState } from "@shared/schema";
 import type { WorldEvent } from "@shared/worldEvents";
 
@@ -146,6 +147,11 @@ export function useGameSocket(authTrigger?: unknown) {
           const msg = JSON.parse(event.data);
           if (msg.type === "ping") {
             ws.send(JSON.stringify({ type: "pong" }));
+            return;
+          }
+          // Server-authoritative clock sync — keeps battle countdowns drift-free.
+          if (msg.type === "time_sync" && typeof msg.serverTime === "number") {
+            setServerTime(msg.serverTime);
             return;
           }
           if (msg.type === "game_state_update" && msg.payload) {

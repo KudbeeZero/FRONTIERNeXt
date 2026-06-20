@@ -125,6 +125,12 @@ export function initWsServer(httpServer: Server, storage: IStorage): WebSocketSe
     let alive = true;
     console.log(`[ws] Client connected (total: ${_wss!.clients.size})`);
 
+    // Immediately seed the client's server-clock so countdowns are drift-free
+    // from the first render (re-sent periodically below).
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "time_sync", serverTime: Date.now() }));
+    }
+
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
@@ -140,6 +146,8 @@ export function initWsServer(httpServer: Server, storage: IStorage): WebSocketSe
       alive = false;
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "ping" }));
+        // Re-sync the server clock periodically to correct long-session drift.
+        ws.send(JSON.stringify({ type: "time_sync", serverTime: Date.now() }));
       }
     }, 25_000);
 
