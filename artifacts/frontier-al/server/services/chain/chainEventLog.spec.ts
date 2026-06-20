@@ -3,6 +3,9 @@ import {
   buildTransitionRows,
   summarizePurchaseFunnel,
   summarizeChainHealth,
+  identifyStaleIntents,
+  resolveTimeoutMs,
+  PURCHASE_INTENT_TTL_FLOOR_MS,
   PURCHASE_STATE_ORDER,
 } from "./chainEventLog";
 
@@ -116,5 +119,94 @@ describe("summarizeChainHealth", () => {
     expect(h.lastConfirmedAt).toBeNull();
     expect(h.pending).toBe(1);
     expect(typeof h.network).toBe("string");
+  });
+});
+
+describe("identifyStaleIntents (timeout reaper selection)", () => {
+  const NOW = 1_700_000_000_000;
+  const TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+  const OLD = NOW - TTL - 1; // strictly older than the TTL
+  const RECENT = NOW - TTL + 1; // pending but inside the TTL window
+
+  it("selects pending intents strictly older than the TTL", () => {
+    const stale = identifyStaleIntents(
+      [
+        { id: "a", state: "submitting", createdAt: OLD },
+        { id: "b", state: "confirmed", createdAt: OLD },
+        { id: "c", state: "inventory_syncing", createdAt: OLD },
+      ],
+      NOW,
+      TTL,
+    );
+    expect(stale.sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("does NOT select recently-created pending intents (age ≤ TTL)", () => {
+    const stale = identifyStaleIntents(
+      [
+        { id: "recent", state: "confirmed", createdAt: RECENT },
+        { id: "exact", state: "submitting", createdAt: NOW - TTL }, // exactly TTL → not strictly older
+      ],
+      NOW,
+      TTL,
+    );
+    expect(stale).toEqual([]);
+  });
+
+  it("never selects terminal states, even when old (protects completed/failed history)", () => {
+    const stale = identifyStaleIntents(
+      [
+        { id: "complete", state: "complete", createdAt: OLD },
+        { id: "failed", state: "failed", createdAt: OLD },
+        { id: "timeout", state: "timeout", createdAt: OLD },
+        { id: "dup", state: "duplicate_detected", createdAt: OLD },
+        { id: "rejected", state: "user_rejected", createdAt: OLD },
+        { id: "unknown", state: "not_a_real_state", createdAt: OLD },
+      ],
+      NOW,
+      TTL,
+    );
+    expect(stale).toEqual([]);
+  });
+
+  it("is idempotent: a row already in 'timeout' is never re-selected", () => {
+    const intents = [{ id: "x", state: "confirmed", createdAt: OLD }];
+    const first = identifyStaleIntents(intents, NOW, TTL);
+    expect(first).toEqual(["x"]);
+    // Simulate the reaper having flipped it to timeout, then re-run.
+    const second = identifyStaleIntents([{ id: "x", state: "timeout", createdAt: OLD }], NOW, TTL);
+    expect(second).toEqual([]);
+  });
+
+  it("times out inventory_syncing only past the (generous) TTL, not aggressively", () => {
+    const intents = [
+      { id: "syncing-recent", state: "inventory_syncing", createdAt: RECENT },
+      { id: "syncing-old", state: "inventory_syncing", createdAt: OLD },
+    ];
+    expect(identifyStaleIntents(intents, NOW, TTL)).toEqual(["syncing-old"]);
+  });
+
+  it("handles an empty set without error", () => {
+    expect(identifyStaleIntents([], NOW, TTL)).toEqual([]);
+  });
+});
+
+describe("resolveTimeoutMs (env override + floor)", () => {
+  const FALLBACK = 7 * 24 * 60 * 60 * 1000;
+
+  it("uses the env value when it is a valid positive number", () => {
+    expect(resolveTimeoutMs("86400000", FALLBACK)).toBe(86_400_000); // 24h override
+  });
+
+  it("falls back for unset / invalid / non-positive input", () => {
+    expect(resolveTimeoutMs(undefined, FALLBACK)).toBe(FALLBACK);
+    expect(resolveTimeoutMs("not-a-number", FALLBACK)).toBe(FALLBACK);
+    expect(resolveTimeoutMs("0", FALLBACK)).toBe(FALLBACK);
+    expect(resolveTimeoutMs("-5", FALLBACK)).toBe(FALLBACK);
+  });
+
+  it("clamps an unsafely tiny value up to the 1-minute floor", () => {
+    expect(resolveTimeoutMs("1000", FALLBACK)).toBe(PURCHASE_INTENT_TTL_FLOOR_MS);
+    expect(PURCHASE_INTENT_TTL_FLOOR_MS).toBe(60_000);
   });
 });

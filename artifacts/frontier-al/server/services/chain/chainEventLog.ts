@@ -194,3 +194,53 @@ export function summarizeChainHealth(
     lastConfirmedAt,
   };
 }
+
+// ── Stale-intent timeout reaper (pure selection) ────────────────────────────
+// A purchase_intent that never reaches a terminal state (the buyer abandons the
+// flow, the tab closes mid-opt-in, a crash orphans an in-flight row) sits in a
+// PENDING_STATES value forever, skewing the dashboard funnel. The reaper flips
+// such rows to `timeout` once they are clearly abandoned. This is PURELY an
+// off-chain telemetry/audit transition — it touches no payment, wallet, chain,
+// NFT, token, or settlement state (the duplicate guard keys off redeemed_payments,
+// not intents, so a stale intent blocks nothing). Selection is pure + deterministic
+// here; the DB write lives in chainEventStore.ts.
+
+/** Lower bound for any configured timeout/interval — guards against an unsafely
+ * tiny production value AND keeps tests deterministic. */
+export const PURCHASE_INTENT_TTL_FLOOR_MS = 60_000; // 1 minute
+
+/**
+ * PURE: resolve a millisecond duration from an env string, falling back to
+ * `fallbackMs` for unset/invalid/≤0 input, then clamping up to the floor.
+ * Deterministic — the unit of behavior the env-override / floor tests pin down.
+ */
+export function resolveTimeoutMs(raw: string | undefined, fallbackMs: number): number {
+  const n = Number(raw);
+  const chosen = Number.isFinite(n) && n > 0 ? n : fallbackMs;
+  return Math.max(PURCHASE_INTENT_TTL_FLOOR_MS, chosen);
+}
+
+/**
+ * PURE: ids of intents still in a PENDING (non-terminal) state whose age
+ * (`now - createdAt`) STRICTLY exceeds `ttlMs` — the rows the reaper times out.
+ *
+ * Safety properties (tested):
+ *  - only pending states (`submitting`/`confirmed`/`inventory_syncing`) qualify;
+ *  - terminal states (`complete`/`failed`/`timeout`/`duplicate_detected`/
+ *    `user_rejected`) are never selected → idempotent (a re-run skips rows it
+ *    already timed out) and never disturbs completed/failed history;
+ *  - recently-created pending rows (age ≤ ttl) stay pending.
+ */
+export function identifyStaleIntents(
+  intents: Array<{ id: string; state: string; createdAt: number }>,
+  now: number,
+  ttlMs: number,
+): string[] {
+  const out: string[] = [];
+  for (const i of intents) {
+    if (PENDING_STATES.has(i.state as PurchaseState) && now - i.createdAt > ttlMs) {
+      out.push(i.id);
+    }
+  }
+  return out;
+}

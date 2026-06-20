@@ -9,37 +9,55 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — QUEUE CLEAR (no open PR)
-- **Main:** green at **`d6f6653`** (CI `ci.yml` run **#198 = success**). **No open PR.**
-  This chat (`claude/status-immediate-issues-8ltv13`) did a **doc/audit-only** unit: it
-  retro-audited the already-merged **#65** and repaired this baton (which had drifted —
-  it still described #65 as an *open* PR `AWAITING_AUDIT`).
-- **#65 status: MERGED `d6f6653` → retro-audited PASS** (non-blocking, it was already
-  merged) — record at `docs/audits/claude-status-immediate-issues-8ltv13.md`. #65 landed
-  **before** its start-of-chat audit ran (same "owner-merged pre-audit" pattern as #52/#61);
-  this unit reconstructed the independent diff-vs-claims review. Re-verified this chat:
-  `check` ✓ · client `test` **69 pass / 12 files** · `test:server` **279 pass / 7 skipped
-  (unchanged — no server code touched)**. Scope confirmed client-only/additive; the
-  equivalence + parity guarantees are test-backed (the pick-index spec uses its own
-  independent brute-force oracle; the parity spec imports **both** client `globeUtils` and
-  server `sphereUtils`). One non-verifiable claim noted: the session-note's "two independent
-  review agents" has no in-repo artifact — narrative, not evidence. Not browser-verified.
+## Current baton — ONE OPEN PR (reaper, AWAITING_AUDIT)
+- **Main:** green at **`af0e62f`** (Merge #67; CI `ci.yml` run **#202 = success**). Branch
+  `claude/status-immediate-issues-8ltv13` now carries the **next unit**: the
+  **purchase-intent timeout reaper** (owner-approved Option A of the #52 follow-ups).
+  **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
+- **What this unit did (for the auditor):** a **server-only, off-chain** reaper that flips
+  abandoned `purchase_intents` (pending past a TTL) to `timeout`, so the admin funnel reflects
+  reality. Audited first — no schema/migration/chain (the `state` column already accepts
+  `'timeout'`; `purchase_intents` is fire-and-forget telemetry written *after* payment/mint, and
+  the duplicate guard keys off `redeemed_payments`, so stale intents block nothing).
+  - **Pure** `identifyStaleIntents` + `resolveTimeoutMs` (`chainEventLog.ts`); **DB glue**
+    `timeoutStalePurchaseIntents` (never throws; reuses `recordPurchaseTransition`, preserves
+    `playerId`/`kind`/`createdAt`, appends a `purchase_timeout` event) + env constants
+    (`PURCHASE_INTENT_TIMEOUT_MS` **7d** default, `PURCHASE_INTENT_REAP_INTERVAL_MS` hourly, 1-min
+    floor) in `chainEventStore.ts`; an **`unref`'d** `setInterval` in `server/index.ts` mirroring
+    the `ACTION_NONCE_PRUNE` precedent.
+  - **Tests:** +9 pure (`chainEventLog.spec.ts`: stale/recent/terminal/idempotency/env/floor) and
+    a **Postgres-gated** `chainEventStore.db.spec.ts` (applies migration 0009; proves the real
+    flip, idempotency, recent+terminal protection, field preservation) wired into `test:server:db`.
+  - **Scope:** 8 files — server logic + tests + the `test:server:db` script + `ENV_VARS.md` /
+    `DEPLOYMENT_ENV_CHECKLIST.md`. **No** schema/migration/deps/lockfile/client/chain/wallet/token/
+    settlement. `package.json` diff is the test script only.
+  - Verified locally: `check` ✓ · `test:server` **288 pass / 11 skipped** · `test:server:db`
+    **11 pass** (real throwaway Postgres) · client `test` **71** · `coverage:server` **93.12%** ·
+    `build` ✓.
+  - **Auditor focus:** confirm only pending rows past the TTL become `timeout` (idempotent; terminal
+    rows untouched) — the pure + db specs are the proof; confirm off-chain/no-funds; confirm scope is
+    server-only/additive with no schema/deps.
 
-### ⚖️ OWNER RULE (LOCKED, 2026-06-18) — ONE ACTIVE PR AT A TIME
-**One active PR → one audit → one baton → one owner decision → then the next PR.**
-No stacked PRs, no parallel feature PRs, no multi-PR chains **unless the owner explicitly
-approves an exception.** Nothing is merged by an agent — the **owner merges**. If another
-unit is discovered mid-flight, **queue it in this baton — do not open it.**
+### ⚖️ OWNER RULE (LOCKED) — ONE ACTIVE PR AT A TIME
+**One active PR → one audit → one baton → one owner decision → then the next PR.** No stacked /
+parallel / chained PRs unless the owner explicitly approves. The **owner merges**; discovered units
+get **queued here**, not opened.
 
-### ➡️ NEXT — pick exactly ONE (do NOT start until this audit PR is reviewed)
-The queue is clean. Candidate next units (one unit, one PR, owner picks):
-- **Globe `globeProjection.ts` §6 seam** — the deferred `worldToScreen`/`surfaceHit`
-  interface; should land **with** the combat package that consumes it (else dead code).
-- **#52 dashboard follow-ups** (additive/testnet-only): commander-mint instrumentation;
-  the `purchase_intents.timeout` reaper; a DOM-based `admin.tsx` render test.
-- See "Other candidate units" / "Queued" below for the fuller menu.
+### ➡️ NEXT — after this PR is audited & merged (do NOT start until owner picks)
+- Remaining **#52 follow-ups:** commander-mint instrumentation (only `/api/actions/purchase` wired).
+- **Globe `globeProjection.ts` §6 seam** — land with the combat package (else dead code).
+- **jsdom / Testing-Library render harness** — its own test-infra PR (adds devDeps).
+- Carried owner-side: the **#65 globe visual click-test** (unrelated to this unit).
 
 ---
+
+### Prior baton — #67 (admin SSR smoke test) — MERGED `af0e62f`
+- Test-only SSR render smoke for `@/pages/admin` (existing `react-dom/server` harness; no jsdom/
+  deps): proves the ADMIN_KEY entry gate renders and the gated dashboard doesn't leak pre-auth.
+  CI #202 green.
+
+### Prior baton — #66 (retro-audit #65 + baton repair) — MERGED `7eb5c32`
+- Doc/audit-only: retro-audited the already-merged #65 (PASS) and repaired the stale baton.
 
 ### Prior baton — #65 (Globe pick-index + parity) — MERGED `d6f6653`
 - Replaced the O(n) per-pointer-event `nearestPlot` scan with a deterministic 3D voxel-hash
@@ -149,13 +167,14 @@ The queue is clean. Candidate next units (one unit, one PR, owner picks):
   PR — leave as-is); `test/gamelayout-entry-state` (another agent's experiment — unknown);
   `wip/atomic-purchase` (**OFF-LIMITS — do not merge**).
 
-## Repo state (verified this chat, HEAD `d6f6653`)
+## Repo state (verified this chat, HEAD `af0e62f` + open reaper PR)
 - `pnpm --filter @workspace/frontier-al run check` (tsc) → **green**; `test:server` →
-  **279 pass / 7 skipped** (unchanged through #65 — no server code touched); `test` (client) →
-  **69 pass / 12 files** (+12 since #61's 57, from the #65 globe specs).
+  **288 pass / 11 skipped** (with the reaper unit: +9 pure tests; +4 Postgres-gated db tests that
+  skip without `DATABASE_URL`); `test:server:db` → **11 pass** against real Postgres; `test`
+  (client) → **71 pass / 13 files**; `coverage:server` **93.12%** lines PASS; `build` ✓.
 - three.js is **code-split**; `/admin` is lazy-loaded (its own `admin-*.js` chunk).
-- The owner-directed **Globe pick-index + Fibonacci parity** unit is **DONE** (merged #65);
-  only the §6 `globeProjection.ts` screen-seam remains deferred (see NEXT, above).
+- Globe pick-index + parity **DONE** (#65); admin SSR smoke **DONE** (#67); only the §6
+  `globeProjection.ts` screen-seam remains deferred (see NEXT, above).
 
 ## Other candidate units (pick ONE; one unit, one PR)
 - **#52 dashboard follow-ups** (from the retro-audit, all additive/testnet-only): commander-mint
