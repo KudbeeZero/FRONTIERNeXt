@@ -9,24 +9,27 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (v2.0.0 baseline + 10-phase roadmap, AWAITING_AUDIT)
-- **Main:** green at **`2d55d8a`** (Merge #69). Branch `claude/status-immediate-issues-8ltv13`
-  carries the **v2.0.0 baseline**: bumps the app to `2.0.0` and lands the **10-phase buildout
-  roadmap** (`docs/V2_ROADMAP.md`) toward **v2.1.0 = gold/mainnet**. **ONE open PR**
-  (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
-- **What this unit did (for the auditor):**
-  - **`artifacts/frontier-al/package.json`** version `1.0.0` → **`2.0.0`** (the official v2.0.0 cut).
-  - **`docs/V2_ROADMAP.md`** (NEW) — 10 phases (battle clock → battle depth → realtime hardening →
-    config+telemetry → intel "telepathy" mechanic → Earth geo-ref foundation → Earth imagery
-    pipeline → 2D/2.5D map viewer → NFT imagery → mainnet gold v2.1.0), grounded by 3 audits; gates
-    flagged (Earth imagery = licensing+legal; Phase 10 funds = mainnet-gate+algo-auditor+security).
-    Folds the old options menu's backlog in. **Replaces `docs/NEXT_WORK_OPTIONS.md`** (removed).
-  - Owner decisions locked: geo-ref REAL Earth · telepathy = in-game intel mechanic · create all 10
-    branches now · Phase-1 opener = battle clock + auto-resolver.
-  - Baton rewrite (this) + session note. **#69 MERGED `2d55d8a`**.
-  - **Scope:** docs + the one-line version bump. **No** phase code, schema, funds, or deps.
-  - **Auditor focus:** confirm version reads `2.0.0`; doc-only otherwise; Earth-imagery + funds
-    phases are gated; one PR open.
+## Current baton — ONE OPEN PR (Phase-1 PR1: server clock / time-sync, AWAITING_AUDIT)
+- **Main:** green at **`fae20c3`** (Merge #70; **v2.0.0 baseline + roadmap** landed — version is
+  `2.0.0`, `docs/V2_ROADMAP.md` present, 10 `phase/0X-…` branches created). Branch
+  **`phase/01-battle-clock`** carries Phase-1 PR1. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
+  auto-merge** — owner merges.
+- **AUDIT CORRECTION (read this):** the pre-plan audits claimed the battle auto-resolver "isn't
+  wired into startup." **Wrong** — `resolveBattles()` already runs on a hardcoded
+  `setInterval(…,15000)` (`server/routes.ts:2895`, broadcasts `battle:resolved` + `markDirty()`).
+  So "wire the resolver" was redundant and was **not** built. The **real** drift gap (client uses
+  its own `Date.now()` for the battle countdown vs the server `resolveTs`) is what PR1 fixes.
+- **What this unit did (for the auditor):** a **server-authoritative time source** so battle
+  countdowns are drift-free.
+  - `client/src/lib/serverClock.ts` (NEW, pure: `computeOffsetMs`/`setServerTime`/`serverNow`).
+  - `server/wsServer.ts` sends `time_sync` on connect + every 25s; `server/routes.ts` adds
+    `GET /api/time`; `useGameSocket.ts` applies it; `BattlesPanel.tsx` countdown uses `serverNow()`.
+  - +5 pure tests (`client/tests/serverClock.spec.ts`).
+  - **Scope:** additive util + a tiny GET route + 2 WS sends + 1 client handler + a HUD countdown
+    using corrected time. **No** combat-resolution, globe/canvas, schema, funds, or deps change.
+  - Verified: `check` ✓ · client `test` **76** (+5) · `test:server` **288/11-skip** · `build` ✓.
+  - **Auditor focus:** confirm no combat-resolution / globe-canvas change; the change is a HUD
+    countdown using server-synced time; resolver/atomicity untouched.
 
 ### ⚖️ OWNER RULE (LOCKED) — ONE ACTIVE PR AT A TIME
 **One active PR → one audit → one baton → one owner decision → then the next PR.** No stacked /
@@ -34,10 +37,11 @@ parallel / chained PRs unless the owner explicitly approves. The **owner merges*
 get **queued here**, not opened. **The 10 `phase/0X-…` branches exist as markers — a phase's PR
 opens only after the prior phase merges.**
 
-### ➡️ NEXT — after this v2.0.0 baseline merges: start Phase 1
-**`phase/01-battle-clock`** — wire `resolveBattles()` into a startup interval + a server-authoritative
-game-clock + `battle_tick` countdown + server-checked cooldowns (fixes the auto-resolve gap +
-client clock drift). Engine/realtime only — no globe/canvas. See `docs/V2_ROADMAP.md` for phases 2–10.
+### ➡️ NEXT — after PR1 merges (still Phase 1, `phase/01-battle-clock`)
+- Apply `serverNow()` to commander/morale/attack **cooldown** availability (same drift class).
+- Make battle/AI/orbital background **cadences env-configurable** ("easy to toggle").
+- Optional `battle_tick` broadcast for sub-1.5s smooth countdowns.
+Then Phase 2 (`phase/02-battle-depth`). See `docs/V2_ROADMAP.md` for phases 2–10 + gates.
 
 ---
 

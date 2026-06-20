@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { serverNow } from "@/lib/serverClock";
 import type { Battle, GameEvent, Player } from "@shared/schema";
 
 interface BattlesPanelProps {
@@ -28,7 +29,9 @@ function BattleCard({
 }) {
   const attacker = players.find((p) => p.id === battle.attackerId);
   const defender = players.find((p) => p.id === battle.defenderId);
-  const now = Date.now();
+  // Server-authoritative now so the countdown is correct even if the device clock
+  // is skewed (battle.resolveTs/startTs are server timestamps). See serverClock.ts.
+  const now = serverNow();
   const elapsed = now - battle.startTs;
   const totalDuration = battle.resolveTs - battle.startTs;
   const progress = Math.min(100, (elapsed / totalDuration) * 100);
