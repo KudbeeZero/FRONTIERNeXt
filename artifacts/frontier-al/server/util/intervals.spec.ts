@@ -41,4 +41,23 @@ describe("clampIntervalMs", () => {
       expect(clampIntervalMs("50", 1000, 250)).toBe(250);
     });
   });
+
+  // Upper-bound hardening (security-pass): a too-large or non-finite value must
+  // not reach setInterval, where Node coerces it to a 1ms hot loop that hammers
+  // the DB — the opposite of the floor's intent.
+  describe("upper bound", () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    it("falls back to the default on a non-finite value (Infinity / '1e999')", () => {
+      // Number("1e999") === Infinity, which is truthy and would pass `|| def`.
+      expect(clampIntervalMs("1e999", 5000, 1000)).toBe(5000);
+    });
+    it("clamps a finite value above the 24h ceiling", () => {
+      // Above Node's TIMEOUT_MAX (~2.1e9); pre-fix this overflowed to a 1ms loop.
+      expect(clampIntervalMs("9999999999", 5000, 1000)).toBe(DAY_MS);
+      expect(clampIntervalMs(String(DAY_MS + 1), 5000, 1000)).toBe(DAY_MS);
+    });
+    it("honors a large-but-sane value at the ceiling", () => {
+      expect(clampIntervalMs(String(DAY_MS), 5000, 1000)).toBe(DAY_MS);
+    });
+  });
 });

@@ -17,8 +17,8 @@
   resolved up to 15s after 0:00 (the last felt lag — countdown UI + PR4 `battle_tick` already crisp).
   Owner chose (AskUserQuestion) to make it env-tunable **and tighten the default to 5s**.
 - **What this unit did (for the auditor):**
-  - `server/util/intervals.ts` (NEW) — pure `clampIntervalMs(raw, def, floor) =
-    Math.max(floor, Number(raw) || def)` (unset/NaN/"0"→def; sub-floor→floor). +6 tests
+  - `server/util/intervals.ts` (NEW) — pure `clampIntervalMs(raw, def, floor)`: floor + 24h ceiling +
+    finite guard (unset/NaN/"0"/Infinity→def; sub-floor→floor; >24h→ceiling). +9 tests
     (`server/util/intervals.spec.ts`).
   - `routes.ts` — battle auto-resolver `}, 15000)` → `BATTLE_RESOLVE_INTERVAL_MS =
     clampIntervalMs(process.env.BATTLE_RESOLVE_INTERVAL_MS, 5000, 1000)` (default **5000**, floor
@@ -28,9 +28,12 @@
     (flagged player-felt). **No** combat-resolution-math/globe-canvas/schema/funds/deps. Resolver is
     idempotent + concurrency-guarded; tests call `resolveBattles()` directly so cadence change moves
     no test/CI timing.
-  - Verified: `check` ✓ · `test:server` **297/11-skip** (+6 `intervals.spec.ts`) · client `test`
+  - Verified: `check` ✓ · `test:server` **300/11-skip** (+9 `intervals.spec.ts`) · client `test`
     **76** · `build` ✓. Manual: unset→5000; `=2000`→2000; `=100`→floored 1000.
-  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`) + `/pr-gate`.
+  - **Gates (owner-requested):** `/code-review` → no findings; `/security-pass` → **PASS, 1 finding
+    fixed+tested** (clamp had no upper bound → `Infinity`/`>TIMEOUT_MAX` → Node 1ms hot loop; added
+    finite-guard + 24h ceiling; `docs/audit/2026-06-20-phase1-resolver-cadence-security-pass.md`);
+    `/pr-gate` after CI green. Owner merges.
 
 ### Prior baton — #74 (Phase-1 PR4: server `battle_tick` broadcast) — MERGED `a0bf661`
 - Gated server `battle_tick` broadcast: `storage.getActiveBattles()` + `wsServer.wsClientCount()` +

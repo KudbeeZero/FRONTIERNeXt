@@ -10,8 +10,9 @@ accepted gameplay/load change).
 
 ## What shipped
 **Server**
-- `server/util/intervals.ts` (NEW) — `clampIntervalMs(raw, def, floor) = Math.max(floor, Number(raw) || def)`.
-  Extracts the inline env-cadence expression PR4 used, so parsing rules are consistent + testable.
+- `server/util/intervals.ts` (NEW) — `clampIntervalMs(raw, def, floor)`: floor + 24h ceiling + finite
+  guard (unset/NaN/"0"/Infinity → def; sub-floor → floor; >24h → ceiling). Extracts the inline
+  env-cadence expression PR4 used, so parsing rules are consistent + testable.
 - `routes.ts` — battle auto-resolver `}, 15000)` → `BATTLE_RESOLVE_INTERVAL_MS =
   clampIntervalMs(process.env.BATTLE_RESOLVE_INTERVAL_MS, 5000, 1000)` (default **5000**, floor **1000**
   to protect Neon). Comment notes the cadence is player-felt.
@@ -30,11 +31,16 @@ schema, funds, or deps change. `BATTLE_DURATION_MS` (how long a battle lasts) is
 from poll cadence.
 
 ## Verification
-`check` ✓ · `test:server` **297 / 11 skipped** (+6 new `server/util/intervals.spec.ts`) · client `test`
+`check` ✓ · `test:server` **300 / 11 skipped** (+9 new `server/util/intervals.spec.ts`) · client `test`
 **76** · `build` ✓. Manual: unset → 5000ms; `BATTLE_RESOLVE_INTERVAL_MS=2000` → 2000ms; `=100` → floored 1000ms.
 
 ## Gates (owner-requested)
-`/code-review` · `/security-pass` (→ `docs/audit/`) · `/pr-gate`. Report READY with verdicts; owner merges.
+- `/code-review` (high) → **no findings** (11-line behavior-preserving change; helper edge cases tested).
+- `/security-pass` → **PASS, 1 finding fixed+tested**: the new `clampIntervalMs` bounded only the low
+  end; a non-finite (`Number("1e999")===Infinity`) or `>TIMEOUT_MAX` value is coerced by Node timers to
+  a **1ms hot loop** vs Neon (self-DoS). Added a finite-guard + 24h ceiling + 3 tests
+  (`describe("upper bound")`). Report: `docs/audit/2026-06-20-phase1-resolver-cadence-security-pass.md`.
+- `/pr-gate` → run after CI is green on the head commit. Report READY; owner merges.
 
 ## Follow-ups (next)
 Phase 1 battle-clock is complete. Next: Phase 2 battle-depth (`phase/02-battle-depth`) — replay log / stats.
