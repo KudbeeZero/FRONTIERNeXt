@@ -22,6 +22,7 @@ const adviceLimiter = rateLimit({
   message: { error: "Too many advice requests — try again shortly." },
 });
 import { broadcastGameState, broadcastRaw, markDirty, wsClientCount } from "./wsServer";
+import { clampIntervalMs } from "./util/intervals";
 import * as weaponService from "./weapons/service";
 import { engagementStore } from "./weapons/engagementStore";
 import { mintWeaponNft, attemptWeaponDelivery } from "./services/chain/weapon";
@@ -2898,7 +2899,11 @@ export async function registerRoutes(
     res.json({ serverTime: Date.now() });
   });
 
-  // Staggered background tasks — avoids hammering Neon with simultaneous queries
+  // Staggered background tasks — avoids hammering Neon with simultaneous queries.
+  // Battle auto-resolver cadence is player-felt: a battle resolves up to one
+  // interval after its countdown hits 0:00. Env-tunable (`BATTLE_RESOLVE_INTERVAL_MS`,
+  // default 5000ms, floored at 1000ms to protect the DB).
+  const BATTLE_RESOLVE_INTERVAL_MS = clampIntervalMs(process.env.BATTLE_RESOLVE_INTERVAL_MS, 5000, 1000);
   setInterval(async () => {
     try {
       const resolved = await withDbRetry(() => storage.resolveBattles(), "resolveBattles");
@@ -2963,7 +2968,7 @@ export async function registerRoutes(
     } catch (error) {
       console.warn("Background task (battles):", error instanceof Error ? error.message : error);
     }
-  }, 15000);
+  }, BATTLE_RESOLVE_INTERVAL_MS);
 
   setInterval(async () => {
     try {
@@ -2995,7 +3000,7 @@ export async function registerRoutes(
   // DB query — when no clients are connected or no battles are active. Cadence is
   // env-tunable (`BATTLE_TICK_INTERVAL_MS`, default 1000ms, floored at 250ms).
   // Best-effort: never throws on the interval.
-  const BATTLE_TICK_INTERVAL_MS = Math.max(250, Number(process.env.BATTLE_TICK_INTERVAL_MS) || 1000);
+  const BATTLE_TICK_INTERVAL_MS = clampIntervalMs(process.env.BATTLE_TICK_INTERVAL_MS, 1000, 250);
   setInterval(async () => {
     try {
       if (wsClientCount() === 0) return;

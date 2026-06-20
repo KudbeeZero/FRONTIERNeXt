@@ -44,6 +44,7 @@ Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical 
 | `PURCHASE_INTENT_TIMEOUT_MS` (`604800000`) | Age after which a still-pending `purchase_intent` is auto-flipped to `timeout` (off-chain telemetry only; floor 60s; default 7d — generous because `inventory_syncing` can wait on a buyer NFT opt-in). |
 | `PURCHASE_INTENT_REAP_INTERVAL_MS` (`3600000`) | How often the stale-purchase-intent reaper runs (best-effort, `unref`'d; floor 60s). |
 | `BATTLE_TICK_INTERVAL_MS` (`1000`) | Cadence of the `battle_tick` WS broadcast (active-battle set; gated on clients+active battles; floor 250ms). |
+| `BATTLE_RESOLVE_INTERVAL_MS` (`5000`) | How often the battle auto-resolver polls for due battles. Player-felt: a battle resolves up to one interval after 0:00. Lower = snappier but more DB queries; floor 1000ms. |
 | `ADVICE_RATE_LIMIT` (`30`) | Per-IP/min on the LLM terraform-advice endpoint. |
 | `WS_MAX_CONN_PER_IP` (`25`) | Max WebSocket connections per IP (per-instance; `0` = off). |
 | `WS_MAX_CONN` (`0`) | Global WebSocket connection cap (`0` = unlimited). |

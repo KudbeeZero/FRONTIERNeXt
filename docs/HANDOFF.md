@@ -9,25 +9,34 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-1 PR4: server `battle_tick` broadcast, AWAITING_AUDIT)
-- **Main:** green at **`e88cdc6`** (Merge #73; CommanderPanel drift). Branch
-  **`phase/01-battle-tick`** carries Phase-1 PR4. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
+## Current baton — ONE OPEN PR (Phase-1 PR5: resolver cadence env-config + 5s default, AWAITING_AUDIT)
+- **Main:** green at **`a0bf661`** (Merge #74; `battle_tick`). Branch
+  **`phase/01-resolver-cadence`** carries Phase-1 PR5. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
   auto-merge** — owner merges.
-- **NOTE (carried honesty):** the countdown was already smooth (1s local ticker, drift-corrected);
-  owner was told and chose to build `battle_tick` for the server-authoritative active-battle set.
-- **What this unit did (for the auditor):** a gated server `battle_tick` broadcast.
-  - Server: new `storage.getActiveBattles()` (pending + `resolveTs` future) on interface/db(`gt`)/mem;
-    `wsServer.wsClientCount()`; a `routes.ts` `setInterval(BATTLE_TICK_INTERVAL_MS)` that **returns
-    early when no clients or no active battles** (no DB query/broadcast), else
-    `broadcastRaw({type:"battle_tick", serverTime, battles:[{id,resolveTs}]})`. Never throws.
-  - Client: `useGameSocket` `battle_tick` handler (→ `setServerTime` + battle-tick bus +
-    `useBattleTick()`); `BattlesPanel` drops a pending battle whose countdown **elapsed** and the
-    server no longer lists active (future battles always show — no tick-race hiding).
-  - Env `BATTLE_TICK_INTERVAL_MS` (default 1000, floor 250) documented in `ENV_VARS.md` +
-    `DEPLOYMENT_ENV_CHECKLIST.md`. **No** combat-resolution/globe-canvas/schema-migration/funds/deps.
-  - Verified: `check` ✓ · `test:server` **291/11-skip** (+3 `active-battles.spec.ts`) · client `test`
-    **76** · `build` ✓.
+- **NOTE (owner decision):** the battle auto-resolver polled on a hardcoded `15000`ms, so a battle
+  resolved up to 15s after 0:00 (the last felt lag — countdown UI + PR4 `battle_tick` already crisp).
+  Owner chose (AskUserQuestion) to make it env-tunable **and tighten the default to 5s**.
+- **What this unit did (for the auditor):**
+  - `server/util/intervals.ts` (NEW) — pure `clampIntervalMs(raw, def, floor) =
+    Math.max(floor, Number(raw) || def)` (unset/NaN/"0"→def; sub-floor→floor). +6 tests
+    (`server/util/intervals.spec.ts`).
+  - `routes.ts` — battle auto-resolver `}, 15000)` → `BATTLE_RESOLVE_INTERVAL_MS =
+    clampIntervalMs(process.env.BATTLE_RESOLVE_INTERVAL_MS, 5000, 1000)` (default **5000**, floor
+    **1000**). Retrofit PR4's `BATTLE_TICK_INTERVAL_MS` inline `Math.max(250,…)` to the same helper
+    (DRY; default 1000/floor 250 unchanged).
+  - Env `BATTLE_RESOLVE_INTERVAL_MS` documented in `ENV_VARS.md` + `DEPLOYMENT_ENV_CHECKLIST.md`
+    (flagged player-felt). **No** combat-resolution-math/globe-canvas/schema/funds/deps. Resolver is
+    idempotent + concurrency-guarded; tests call `resolveBattles()` directly so cadence change moves
+    no test/CI timing.
+  - Verified: `check` ✓ · `test:server` **297/11-skip** (+6 `intervals.spec.ts`) · client `test`
+    **76** · `build` ✓. Manual: unset→5000; `=2000`→2000; `=100`→floored 1000.
   - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`) + `/pr-gate`.
+
+### Prior baton — #74 (Phase-1 PR4: server `battle_tick` broadcast) — MERGED `a0bf661`
+- Gated server `battle_tick` broadcast: `storage.getActiveBattles()` + `wsServer.wsClientCount()` +
+  a `routes.ts` interval that returns early when no clients/active battles, else broadcasts the
+  active-battle set; client `useBattleTick()` drops elapsed-and-no-longer-active battles. Env
+  `BATTLE_TICK_INTERVAL_MS` (1000/floor 250). Through `/code-review` + `/security-pass` + `/pr-gate`. CI green.
 
 ### Prior baton — #73 (Phase-1 PR3: CommanderPanel cooldown/lock drift) — MERGED `e88cdc6`
 - All 9 `Date.now()` in `CommanderPanel.tsx` → `serverNow()` (satellite/drone/lock/cooldown timers).
@@ -48,12 +57,12 @@ parallel / chained PRs unless the owner explicitly approves. The **owner merges*
 get **queued here**, not opened. **The 10 `phase/0X-…` branches exist as markers — a phase's PR
 opens only after the prior phase merges.**
 
-### ➡️ NEXT — after PR2 merges (still Phase 1)
-- **CommanderPanel drift** (`CommanderPanel.tsx:221,553,569,570` + drone/satellite "elapsed since")
-  → `serverNow()`, its own focused PR.
-- Make battle/AI/orbital background **cadences env-configurable** ("easy to toggle").
-- Optional `battle_tick` broadcast for sub-1.5s smooth countdowns.
-Then Phase 2 (`phase/02-battle-depth`). See `docs/V2_ROADMAP.md` for phases 2–10 + gates.
+### ➡️ NEXT — Phase 1 battle-clock is COMPLETE (after PR5 merges)
+Phase-1 battle-clock units all shipped: server clock (#71), HUD badges (#72), CommanderPanel drift
+(#73), `battle_tick` (#74), resolver cadence (PR5). Resolver cadence is now env-tunable + 5s default;
+the AI(20s)/orbital(5min) cadences remain hardcoded (env-tunable would be a trivial follow-up if wanted,
+reusing `clampIntervalMs`). **Next phase: Phase 2 (`phase/02-battle-depth`)** — replay log / battle
+stats. See `docs/V2_ROADMAP.md` for phases 2–10 + gates.
 
 ---
 
