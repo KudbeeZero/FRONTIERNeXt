@@ -7,7 +7,7 @@
   "scripts": {
     "test": "vitest run",
     "test:server": "vitest run --config vitest.server.config.ts",
-    "test:server:db": "vitest run --config vitest.server.config.ts server/storage/lootbox.db.spec.ts",
+    "test:server:db": "vitest run --config vitest.server.config.ts server/storage/lootbox.db.spec.ts server/services/chain/chainEventStore.db.spec.ts",
     "coverage:server": "vitest run --config vitest.server.config.ts --coverage",
     "coverage:server:full": "vitest run --config vitest.server.config.ts --coverage --coverage.include='server/**' --coverage.include='shared/**' --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0",
     "sim": "tsx server/engine/battle/sim.ts",

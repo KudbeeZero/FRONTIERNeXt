@@ -7,6 +7,10 @@ import { initSeasonManager } from "./engine/season/manager";
 import { hydrateWorldEventsFromRedis } from "./worldEventStore";
 import { warmUpDb, logPoolStats } from "./db";
 import { assertChainConfig } from "./services/chain/client";
+import {
+  timeoutStalePurchaseIntents,
+  PURCHASE_INTENT_REAP_INTERVAL_MS,
+} from "./services/chain/chainEventStore";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
@@ -251,6 +255,16 @@ app.use((req, res, next) => {
       .catch(() => {});
   }, ACTION_NONCE_PRUNE_INTERVAL_MS);
   _actionNoncePruneInterval.unref();
+  // Periodically time out abandoned purchase_intents (pending past the TTL) so the
+  // admin funnel reflects reality. Off-chain telemetry only — never touches funds.
+  // Best-effort and `unref`'d like the action_nonce reaper above: it never holds
+  // the process open, never throws on the interval, and no-ops without a DB.
+  const _purchaseIntentReapInterval = setInterval(() => {
+    timeoutStalePurchaseIntents()
+      .then((n) => { if (n > 0) console.log(`[purchase_intents] timed out ${n} stale intent(s)`); })
+      .catch(() => {});
+  }, PURCHASE_INTENT_REAP_INTERVAL_MS);
+  _purchaseIntentReapInterval.unref();
   // Start season lifecycle manager (auto-expiry + countdown broadcasts)
   initSeasonManager(storage);
   console.log("[startup] Season manager initialised ✓");
