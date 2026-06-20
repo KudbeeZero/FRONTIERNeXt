@@ -67,6 +67,7 @@ import {
 } from "@shared/schema";
 import type { FacilityType, DefenseImprovementType, ImprovementType } from "@shared/schema";
 import { resolveBattle, resolveBattleFromPowers } from "../engine/battle/resolve.js";
+import { buildReplayLog } from "../engine/battle/replayLog.js";
 import { hashSeed } from "../engine/battle/random.js";
 import { CRYSTAL_POWER_FACTOR } from "../engine/battle/tuning.js";
 import type {
@@ -2018,6 +2019,9 @@ export class DbStorage implements IStorage {
         } catch { /* non-blocking */ }
 
         // ── Save replay to Redis (fire-and-forget, 24-hour TTL) ──────────
+        const pillagedIron    = attackerWins ? Math.floor(targetRow.ironStored    * PILLAGE_RATE) : 0;
+        const pillagedFuel    = attackerWins ? Math.floor(targetRow.fuelStored    * PILLAGE_RATE) : 0;
+        const pillagedCrystal = attackerWins ? Math.floor(targetRow.crystalStored * PILLAGE_RATE) : 0;
         const replayRecord: BattleReplayRecord = {
           battleId:       battleRow.id,
           attackerName:   attackerRow.name,
@@ -2030,17 +2034,32 @@ export class DbStorage implements IStorage {
           outcome:        outcome as "attacker_wins" | "defender_wins",
           plotId:         targetRow.plotId,
           biome:          targetRow.biome,
-          pillagedIron:   attackerWins ? Math.floor(targetRow.ironStored    * PILLAGE_RATE) : 0,
-          pillagedFuel:   attackerWins ? Math.floor(targetRow.fuelStored    * PILLAGE_RATE) : 0,
-          pillagedCrystal: attackerWins ? Math.floor(targetRow.crystalStored * PILLAGE_RATE) : 0,
+          pillagedIron,
+          pillagedFuel,
+          pillagedCrystal,
           resolvedAt:     now,
-          log: [
-            { phase: "power_calc", message: `Attacker power: ${battleResult.attackerPower.toFixed(2)} vs Defender power: ${battleResult.defenderPower.toFixed(2)}` },
-            { phase: "resolution", message: `Rand factor: ${randFactor > 0 ? "+" : ""}${randFactor}% — Outcome: ${outcome}` },
-            attackerWins
-              ? { phase: "resolution", message: `${attackerRow.name} conquered plot #${targetRow.plotId}. Pillaged ${Math.floor(targetRow.ironStored * PILLAGE_RATE)} iron, ${Math.floor(targetRow.fuelStored * PILLAGE_RATE)} fuel.` }
-              : { phase: "resolution", message: `Defense held at plot #${targetRow.plotId}. ${attackerRow.name}'s attack was repelled.` },
-          ],
+          // Deterministic, structured replay: attacker composition + defender/terrain
+          // + the engine's resolution entries (battleResult.log) + aftermath. See
+          // engine/battle/replayLog.ts. Built from persisted data only (no schema change).
+          log: buildReplayLog({
+            attackerName:          attackerRow.name,
+            troopsCommitted:       battleRow.troopsCommitted,
+            ironBurned:            battleRow.resourcesBurned.iron,
+            fuelBurned:            battleRow.resourcesBurned.fuel,
+            crystalBurned:         battleRow.crystalBurned,
+            hasCommander:          !!battleRow.commanderId,
+            attackerPowerSnapshot: battleRow.attackerPower,
+            defenderPower:         battleRow.defenderPower,
+            defenseLevel:          targetRow.defenseLevel,
+            biome:                 targetRow.biome,
+            improvements:          (targetRow.improvements ?? []) as { type: string; level: number }[],
+            plotId:                targetRow.plotId,
+            attackerWins,
+            pillagedIron,
+            pillagedFuel,
+            pillagedCrystal,
+            resolutionLog:         battleResult.log,
+          }),
         };
         saveBattleReplay(replayRecord).catch(() => {});
 
