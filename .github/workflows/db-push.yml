@@ -1,0 +1,68 @@
+name: DB Push (migrate schema)
+
+# Manual, one-tap push of the FRONTIER-AL Drizzle schema to a Postgres database.
+# Trigger from the GitHub UI / mobile app: Actions -> "DB Push (migrate schema)"
+# -> Run workflow. No local machine / flyctl / drizzle-kit needed.
+#
+# WHAT IT DOES: runs `drizzle-kit push` (artifacts/frontier-al `db:push`) which
+# creates/updates all tables defined in server/db-schema.ts on the target DB.
+# After the schema exists, the app auto-seeds the world (21,000 plots + the 4 AI
+# factions) on the first GET /api/game/state — no manual seed step is required.
+#
+# REQUIRES a repo secret DATABASE_URL = the SAME Postgres connection string set
+# as the Fly secret on `frontiernext` (e.g. postgres://...?sslmode=require).
+# NOTE: the runner must be able to REACH that database over the public internet
+# (works for Neon / Supabase / any public Postgres; a Fly-internal-only address
+# such as *.flycast / *.internal is NOT reachable from GitHub Actions).
+#
+# Kept manual (workflow_dispatch) on purpose — nothing touches the DB until you
+# tap it. `drizzle-kit push` is idempotent: re-running on an up-to-date schema is
+# a no-op, and a first run on an empty DB only CREATEs tables (no data loss).
+
+on:
+  workflow_dispatch: {}
+
+# Never let two schema pushes overlap.
+concurrency:
+  group: db-push
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  db-push:
+    name: drizzle-kit push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify DATABASE_URL is configured
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL repo secret is not set. Add it under Settings -> Secrets and variables -> Actions (use the same connection string as the Fly secret on frontiernext)."
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Full install (drizzle-kit is a devDependency, so --prod would omit it).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Push schema (drizzle-kit push)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm --filter @workspace/frontier-al run db:push
