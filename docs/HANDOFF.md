@@ -9,30 +9,44 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — Living Map PR1 (live world-event telemetry boxes on the globe, AWAITING_AUDIT)
-- **Main:** green at **`34555b8`** (Merge #77; battle-stats). Branch **`feat/living-map-events`**.
-  **Do NOT auto-merge** — owner merges.
-- **⚠️ MULTIPLE PRs OPEN (owner-directed, parallel):** **#78** (Strategic Depth design doc), **#79**
-  (Comm Terminal), + this Living Map PR. Owner has been directing work in parallel; recommend merging
-  #78/#79 to keep the stack sane.
-- **NOTE:** owner wants the map to feel **alive** (boxes popping up, arrows, telemetry). The globe already
-  renders live **arcs** (battle_started/weapon), **mining pulses**, **orbital zones**, **satellites** —
-  but live `battle_resolved` + `land_claimed` (which carry coords) had **no on-map visual** (ActivityFeed
-  text only). This unit adds them.
-- **What this unit did (for the auditor):**
-  - `client/src/lib/globe/liveEventDisplay.ts` (NEW) — pure `liveEventDisplay(event) → {label,color,kind}|null`
-    (battle_resolved → VICTORY/DEFENSE HELD; land_claimed → CLAIMED; else null). +7 tests
-    (`client/tests/liveEventDisplay.spec.ts`).
-  - `client/.../globe/GlobeLiveEvents.tsx` (NEW) — R3F layer (mounted in `PlanetGlobe` Scene beside
-    `LiveWeaponLayer`) that self-subscribes to `onWorldEvent` and pops a transient `<Html>` "◉ LIVE" box at
-    the event lat/lng (TTL 6s, cap 8, dedup by id, cleanup on unmount). Mirrors `GlobeEventOverlays` `<Html>`.
-  - **Additive; no server/schema/funds change; real broadcast events only (no mock data).** Globe/canvas
-    HARD RULE: scoped + audited; `VITE_TEST_GLOBE` untouched.
-  - Verified: `check` ✓ · client `test` **83** (+7) · `test:server` **318** (unchanged) · `build` ✓.
-    **Visual NOT browser-verified here** (no display; R3F components aren't SSR-testable — pure lib helper
-    is). **Owner verifies the actual look from their computer.**
-  - **Gates:** `/code-review` (clean) + `/security-pass` (PASS — read-only display of already-public events;
-    `docs/audit/2026-06-20-living-map-events-security-pass.md`) + `/pr-gate`. Owner merges.
+## Current baton — NO OPEN PR · main `e459d2f` · whole session merged
+- **Main:** green at **`e459d2f`** (Merge #82). **No open PRs.** Shipped + merged this session: #71–#75
+  (Phase-1 battle clock), #76 (replay log), #77 (battle-stats endpoint), #78 (Strategic Depth design doc),
+  #79 (Comm Terminal), #80 (living-map telemetry boxes), #81 (one-tap Fly deploy workflow), #82 (Fly
+  launch files). App version **2.0.0**.
+
+### ⚙️ DEPLOY STATE (Fly.io) — action is on the OWNER
+- Backend = Fly app **`frontiernext`** (→ `frontiernext.fly.dev`). On main: `fly.toml` (port 5000,
+  `/health`), `Dockerfile` (monorepo build), one-tap **"Deploy to Fly"** GH Action (needs repo secret
+  `FLY_API_TOKEN`). Frontend = Cloudflare Pages → `api.frontierprotocol.app` / WS `frontierprotocol.app`.
+- **BLOCKER — crash loop until Fly secrets set** (server throws on boot: `db.ts:5` + `assertChainConfig`):
+  `DATABASE_URL`, `SESSION_SECRET`, `PUBLIC_BASE_URL`, `ALGORAND_ADMIN_MNEMONIC`, `ALGORAND_ADMIN_ADDRESS`
+  (`ALGORAND_NETWORK` already in `fly.toml`). Needs a real Postgres + `pnpm db:push` migrations. See
+  `docs/DEPLOY_FLY.md`.
+- ⚠️ **`growverse-api.fly.dev` is a DIFFERENT app** (GROWv2 / cannabis game), NOT this repo — set
+  FRONTIER's secrets on **`frontiernext`**, not growverse.
+- ⚠️ **Verify DNS routing:** `api.frontierprotocol.app` must point to **`frontiernext.fly.dev`** (FRONTIER),
+  NOT `growverse-api.fly.dev`. Probed 2026-06-20: `frontiernext.fly.dev` = **no response (down)**;
+  `growverse-api.fly.dev` = 200 (GROWv2); `api.frontierprotocol.app` = Cloudflare challenge (origin hidden).
+  Frontend `frontieralgo` Pages env: `VITE_API_URL=https://api.frontierprotocol.app`,
+  `VITE_WS_URL=https://frontierprotocol.app` (apex — deploy doc expects `wss://api.frontierprotocol.app`; recheck).
+
+### 🔑 TESTNET WALLETS (generated this session — TESTNET ONLY; rotate before mainnet)
+Admin + 4 faction (NEXUS-7/KRONOS/VANGUARD/SPECTRE) Algorand testnet accounts were generated and handed to
+the owner **in chat** (NOT committed). Admin → `ALGORAND_ADMIN_MNEMONIC` + `ALGORAND_ADMIN_ADDRESS` Fly
+secrets. Faction mnemonics held by owner; **code still uses single-admin custody** until the gated wiring unit.
+
+### ➡️ NEXT UNITS (queued; one PR each, owner-paced)
+1. **Faction-wallet wiring (GATED)** — 4 faction mnemonics → per-faction custody/settlement in the chain
+   service. Funds → `/security-pass` + `/mainnet-gate` + `algo-auditor`, testnet-first. (SD-E / WS-E.)
+2. **SD-A1** — wire `data_centre`'s dead `yieldMultiplier` into mining (first Strategic Depth code unit;
+   `docs/design/strategic-depth-program-design.md`).
+3. **Phase-2 leftovers** — client wire-up of `/api/players/:id/battle-stats`; commander stats/leaderboard;
+   veritas battle-verify; Postgres-persist the replay log (>24h).
+
+### Prior baton — #80 (living-map telemetry boxes) — MERGED `e7da9e1`
+- `GlobeLiveEvents` R3F layer + pure `liveEventDisplay` (+7 tests): live `battle_resolved`/`land_claimed`
+  pop `<Html>` boxes on the globe. `/code-review` clean + `/security-pass` PASS + `/pr-gate` GO. CI green.
 
 ### Prior baton — ONE OPEN PR (Phase-2 PR2: player battle-stats aggregator + endpoint, AWAITING_AUDIT)
 - **Main:** green at **`3ce61cd`** (Merge #76; replay log). Branch **`phase/02-battle-stats`** carries
