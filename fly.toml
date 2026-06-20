@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for frontiernext on 2026-06-20T17:41:25Z
+# fly.toml app configuration file generated for frontiernext on 2026-06-20T19:34:40Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -17,10 +17,11 @@ primary_region = 'ord'
 [http_service]
   internal_port = 5000
   force_https = true
-  auto_stop_machines = 'off'
+  auto_stop_machines = false
   auto_start_machines = false
   min_machines_running = 1
   processes = ['app']
+  checks = [{ grace_period = '20s', interval = '15s', method = 'GET', path = '/health', timeout = '2s' }]
 
   [[http_service.checks]]
     interval = '15s'
@@ -32,3 +33,11 @@ primary_region = 'ord'
 [[vm]]
   size = 'shared-cpu-1x'
   memory = '1gb'
+
+[[vm]]
+  size = 'shared-cpu-2x'
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 2
+  memory_mb = 1024
+  processes = ['app']
