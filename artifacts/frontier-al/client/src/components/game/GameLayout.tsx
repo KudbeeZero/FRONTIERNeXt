@@ -3,6 +3,7 @@ import { TopBar } from "./TopBar";
 import PlanetGlobe from "./PlanetGlobe";
 import type { LivePulse } from "@/components/game/PlanetGlobe";
 import { BattleWatchModal } from "./BattleWatchModal";
+import { CommTerminal } from "./CommTerminal";
 import { type NavTab } from "./BottomNav";
 import { HudShell } from "./hud/HudShell";
 import { LandSheet } from "./LandSheet";
@@ -1227,6 +1228,9 @@ export function GameLayout() {
             : null
         }
       />
+
+      {/* Comm Terminal — purchasable whisper widget; self-hides for non-owners */}
+      <CommTerminal playerId={player?.id} />
 
       {/* Stream overlay — rendered only when ?stream=1 is in the URL */}
       {streamMode && (

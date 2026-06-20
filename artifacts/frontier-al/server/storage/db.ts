@@ -69,6 +69,7 @@ import type { FacilityType, DefenseImprovementType, ImprovementType } from "@sha
 import { resolveBattle, resolveBattleFromPowers } from "../engine/battle/resolve.js";
 import { buildReplayLog } from "../engine/battle/replayLog.js";
 import { hashSeed } from "../engine/battle/random.js";
+import { commTerminalLevel } from "../engine/narrative/whispers.js";
 import { CRYSTAL_POWER_FACTOR } from "../engine/battle/tuning.js";
 import type {
   BattleInput as EngineBattleInput,
@@ -670,6 +671,16 @@ export class DbStorage implements IStorage {
         or(eq(battlesTable.attackerId, playerId), eq(battlesTable.defenderId, playerId)),
       ));
     return rows.map(rowToBattle);
+  }
+
+  /** Comm Terminal ownership + max level across the player's plots (gates the whisper feed). */
+  async getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }> {
+    await this.initialize();
+    const rows = await this.db
+      .select({ ownerId: parcelsTable.ownerId, improvements: parcelsTable.improvements })
+      .from(parcelsTable)
+      .where(eq(parcelsTable.ownerId, playerId));
+    return commTerminalLevel(rows as any, playerId);
   }
 
   async getLeaderboard(): Promise<LeaderboardEntry[]> {

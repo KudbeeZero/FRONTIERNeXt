@@ -57,6 +57,8 @@ import {
 } from "./services/chain/factions";
 import { fromMicroASCEND } from "./storage/game-rules";
 import { computePlayerBattleStats } from "./storage/battle-stats";
+import { generateWhisper } from "./engine/narrative/whispers";
+import { synthesizeWhisper, isVoiceConfigured } from "./services/voice/elevenlabs";
 import {
   ECONOMY_MODE,
   LAND_DAILY_ASCEND_RATE,
@@ -3757,6 +3759,47 @@ export async function registerRoutes(
       res.json(computePlayerBattleStats(battles, playerId));
     } catch (err) {
       console.error("[players/battle-stats]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /** GET /api/comm-terminal/whispers — the owning player's current ambient whisper.
+   *  Gated on owning a `comm_terminal` facility (the purchasable widget). Pure
+   *  atmosphere: deterministic per (player, ~45s window); higher terminal level
+   *  tunes in clearer transmissions. Optional ElevenLabs voice (text-only if no key). */
+  app.get("/api/comm-terminal/whispers", async (req, res) => {
+    try {
+      const playerId = String(req.query.playerId ?? "");
+      if (!playerId) return res.status(400).json({ error: "playerId required" });
+
+      const term = await withDbRetry(() => storage.getPlayerCommTerminal(playerId), "getPlayerCommTerminal");
+      if (!term.owned) {
+        return res.json({ unlocked: false, level: 0, voiceConfigured: isVoiceConfigured(), whisper: null });
+      }
+
+      const whisper = generateWhisper(playerId, Date.now(), { level: term.level });
+
+      // The whisper is stable within its ~45s window. If the client already has it
+      // (passes `since`=last id), return nothing new — avoids resending the audio and
+      // re-spending ElevenLabs credits on every poll. Voice is synthesized at most
+      // once per window per player (only when the whisper actually changes).
+      const since = String(req.query.since ?? "");
+      if (since && since === whisper.id) {
+        return res.json({ unlocked: true, level: term.level, voiceConfigured: isVoiceConfigured(), whisper: null });
+      }
+
+      const clip = await synthesizeWhisper(whisper.text);
+      res.json({
+        unlocked: true,
+        level: term.level,
+        voiceConfigured: isVoiceConfigured(),
+        whisper: {
+          ...whisper,
+          audioUrl: clip ? `data:${clip.mime};base64,${clip.audioBase64}` : null,
+        },
+      });
+    } catch (err) {
+      console.error("[comm-terminal/whispers]", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });

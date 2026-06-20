@@ -90,6 +90,8 @@ export interface IStorage {
   getActiveBattles(): Promise<Battle[]>;
   /** Resolved battles where the player was attacker or defender — for battle-stats aggregation. */
   getPlayerBattles(playerId: string): Promise<Battle[]>;
+  /** Whether the player owns a Comm Terminal facility and its max level — gates the whisper feed. */
+  getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }>;
   runAITurn(): Promise<GameEvent[]>;
 
   // ── Orbital Event Engine ──────────────────────────────────────────────────
