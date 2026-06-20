@@ -9,31 +9,40 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-1 PR5: resolver cadence env-config + 5s default, AWAITING_AUDIT)
-- **Main:** green at **`a0bf661`** (Merge #74; `battle_tick`). Branch
-  **`phase/01-resolver-cadence`** carries Phase-1 PR5. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
+## Current baton — ONE OPEN PR (Phase-2 PR1: deterministic battle replay log, AWAITING_AUDIT)
+- **Main:** green at **`604c74d`** (Merge #75; resolver cadence). Branch
+  **`phase/02-battle-depth`** carries Phase-2 PR1. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT
   auto-merge** — owner merges.
-- **NOTE (owner decision):** the battle auto-resolver polled on a hardcoded `15000`ms, so a battle
-  resolved up to 15s after 0:00 (the last felt lag — countdown UI + PR4 `battle_tick` already crisp).
-  Owner chose (AskUserQuestion) to make it env-tunable **and tighten the default to 5s**.
+- **NOTE (Phase 2 started):** owner chose to begin **Phase 2 — battle depth** (`V2_ROADMAP.md:37`)
+  after #75 merged. Phase 2 is heavily scaffolded already (Redis replay record, `/api/battle/replay/:id`,
+  `BattleWatchModal`, `/api/battles/history`, `LeaderboardPanel`, `pages/battles.tsx`). AskUserQuestion
+  picked the **replay-log** gap as the first unit.
 - **What this unit did (for the auditor):**
-  - `server/util/intervals.ts` (NEW) — pure `clampIntervalMs(raw, def, floor)`: floor + 24h ceiling +
-    finite guard (unset/NaN/"0"/Infinity→def; sub-floor→floor; >24h→ceiling). +9 tests
-    (`server/util/intervals.spec.ts`).
-  - `routes.ts` — battle auto-resolver `}, 15000)` → `BATTLE_RESOLVE_INTERVAL_MS =
-    clampIntervalMs(process.env.BATTLE_RESOLVE_INTERVAL_MS, 5000, 1000)` (default **5000**, floor
-    **1000**). Retrofit PR4's `BATTLE_TICK_INTERVAL_MS` inline `Math.max(250,…)` to the same helper
-    (DRY; default 1000/floor 250 unchanged).
-  - Env `BATTLE_RESOLVE_INTERVAL_MS` documented in `ENV_VARS.md` + `DEPLOYMENT_ENV_CHECKLIST.md`
-    (flagged player-felt). **No** combat-resolution-math/globe-canvas/schema/funds/deps. Resolver is
-    idempotent + concurrency-guarded; tests call `resolveBattles()` directly so cadence change moves
-    no test/CI timing.
-  - Verified: `check` ✓ · `test:server` **300/11-skip** (+9 `intervals.spec.ts`) · client `test`
-    **76** · `build` ✓. Manual: unset→5000; `=2000`→2000; `=100`→floored 1000.
-  - **Gates (owner-requested):** `/code-review` → no findings; `/security-pass` → **PASS, 1 finding
-    fixed+tested** (clamp had no upper bound → `Infinity`/`>TIMEOUT_MAX` → Node 1ms hot loop; added
-    finite-guard + 24h ceiling; `docs/audit/2026-06-20-phase1-resolver-cadence-security-pass.md`);
-    `/pr-gate` after CI green. Owner merges.
+  - **The gap:** the main resolver (`storage/db.ts`) hand-wrote a coarse **3-line** replay log and
+    discarded the engine's structured log; the sub-parcel path already persisted the full engine log.
+  - `server/engine/battle/replayLog.ts` (NEW) — pure `buildReplayLog(input): BattleLogEntry[]`:
+    `power_calc` (attacker committed troops/iron/fuel[/crystal][+commander] → snapshot power) +
+    `terrain` (biome, defense L, fortifications → defender power) + the engine's
+    `resolveBattleFromPowers` resolution entries spread verbatim + aftermath (conquest+pillage / repelled).
+    Pure (no DB/net/rng); messages carry only names/plotId/biome/powers — never addresses/UUIDs. +9 tests
+    (`server/engine/battle/replayLog.spec.ts`, incl. a no-address/UUID-leak assertion).
+  - `storage/db.ts` — resolve site builds the replay record `log` via `buildReplayLog(...)` from
+    `battleRow`/`targetRow`/`battleResult`; pillage hoisted to consts (reused by record + helper).
+  - **No schema / client / canvas / funds / math change.** Additive to a fire-and-forget Redis record;
+    `BattleWatchModal.tsx:368` already renders `replay.log` → zero client change. MemStorage writes no
+    replay → unaffected. Sub-parcel path untouched.
+  - Verified: `check` ✓ · `test:server` **309/11-skip** (+9 `replayLog.spec.ts`) · client `test`
+    **76** · `build` ✓. Manual (server+PG+Redis, not run here): resolve a battle → BattleWatchModal
+    "Battle Analysis" shows the deep breakdown.
+  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`; replay log is
+    client-served, check no address/secret leak) + `/pr-gate`. Owner merges.
+
+### Prior baton — #75 (Phase-1 PR5: resolver cadence env-config + 5s default) — MERGED `604c74d`
+- Battle auto-resolver `15000` → `BATTLE_RESOLVE_INTERVAL_MS` (default 5000, floor 1000) via new pure
+  `server/util/intervals.ts` `clampIntervalMs` (floor + 24h ceiling + finite guard); retrofit PR4's
+  `BATTLE_TICK_INTERVAL_MS` to the same helper. `/code-review` (no findings) + `/security-pass` (PASS,
+  1 upper-bound fail-open fixed+tested — `docs/audit/2026-06-20-phase1-resolver-cadence-security-pass.md`)
+  + `/pr-gate` (GO). CI green on head. **Phase 1 (battle clock) COMPLETE.**
 
 ### Prior baton — #74 (Phase-1 PR4: server `battle_tick` broadcast) — MERGED `a0bf661`
 - Gated server `battle_tick` broadcast: `storage.getActiveBattles()` + `wsServer.wsClientCount()` +
@@ -60,12 +69,13 @@ parallel / chained PRs unless the owner explicitly approves. The **owner merges*
 get **queued here**, not opened. **The 10 `phase/0X-…` branches exist as markers — a phase's PR
 opens only after the prior phase merges.**
 
-### ➡️ NEXT — Phase 1 battle-clock is COMPLETE (after PR5 merges)
-Phase-1 battle-clock units all shipped: server clock (#71), HUD badges (#72), CommanderPanel drift
-(#73), `battle_tick` (#74), resolver cadence (PR5). Resolver cadence is now env-tunable + 5s default;
-the AI(20s)/orbital(5min) cadences remain hardcoded (env-tunable would be a trivial follow-up if wanted,
-reusing `clampIntervalMs`). **Next phase: Phase 2 (`phase/02-battle-depth`)** — replay log / battle
-stats. See `docs/V2_ROADMAP.md` for phases 2–10 + gates.
+### ➡️ NEXT — Phase 2 (battle depth) IN PROGRESS on `phase/02-battle-depth`
+Phase 1 (battle clock) COMPLETE (#71–#75). Phase 2 first unit = deterministic replay log (this open
+PR). **Remaining Phase-2 units (one PR each, after this merges):** battle/commander **stats**
+aggregator + endpoint + panel (gap: `attacksWon`/`attacksLost` exist but no stats endpoint); veritas
+battle-verification flow (scaffolded, market flow done); persist the replay log to Postgres for >24h
+history. Optional carry-over: route the AI(20s)/orbital(5min) cadences through `clampIntervalMs`.
+See `docs/V2_ROADMAP.md` for phases 2–10 + gates.
 
 ---
 
