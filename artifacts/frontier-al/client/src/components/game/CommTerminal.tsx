@@ -65,6 +65,7 @@ export function CommTerminal({ playerId }: { playerId?: string | null }) {
   const [muted, setMuted] = useState(false);
 
   const seenRef = useRef<Set<string>>(new Set());
+  const lastIdRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -75,7 +76,10 @@ export function CommTerminal({ playerId }: { playerId?: string | null }) {
 
     const poll = async () => {
       try {
-        const r = await fetch(`/api/comm-terminal/whispers?playerId=${encodeURIComponent(playerId)}`);
+        // Pass the last whisper id so the server only sends (and synthesizes) a new
+        // one when the window actually flips — no redundant audio/credits per poll.
+        const since = seenRef.current.size ? `&since=${encodeURIComponent(lastIdRef.current)}` : "";
+        const r = await fetch(`/api/comm-terminal/whispers?playerId=${encodeURIComponent(playerId)}${since}`);
         if (!r.ok || cancelled) return;
         const data: CommResponse = await r.json();
         if (cancelled) return;
@@ -85,6 +89,7 @@ export function CommTerminal({ playerId }: { playerId?: string | null }) {
         const w = data.whisper;
         if (data.unlocked && w && !seenRef.current.has(w.id)) {
           seenRef.current.add(w.id);
+          lastIdRef.current = w.id;
           setLog((prev) => [{ id: w.id, text: w.text, intensity: w.intensity }, ...prev].slice(0, 12));
           if (w.audioUrl && !mutedRef.current && audioRef.current) {
             audioRef.current.src = w.audioUrl;

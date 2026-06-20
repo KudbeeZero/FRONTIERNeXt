@@ -3778,9 +3778,17 @@ export async function registerRoutes(
       }
 
       const whisper = generateWhisper(playerId, Date.now(), { level: term.level });
-      // Voice is best-effort; null (text-only) unless ELEVENLABS_API_KEY + voice id are set.
-      const clip = await synthesizeWhisper(whisper.text);
 
+      // The whisper is stable within its ~45s window. If the client already has it
+      // (passes `since`=last id), return nothing new — avoids resending the audio and
+      // re-spending ElevenLabs credits on every poll. Voice is synthesized at most
+      // once per window per player (only when the whisper actually changes).
+      const since = String(req.query.since ?? "");
+      if (since && since === whisper.id) {
+        return res.json({ unlocked: true, level: term.level, voiceConfigured: isVoiceConfigured(), whisper: null });
+      }
+
+      const clip = await synthesizeWhisper(whisper.text);
       res.json({
         unlocked: true,
         level: term.level,
