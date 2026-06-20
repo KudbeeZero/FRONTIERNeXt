@@ -9,9 +9,34 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Phase-2 PR2: player battle-stats aggregator + endpoint, AWAITING_AUDIT)
+## Current baton — Living Map PR1 (live world-event telemetry boxes on the globe, AWAITING_AUDIT)
+- **Main:** green at **`34555b8`** (Merge #77; battle-stats). Branch **`feat/living-map-events`**.
+  **Do NOT auto-merge** — owner merges.
+- **⚠️ MULTIPLE PRs OPEN (owner-directed, parallel):** **#78** (Strategic Depth design doc), **#79**
+  (Comm Terminal), + this Living Map PR. Owner has been directing work in parallel; recommend merging
+  #78/#79 to keep the stack sane.
+- **NOTE:** owner wants the map to feel **alive** (boxes popping up, arrows, telemetry). The globe already
+  renders live **arcs** (battle_started/weapon), **mining pulses**, **orbital zones**, **satellites** —
+  but live `battle_resolved` + `land_claimed` (which carry coords) had **no on-map visual** (ActivityFeed
+  text only). This unit adds them.
+- **What this unit did (for the auditor):**
+  - `client/src/lib/globe/liveEventDisplay.ts` (NEW) — pure `liveEventDisplay(event) → {label,color,kind}|null`
+    (battle_resolved → VICTORY/DEFENSE HELD; land_claimed → CLAIMED; else null). +7 tests
+    (`client/tests/liveEventDisplay.spec.ts`).
+  - `client/.../globe/GlobeLiveEvents.tsx` (NEW) — R3F layer (mounted in `PlanetGlobe` Scene beside
+    `LiveWeaponLayer`) that self-subscribes to `onWorldEvent` and pops a transient `<Html>` "◉ LIVE" box at
+    the event lat/lng (TTL 6s, cap 8, dedup by id, cleanup on unmount). Mirrors `GlobeEventOverlays` `<Html>`.
+  - **Additive; no server/schema/funds change; real broadcast events only (no mock data).** Globe/canvas
+    HARD RULE: scoped + audited; `VITE_TEST_GLOBE` untouched.
+  - Verified: `check` ✓ · client `test` **83** (+7) · `test:server` **318** (unchanged) · `build` ✓.
+    **Visual NOT browser-verified here** (no display; R3F components aren't SSR-testable — pure lib helper
+    is). **Owner verifies the actual look from their computer.**
+  - **Gates:** `/code-review` (clean) + `/security-pass` (PASS — read-only display of already-public events;
+    `docs/audit/2026-06-20-living-map-events-security-pass.md`) + `/pr-gate`. Owner merges.
+
+### Prior baton — ONE OPEN PR (Phase-2 PR2: player battle-stats aggregator + endpoint, AWAITING_AUDIT)
 - **Main:** green at **`3ce61cd`** (Merge #76; replay log). Branch **`phase/02-battle-stats`** carries
-  Phase-2 PR2. **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
+  Phase-2 PR2 (#77). **Do NOT auto-merge** — owner merges.
 - **NOTE:** owner said to continue through the next Phase-2 features (`V2_ROADMAP.md:37` "stats +
   commander performance tracking"). Existing surfaces cover totals (`/api/game/leaderboard`,
   `/api/battles/history`, player `attacksWon/Lost` + commander `totalKills`); **the gap** = no per-player
