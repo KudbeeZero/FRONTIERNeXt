@@ -9,34 +9,32 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (reaper, AWAITING_AUDIT)
-- **Main:** green at **`af0e62f`** (Merge #67; CI `ci.yml` run **#202 = success**). Branch
-  `claude/status-immediate-issues-8ltv13` now carries the **next unit**: the
-  **purchase-intent timeout reaper** (owner-approved Option A of the #52 follow-ups).
-  **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
-- **What this unit did (for the auditor):** a **server-only, off-chain** reaper that flips
-  abandoned `purchase_intents` (pending past a TTL) to `timeout`, so the admin funnel reflects
-  reality. Audited first — no schema/migration/chain (the `state` column already accepts
-  `'timeout'`; `purchase_intents` is fire-and-forget telemetry written *after* payment/mint, and
-  the duplicate guard keys off `redeemed_payments`, so stale intents block nothing).
-  - **Pure** `identifyStaleIntents` + `resolveTimeoutMs` (`chainEventLog.ts`); **DB glue**
-    `timeoutStalePurchaseIntents` (never throws; reuses `recordPurchaseTransition`, preserves
-    `playerId`/`kind`/`createdAt`, appends a `purchase_timeout` event) + env constants
-    (`PURCHASE_INTENT_TIMEOUT_MS` **7d** default, `PURCHASE_INTENT_REAP_INTERVAL_MS` hourly, 1-min
-    floor) in `chainEventStore.ts`; an **`unref`'d** `setInterval` in `server/index.ts` mirroring
-    the `ACTION_NONCE_PRUNE` precedent.
-  - **Tests:** +9 pure (`chainEventLog.spec.ts`: stale/recent/terminal/idempotency/env/floor) and
-    a **Postgres-gated** `chainEventStore.db.spec.ts` (applies migration 0009; proves the real
-    flip, idempotency, recent+terminal protection, field preservation) wired into `test:server:db`.
-  - **Scope:** 8 files — server logic + tests + the `test:server:db` script + `ENV_VARS.md` /
-    `DEPLOYMENT_ENV_CHECKLIST.md`. **No** schema/migration/deps/lockfile/client/chain/wallet/token/
-    settlement. `package.json` diff is the test script only.
-  - Verified locally: `check` ✓ · `test:server` **288 pass / 11 skipped** · `test:server:db`
-    **11 pass** (real throwaway Postgres) · client `test` **71** · `coverage:server` **93.12%** ·
-    `build` ✓.
-  - **Auditor focus:** confirm only pending rows past the TTL become `timeout` (idempotent; terminal
-    rows untouched) — the pure + db specs are the proof; confirm off-chain/no-funds; confirm scope is
-    server-only/additive with no schema/deps.
+## Current baton — ONE OPEN PR (faction/commander design doc, AWAITING_AUDIT)
+- **Main:** green at **`f2a2538`** (Merge #68; CI `ci.yml` run **#206 = success**). Branch
+  `claude/status-immediate-issues-8ltv13` carries the **next unit**: a **design/scope doc** for the
+  owner's big "faction economy & commander progression" program. **ONE open PR** (`AWAITING_AUDIT`).
+  **Doc-only** — no code/schema/funds/deps. **Do NOT auto-merge** — owner merges.
+- **Why a doc:** the owner asked to build per-faction Algorand wallets + treasuries, faction
+  onboarding, and commander tier progression with changing art. The wallet/treasury part is
+  funds/ASA/key-custody code (HARD-RULE gated: `/mainnet-gate` + `algo-auditor` + `/security-pass`)
+  and far too big for one safe PR. Owner chose (AskUserQuestion) to **start with a design/scope doc
+  only** that decomposes it into sequenced, gated units. Precedent: `strike-system-design.md`.
+- **What this unit did (for the auditor):**
+  - **`docs/design/faction-economy-and-commander-progression-design.md`** (NEW) — code-grounded
+    (file:line cites from two read-only audits). Current state: factions already have identity ASAs
+    but **no wallets/treasury** (single admin-mnemonic custody); hybrid `treasury_ledger`;
+    **player↔faction membership ALREADY exists** off-chain (`playerFactionId`, join/leave,
+    `FactionPanel`); commander tier = **static buy-class**; commander art is mutable **off-chain via
+    the dynamic metadata endpoint** (no re-mint). Decomposition (safest→riskiest): **WS-A**
+    onboarding · **WS-B** progression math · **WS-C** progression art · **WS-D** off-chain faction
+    treasury accounting · **WS-E** on-chain faction wallets (**GATED + last**). Plus PR sequence + 5
+    open owner decisions.
+  - Baton rewrite (this) + session note. Also fixed the carried **cosmetic SHA lag** (main is
+    `f2a2538`; baton had cited `af0e62f`/`d6f6653`).
+  - **Scope:** docs only — `docs/design/**` + `session-notes/**` + this baton. **No** code, schema,
+    migration, funds/wallet/treasury/ASA/mint, or deps. Every number in the doc is **PROPOSED**.
+  - **Auditor focus:** confirm doc-only (no code/schema/secrets/funds); spot-check the current-state
+    file:line cites are accurate; confirm WS-E (funds) is explicitly gated + last, not started here.
 
 ### ⚖️ OWNER RULE (LOCKED) — ONE ACTIVE PR AT A TIME
 **One active PR → one audit → one baton → one owner decision → then the next PR.** No stacked /
@@ -44,12 +42,21 @@ parallel / chained PRs unless the owner explicitly approves. The **owner merges*
 get **queued here**, not opened.
 
 ### ➡️ NEXT — after this PR is audited & merged (do NOT start until owner picks)
-- Remaining **#52 follow-ups:** commander-mint instrumentation (only `/api/actions/purchase` wired).
-- **Globe `globeProjection.ts` §6 seam** — land with the combat package (else dead code).
-- **jsdom / Testing-Library render harness** — its own test-infra PR (adds devDeps).
-- Carried owner-side: the **#65 globe visual click-test** (unrelated to this unit).
+- **Faction/commander program** (this doc): answer the 5 open decisions, then start **WS-A faction
+  onboarding** (smallest, no funds). WS-E (faction wallets) only via its own gated PR.
+- **Parked:** commander-mint **telemetry** instrumentation (small/safe — can slot in anytime).
+- **Queued:** Globe `globeProjection.ts` §6 seam (with combat package); jsdom/Testing-Library harness.
+- Carried owner-side: the **#65 globe visual click-test**; confirm out-of-band main commit `9ce0962`
+  (Fly secrets template, placeholders) was intentional.
 
 ---
+
+### Prior baton — #68 (purchase-intent timeout reaper) — MERGED `f2a2538`
+- Server-only, off-chain reaper: flips abandoned `purchase_intents` (pending past a 7d TTL, env-
+  overridable, 1-min floor) to `timeout` via an `unref`'d hourly `setInterval` (ACTION_NONCE_PRUNE
+  precedent). Pure `identifyStaleIntents`/`resolveTimeoutMs` + db-glue `timeoutStalePurchaseIntents`
+  (never throws; preserves identity; appends `purchase_timeout`). +9 pure tests + a Postgres-gated
+  `chainEventStore.db.spec.ts`. No schema/deps/chain. CI #206 green.
 
 ### Prior baton — #67 (admin SSR smoke test) — MERGED `af0e62f`
 - Test-only SSR render smoke for `@/pages/admin` (existing `react-dom/server` harness; no jsdom/
