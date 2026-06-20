@@ -104,7 +104,7 @@ export function onWeaponEngagement(cb: WeaponEngagementCallback): () => void {
 
 // ── Global battle-tick bus (server-authoritative active-battle set) ───────────
 export interface BattleTickEntry { id: string; resolveTs: number; }
-export interface BattleTickState { activeIds: Set<string>; serverTime: number; receivedAt: number; }
+export interface BattleTickState { activeIds: Set<string>; receivedAt: number; }
 type BattleTickCallback = (state: BattleTickState) => void;
 const _battleTickCallbacks: Map<number, BattleTickCallback> = new Map();
 let _battleTickCallbackId = 0;
@@ -117,10 +117,9 @@ export function onBattleTick(cb: BattleTickCallback): () => void {
   return () => _battleTickCallbacks.delete(id);
 }
 
-function dispatchBattleTick(entries: BattleTickEntry[], serverTime: number): void {
+function dispatchBattleTick(entries: BattleTickEntry[]): void {
   const state: BattleTickState = {
     activeIds: new Set(entries.map((e) => e.id)),
-    serverTime,
     receivedAt: Date.now(),
   };
   _latestBattleTick = state;
@@ -202,9 +201,8 @@ export function useGameSocket(authTrigger?: unknown) {
           }
           // Server-authoritative active-battle set (drops resolved battles promptly)
           if (msg.type === "battle_tick" && Array.isArray(msg.battles)) {
-            const serverTime = typeof msg.serverTime === "number" ? msg.serverTime : Date.now();
             if (typeof msg.serverTime === "number") setServerTime(msg.serverTime);
-            dispatchBattleTick(msg.battles as BattleTickEntry[], serverTime);
+            dispatchBattleTick(msg.battles as BattleTickEntry[]);
             return;
           }
         } catch { /* ignore malformed */ }
@@ -233,20 +231,6 @@ export function useGameSocket(authTrigger?: unknown) {
  * The server sends a `chain_health` message every 60 seconds.
  * Returns null until the first message arrives.
  */
-/**
- * Latest server `battle_tick` (active-battle id set + server time), or null until one
- * arrives. Lets the battles UI drop a just-resolved battle promptly, between flushes.
- */
-export function useBattleTick(): BattleTickState | null {
-  const [state, setState] = useState<BattleTickState | null>(_latestBattleTick);
-  useEffect(() => {
-    if (_latestBattleTick) setState(_latestBattleTick);
-    const unsub = onBattleTick((s) => setState(s));
-    return unsub;
-  }, []);
-  return state;
-}
-
 export function useChainHealth(): ChainHealth | null {
   const [health, setHealth] = useState<ChainHealth | null>(_latestChainHealth);
 
@@ -258,6 +242,20 @@ export function useChainHealth(): ChainHealth | null {
   }, []);
 
   return health;
+}
+
+/**
+ * Latest server `battle_tick` (active-battle id set), or null until one arrives.
+ * Lets the battles UI drop a just-resolved battle promptly, between flushes.
+ */
+export function useBattleTick(): BattleTickState | null {
+  const [state, setState] = useState<BattleTickState | null>(_latestBattleTick);
+  useEffect(() => {
+    if (_latestBattleTick) setState(_latestBattleTick);
+    const unsub = onBattleTick((s) => setState(s));
+    return unsub;
+  }, []);
+  return state;
 }
 
 /**
