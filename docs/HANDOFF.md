@@ -9,32 +9,54 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (Strategic Depth Program — design doc, doc-only, AWAITING_AUDIT)
-- **Main:** green at **`34555b8`** (Merge #77; battle-stats). Branch **`design/strategic-depth-program`**.
-  **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
-- **NOTE:** owner pivoted from the battle-stats client wire-up to scope a **major strategic-depth
-  overhaul** (upgrades/archetypes/sub-parcel royalty/regional control/plot features/faction politics),
-  "put it all in a plan." This unit is **doc-only**: `docs/design/strategic-depth-program-design.md`.
-- **What this unit did:** grounded program design (3-agent current-state map confirming the critique:
-  data_centre yield dead, archetype bonuses/power-dependency inert, center subplot not conquest-exempt,
-  no yield royalty, no faction diplomacy/treasury/tariffs, siloed routes, no plot-feature field) + 4
-  locked owner decisions + phased one-PR decomposition **SD-A** (wire inert abilities) → **SD-B**
-  (perpetual yield royalty + center conquest-exemption) → **SD-C** (regional control cascade on
-  `influence`) → **SD-D** (asteroid+nuclear features) → **SD-E** (faction politics/tariffs) → **SD-F**
-  (faction perception lens). HARD-RULE gates flagged per phase (economy → `/security-pass`; ASA →
-  `/mainnet-gate`+`algo-auditor`; canvas → scoped+audited).
-- **Decisions:** royalty=perpetual yield + conquest-exempt center · archetypes=wire-existing-first ·
-  politics-first=regional cascade · features=economic+military.
-- **Gates:** doc-only → `/code-review` + `/security-pass` **N/A** (no code diff); `/pr-gate` only. CI runs
-  typecheck/tests (unaffected, stay green). Owner merges.
-- **➡️ Next implementation unit after merge:** **SD-A1** — wire `data_centre`'s `yieldMultiplier` (stored
-  at `db.ts:1224`, never read) into the mine yield calc; pure helper + spec. One PR.
+## Current baton — Living Map PR1 (live world-event telemetry boxes on the globe, AWAITING_AUDIT)
+- **Main:** green at **`34555b8`** (Merge #77; battle-stats). Branch **`feat/living-map-events`**.
+  **Do NOT auto-merge** — owner merges.
+- **⚠️ MULTIPLE PRs OPEN (owner-directed, parallel):** **#78** (Strategic Depth design doc), **#79**
+  (Comm Terminal), + this Living Map PR. Owner has been directing work in parallel; recommend merging
+  #78/#79 to keep the stack sane.
+- **NOTE:** owner wants the map to feel **alive** (boxes popping up, arrows, telemetry). The globe already
+  renders live **arcs** (battle_started/weapon), **mining pulses**, **orbital zones**, **satellites** —
+  but live `battle_resolved` + `land_claimed` (which carry coords) had **no on-map visual** (ActivityFeed
+  text only). This unit adds them.
+- **What this unit did (for the auditor):**
+  - `client/src/lib/globe/liveEventDisplay.ts` (NEW) — pure `liveEventDisplay(event) → {label,color,kind}|null`
+    (battle_resolved → VICTORY/DEFENSE HELD; land_claimed → CLAIMED; else null). +7 tests
+    (`client/tests/liveEventDisplay.spec.ts`).
+  - `client/.../globe/GlobeLiveEvents.tsx` (NEW) — R3F layer (mounted in `PlanetGlobe` Scene beside
+    `LiveWeaponLayer`) that self-subscribes to `onWorldEvent` and pops a transient `<Html>` "◉ LIVE" box at
+    the event lat/lng (TTL 6s, cap 8, dedup by id, cleanup on unmount). Mirrors `GlobeEventOverlays` `<Html>`.
+  - **Additive; no server/schema/funds change; real broadcast events only (no mock data).** Globe/canvas
+    HARD RULE: scoped + audited; `VITE_TEST_GLOBE` untouched.
+  - Verified: `check` ✓ · client `test` **83** (+7) · `test:server` **318** (unchanged) · `build` ✓.
+    **Visual NOT browser-verified here** (no display; R3F components aren't SSR-testable — pure lib helper
+    is). **Owner verifies the actual look from their computer.**
+  - **Gates:** `/code-review` (clean) + `/security-pass` (PASS — read-only display of already-public events;
+    `docs/audit/2026-06-20-living-map-events-security-pass.md`) + `/pr-gate`. Owner merges.
 
-### Prior baton — #77 (Phase-2 PR2: player battle-stats aggregator + endpoint) — MERGED `34555b8`
-- Pure `computePlayerBattleStats` (win/hold rate, streak, biggest victory, recent) + `getPlayerBattles`
-  (db+mem) + `GET /api/players/:id/battle-stats`. `/code-review` (clean) + `/security-pass` (PASS) +
-  `/pr-gate` (GO). CI green. (Incidental: `CommanderPanel` already renders commander `totalKills` + a
-  My-Battles/Victories/Win-Rate header, so that client surface largely exists.)
+### Prior baton — ONE OPEN PR (Phase-2 PR2: player battle-stats aggregator + endpoint, AWAITING_AUDIT)
+- **Main:** green at **`3ce61cd`** (Merge #76; replay log). Branch **`phase/02-battle-stats`** carries
+  Phase-2 PR2 (#77). **Do NOT auto-merge** — owner merges.
+- **NOTE:** owner said to continue through the next Phase-2 features (`V2_ROADMAP.md:37` "stats +
+  commander performance tracking"). Existing surfaces cover totals (`/api/game/leaderboard`,
+  `/api/battles/history`, player `attacksWon/Lost` + commander `totalKills`); **the gap** = no per-player
+  derived battle-stats aggregator/endpoint.
+- **What this unit did (for the auditor):**
+  - `server/storage/battle-stats.ts` (NEW) — pure `computePlayerBattleStats(battles, playerId)` (mirrors
+    `computeLeaderboard`): `attacks{total,wins,losses,winRate}`, `defenses{total,held,lost,holdRate}`,
+    `currentStreak{kind,count}`, `totals{troops,iron,fuel}`, `biggestVictory|null`, `recent[]` (≤10).
+    Integer percents, divide-by-zero guarded. Only already-public data (powers/counts/battleId — battleId
+    already in `/api/battles/history`); no addresses/player/parcel UUIDs. +9 tests (`battle-stats.spec.ts`).
+  - Storage `getPlayerBattles(playerId)` — `interface.ts` + `db.ts` (resolved + attacker|defender; added
+    `or` to drizzle import; reuses `attackerIdx`/`defenderIdx`) + `mem.ts`.
+  - `GET /api/players/:id/battle-stats` in `routes.ts` (mirrors `/api/battles/history`:
+    `withDbRetry` → `getPlayerBattles` → `computePlayerBattleStats`). Public read.
+  - **Read-only + additive. No schema/migration/client/canvas/funds/resolution-math change.**
+  - Verified: `check` ✓ · `test:server` **318/11-skip** (+9 `battle-stats.spec.ts`) · client `test`
+    **76** · `build` ✓. Manual (server+PG, not run here): `GET /api/players/<id>/battle-stats` → shape;
+    no-battles → zeroed.
+  - **Gates (owner-requested):** `/code-review` + `/security-pass` (→ `docs/audit/`; public read, no
+    address/secret leak) + `/pr-gate`. Owner merges.
 
 ### Prior baton — #76 (Phase-2 PR1: deterministic battle replay log) — MERGED `3ce61cd`
 - Replaced the main resolver's coarse 3-line replay log with a pure `buildReplayLog`
