@@ -9,47 +9,37 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (faction/commander design doc, AWAITING_AUDIT)
-- **Main:** green at **`f2a2538`** (Merge #68; CI `ci.yml` run **#206 = success**). Branch
-  `claude/status-immediate-issues-8ltv13` carries the **next unit**: a **design/scope doc** for the
-  owner's big "faction economy & commander progression" program. **ONE open PR** (`AWAITING_AUDIT`).
-  **Doc-only** — no code/schema/funds/deps. **Do NOT auto-merge** — owner merges.
-- **Why a doc:** the owner asked to build per-faction Algorand wallets + treasuries, faction
-  onboarding, and commander tier progression with changing art. The wallet/treasury part is
-  funds/ASA/key-custody code (HARD-RULE gated: `/mainnet-gate` + `algo-auditor` + `/security-pass`)
-  and far too big for one safe PR. Owner chose (AskUserQuestion) to **start with a design/scope doc
-  only** that decomposes it into sequenced, gated units. Precedent: `strike-system-design.md`.
+## Current baton — ONE OPEN PR (Next-Work Options menu, AWAITING_AUDIT)
+- **Main:** green at **`2d55d8a`** (Merge #69; faction/commander design doc). Branch
+  `claude/status-immediate-issues-8ltv13` carries a **doc-only** unit: `docs/NEXT_WORK_OPTIONS.md`,
+  a prioritized **menu of candidate next units** so the owner can pick the next single PR.
+  **ONE open PR** (`AWAITING_AUDIT`). **Do NOT auto-merge** — owner merges.
 - **What this unit did (for the auditor):**
-  - **`docs/design/faction-economy-and-commander-progression-design.md`** (NEW) — code-grounded
-    (file:line cites from two read-only audits). Current state: factions already have identity ASAs
-    but **no wallets/treasury** (single admin-mnemonic custody); hybrid `treasury_ledger`;
-    **player↔faction membership ALREADY exists** off-chain (`playerFactionId`, join/leave,
-    `FactionPanel`); commander tier = **static buy-class**; commander art is mutable **off-chain via
-    the dynamic metadata endpoint** (no re-mint). Decomposition (safest→riskiest): **WS-A**
-    onboarding · **WS-B** progression math · **WS-C** progression art · **WS-D** off-chain faction
-    treasury accounting · **WS-E** on-chain faction wallets (**GATED + last**). Plus PR sequence + 5
-    open owner decisions.
-  - Baton rewrite (this) + session note. Also fixed the carried **cosmetic SHA lag** (main is
-    `f2a2538`; baton had cited `af0e62f`/`d6f6653`).
-  - **Scope:** docs only — `docs/design/**` + `session-notes/**` + this baton. **No** code, schema,
-    migration, funds/wallet/treasury/ASA/mint, or deps. Every number in the doc is **PROPOSED**.
-  - **Auditor focus:** confirm doc-only (no code/schema/secrets/funds); spot-check the current-state
-    file:line cites are accurate; confirm WS-E (funds) is explicitly gated + last, not started here.
+  - **`docs/NEXT_WORK_OPTIONS.md`** (NEW) — themed candidate menu (Faction program WS-A..E ·
+    telemetry/dashboard · security/hardening · globe · story mode · hygiene), each tagged
+    effort/gate and ⚠️FUNDS where relevant. Commits to nothing; owner picks one.
+  - Baton rewrite (this) + session note. **#69 MERGED `2d55d8a`** (design doc).
+  - **Scope:** docs only — `docs/**` + `session-notes/**`. **No** code/schema/funds/deps.
+  - **Auditor focus:** confirm doc-only; menu's funds items (WS-E, algod finality) flagged gated.
 
 ### ⚖️ OWNER RULE (LOCKED) — ONE ACTIVE PR AT A TIME
 **One active PR → one audit → one baton → one owner decision → then the next PR.** No stacked /
 parallel / chained PRs unless the owner explicitly approves. The **owner merges**; discovered units
 get **queued here**, not opened.
 
-### ➡️ NEXT — after this PR is audited & merged (do NOT start until owner picks)
-- **Faction/commander program** (this doc): answer the 5 open decisions, then start **WS-A faction
-  onboarding** (smallest, no funds). WS-E (faction wallets) only via its own gated PR.
-- **Parked:** commander-mint **telemetry** instrumentation (small/safe — can slot in anytime).
-- **Queued:** Globe `globeProjection.ts` §6 seam (with combat package); jsdom/Testing-Library harness.
-- Carried owner-side: the **#65 globe visual click-test**; confirm out-of-band main commit `9ce0962`
-  (Fly secrets template, placeholders) was intentional.
+### ➡️ NEXT — owner picks ONE from `docs/NEXT_WORK_OPTIONS.md` (do NOT start until picked)
+Recommended openers (both **S / no-funds / PR-gate**): **commander-mint telemetry** (continue the
+purchase-funnel lane) or **WS-A faction onboarding** (start the faction program). Funds items
+(WS-E faction wallets, algod-first finality) stay gated + later.
 
 ---
+
+### Prior baton — #69 (faction/commander design doc) — MERGED `2d55d8a`
+- Doc-only scope/design for the faction-economy + commander-progression program: current state
+  (factions have identity ASAs but no wallets/treasury; admin-mnemonic custody; player↔faction
+  membership already exists off-chain; commander tier = static buy-class; art mutable off-chain via
+  the dynamic metadata endpoint), 5-workstream decomposition (WS-A..E, funds last + gated), PR
+  sequence, 5 open owner decisions. `docs/design/faction-economy-and-commander-progression-design.md`.
 
 ### Prior baton — #68 (purchase-intent timeout reaper) — MERGED `f2a2538`
 - Server-only, off-chain reaper: flips abandoned `purchase_intents` (pending past a 7d TTL, env-
