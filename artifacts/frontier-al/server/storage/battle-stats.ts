@@ -77,7 +77,7 @@ export function computePlayerBattleStats(battles: Battle[], playerId: string): P
   }
 
   const recent = resolved
-    .slice()
+    .filter((b) => b.attackerId === playerId || b.defenderId === playerId)
     .sort((a, b) => b.resolveTs - a.resolveTs)
     .slice(0, RECENT_LIMIT)
     .map((b) => ({
