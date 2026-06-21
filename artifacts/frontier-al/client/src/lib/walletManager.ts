@@ -5,8 +5,10 @@ const network = import.meta.env.VITE_ALGORAND_NETWORK === "mainnet"
  : NetworkId.TESTNET;
  
 export const walletManager = new WalletManager({
- // Only the two wallets the owner uses — fewer options means no multi-window
- // connect storm on mobile (dropped Defly + Kibisis). Lute first (primary).
- wallets: [WalletId.LUTE, WalletId.PERA],
+ // Single wallet = no picker and no app-deep-link tab storm. Lute is a WEB
+ // wallet (lute.app) — it signs in-browser, never tries to "open another
+ // application," and testers don't need to install anything. (Pera/Defly/
+ // Kibisis deep-link to phone apps, which spawned the dozen Safari tabs.)
+ wallets: [WalletId.LUTE],
  defaultNetwork: network,
 });
