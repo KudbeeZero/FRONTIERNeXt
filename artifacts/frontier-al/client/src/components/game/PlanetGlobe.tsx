@@ -5,7 +5,7 @@
  */
 
 import * as THREE from "three";
-import { useRef, useMemo, useState, Suspense } from "react";
+import { useRef, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -14,8 +14,6 @@ import type { WorldEvent } from "@shared/worldEvents";
 import { GlobeEventOverlays } from "./GlobeEventOverlays";
 import { GLOBE_RADIUS } from "@/lib/globe/globeConstants";
 import { StarField }           from "./globe/StarField";
-import { GlobeSpaceProps }     from "./globe/GlobeSpaceProps";
-import { GlobeAtmosphere }     from "./globe/GlobeAtmosphere";
 import { GlobeTerrain }        from "./globe/GlobeTerrain";
 import { PlotOverlay, SubParcelOverlay } from "./globe/GlobeParcels";
 import { ObserverLayer } from "./globe/ObserverLayer";
@@ -83,10 +81,6 @@ function Scene({
         flyRequestId={flyRequestId}
       />
       <StarField />
-      <Suspense fallback={null}>
-        <GlobeSpaceProps />
-      </Suspense>
-      <GlobeAtmosphere />
       <ambientLight intensity={1.8} color="#d8eaff" />
       <directionalLight position={[8, 4, 5]}   intensity={1.6} color="#fff4e0" />
       <directionalLight position={[-6, -2, -4]} intensity={1.2} color="#c0d4ff" />
@@ -221,11 +215,11 @@ export default function PlanetGlobe({
   );
 
   return (
-    <div className={className} style={{ position: "relative", width: "100%", height: "100%", background: "#000b1e" }}>
+    <div className={className} style={{ position: "relative", width: "100%", height: "100%", background: "#000000" }}>
       <Canvas
         camera={{ position: [0, 0, GLOBE_RADIUS * 3.8], fov: 45, near: 0.5, far: 200 }}
         gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
-        style={{ background: "#000b1e", touchAction: "none" }}
+        style={{ background: "#000000", touchAction: "none" }}
       >
         <Scene
           parcels={parcels}
