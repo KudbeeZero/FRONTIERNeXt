@@ -49,6 +49,12 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 
 interface WalletProviderProps {
   children: ReactNode;
+  /**
+   * When true, automatically prompt for the one wallet signature once a wallet is
+   * connected. Only the in-game route opts in — so players are NOT asked to log
+   * into the wallet on the landing / info pages, only when they enter the game.
+   */
+  autoAuth?: boolean;
 }
 
 // Broad set of strings that indicate user-cancelled / modal-dismissed — not real errors.
@@ -98,7 +104,7 @@ function friendlyErrorMessage(walletId: string, msg: string): string {
   return msg || "Connection failed — please try again.";
 }
 
-export function WalletProvider({ children }: WalletProviderProps) {
+export function WalletProvider({ children, autoAuth = false }: WalletProviderProps) {
   const { wallets, activeAddress, signTransactions } = useWalletLib();
 
   const [balance, setBalance] = useState(0);
@@ -111,8 +117,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [authError, setAuthError] = useState<string | null>(null);
   // Bumps on each successful auth so the game socket reconnects with the fresh token.
   const [authVersion, setAuthVersion] = useState(0);
-  // Bounds auto re-auth after server token rejection (avoid infinite sign prompts).
-  const sessionRejectCount = useRef(0);
   const authAttemptedFor = useRef<string | null>(null);
   const isReconnecting = useRef(false);
 
@@ -154,9 +158,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
     try {
       await authenticateWallet(activeAddress);
       setIsAuthenticated(true);
-      // Fresh token issued — bump the socket trigger and reset the reject budget.
+      // Fresh token issued — bump the socket trigger so the WS reconnects with it.
       setAuthVersion((v) => v + 1);
-      sessionRejectCount.current = 0;
     } catch (err) {
       const msg = (err as { message?: string })?.message || "Authentication failed";
       setIsAuthenticated(false);
@@ -169,29 +172,30 @@ export function WalletProvider({ children }: WalletProviderProps) {
   }, [activeAddress]);
 
   // The game socket reports the server rejected our session token (WS 1008 —
-  // stale token, or SESSION_SECRET rotated across a deploy). Self-heal by
-  // re-signing for a fresh token, but bound it so a genuinely broken server
-  // can't spam signature prompts: after a couple of tries, surface an error.
+  // stale/expired token, or SESSION_SECRET rotated across a deploy). Do NOT
+  // silently re-sign: prompting a fresh signature on every rejection produced a
+  // storm of wallet popups (the "seven wallets popped up" the owner saw, because
+  // a successful re-auth reset the retry budget so the bound never tripped).
+  // Mark the session unauthenticated and let the player reconnect with ONE
+  // deliberate tap. The game stays usable via the REST polling fallback until
+  // they do. (authAttemptedFor is intentionally left set so the auto-auth effect
+  // below does not immediately re-fire and re-create the storm.)
   const handleSessionRejected = useCallback(() => {
-    if (!activeAddress) return;
-    if (sessionRejectCount.current >= 2) {
-      setIsAuthenticated(false);
-      setAuthError("Session keeps getting rejected — please reconnect your wallet.");
-      return;
-    }
-    sessionRejectCount.current += 1;
-    authAttemptedFor.current = null;
     setIsAuthenticated(false);
-    void authenticate();
-  }, [activeAddress, authenticate]);
+    setAuthError("Session expired — reconnect your wallet to go live again.");
+  }, []);
 
-  // Auto-authenticate once per connected address.
+  // Auto-authenticate once per connected address — but ONLY where the host opted
+  // in (the in-game route passes autoAuth). On the marketing / landing pages we
+  // never prompt a signature, so players don't have to log into the wallet until
+  // they enter the game. One signature per connected address, in the game — that's it.
   useEffect(() => {
+    if (!autoAuth) return;
     if (!activeAddress || !signTransactions) return;
     if (authAttemptedFor.current === activeAddress) return;
     authAttemptedFor.current = activeAddress;
     void authenticate();
-  }, [activeAddress, signTransactions, authenticate]);
+  }, [autoAuth, activeAddress, signTransactions, authenticate]);
 
   // Reset auth state on disconnect.
   useEffect(() => {
@@ -199,7 +203,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setIsAuthenticated(false);
       setAuthError(null);
       authAttemptedFor.current = null;
-      sessionRejectCount.current = 0;
     }
   }, [activeAddress]);
 

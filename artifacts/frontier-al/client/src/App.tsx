@@ -37,7 +37,7 @@ function App() {
           <UseWalletProvider manager={walletManager}>
             <Switch>
               <Route path="/game">
-                <WalletProvider>
+                <WalletProvider autoAuth>
                   <GamePage />
                 </WalletProvider>
               </Route>
