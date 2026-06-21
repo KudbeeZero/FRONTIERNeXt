@@ -5,10 +5,10 @@ const network = import.meta.env.VITE_ALGORAND_NETWORK === "mainnet"
  : NetworkId.TESTNET;
  
 export const walletManager = new WalletManager({
- // Single wallet = no picker and no app-deep-link tab storm. Lute is a WEB
- // wallet (lute.app) — it signs in-browser, never tries to "open another
- // application," and testers don't need to install anything. (Pera/Defly/
- // Kibisis deep-link to phone apps, which spawned the dozen Safari tabs.)
- wallets: [WalletId.LUTE],
+ // Pera = the MOBILE wallet (works in all browsers incl. Safari). Lute = a
+ // desktop browser EXTENSION (the owner's funded wallet) and is NOT available
+ // on mobile Safari. Offer both so phone testers use Pera and desktop uses
+ // Lute. (Dropped Defly + Kibisis to keep the picker minimal.)
+ wallets: [WalletId.PERA, WalletId.LUTE],
  defaultNetwork: network,
 });
