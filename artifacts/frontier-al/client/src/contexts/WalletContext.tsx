@@ -33,6 +33,10 @@ interface WalletContextValue {
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   authError: string | null;
+  /** Bumps on every successful auth — used to (re)trigger the game socket with a fresh token. */
+  authVersion: number;
+  /** Called when the server rejects our session token (WS 1008): re-auth once to self-heal. */
+  onSessionRejected: () => void;
   availableWallets: WalletInfo[];
   connect: (walletId: string) => Promise<void>;
   disconnect: () => void;
@@ -105,6 +109,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  // Bumps on each successful auth so the game socket reconnects with the fresh token.
+  const [authVersion, setAuthVersion] = useState(0);
+  // Bounds auto re-auth after server token rejection (avoid infinite sign prompts).
+  const sessionRejectCount = useRef(0);
   const authAttemptedFor = useRef<string | null>(null);
   const isReconnecting = useRef(false);
 
@@ -146,6 +154,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
     try {
       await authenticateWallet(activeAddress);
       setIsAuthenticated(true);
+      // Fresh token issued — bump the socket trigger and reset the reject budget.
+      setAuthVersion((v) => v + 1);
+      sessionRejectCount.current = 0;
     } catch (err) {
       const msg = (err as { message?: string })?.message || "Authentication failed";
       setIsAuthenticated(false);
@@ -156,6 +167,23 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setIsAuthenticating(false);
     }
   }, [activeAddress]);
+
+  // The game socket reports the server rejected our session token (WS 1008 —
+  // stale token, or SESSION_SECRET rotated across a deploy). Self-heal by
+  // re-signing for a fresh token, but bound it so a genuinely broken server
+  // can't spam signature prompts: after a couple of tries, surface an error.
+  const handleSessionRejected = useCallback(() => {
+    if (!activeAddress) return;
+    if (sessionRejectCount.current >= 2) {
+      setIsAuthenticated(false);
+      setAuthError("Session keeps getting rejected — please reconnect your wallet.");
+      return;
+    }
+    sessionRejectCount.current += 1;
+    authAttemptedFor.current = null;
+    setIsAuthenticated(false);
+    void authenticate();
+  }, [activeAddress, authenticate]);
 
   // Auto-authenticate once per connected address.
   useEffect(() => {
@@ -171,6 +199,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setIsAuthenticated(false);
       setAuthError(null);
       authAttemptedFor.current = null;
+      sessionRejectCount.current = 0;
     }
   }, [activeAddress]);
 
@@ -290,6 +319,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
         isAuthenticated,
         isAuthenticating,
         authError,
+        authVersion,
+        onSessionRejected: handleSessionRejected,
         availableWallets,
         connect,
         disconnect,
