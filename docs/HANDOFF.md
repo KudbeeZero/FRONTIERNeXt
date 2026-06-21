@@ -9,40 +9,61 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — NO OPEN PR · main `e459d2f` · whole session merged
-- **Main:** green at **`e459d2f`** (Merge #82). **No open PRs.** Shipped + merged this session: #71–#75
-  (Phase-1 battle clock), #76 (replay log), #77 (battle-stats endpoint), #78 (Strategic Depth design doc),
-  #79 (Comm Terminal), #80 (living-map telemetry boxes), #81 (one-tap Fly deploy workflow), #82 (Fly
-  launch files). App version **2.0.0**.
+## Current baton — NO OPEN PR · main `30293d3` · deploy LIVE
+- **Main:** green at **`30293d3`** (Merge #93). **No open PR** (before this closeout PR).
+- **🛑 OWNER DIRECTIVE (LOCKED):** **Do NOT auto-merge anything.** The owner reviews, approves, and
+  merges **every** PR. Open PRs as drafts; never self-merge.
+- **Shipped + merged this session (live-ops / deploy + globe + wallet firefighting):** #85 (repair
+  malformed `fly.toml` from auto-merged #84), #86 (one-tap **DB Push** GH workflow → `db:push`),
+  #87 (boot `/` straight into the game; landing bypassed), #88 (route-loop test fix for #87), #89
+  (space scenery + tile tuning — later reverted), #90 (**wallet WS auth-reject death-loop fix** +
+  `/security-pass`), #91 (globe declutter: removed moon/station/glow, black bg), #92 (Lute-only +
+  planet brightened ×2.6 — Lute-only was wrong), #93 (**restore Pera for mobile**). App **2.0.0**.
 
-### ⚙️ DEPLOY STATE (Fly.io) — action is on the OWNER
-- Backend = Fly app **`frontiernext`** (→ `frontiernext.fly.dev`). On main: `fly.toml` (port 5000,
-  `/health`), `Dockerfile` (monorepo build), one-tap **"Deploy to Fly"** GH Action (needs repo secret
-  `FLY_API_TOKEN`). Frontend = Cloudflare Pages → `api.frontierprotocol.app` / WS `frontierprotocol.app`.
-- **BLOCKER — crash loop until Fly secrets set** (server throws on boot: `db.ts:5` + `assertChainConfig`):
-  `DATABASE_URL`, `SESSION_SECRET`, `PUBLIC_BASE_URL`, `ALGORAND_ADMIN_MNEMONIC`, `ALGORAND_ADMIN_ADDRESS`
-  (`ALGORAND_NETWORK` already in `fly.toml`). Needs a real Postgres + `pnpm db:push` migrations. See
-  `docs/DEPLOY_FLY.md`.
-- ⚠️ **`growverse-api.fly.dev` is a DIFFERENT app** (GROWv2 / cannabis game), NOT this repo — set
-  FRONTIER's secrets on **`frontiernext`**, not growverse.
-- ⚠️ **Verify DNS routing:** `api.frontierprotocol.app` must point to **`frontiernext.fly.dev`** (FRONTIER),
-  NOT `growverse-api.fly.dev`. Probed 2026-06-20: `frontiernext.fly.dev` = **no response (down)**;
-  `growverse-api.fly.dev` = 200 (GROWv2); `api.frontierprotocol.app` = Cloudflare challenge (origin hidden).
-  Frontend `frontieralgo` Pages env: `VITE_API_URL=https://api.frontierprotocol.app`,
-  `VITE_WS_URL=https://frontierprotocol.app` (apex — deploy doc expects `wss://api.frontierprotocol.app`; recheck).
+### ⚙️ DEPLOY STATE — LIVE (not a blocker anymore)
+- **Backend:** Fly app **`frontiernext`** (`frontiernext.fly.dev`) is **up + seeded** — `/health`,
+  `/api/blockchain/status`, `/api/game/state` all **200** (world auto-seeded: 21k plots + 4 factions).
+  Fly secrets set: `DATABASE_URL`, `SESSION_SECRET`, `PUBLIC_BASE_URL`, `ALGORAND_ADMIN_*`, `CLIENT_ORIGIN`.
+  DB schema applied via the **#86 DB-Push** workflow (needs repo secret `DATABASE_URL`).
+- **Frontend:** Cloudflare Pages **`frontieralgo`** → `frontierprotocol.app`. Its Vite env
+  **`VITE_API_URL` + `VITE_WS_URL` = `https://frontiernext.fly.dev`** (points the browser straight at
+  Fly — we abandoned routing through `api.frontierprotocol.app` because that custom host needs a Fly
+  TLS cert and kept 530/525-ing). `CLIENT_ORIGIN` on Fly lists the frontier origins so CORS passes.
+- ⚠️ **OPS — keep `SESSION_SECRET` STABLE across deploys.** Rotating it invalidates all live session
+  tokens (WS `1008` → forces every user to re-sign). #90 self-heals (clear+re-auth) but don't churn it.
+- ⚠️ The `*.pages.dev` **preview** builds have NO backend env → "CONNECTION ERROR." Use the real site.
+- ⚠️ `growverse-api.fly.dev` is a **different** app (GROWv2) — never point FRONTIER at it.
 
-### 🔑 TESTNET WALLETS (generated this session — TESTNET ONLY; rotate before mainnet)
-Admin + 4 faction (NEXUS-7/KRONOS/VANGUARD/SPECTRE) Algorand testnet accounts were generated and handed to
-the owner **in chat** (NOT committed). Admin → `ALGORAND_ADMIN_MNEMONIC` + `ALGORAND_ADMIN_ADDRESS` Fly
-secrets. Faction mnemonics held by owner; **code still uses single-admin custody** until the gated wiring unit.
+### 🌐 GLOBE / WALLET STATE (cosmetic + auth, all merged)
+- **Globe:** moon/station/asteroid + atmosphere glow **removed**; background **black**; planet
+  brightness ×1.4→**×2.6** (terrain is UNLIT — that multiplier *is* the brightness; lights/"sun" do
+  nothing); biome-colored tiles (original look); **PLOT #N hover popup** kept; the two plot cards
+  (`SelectedPlotPanel` + `LandSheet`) **hidden on mobile** (desktop unchanged).
+- **Wallet picker = Pera + Lute** (`walletManager.ts`; dropped Defly + Kibisis). **Lute = desktop
+  browser EXTENSION** ("not available in Safari") → desktop/owner's funded wallet. **Pera = mobile**
+  (needs the Pera app installed on the phone). #90 fixed the WS auth-reject death-loop.
+- ⚠️ **Unverified by the agent (no browser/GPU here):** the live globe brightness and the mobile
+  wallet connect are owner-verified only. Owner reported the planet still looked dark and the picker
+  opened many tabs (4-wallet deep-link storm); narrowing to Pera+Lute + ×2.6 is the latest attempt.
+  **If Pera still spawns tabs on mobile → investigate the connect loop (deep-link/auto-auth), not the
+  wallet list.**
 
-### ➡️ NEXT UNITS (queued; one PR each, owner-paced)
-1. **Faction-wallet wiring (GATED)** — 4 faction mnemonics → per-faction custody/settlement in the chain
-   service. Funds → `/security-pass` + `/mainnet-gate` + `algo-auditor`, testnet-first. (SD-E / WS-E.)
-2. **SD-A1** — wire `data_centre`'s dead `yieldMultiplier` into mining (first Strategic Depth code unit;
-   `docs/design/strategic-depth-program-design.md`).
-3. **Phase-2 leftovers** — client wire-up of `/api/players/:id/battle-stats`; commander stats/leaderboard;
-   veritas battle-verify; Postgres-persist the replay log (>24h).
+### 🔑 TESTNET WALLETS (TESTNET ONLY — rotate before mainnet; never committed)
+Admin + 4 faction (NEXUS-7/KRONOS/VANGUARD/SPECTRE) testnet accounts generated this session, handed to
+the owner in chat → Fly secrets only. **Code still uses single-admin custody** until the gated wiring unit.
+
+### ➡️ NEXT UNITS (queued; one PR each, OWNER MERGES)
+1. **Animated plot menu** off the PLOT #N popup — tap a plot → zoom-to-plot animation → card with
+   working **buy/upgrade** buttons. (Cosmetic/UI; the popup is the entry point already in place.)
+2. **Entry overhaul (GATED — economy):** remove the wallet wall (`GameLayout.tsx:765`) + welcome
+   message → login → **accept ASCEND ASA**, AND **kill the 500-ASCEND welcome bonus**
+   (`maybeGrantWelcomeBonus` `routes.ts:395` + the `:1255` path). Funds/economy → `/security-pass`.
+3. **Hybrid login (design-doc first):** API/account login → then link an Algorand wallet. Custody-
+   adjacent → extend the faction-economy custody design before any code.
+4. **Faction-wallet custody wiring (GATED):** 4 faction mnemonics → per-faction custody/settlement.
+   `/security-pass` + `/mainnet-gate` + `algo-auditor`, testnet-first.
+5. Carryover: **SD-A1** (`data_centre` `yieldMultiplier` into mining); Phase-2 leftovers (battle-stats
+   client wire-up, commander stats/leaderboard, veritas, replay-log Postgres persistence).
 
 ### Prior baton — #80 (living-map telemetry boxes) — MERGED `e7da9e1`
 - `GlobeLiveEvents` R3F layer + pure `liveEventDisplay` (+7 tests): live `battle_resolved`/`land_claimed`
