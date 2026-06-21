@@ -47,6 +47,22 @@ interface WalletContextValue {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 
+/**
+ * Derive the coarse wallet status the UI gates on.
+ *
+ * The key invariant (and the fix for the "connect screen flashes up then
+ * disappears" bug): while the wallet library is still resuming a saved session
+ * (`libReady === false`) we report "restoring" — NOT "disconnected" — even
+ * though `isConnected` is momentarily false because the address hasn't resumed
+ * yet. Reporting "disconnected" here is what flashed the wallet-gate before the
+ * real session landed. Only once the library is ready do we trust
+ * connected/disconnected.
+ */
+export function deriveWalletStatus(libReady: boolean, isConnected: boolean): WalletStatus {
+  if (!libReady) return "restoring";
+  return isConnected ? "connected" : "disconnected";
+}
+
 interface WalletProviderProps {
   children: ReactNode;
   /**
@@ -105,13 +121,16 @@ function friendlyErrorMessage(walletId: string, msg: string): string {
 }
 
 export function WalletProvider({ children, autoAuth = false }: WalletProviderProps) {
-  const { wallets, activeAddress, signTransactions } = useWalletLib();
+  // `isReady` flips true once use-wallet has finished resuming any saved session
+  // from storage. We gate "restoring" on THIS — not a blind timer — so the UI
+  // never snaps to the "connect your wallet" gate before the real restore lands
+  // (a slow mobile resume used to flash the connect screen, then the game).
+  const { wallets, activeAddress, signTransactions, isReady: walletLibReady } = useWalletLib();
 
   const [balance, setBalance] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blockchainReady, setBlockchainReady] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -124,8 +143,6 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     fetchBlockchainStatus().then((status) => {
       setBlockchainReady(status.ready || !!status.adminAddress);
     });
-    const timer = setTimeout(() => setIsInitialized(true), 800);
-    return () => clearTimeout(timer);
   }, []);
 
   // Register the signer whenever the active wallet changes
@@ -281,11 +298,7 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const activeWallet = wallets.find((w: any) => w.isActive) ?? null;
   const walletType = activeWallet?.id ?? null;
 
-  const walletStatus: WalletStatus = !isInitialized
-    ? "restoring"
-    : isConnected
-    ? "connected"
-    : "disconnected";
+  const walletStatus: WalletStatus = deriveWalletStatus(walletLibReady, isConnected);
 
   const availableWallets: WalletInfo[] = wallets.map((w: any) => ({
     id: w.id,
