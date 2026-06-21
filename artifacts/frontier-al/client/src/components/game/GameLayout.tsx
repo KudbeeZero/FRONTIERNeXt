@@ -70,9 +70,10 @@ export function GameLayout() {
     isOptedInToAscend,
     treasuryAddress,
   } = useBlockchainActions();
-  // Reconnect the socket (with the session token) once wallet auth completes,
-  // so the server can authenticate it and scope broadcasts to this player.
-  useGameSocket(wallet.isAuthenticated);
+  // Drive the socket off authVersion (bumps on every fresh token) so a re-auth
+  // reconnects cleanly; onSessionRejected self-heals a rejected/stale token
+  // instead of the old silent retry-to-death loop.
+  useGameSocket(wallet.authVersion, wallet.onSessionRejected);
   const { data: gameState, isLoading, error } = useGameState();
   const player = useCurrentPlayer(wallet.address);
   const { toast } = useToast();

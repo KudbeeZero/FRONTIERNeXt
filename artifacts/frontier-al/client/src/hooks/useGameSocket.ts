@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { queryClient } from "@/lib/queryClient";
-import { getAuthToken } from "@/lib/authToken";
+import { getAuthToken, clearAuthToken } from "@/lib/authToken";
 import { setServerTime } from "@/lib/serverClock";
 import type { GameState } from "@shared/schema";
 import type { WorldEvent } from "@shared/worldEvents";
@@ -38,6 +38,17 @@ export interface ChainHealth {
 
 const WS_RECONNECT_DELAY_MS = 3_000;
 const WS_MAX_RECONNECTS = 10;
+
+/**
+ * WS close codes that mean "your session token was rejected" (auth failure) —
+ * as opposed to a transient network drop. The server closes with 1008
+ * ("authentication required"); 4001 is reserved for an explicit auth reject.
+ * On these we must NOT blindly reconnect (that just hammers the server with a
+ * dead token) — clear the token and re-authenticate instead.
+ */
+export function isAuthRejectClose(code: number): boolean {
+  return code === 1008 || code === 4001;
+}
 
 // ── Global event bus for world events (Activity Feed) ────────────────────────
 type WorldEventCallback = (event: WorldEvent) => void;
@@ -139,33 +150,45 @@ function dispatchWeaponEngagement(e: WeaponEngagementEvent): void {
  * `isAuthenticated`). The socket reconnects — now carrying the session token —
  * so the server can authenticate it and scope broadcasts to this player.
  */
-export function useGameSocket(authTrigger?: unknown) {
+export function useGameSocket(authTrigger?: unknown, onAuthReject?: () => void) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectCount = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [authFailed, setAuthFailed] = useState(false);
+  // Keep the latest reject handler in a ref so its identity never re-runs the
+  // effect (which would needlessly tear down / reopen the socket = "flash").
+  const onAuthRejectRef = useRef(onAuthReject);
+  onAuthRejectRef.current = onAuthReject;
 
   useEffect(() => {
-    // Auth state changed — restart the attempt budget so a previously
-    // exhausted (unauthenticated) loop reconnects with the new token.
+    // Auth state changed — restart the attempt budget so a re-auth (new token)
+    // reconnects cleanly.
     reconnectCount.current = 0;
+    let stopped = false;
 
     function connect() {
-      if (reconnectCount.current >= WS_MAX_RECONNECTS) return;
+      if (stopped || reconnectCount.current >= WS_MAX_RECONNECTS) return;
 
-      // MIGRATION: WebSocket URL now driven by VITE_WS_URL env var
+      // Only open an AUTHENTICATED socket. The server rejects token-less sockets
+      // with close 1008 when wallet-auth is on, and `authTrigger` is falsy until
+      // the first successful auth — so connecting earlier (or without a token)
+      // would just death-loop on a doomed/stale connection. Until then, game
+      // data still flows via the useGameState polling fallback.
+      const token = getAuthToken();
+      if (!authTrigger || !token) return;
+
+      // WebSocket URL driven by VITE_WS_URL; token passed as a query param
+      // (browsers can't set WS headers) so the server can authenticate.
       const wsBase = import.meta.env.VITE_WS_URL;
       const base = wsBase
         ? `${wsBase}/ws`
         : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
-      // Browsers can't set headers on a WebSocket — pass the session token as a
-      // query param so the server can authenticate the connection.
-      const token = getAuthToken();
-      const url = token ? `${base}?token=${encodeURIComponent(token)}` : base;
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(`${base}?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
         reconnectCount.current = 0;
+        setAuthFailed(false);
       };
 
       ws.onmessage = (event) => {
@@ -208,8 +231,19 @@ export function useGameSocket(authTrigger?: unknown) {
         } catch { /* ignore malformed */ }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         wsRef.current = null;
+        if (stopped) return;
+        // Auth reject (stale token / rotated SESSION_SECRET): DON'T hammer the
+        // server with a dead token. Clear it and ask the consumer to re-auth —
+        // a fresh token + bumped authTrigger re-runs this effect to reconnect.
+        if (isAuthRejectClose(event.code)) {
+          clearAuthToken();
+          setAuthFailed(true);
+          onAuthRejectRef.current?.();
+          return;
+        }
+        // Transient network drop: bounded backoff reconnect.
         reconnectCount.current += 1;
         reconnectTimer.current = setTimeout(connect, WS_RECONNECT_DELAY_MS);
       };
@@ -220,10 +254,13 @@ export function useGameSocket(authTrigger?: unknown) {
     connect();
 
     return () => {
+      stopped = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
   }, [authTrigger]);
+
+  return { authFailed };
 }
 
 /**
