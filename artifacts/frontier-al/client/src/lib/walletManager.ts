@@ -5,6 +5,8 @@ const network = import.meta.env.VITE_ALGORAND_NETWORK === "mainnet"
  : NetworkId.TESTNET;
  
 export const walletManager = new WalletManager({
- wallets: [WalletId.PERA, WalletId.DEFLY, WalletId.KIBISIS, WalletId.LUTE],
+ // Only the two wallets the owner uses — fewer options means no multi-window
+ // connect storm on mobile (dropped Defly + Kibisis). Lute first (primary).
+ wallets: [WalletId.LUTE, WalletId.PERA],
  defaultNetwork: network,
 });
