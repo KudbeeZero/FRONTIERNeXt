@@ -243,18 +243,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
         // User cancelled — don't retry, don't show error.
         if (isUserCancellation(msg1, e1?.data)) return;
 
-        // Mobile wallets (Pera, Defly) sometimes fail on the first attempt due to
-        // WalletConnect session initialisation timing. Retry once silently.
-        const isMobileWallet = walletId === "pera" || walletId === "defly";
-        if (isMobileWallet) {
-          console.warn(`[WALLET] First attempt failed for ${walletId}, retrying...`, msg1);
-          await new Promise((r) => setTimeout(r, 400));
-          await attemptConnect();
-          console.log(`[WALLET] Connected to ${walletId} on retry`);
-          return;
-        }
-
-        // For extension wallets, surface the error immediately.
+        // Do NOT silently retry: a second wallet.connect() opens ANOTHER
+        // deep-link tab (the "trying to open another application" storm on
+        // mobile). Surface the error and let the user retry deliberately via
+        // the "Try Again" button — one tab per intentional attempt.
         throw firstErr;
       }
     } catch (err: unknown) {

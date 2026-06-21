@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
+import { GAME_URL, goToGame } from "@/lib/gameUrl";
 
 // ─── Animated Rocket ──────────────────────────────────────────────────────────
 function Rocket() {
@@ -168,7 +168,7 @@ function HypeTicker() {
 function TokenSection() {
   const steps = [
     { num: "01", icon: "📱", title: "Install a Wallet",   desc: "Connect with Pera, Defly, Kibisis, or LUTE — any Algorand wallet with ASA & NFT support works on TestNet.", action: "Get Pera Wallet →", href: "https://perawallet.app", color: "#4fc3f7" },
-    { num: "02", icon: "🎁", title: "Claim Your Bonus",   desc: "Connect to the game and receive a one-time 500 $ASCEND welcome bonus to kickstart your conquest.", action: "Enter Game →", href: "/game", color: "#81c784" },
+    { num: "02", icon: "🎁", title: "Claim Your Bonus",   desc: "Connect to the game and receive a one-time 500 $ASCEND welcome bonus to kickstart your conquest.", action: "Enter Game →", href: GAME_URL, color: "#81c784" },
     { num: "03", icon: "🪙", title: "Earn By Owning Land", desc: "Claim parcels and earn $ASCEND passively. The land-minted supply is emitted only to landholders. (DEX listing arrives at MainNet.)", action: "View Economics →", href: "/info/economics", color: "#ce93d8" },
   ];
 
@@ -449,7 +449,6 @@ function EarlyAdopterSection({ onEnter }: { onEnter: () => void }) {
 
 // ─── Main Landing Page ────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const [, setLocation] = useLocation();
   const [entered, setEntered] = useState(false);
   const [countdown, setCountdown] = useState(6);
 
@@ -457,7 +456,9 @@ export default function LandingPage() {
     setEntered(true);
     const timer = setInterval(() => {
       setCountdown((c) => {
-        if (c <= 1) { clearInterval(timer); setLocation("/game"); return 0; }
+        // Jump to the backend that serves the live game (cross-origin from the
+        // static homepage on Cloudflare; same-origin on the backend host).
+        if (c <= 1) { clearInterval(timer); goToGame(); return 0; }
         return c - 1;
       });
     }, 1000);

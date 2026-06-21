@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { WalletConnect } from "@/components/game/WalletConnect";
+import { goToGame } from "@/lib/gameUrl";
 
 // ─── Social / external links ──────────────────────────────────────────────────
 // Only entries with a non-empty url render. Add Discord/Telegram invite URLs
@@ -98,6 +99,9 @@ export function LandingNav({ activePath }: { activePath: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleNav = (path: string) => { setLocation(path); setMenuOpen(false); };
+  // "Enter Game" leaves the static site for the backend that serves the live
+  // game (full-page nav; cross-origin on Cloudflare, same-origin on the backend).
+  const handleEnterGame = () => { setMenuOpen(false); goToGame(); };
 
   return (
     <>
@@ -128,7 +132,7 @@ export function LandingNav({ activePath }: { activePath: string }) {
               }}>{label}</button>
             );
           })}
-          <button onClick={() => handleNav("/game")} style={{
+          <button onClick={handleEnterGame} style={{
             marginLeft: 8, background: "rgba(60,100,255,0.22)",
             border: "1px solid rgba(80,130,255,0.55)", borderRadius: 4,
             padding: "5px 15px", color: "rgba(160,210,255,0.95)", fontSize: 11,
@@ -163,7 +167,7 @@ export function LandingNav({ activePath }: { activePath: string }) {
               cursor: "pointer", textAlign: "left", width: "100%", fontFamily: "inherit",
             }}>{label}</button>
           ))}
-          <button onClick={() => handleNav("/game")} style={{
+          <button onClick={handleEnterGame} style={{
             background: "rgba(60,100,255,0.28)", border: "1px solid rgba(80,130,255,0.55)",
             borderRadius: 6, padding: "14px 16px", color: "rgba(160,210,255,0.95)",
             fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",

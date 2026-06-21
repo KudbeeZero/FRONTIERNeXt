@@ -16,12 +16,12 @@
  *   the wallet SDK + walletManager touch `window`/IndexedDB at import, so they
  *   are stubbed to inert passthroughs with a disconnected wallet — the real
  *   first-load state for a visitor who hasn't connected.
- * - `/` currently boots straight into the gameplay page (the landing page is
- *   temporarily bypassed — see App.tsx). The `/info/*` and catch-all (404)
- *   routes render their REAL components. The gameplay page is a heavy WebGL
- *   globe (`@react-three/fiber` Canvas) that cannot render headless; it is
- *   stubbed at the page render BOUNDARY so this test asserts the router MOUNTS
- *   the gameplay page for `/` and `/game`. Rendering the real 3D entry state
+ * - `/` serves the static landing homepage (Cloudflare-hostable); its "Enter
+ *   Game" CTA jumps to the backend game (see lib/gameUrl). The `/info/*` and
+ *   catch-all (404) routes render their REAL components. The gameplay page is a
+ *   heavy WebGL globe (`@react-three/fiber` Canvas) that cannot render headless;
+ *   it is stubbed at the page render BOUNDARY so this test asserts the router
+ *   MOUNTS the gameplay page for `/game`. Rendering the real 3D entry state
  *   headless is out of scope — a focused GameLayout component test is the follow-up.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -93,10 +93,13 @@ describe("client route loop (App router)", () => {
     expect(html.length).toBeGreaterThan(0);
   });
 
-  it("boots straight into the gameplay page on the core route '/' (landing bypassed)", () => {
+  it("serves the static homepage (landing) on the core route '/'", () => {
     const html = renderAt("/");
-    // '/' now mounts the gameplay page directly (landing temporarily bypassed).
-    expect(html).toContain("GAME ROUTE ENTRY");
+    // '/' mounts the static landing page (Cloudflare-hostable homepage) — its
+    // "Enter Game" CTA jumps to the backend game (lib/gameUrl), it does NOT
+    // mount the heavy gameplay page here.
+    expect(html).toContain("Conquer the");
+    expect(html).not.toContain("GAME ROUTE ENTRY");
     // It is NOT the 404 fallback.
     expect(html).not.toContain("404 Page Not Found");
   });
@@ -118,10 +121,10 @@ describe("client route loop (App router)", () => {
     const home = renderAt("/");
     const info = renderAt("/info/economics");
     const missing = renderAt("/definitely-not-a-route");
-    // '/' boots into the gameplay page; an /info page and the 404 fallback are
+    // '/' serves the landing homepage; an /info page and the 404 fallback are
     // distinct outputs, so the Switch still selects per-path — a dropped or
     // mis-wired <Route> would break at least one of these assertions.
-    expect(home).toContain("GAME ROUTE ENTRY");
+    expect(home).toContain("Conquer the");
     expect(info).not.toBe(home);
     expect(info).not.toBe(missing);
     expect(home).not.toBe(missing);
