@@ -41,10 +41,6 @@ import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 
 // ── PlotOverlay ────────────────────────────────────────────────────────────────
 
-// Faint near-white base for un-owned land — the "transparent crust" look (the
-// fill material runs at low opacity). Owned/selected/battle tiles keep accents.
-const COLOR_TILE_BASE = new THREE.Color(0xffffff);
-
 interface PlotOverlayProps {
   parcels: LandParcel[];
   players: Player[];
@@ -163,16 +159,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
-  // Hug the surface: tiles sat ~3.6% above the globe (a visibly floating shell);
-  // dropped close to the terrain so they read as the planet's crust. Fill stays
-  // just above the border so the outline reads under it; both safely clear of the
-  // R=GLOBE_RADIUS terrain sphere to avoid z-fighting.
   const fillPositions3D = useMemo(() => {
-    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.008));
+    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.018));
   }, [plotCoords]);
 
   const borderPositions3D = useMemo(() => {
-    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.005));
+    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.012));
   }, [plotCoords]);
 
   const applyInstance = (
@@ -249,17 +241,14 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor = COLOR_BATTLE.clone().multiplyScalar(bp);
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
-      } else if (isOwned) {
+      } else {
         fillColor = getPlotColor(parcel, currentPlayerId, customColors);
         // Owned territory pops: brighten player tiles (breathing) and faction/enemy tiles.
         if (isOwnedByMe) {
           fillColor.multiplyScalar(1.4 + Math.sin(pulseRef.current + i * 0.1) * 0.12);
-        } else {
+        } else if (isOwned) {
           fillColor.multiplyScalar(1.25);
         }
-      } else {
-        // Un-owned land: faint near-white "crust" (low material opacity).
-        fillColor = COLOR_TILE_BASE.clone();
       }
 
       // Your own plots get a breathing border-glow so ownership reads as motion,
@@ -323,15 +312,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor = COLOR_BATTLE.clone();
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
-      } else if (isOwned) {
+      } else {
         fillColor = getPlotColor(parcel, currentPlayerId, customColors);
         // Owned territory pops (static base pass — faction/enemy tiles aren't animated).
         const isOwnedByMe = !!parcel?.ownerId && parcel.ownerId === currentPlayerId;
         if (isOwnedByMe) fillColor.multiplyScalar(1.4);
-        else fillColor.multiplyScalar(1.25);
-      } else {
-        // Un-owned land: faint near-white "crust" (low material opacity).
-        fillColor = COLOR_TILE_BASE.clone();
+        else if (isOwned) fillColor.multiplyScalar(1.25);
       }
 
       const borderColor = isOwned ? COLOR_BORDER_OWNED.clone() : COLOR_BORDER_UNOWNED.clone();
@@ -422,7 +408,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         <meshBasicMaterial
           vertexColors
           transparent
-          opacity={0.45}
+          opacity={0.88}
           depthWrite={false}
           depthTest={false}
           side={THREE.FrontSide}
