@@ -422,7 +422,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         <meshBasicMaterial
           vertexColors
           transparent
-          opacity={0.25}
+          opacity={0.45}
           depthWrite={false}
           depthTest={false}
           side={THREE.FrontSide}

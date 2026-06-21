@@ -1173,7 +1173,9 @@ export function GameLayout() {
            Mobile → MobilePlotSheet (above BottomNav). Desktop → floating card.
            The full LandSheet opens separately when the player taps "Manage Plot".
       ────────────────────────────────────────────────────────────────────────── */}
-      {activeTab === "map" && selectedParcel && (
+      {/* Mobile: plot cards are hidden — the globe's PLOT #N popup is the entry
+          point we'll build the new menu off. Desktop keeps the panels. */}
+      {!isMobile && activeTab === "map" && selectedParcel && (
         <SelectedPlotPanel
           parcel={selectedParcel}
           player={player}
@@ -1186,8 +1188,8 @@ export function GameLayout() {
         />
       )}
 
-      {/* ── Full LandSheet — owned plot management ──────────────────────────── */}
-      {activeTab === "map" && selectedParcel && showFullLandSheet && (
+      {/* ── Full LandSheet — owned plot management (desktop only for now) ───── */}
+      {!isMobile && activeTab === "map" && selectedParcel && showFullLandSheet && (
         <LandSheet
           parcel={selectedParcel}
           player={player}
