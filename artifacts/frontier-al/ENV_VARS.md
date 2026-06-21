@@ -44,6 +44,7 @@
 | Variable | Purpose | Must be prefixed VITE_ |
 |----------|---------|------------------------|
 | VITE_WS_URL | WebSocket endpoint base URL | `wss://api.ascendancyalgo.xyz` |
+| VITE_GAME_URL | Where the landing's "Enter Game" CTA navigates. Defaults to `/game` (same-origin — correct on the backend host). On a static homepage host (Cloudflare Pages) set this to the backend that serves the live game. | `https://frontiernext.fly.dev/game` |
 | VITE_ALGOD_URL | Algorand node URL override (optional, defaults to testnet algonode) | `https://mainnet-api.algonode.cloud` |
 | VITE_INDEXER_URL | Algorand indexer URL override (optional, defaults to testnet algonode) | `https://mainnet-idx.algonode.cloud` |
 
@@ -51,6 +52,10 @@
 
 - **CLIENT_ORIGIN**: Not currently set — must be configured for cross-origin deployment
 - **VITE_WS_URL**: New — required for cross-domain WebSocket from Vercel → Railway
+- **VITE_GAME_URL**: Set on the **static homepage host** (Cloudflare Pages) to
+  `https://frontiernext.fly.dev/game` so the landing's "Enter Game" leaves the
+  static site and opens the live, same-origin game served by the Fly backend.
+  Leave unset on the backend host (defaults to `/game`).
 - **VITE_ALGOD_URL / VITE_INDEXER_URL**: Currently default to testnet URLs; must be overridden for mainnet
 - **SESSION_SECRET**: Listed as required in chain config validation but session middleware is not currently initialized — verify if sessions are needed before go-live
 - **AI_ENABLED**: Should be `false` for initial multiplayer launch

@@ -11,9 +11,11 @@ import { walletManager } from "@/lib/walletManager";
 import NotFound from "@/pages/not-found";
 import GamePage from "@/pages/game";
 import TestnetPage from "@/pages/testnet";
-// NOTE: landing page temporarily bypassed — "/" boots straight into the game
-// (owner request). LandingPage import + the "/" ternary are intentionally
-// removed; restore by re-adding the import and `{TEST_GLOBE ? <GamePage /> : <LandingPage />}`.
+// "/" serves the static homepage (landing). Its "Enter Game" CTAs jump to the
+// backend that serves the live game (see lib/gameUrl.ts) — so the landing can be
+// hosted statically (Cloudflare Pages) while the game runs on its backend (Fly).
+// "/game" mounts the gameplay page directly for the backend-served origin.
+import LandingPage from "@/pages/landing";
 import LandingEconomics from "@/pages/landing-economics";
 import LandingGameplay from "@/pages/landing-gameplay";
 import LandingFeatures from "@/pages/landing-features";
@@ -41,7 +43,7 @@ function App() {
               </Route>
               <Route path="/">
                 <WalletProvider>
-                  <GamePage />
+                  <LandingPage />
                 </WalletProvider>
               </Route>
               <Route path="/info/economics">
