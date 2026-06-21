@@ -722,7 +722,12 @@ export function GameLayout() {
 
   const playerHasOwnedPlots = player && gameState ? gameState.parcels.some(p => p.ownerId === player.id) : false;
 
-  if (error) {
+  // Only show the full-screen connection error on the INITIAL load (no data yet).
+  // Once gameState is cached, a transient refetch failure (flaky mobile signal,
+  // the 30s poll blipping) must NOT blow the whole game away and snap back — that
+  // read as the wallet/screen "flashing". Keep rendering the game with last-good
+  // state; the next successful refetch recovers silently.
+  if (error && !gameState) {
     return (
       <div className="flex items-center justify-center h-screen bg-background" data-testid="game-error">
         <div className="text-center p-8">
