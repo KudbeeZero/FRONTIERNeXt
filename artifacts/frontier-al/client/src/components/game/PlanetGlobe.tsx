@@ -5,7 +5,7 @@
  */
 
 import * as THREE from "three";
-import { useRef, useMemo, useState } from "react";
+import { useRef, useMemo, useState, Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -14,6 +14,7 @@ import type { WorldEvent } from "@shared/worldEvents";
 import { GlobeEventOverlays } from "./GlobeEventOverlays";
 import { GLOBE_RADIUS } from "@/lib/globe/globeConstants";
 import { StarField }           from "./globe/StarField";
+import { GlobeSpaceProps }     from "./globe/GlobeSpaceProps";
 import { GlobeAtmosphere }     from "./globe/GlobeAtmosphere";
 import { GlobeTerrain }        from "./globe/GlobeTerrain";
 import { PlotOverlay, SubParcelOverlay } from "./globe/GlobeParcels";
@@ -82,6 +83,9 @@ function Scene({
         flyRequestId={flyRequestId}
       />
       <StarField />
+      <Suspense fallback={null}>
+        <GlobeSpaceProps />
+      </Suspense>
       <GlobeAtmosphere />
       <ambientLight intensity={1.8} color="#d8eaff" />
       <directionalLight position={[8, 4, 5]}   intensity={1.6} color="#fff4e0" />

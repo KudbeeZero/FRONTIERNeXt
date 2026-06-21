@@ -6,8 +6,9 @@
  */
 
 import * as THREE from "three";
-import { useRef, useMemo, useCallback, useEffect } from "react";
+import { useRef, useMemo, useCallback, useEffect, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import type { LandParcel, Player } from "@shared/schema";
 import {
   GLOBE_RADIUS,
@@ -40,6 +41,10 @@ import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 
 // ── PlotOverlay ────────────────────────────────────────────────────────────────
 
+// Faint near-white base for un-owned land — the "transparent crust" look (the
+// fill material runs at low opacity). Owned/selected/battle tiles keep accents.
+const COLOR_TILE_BASE = new THREE.Color(0xffffff);
+
 interface PlotOverlayProps {
   parcels: LandParcel[];
   players: Player[];
@@ -56,6 +61,10 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   const hoveredIndexRef = useRef<number | null>(null);
   const prevHoveredRef  = useRef<number | null>(null);
   const prevSelectedRef = useRef<string | null>(null);
+  // Hovered plot index for the on-hover popup (only set when the plot changes,
+  // so pointer-move doesn't spam re-renders).
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const hoveredPlotRef = useRef<number | null>(null);
 
   const plotCoords = useMemo(() => generateFibonacciSphere(PLOT_COUNT), []);
 
@@ -154,12 +163,16 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
+  // Hug the surface: tiles sat ~3.6% above the globe (a visibly floating shell);
+  // dropped close to the terrain so they read as the planet's crust. Fill stays
+  // just above the border so the outline reads under it; both safely clear of the
+  // R=GLOBE_RADIUS terrain sphere to avoid z-fighting.
   const fillPositions3D = useMemo(() => {
-    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.018));
+    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.008));
   }, [plotCoords]);
 
   const borderPositions3D = useMemo(() => {
-    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.012));
+    return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.005));
   }, [plotCoords]);
 
   const applyInstance = (
@@ -236,14 +249,17 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor = COLOR_BATTLE.clone().multiplyScalar(bp);
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
-      } else {
+      } else if (isOwned) {
         fillColor = getPlotColor(parcel, currentPlayerId, customColors);
         // Owned territory pops: brighten player tiles (breathing) and faction/enemy tiles.
         if (isOwnedByMe) {
           fillColor.multiplyScalar(1.4 + Math.sin(pulseRef.current + i * 0.1) * 0.12);
-        } else if (isOwned) {
+        } else {
           fillColor.multiplyScalar(1.25);
         }
+      } else {
+        // Un-owned land: faint near-white "crust" (low material opacity).
+        fillColor = COLOR_TILE_BASE.clone();
       }
 
       // Your own plots get a breathing border-glow so ownership reads as motion,
@@ -307,12 +323,15 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         fillColor = COLOR_BATTLE.clone();
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
-      } else {
+      } else if (isOwned) {
         fillColor = getPlotColor(parcel, currentPlayerId, customColors);
         // Owned territory pops (static base pass — faction/enemy tiles aren't animated).
         const isOwnedByMe = !!parcel?.ownerId && parcel.ownerId === currentPlayerId;
         if (isOwnedByMe) fillColor.multiplyScalar(1.4);
-        else if (isOwned) fillColor.multiplyScalar(1.25);
+        else fillColor.multiplyScalar(1.25);
+      } else {
+        // Un-owned land: faint near-white "crust" (low material opacity).
+        fillColor = COLOR_TILE_BASE.clone();
       }
 
       const borderColor = isOwned ? COLOR_BORDER_OWNED.clone() : COLOR_BORDER_UNOWNED.clone();
@@ -342,11 +361,19 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     const p = e.point as THREE.Vector3;
     const len = p.length();
     const scale = len > 0 ? GLOBE_RADIUS / len : 1;
-    hoveredIndexRef.current = nearestPlot(p.x * scale, p.y * scale, p.z * scale);
+    const idx = nearestPlot(p.x * scale, p.y * scale, p.z * scale);
+    hoveredIndexRef.current = idx;
+    // Surface the hovered plot number for the popup — only on change (no spam).
+    if (idx !== hoveredPlotRef.current) {
+      hoveredPlotRef.current = idx;
+      setHoveredIdx(idx >= 0 ? idx : null);
+    }
   }, [nearestPlot]);
 
   const handlePointerLeave = useCallback(() => {
     hoveredIndexRef.current = null;
+    hoveredPlotRef.current = null;
+    setHoveredIdx(null);
   }, []);
 
   const handleClick = useCallback((e: any) => {
@@ -388,19 +415,49 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         />
       </instancedMesh>
 
-      {/* Fill layer — square tile */}
+      {/* Fill layer — square tile. Low opacity = faint "transparent crust" so the
+          planet reads through; owned/selected tiles still carry their accent. */}
       <instancedMesh ref={fillMeshRef} args={[undefined, undefined, PLOT_COUNT]} renderOrder={2}>
         <planeGeometry args={[1.0, 1.0]} />
         <meshBasicMaterial
           vertexColors
           transparent
-          opacity={0.88}
+          opacity={0.25}
           depthWrite={false}
           depthTest={false}
           side={THREE.FrontSide}
           toneMapped={false}
         />
       </instancedMesh>
+
+      {/* Hover popup — shows the plot number over the tile under the cursor. */}
+      {hoveredIdx !== null && fillPositions3D[hoveredIdx] && (
+        <Html
+          position={fillPositions3D[hoveredIdx]}
+          center
+          distanceFactor={8}
+          zIndexRange={[20, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div
+            style={{
+              padding: "2px 7px",
+              borderRadius: 5,
+              background: "rgba(4,10,22,0.82)",
+              border: "1px solid rgba(120,200,255,0.6)",
+              color: "#dff1ff",
+              fontFamily: "monospace",
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              whiteSpace: "nowrap",
+              transform: "translateY(-14px)",
+            }}
+          >
+            PLOT #{plotCoords[hoveredIdx]?.plotId}
+          </div>
+        </Html>
+      )}
     </>
   );
 }
