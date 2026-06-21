@@ -5,11 +5,20 @@ name: Deploy to Fly
 # mobile app: Actions → "Deploy to Fly" → Run workflow. No local flyctl needed.
 #
 # Requires a repo secret FLY_API_TOKEN (create with:  fly tokens create deploy -a frontiernext).
-# Kept manual (workflow_dispatch) on purpose — nothing deploys until you tap it.
-# To enable auto-deploy on merge to main later, add a `push:` trigger.
+# Auto-deploys when game-relevant code lands on main (see the `push:` trigger
+# below); the manual workflow_dispatch is kept as a fallback for re-deploys.
 
 on:
   workflow_dispatch: {}
+  # Auto-deploy when game-relevant code lands on main, so a merged fix goes live
+  # without a manual tap. Path-scoped so docs/baton-only commits don't redeploy.
+  push:
+    branches: [main]
+    paths:
+      - 'artifacts/frontier-al/**'
+      - 'fly.toml'
+      - 'Dockerfile'
+      - '.github/workflows/fly-deploy.yml'
 
 # Never let two deploys overlap.
 concurrency:
