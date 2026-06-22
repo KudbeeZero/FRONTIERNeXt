@@ -9,16 +9,21 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — NO OPEN PR · main `30293d3` · deploy LIVE
-- **Main:** green at **`30293d3`** (Merge #93). **No open PR** (before this closeout PR).
+## Current baton — ONE OPEN PR (closeout/baton, AWAITING_AUDIT) · main `bad11d4` · deploy LIVE
+- **Main:** green at **`bad11d4`** (Merge **#101** — globe v2 rebuild). CI-parity locally: `check` clean,
+  server **336 passed**/11 skipped, client **107 passed**. The only open PR is **this chat's baton update** (AWAITING_AUDIT).
 - **🛑 OWNER DIRECTIVE (LOCKED):** **Do NOT auto-merge anything.** The owner reviews, approves, and
   merges **every** PR. Open PRs as drafts; never self-merge.
-- **Shipped + merged this session (live-ops / deploy + globe + wallet firefighting):** #85 (repair
-  malformed `fly.toml` from auto-merged #84), #86 (one-tap **DB Push** GH workflow → `db:push`),
-  #87 (boot `/` straight into the game; landing bypassed), #88 (route-loop test fix for #87), #89
-  (space scenery + tile tuning — later reverted), #90 (**wallet WS auth-reject death-loop fix** +
-  `/security-pass`), #91 (globe declutter: removed moon/station/glow, black bg), #92 (Lute-only +
-  planet brightened ×2.6 — Lute-only was wrong), #93 (**restore Pera for mobile**). App **2.0.0**.
+- **Shipped + merged THIS chat:** **#101** — `globe/v2/` rebuilt from the recovered `REBUILD_NOTES`:
+  ONE world-space sun (`sunModelV2`) → real terminator, driving `PlanetSurfaceV2` / `PlotTilesV2`
+  (21k instanced, GPU terminator) / `AtmosphereV2` (blue rim) / `SunV2` / `PlanetGlobeV2` (+ layer
+  debug panel); `planetDataV2` data layer; standalone `globe-rebuild-preview.html` harness; 9
+  lighting-core tests. Plus `/code-review` fixes: surface **ACES + sRGB** encoding, **linear-space**
+  tile night-dim, `SUN_GLSL` wired into both shaders (no terminator drift).
+  - ⚠️ **v2 is NOT wired into the live app** (old `PlanetGlobe` is still the default) and the **GLSL is
+    typecheck/build-verified but NOT GPU-verified** — owner smoke-tests `/globe-rebuild-preview.html`
+    (live on the Cloudflare branch preview) before v2 can replace the old globe.
+- **Prior session (live-ops / deploy + globe + wallet firefighting):** #85–#93 (details below). App **2.0.0**.
 
 ### ⚙️ DEPLOY STATE — LIVE (not a blocker anymore)
 - **Backend:** Fly app **`frontiernext`** (`frontiernext.fly.dev`) is **up + seeded** — `/health`,
@@ -39,6 +44,9 @@
   brightness ×1.4→**×2.6** (terrain is UNLIT — that multiplier *is* the brightness; lights/"sun" do
   nothing); biome-colored tiles (original look); **PLOT #N hover popup** kept; the two plot cards
   (`SelectedPlotPanel` + `LandSheet`) **hidden on mobile** (desktop unchanged).
+- **Globe v2 (NEW, #101, parallel — NOT live):** `globe/v2/` is a clean re-lit stack (real terminator,
+  no magenta corona, no double-darkening). It is **not** wired in — the live globe is still the UNLIT
+  ×2.6 old stack above. v2 fixes are the proper answer to "planet looks dark," pending owner GPU check.
 - **Wallet picker = Pera + Lute** (`walletManager.ts`; dropped Defly + Kibisis). **Lute = desktop
   browser EXTENSION** ("not available in Safari") → desktop/owner's funded wallet. **Pera = mobile**
   (needs the Pera app installed on the phone). #90 fixed the WS auth-reject death-loop.
@@ -53,6 +61,10 @@ Admin + 4 faction (NEXUS-7/KRONOS/VANGUARD/SPECTRE) testnet accounts generated t
 the owner in chat → Fly secrets only. **Code still uses single-admin custody** until the gated wiring unit.
 
 ### ➡️ NEXT UNITS (queued; one PR each, OWNER MERGES)
+0. **Globe v2 wire-in (only after owner GPU-confirms the preview):** mount `PlanetGlobeV2` in
+   `GameLayout` behind a flag (default OFF → old globe), add a `mock` opt-in guard to `planetDataV2`
+   so a live mount can't silently render fake biomes, then port the old-globe overlays (HUD, battle
+   arcs, live events, observer/replay) onto the v2 stack. Cosmetic/UI; no funds/chain code.
 1. **Animated plot menu** off the PLOT #N popup — tap a plot → zoom-to-plot animation → card with
    working **buy/upgrade** buttons. (Cosmetic/UI; the popup is the entry point already in place.)
 2. **Entry overhaul (GATED — economy):** remove the wallet wall (`GameLayout.tsx:765`) + welcome
