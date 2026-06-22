@@ -47,6 +47,45 @@ interface WalletContextValue {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 
+/**
+ * Derive the coarse wallet status the UI gates on.
+ *
+ * The key invariant (and the fix for the "connect screen flashes up then
+ * disappears" bug): while the wallet library is still resuming a saved session
+ * (`libReady === false`) we report "restoring" — NOT "disconnected" — even
+ * though `isConnected` is momentarily false because the address hasn't resumed
+ * yet. Reporting "disconnected" here is what flashed the wallet-gate before the
+ * real session landed. Only once the library is ready do we trust
+ * connected/disconnected.
+ */
+export function deriveWalletStatus(libReady: boolean, isConnected: boolean): WalletStatus {
+  if (!libReady) return "restoring";
+  return isConnected ? "connected" : "disconnected";
+}
+
+/** Thrown when a wallet connect attempt exceeds {@link CONNECT_TIMEOUT_MS}. */
+export const CONNECT_TIMEOUT_MESSAGE = "CONNECT_TIMEOUT";
+/**
+ * How long to wait for `wallet.connect()` before giving up. Generous enough for
+ * a real Pera QR scan (grab phone, scan, approve) but finite so a connect that
+ * never surfaces a modal (the desktop "spins forever, nothing opens" hang)
+ * becomes a recoverable "try again" error instead of an infinite spinner.
+ */
+export const CONNECT_TIMEOUT_MS = 90_000;
+
+/**
+ * Race a promise against a timeout. Rejects with {@link CONNECT_TIMEOUT_MESSAGE}
+ * if `p` has not settled within `ms`. The timer is always cleared so it can't
+ * leak or fire after the promise settles.
+ */
+export function promiseWithTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(CONNECT_TIMEOUT_MESSAGE)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
+}
+
 interface WalletProviderProps {
   children: ReactNode;
   /**
@@ -76,6 +115,11 @@ function isUserCancellation(msg: string, data?: { type?: string }): boolean {
 
 // Map raw SDK errors to user-friendly messages.
 function friendlyErrorMessage(walletId: string, msg: string): string {
+  if (msg === CONNECT_TIMEOUT_MESSAGE) {
+    return walletId === "pera" || walletId === "defly"
+      ? "The wallet didn't respond. Make sure the QR / wallet popup opened, then try again."
+      : "The wallet didn't respond — please try again.";
+  }
   const lower = msg.toLowerCase();
   const isExtensionWallet = walletId === "lute" || walletId === "kibisis";
   const isNotInstalled =
@@ -105,13 +149,16 @@ function friendlyErrorMessage(walletId: string, msg: string): string {
 }
 
 export function WalletProvider({ children, autoAuth = false }: WalletProviderProps) {
-  const { wallets, activeAddress, signTransactions } = useWalletLib();
+  // `isReady` flips true once use-wallet has finished resuming any saved session
+  // from storage. We gate "restoring" on THIS — not a blind timer — so the UI
+  // never snaps to the "connect your wallet" gate before the real restore lands
+  // (a slow mobile resume used to flash the connect screen, then the game).
+  const { wallets, activeAddress, signTransactions, isReady: walletLibReady } = useWalletLib();
 
   const [balance, setBalance] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blockchainReady, setBlockchainReady] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -124,8 +171,6 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     fetchBlockchainStatus().then((status) => {
       setBlockchainReady(status.ready || !!status.adminAddress);
     });
-    const timer = setTimeout(() => setIsInitialized(true), 800);
-    return () => clearTimeout(timer);
   }, []);
 
   // Register the signer whenever the active wallet changes
@@ -231,7 +276,8 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     const attemptConnect = async () => {
       const wallet = wallets.find((w: any) => w.id === walletId);
       if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
-      await wallet.connect();
+      // Bound the connect so a modal that never surfaces can't spin forever.
+      await promiseWithTimeout(wallet.connect(), CONNECT_TIMEOUT_MS);
     };
 
     try {
@@ -281,11 +327,7 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const activeWallet = wallets.find((w: any) => w.isActive) ?? null;
   const walletType = activeWallet?.id ?? null;
 
-  const walletStatus: WalletStatus = !isInitialized
-    ? "restoring"
-    : isConnected
-    ? "connected"
-    : "disconnected";
+  const walletStatus: WalletStatus = deriveWalletStatus(walletLibReady, isConnected);
 
   const availableWallets: WalletInfo[] = wallets.map((w: any) => ({
     id: w.id,
