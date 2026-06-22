@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FRONTIER · Globe v2 rebuild preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: ui-monospace, monospace; }
+  #c { position: fixed; inset: 0; display: block; }
+  #panel {
+    position: fixed; top: 12px; left: 12px; z-index: 10;
+    background: rgba(4,8,20,0.78); border: 1px solid rgba(79,195,247,0.3);
+    border-radius: 8px; padding: 10px 12px; color: rgba(190,225,255,0.95);
+    font-size: 12px; letter-spacing: 0.06em; display: flex; flex-direction: column; gap: 6px; min-width: 170px;
+  }
+  #panel .title { color: #4fc3f7; letter-spacing: 0.18em; margin-bottom: 2px; }
+  #panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  #panel .col { flex-direction: column; align-items: stretch; gap: 2px; }
+  #panel input[type=range] { width: 100%; }
+  #panel .note { color: rgba(120,160,200,0.7); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="panel">
+  <div class="title">GLOBE V2 · PREVIEW</div>
+  <label><input type="checkbox" id="t-stars" checked> 0 · Starfield</label>
+  <label><input type="checkbox" id="t-surface" checked> 1 · Surface</label>
+  <label><input type="checkbox" id="t-tiles" checked> 2 · Plot tiles</label>
+  <label><input type="checkbox" id="t-atmo" checked> 3 · Atmosphere</label>
+  <label><input type="checkbox" id="t-sun" checked> 4 · Sun disc</label>
+  <label style="margin-top:4px"><input type="checkbox" id="t-pause"> pause sun</label>
+  <label class="col"><span>sun scrub</span><input type="range" id="scrub" min="-3.14159" max="3.14159" step="0.01" value="0"></label>
+  <div class="note">procedural textures · zero assets</div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// ── Constants mirrored from the app (globeConstants.ts / sunModelV2.ts) ──────────
+const GLOBE_RADIUS = 2;
+const TERMINATOR_SOFTNESS = 0.10;
+const SUN_ORBIT_SPEED = 0.08;
+const SUN_DISTANCE = 30;
+const TILE_COUNT = 6000;          // lighter than the live 21k, same model
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const POLAR_EXCLUSION_LAT = 75;
+const S = TERMINATOR_SOFTNESS.toFixed(3);
+
+const BIOMES = [
+  "#39ff14", "#ff8a00", "#c000ff", "#00ffd5",
+  "#00ccff", "#bfe9ff", "#ff5a36", "#ff4dca",
+].map(h => new THREE.Color(h));
+
+// ── Renderer / scene / camera ────────────────────────────────────────────────────
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 200);
+camera.position.set(0, 0, GLOBE_RADIUS * 3.8);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enablePan = false;
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = GLOBE_RADIUS * 1.8;
+controls.maxDistance = GLOBE_RADIUS * 6.0;
+
+// The one shared world-space sun direction every layer reads.
+const sunDir = new THREE.Vector3(1, 0.35, 0).normalize();
+
+// ── Procedural textures (so the lighting model validates with zero assets) ───────
+function makeCanvas(w, h) { const cv = document.createElement("canvas"); cv.width = w; cv.height = h; return cv; }
+
+function dayTexture() {
+  const cv = makeCanvas(1024, 512), g = cv.getContext("2d");
+  g.fillStyle = "#0a2a55"; g.fillRect(0, 0, 1024, 512); // ocean
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * 1024, y = 80 + Math.random() * 352;
+    const r = 20 + Math.random() * 90;
+    g.fillStyle = Math.random() < 0.5 ? "#2f7d33" : "#7a6a3a";
+    g.beginPath(); g.ellipse(x, y, r, r * 0.7, Math.random() * 6, 0, Math.PI * 2); g.fill();
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+function nightTexture() {
+  const cv = makeCanvas(1024, 512), g = cv.getContext("2d");
+  g.fillStyle = "#02040a"; g.fillRect(0, 0, 1024, 512);
+  for (let i = 0; i < 1400; i++) {
+    const x = Math.random() * 1024, y = 80 + Math.random() * 352;
+    g.fillStyle = Math.random() < 0.8 ? "rgba(255,220,140,0.9)" : "rgba(160,200,255,0.9)";
+    g.fillRect(x, y, 1.6, 1.6);
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// ── Layer 0 · Starfield ──────────────────────────────────────────────────────────
+function buildStars() {
+  const N = 6000, pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const r = 65 + Math.random() * 90, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    pos[i*3] = r*Math.sin(ph)*Math.cos(th); pos[i*3+1] = r*Math.cos(ph); pos[i*3+2] = r*Math.sin(ph)*Math.sin(th);
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xbcd4ff, size: 0.1, sizeAttenuation: true, depthWrite: false }));
+}
+
+// ── Layer 1 · Surface (one shader, one terminator) ───────────────────────────────
+function buildSurface() {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      dayMap: { value: dayTexture() }, nightMap: { value: nightTexture() },
+      uSunDir: { value: sunDir }, uExposure: { value: 1.35 }, uNightBoost: { value: 1.6 },
+    },
+    vertexShader: `
+      varying vec2 vUv; varying vec3 vWorldNormal;
+      void main() {
+        vUv = uv; vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform sampler2D dayMap; uniform sampler2D nightMap;
+      uniform vec3 uSunDir; uniform float uExposure; uniform float uNightBoost;
+      varying vec2 vUv; varying vec3 vWorldNormal;
+      void main() {
+        vec3 day = texture2D(dayMap, vUv).rgb * uExposure;
+        vec3 night = texture2D(nightMap, vUv).rgb * uNightBoost;
+        float f = smoothstep(-${S}, ${S}, dot(normalize(vWorldNormal), uSunDir));
+        gl_FragColor = vec4(mix(night, day, f), 1.0);
+      }`,
+  });
+  return new THREE.Mesh(new THREE.SphereGeometry(GLOBE_RADIUS, 128, 64), mat);
+}
+
+// ── Layer 2 · Plot tiles (instanced, terminator on the GPU) ──────────────────────
+function fibonacci(count) {
+  const out = [], cand = Math.ceil(count * 1.1);
+  for (let i = 0; i < cand && out.length < count; i++) {
+    const y = 1 - (i / (cand - 1)) * 2;
+    const lat = Math.asin(y) * 180 / Math.PI;
+    if (Math.abs(lat) > POLAR_EXCLUSION_LAT) continue;
+    const lng = ((GOLDEN_ANGLE * i) * 180 / Math.PI) % 360;
+    const phi = (90 - lat) * Math.PI / 180, theta = ((lng > 180 ? lng - 360 : lng) + 180) * Math.PI / 180;
+    out.push(new THREE.Vector3(-Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta)));
+  }
+  return out;
+}
+
+function buildTiles() {
+  const pts = fibonacci(TILE_COUNT);
+  const geo = new THREE.PlaneGeometry(GLOBE_RADIUS * 0.024, GLOBE_RADIUS * 0.024);
+  const mat = new THREE.MeshBasicMaterial();
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uSunDir = { value: sunDir };
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform vec3 uSunDir;\nvarying float vDay;")
+      .replace("#include <begin_vertex>",
+        "#include <begin_vertex>\n vec3 wc = (modelMatrix * instanceMatrix * vec4(0.0,0.0,0.0,1.0)).xyz;\n vDay = smoothstep(-" + S + ", " + S + ", dot(normalize(wc), uSunDir));");
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vDay;")
+      .replace("#include <dithering_fragment>", "#include <dithering_fragment>\n gl_FragColor.rgb *= mix(0.18, 1.0, vDay);");
+  };
+  const mesh = new THREE.InstancedMesh(geo, mat, pts.length);
+  const m = new THREE.Matrix4(), up0 = new THREE.Vector3(0, 1, 0), x0 = new THREE.Vector3(1, 0, 0);
+  const right = new THREE.Vector3(), up = new THREE.Vector3(), col = new THREE.Color();
+  pts.forEach((n, i) => {
+    const arb = Math.abs(n.y) < 0.9 ? up0 : x0;
+    right.crossVectors(n, arb).normalize();
+    up.crossVectors(right, n).normalize();
+    m.makeBasis(right, up, n).setPosition(n.clone().multiplyScalar(GLOBE_RADIUS * 1.004));
+    mesh.setMatrixAt(i, m);
+    mesh.setColorAt(i, col.copy(BIOMES[(i * 2654435761 >>> 0) % BIOMES.length]));
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  return mesh;
+}
+
+// ── Layer 3 · Atmosphere (blue/cyan fresnel rim — never purple) ──────────────────
+function buildAtmosphere() {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uSunDir: { value: sunDir } },
+    side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+      varying vec3 vWorldNormal; varying vec3 vViewDir;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        vViewDir = normalize(cameraPosition - wp.xyz);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uSunDir; varying vec3 vWorldNormal; varying vec3 vViewDir;
+      void main() {
+        float fres = pow(1.0 - max(dot(vWorldNormal, vViewDir), 0.0), 3.0);
+        float lit = smoothstep(-0.35, 0.45, dot(vWorldNormal, uSunDir));
+        vec3 rim = mix(vec3(0.02,0.18,0.45), vec3(0.25,0.75,1.0), lit) * fres;
+        gl_FragColor = vec4(rim, fres);
+      }`,
+  });
+  return new THREE.Mesh(new THREE.SphereGeometry(GLOBE_RADIUS * 1.025, 64, 32), mat);
+}
+
+// ── Layer 4 · Sun (visible disc + directional light, the single writer) ──────────
+const sunDisc = new THREE.Mesh(new THREE.SphereGeometry(1.6, 24, 24), new THREE.MeshBasicMaterial({ color: 0xfff6d8 }));
+const sunLight = new THREE.DirectionalLight(0xfff4e0, 2.2);
+scene.add(new THREE.AmbientLight(0x9fb8ff, 0.25));
+
+// ── Assemble ──────────────────────────────────────────────────────────────────────
+const layers = {
+  stars: buildStars(), surface: buildSurface(), tiles: buildTiles(),
+  atmo: buildAtmosphere(), sun: sunDisc,
+};
+Object.values(layers).forEach(o => scene.add(o));
+scene.add(sunLight);
+
+// ── Panel wiring ────────────────────────────────────────────────────────────────
+const bind = (id, obj) => { const el = document.getElementById(id); el.onchange = () => obj.visible = el.checked; };
+bind("t-stars", layers.stars); bind("t-surface", layers.surface); bind("t-tiles", layers.tiles);
+bind("t-atmo", layers.atmo); bind("t-sun", layers.sun);
+let paused = false; document.getElementById("t-pause").onchange = e => paused = e.target.checked;
+let phase = 0; document.getElementById("scrub").oninput = e => phase = parseFloat(e.target.value);
+
+// ── Loop ────────────────────────────────────────────────────────────────────────
+let t = 0, last = performance.now();
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+function frame(now) {
+  const dt = (now - last) / 1000; last = now;
+  if (!paused) t += dt;
+  const a = t * SUN_ORBIT_SPEED + phase;
+  sunDir.set(Math.cos(a), 0.35, Math.sin(a)).normalize(); // single source of truth
+  sunDisc.position.copy(sunDir).multiplyScalar(SUN_DISTANCE);
+  sunLight.position.copy(sunDisc.position);
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
