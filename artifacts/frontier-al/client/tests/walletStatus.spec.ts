@@ -28,4 +28,20 @@ describe("deriveWalletStatus", () => {
     expect(deriveWalletStatus(true, true)).toBe("connected");
     expect(deriveWalletStatus(true, false)).toBe("disconnected");
   });
+
+  // The post-ready reconnect gap: use-wallet flips ready, but a saved Pera /
+  // WalletConnect session is still repopulating the address a tick later.
+  // Reporting "disconnected" here is the "spinner → connect screen → game"
+  // flash the owner saw. While a reconnect is pending we must stay "restoring".
+  it("stays 'restoring' in the post-ready reconnect gap (reconnect pending) — no gate flash", () => {
+    expect(deriveWalletStatus(true, false, true)).toBe("restoring");
+  });
+
+  it("shows the gate ('disconnected') once ready with nothing pending", () => {
+    expect(deriveWalletStatus(true, false, false)).toBe("disconnected");
+  });
+
+  it("a landed connection wins over a pending reconnect", () => {
+    expect(deriveWalletStatus(true, true, true)).toBe("connected");
+  });
 });
