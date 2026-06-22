@@ -52,6 +52,7 @@ export function GameLayout() {
   const wallet = useWallet();
   const { isConnected, balance, walletStatus } = wallet;
   const {
+    freePurchases,
     signPurchaseAction,
     signOptInToAscend,
     signOptInToPlotNft,
@@ -416,15 +417,21 @@ export function GameLayout() {
       return;
     }
 
-    const result = await signPurchaseAction(selectedParcel.plotId, algoAmount);
-    if (result === "cancelled") return;
-    if (typeof result !== "string") {
-      toast({ title: "Payment Required", description: "ALGO payment must be confirmed to purchase territory.", variant: "destructive" });
-      return;
+    // FREE_PURCHASES (TestNet testing toggle): skip the wallet ALGO payment
+    // entirely and let the server claim the plot for free. Otherwise sign + pay.
+    let algoPaymentTxId: string | undefined;
+    if (!freePurchases) {
+      const result = await signPurchaseAction(selectedParcel.plotId, algoAmount);
+      if (result === "cancelled") return;
+      if (typeof result !== "string") {
+        toast({ title: "Payment Required", description: "ALGO payment must be confirmed to purchase territory.", variant: "destructive" });
+        return;
+      }
+      algoPaymentTxId = result;
     }
 
     purchaseMutation.mutate(
-      { playerId: player.id, parcelId: selectedParcelId, algoPaymentTxId: result },
+      { playerId: player.id, parcelId: selectedParcelId, algoPaymentTxId },
       {
         onSuccess: () => {
           toast({ title: "Territory Acquired", description: "New land is now yours." });
@@ -509,10 +516,14 @@ export function GameLayout() {
       toast({ title: "Wallet Required", description: "Connect your wallet to mint a Commander.", variant: "destructive" });
       return;
     }
+    // FREE_PURCHASES (TestNet testing toggle): skip the wallet ALGO payment for
+    // the commander mint; the server skips the ALGO + ASCEND charge to match.
     let algoPaymentTxId: string | undefined;
-    const txResult = await signCommanderMintAction(tier, ascendCost);
-    if (!txResult || txResult === "cancelled") return; // wallet rejected or closed
-    if (typeof txResult === "string") algoPaymentTxId = txResult;
+    if (!freePurchases) {
+      const txResult = await signCommanderMintAction(tier, ascendCost);
+      if (!txResult || txResult === "cancelled") return; // wallet rejected or closed
+      if (typeof txResult === "string") algoPaymentTxId = txResult;
+    }
 
     // Step 2: Server creates avatar + fires async NFT mint (ASCEND deducted via clawback).
     mintAvatarMutation.mutate(

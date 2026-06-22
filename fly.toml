@@ -13,6 +13,11 @@ primary_region = 'ord'
   ALGORAND_NETWORK = 'testnet'
   NODE_ENV = 'production'
   PORT = '5000'
+  # TestNet testing toggle: plot + commander purchases are FREE (no ALGO/ASCEND
+  # charge). Safe-by-default — computeFreePurchases force-disables this on
+  # mainnet / ECONOMY_MODE=production, so it can never make mainnet purchases
+  # free. Remove this line (or set ECONOMY_MODE=production) to charge again.
+  FREE_PURCHASES = 'true'
 
 [http_service]
   internal_port = 5000

@@ -10,6 +10,7 @@
 | SESSION_SECRET | HMAC key for wallet-auth session tokens (≥16 chars). **Now actively used** — if unset in production the server falls back to an ephemeral per-process key (sessions die on restart and cannot be shared across instances). Set a strong value. | random 64-char string |
 | PUBLIC_BASE_URL | Railway service base URL (used for NFT metadata URLs) | `https://api.ascendancyalgo.xyz` |
 | ALGORAND_NETWORK | `testnet` or `mainnet` | `mainnet` |
+| FREE_PURCHASES | **TestNet testing only.** `true` makes plot + commander purchases free (no ALGO/ASCEND charge, no on-chain payment). **Force-disabled on mainnet / `ECONOMY_MODE=production`** by `computeFreePurchases` — it can never make mainnet purchases free. Unset/`false` = normal paid purchases. | `true` (testnet) / unset (prod) |
 | UPSTASH_REDIS_REST_URL | Upstash Redis REST URL. **Required for multi-instance**: when set, auth nonces + the enumeration/auth rate limiters are shared across instances; when unset, they fall back to per-instance memory (correct for a single instance only). Also backs world events / battle replays. | `https://....upstash.io` |
 | UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token | |
 | CLIENT_ORIGIN | Vercel frontend URL for CORS | `https://ascendancyalgo.xyz` |

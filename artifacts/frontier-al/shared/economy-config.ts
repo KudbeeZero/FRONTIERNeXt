@@ -30,6 +30,42 @@ export const ECONOMY_MODE: "testing" | "production" =
     ? "production"
     : "testing";
 
+// ─── Free Purchases (TestNet testing toggle) ──────────────────────────────────
+
+/**
+ * Pure gate for the "free purchases" testing toggle.
+ *
+ * When active, plot + commander purchases skip the ALGO payment entirely (no
+ * wallet charge, no on-chain payment verification) — a convenience for partner
+ * testing so balance/min-balance/fees never block the core loop.
+ *
+ * SAFETY (pricing HARD RULE): free purchases can NEVER be active in production
+ * economy mode or on mainnet, even if the env flag is set. This keeps the rule
+ * "nothing makes mainnet purchases free" mechanically true. Exported as a pure
+ * function so the mainnet-refusal is unit-testable.
+ */
+export function computeFreePurchases(opts: {
+  requested: boolean;
+  economyMode: "testing" | "production";
+  network: string | undefined;
+}): boolean {
+  const isMainnet = (opts.network ?? "").toLowerCase() === "mainnet";
+  return opts.requested && opts.economyMode !== "production" && !isMainnet;
+}
+
+/**
+ * Active free-purchases flag. Driven by FREE_PURCHASES=true, but force-disabled
+ * in production mode / on mainnet (see {@link computeFreePurchases}).
+ */
+export const FREE_PURCHASES: boolean = computeFreePurchases({
+  requested: typeof process !== "undefined" && process?.env?.FREE_PURCHASES === "true",
+  economyMode: ECONOMY_MODE,
+  network:
+    typeof process !== "undefined"
+      ? process?.env?.ALGORAND_NETWORK ?? process?.env?.VITE_ALGORAND_NETWORK
+      : undefined,
+});
+
 // ─── Land Emission Rates (ASCEND / day per parcel) ────────────────────────────
 
 /** Base ASCEND/day per owned parcel during testing phase. */
@@ -223,6 +259,7 @@ export function projectedDailyEmissions(parcelCount: number): number {
  */
 export const TESTING_ECONOMY_SUMMARY = {
   mode: ECONOMY_MODE,
+  freePurchases: FREE_PURCHASES,
   landEmissionRatePerDay: LAND_DAILY_ASCEND_RATE,
   landPurchaseAlgo: LAND_PURCHASE_ALGO_ACTIVE,
   commanderMintAscend: COMMANDER_MINT_ASCEND_ACTIVE,

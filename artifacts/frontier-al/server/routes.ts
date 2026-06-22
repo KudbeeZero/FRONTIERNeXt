@@ -71,6 +71,7 @@ import {
   COMMANDER_ALGO_PRICE_ACTIVE,
   LAND_PURCHASE_ALGO_ACTIVE,
   TESTING_ECONOMY_SUMMARY,
+  FREE_PURCHASES,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
 import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, type PaymentRedemption } from "./security";
@@ -538,6 +539,10 @@ export async function registerRoutes(
         network,
         forceNewAsaEnabled: forceNew,
         factionIdentities: factionAsaIds,
+        // TestNet testing toggle: when true the client skips the ALGO payment for
+        // plot/commander purchases (server skips verification too). Force-disabled
+        // on mainnet / production by computeFreePurchases — see economy-config.
+        freePurchases: FREE_PURCHASES,
       };
 
       // The admin wallet's live balances are operational treasury intelligence.
@@ -1822,8 +1827,11 @@ export async function registerRoutes(
       }
 
       // ── ALGO payment verification ─────────────────────────────────────────────
-      // Every purchase requires a verified on-chain ALGO payment.
-      if (!action.algoPaymentTxId) {
+      // Every PAID purchase requires a verified on-chain ALGO payment. When the
+      // TestNet FREE_PURCHASES toggle is active the payment is skipped entirely
+      // (no txId required, no verification, no replay claim). FREE_PURCHASES is
+      // force-disabled on mainnet/production — see economy-config.
+      if (!FREE_PURCHASES && !action.algoPaymentTxId) {
         return res.status(400).json({ error: "algoPaymentTxId is required for territory purchases." });
       }
 
@@ -1831,7 +1839,9 @@ export async function registerRoutes(
       const selectedParcel = await storage.getParcel(action.parcelId);
       if (!selectedParcel) return res.status(404).json({ error: "Parcel not found" });
 
-      const expectedMicroAlgos = Math.round((selectedParcel.purchasePriceAlgo ?? 0) * 1_000_000);
+      const expectedMicroAlgos = FREE_PURCHASES
+        ? 0
+        : Math.round((selectedParcel.purchasePriceAlgo ?? 0) * 1_000_000);
 
       // Chain-event audit trail (fire-and-forget; never gates the purchase).
       const purchaseIntentId = newIntentId();
@@ -1845,37 +1855,42 @@ export async function registerRoutes(
       };
       void recordPurchaseTransition({ ...intentBase, state: "submitting", event: "purchase_submitted" });
 
-      try {
-        await verifyAlgoPayment({
-          txId:           action.algoPaymentTxId,
-          expectedSender: player.address,
-          minMicroAlgo:   expectedMicroAlgos,
+      if (FREE_PURCHASES) {
+        console.log(`[purchase] FREE_PURCHASES active — skipping ALGO payment for parcelId=${action.parcelId} buyer=${player.address}`);
+        void recordPurchaseTransition({ ...intentBase, state: "confirmed", event: "payment_skipped_free" });
+      } else {
+        try {
+          await verifyAlgoPayment({
+            txId:           action.algoPaymentTxId!,
+            expectedSender: player.address,
+            minMicroAlgo:   expectedMicroAlgos,
+          });
+          console.log(`[purchase] ALGO payment verified txId=${action.algoPaymentTxId} microAlgos=${expectedMicroAlgos} buyer=${player.address}`);
+          void recordPurchaseTransition({ ...intentBase, state: "confirmed", event: "payment_verified" });
+        } catch (payErr) {
+          console.warn(`[purchase] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
+          void recordPurchaseTransition({ ...intentBase, state: "failed", event: "payment_failed", lastError: (payErr as Error).message });
+          return res.status(402).json({ error: "Algo payment not verified" });
+        }
+
+        // ── Replay protection ────────────────────────────────────────────────
+        // The verification above is a stateless indexer read; claim the txid
+        // atomically so the same payment can never buy a second plot.
+        const paymentClaim = await paymentReplayGuard.claim(action.algoPaymentTxId!, {
+          purpose:  "plot_purchase",
+          refId:    String(action.parcelId),
+          playerId: action.playerId,
         });
-        console.log(`[purchase] ALGO payment verified txId=${action.algoPaymentTxId} microAlgos=${expectedMicroAlgos} buyer=${player.address}`);
-        void recordPurchaseTransition({ ...intentBase, state: "confirmed", event: "payment_verified" });
-      } catch (payErr) {
-        console.warn(`[purchase] ALGO payment verification failed txId=${action.algoPaymentTxId} err=${(payErr as Error).message}`);
-        void recordPurchaseTransition({ ...intentBase, state: "failed", event: "payment_failed", lastError: (payErr as Error).message });
-        return res.status(402).json({ error: "Algo payment not verified" });
+        if (!paymentClaim.ok) {
+          if (paymentClaim.reason === "already_redeemed") {
+            console.warn(`[purchase] REPLAY DENIED txId=${action.algoPaymentTxId} parcelId=${action.parcelId} player=${action.playerId}`);
+            void recordPurchaseTransition({ ...intentBase, state: "duplicate_detected", event: "duplicate_rejected" });
+            return res.status(409).json({ error: "This payment transaction has already been redeemed." });
+          }
+          return res.status(503).json({ error: "Payment ledger unavailable — purchase refused. Your ALGO was not consumed; try again shortly." });
+        }
       }
       // ─────────────────────────────────────────────────────────────────────────
-
-      // ── Replay protection ────────────────────────────────────────────────
-      // The verification above is a stateless indexer read; claim the txid
-      // atomically so the same payment can never buy a second plot.
-      const paymentClaim = await paymentReplayGuard.claim(action.algoPaymentTxId, {
-        purpose:  "plot_purchase",
-        refId:    String(action.parcelId),
-        playerId: action.playerId,
-      });
-      if (!paymentClaim.ok) {
-        if (paymentClaim.reason === "already_redeemed") {
-          console.warn(`[purchase] REPLAY DENIED txId=${action.algoPaymentTxId} parcelId=${action.parcelId} player=${action.playerId}`);
-          void recordPurchaseTransition({ ...intentBase, state: "duplicate_detected", event: "duplicate_rejected" });
-          return res.status(409).json({ error: "This payment transaction has already been redeemed." });
-        }
-        return res.status(503).json({ error: "Payment ledger unavailable — purchase refused. Your ALGO was not consumed; try again shortly." });
-      }
 
       const buyerAddress = player.address;
       let parcel;
@@ -1883,8 +1898,11 @@ export async function registerRoutes(
         parcel = await storage.purchaseLand(action);
       } catch (purchaseErr) {
         // The purchase did not happen — give the buyer their payment back
-        // for a retry instead of leaving the txid burned.
-        await paymentReplayGuard.release(action.algoPaymentTxId);
+        // for a retry instead of leaving the txid burned. No claim exists in
+        // FREE_PURCHASES mode, so there is nothing to release.
+        if (!FREE_PURCHASES && action.algoPaymentTxId) {
+          await paymentReplayGuard.release(action.algoPaymentTxId);
+        }
         throw purchaseErr;
       }
       // Log the payment txId for audit trail (no dedicated column on parcels table).
@@ -2129,7 +2147,10 @@ export async function registerRoutes(
       // Human players must send ALGO to the admin wallet before commander minting.
       // Testnet price: 0.5 ALGO per tier. Production: tiered by rarity.
       const commanderAlgoPrice = COMMANDER_ALGO_PRICE_ACTIVE[action.tier] ?? 0.5;
-      if (isHumanPlayer) {
+      if (FREE_PURCHASES) {
+        console.log(`[mint-avatar] FREE_PURCHASES active — skipping ALGO payment + ASCEND cost for tier=${action.tier} player=${action.playerId}`);
+      }
+      if (isHumanPlayer && !FREE_PURCHASES) {
         if (!action.algoPaymentTxId) {
           return res.status(400).json({
             error: `algoPaymentTxId is required. Send ${commanderAlgoPrice} ALGO to the admin wallet before minting.`,
@@ -2159,7 +2180,9 @@ export async function registerRoutes(
       // The minimal Algorand network fee for the NFT mint transaction is handled
       // automatically by the admin wallet during the post-response fire-and-forget.
       const { COMMANDER_INFO } = await import('@shared/schema');
-      const ascendCost = COMMANDER_INFO[action.tier as keyof typeof COMMANDER_INFO]?.mintCostAscend ?? 0;
+      const ascendCost = FREE_PURCHASES
+        ? 0
+        : COMMANDER_INFO[action.tier as keyof typeof COMMANDER_INFO]?.mintCostAscend ?? 0;
 
       if (ascendCost > 0 && isHumanPlayer) {
         const playerAscend = mintPlayer.ascend ?? 0;
