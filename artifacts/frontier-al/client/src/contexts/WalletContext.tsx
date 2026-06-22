@@ -86,6 +86,24 @@ export function promiseWithTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
 }
 
+/**
+ * Best-effort purge of a half-open wallet session left behind by a failed or
+ * aborted connect, so stale WalletConnect pairings don't accumulate and
+ * resurface as duplicate popups. Swallows every error — this is cleanup, never
+ * the main path. Returns true iff a disconnect was actually attempted.
+ */
+export async function purgeStaleSession(
+  wallet: { disconnect?: () => unknown } | undefined | null,
+): Promise<boolean> {
+  if (!wallet || typeof wallet.disconnect !== "function") return false;
+  try {
+    await wallet.disconnect();
+  } catch {
+    /* ignore — best-effort cleanup */
+  }
+  return true;
+}
+
 interface WalletProviderProps {
   children: ReactNode;
   /**
@@ -273,8 +291,9 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     setIsConnecting(true);
     setError(null);
 
+    const wallet = wallets.find((w: any) => w.id === walletId);
+
     const attemptConnect = async () => {
-      const wallet = wallets.find((w: any) => w.id === walletId);
       if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
       // Bound the connect so a modal that never surfaces can't spin forever.
       await promiseWithTimeout(wallet.connect(), CONNECT_TIMEOUT_MS);
@@ -288,6 +307,12 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
       } catch (firstErr: unknown) {
         const e1 = firstErr as { message?: string; data?: { type?: string }; code?: string };
         const msg1 = e1?.message || String(firstErr) || "";
+
+        // Failed/aborted connect (including user cancel) can leave a HALF-OPEN
+        // WalletConnect session behind. If it isn't purged it accumulates and
+        // Pera resurfaces every leftover pairing on the next attempt — the
+        // "extra wallets keep popping up" storm. Drop it before we return/throw.
+        await purgeStaleSession(wallet);
 
         // User cancelled — don't retry, don't show error.
         if (isUserCancellation(msg1, e1?.data)) return;
