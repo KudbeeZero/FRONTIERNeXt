@@ -50,17 +50,60 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 /**
  * Derive the coarse wallet status the UI gates on.
  *
- * The key invariant (and the fix for the "connect screen flashes up then
- * disappears" bug): while the wallet library is still resuming a saved session
- * (`libReady === false`) we report "restoring" — NOT "disconnected" — even
- * though `isConnected` is momentarily false because the address hasn't resumed
- * yet. Reporting "disconnected" here is what flashed the wallet-gate before the
- * real session landed. Only once the library is ready do we trust
- * connected/disconnected.
+ * Two windows used to flash the connect-gate up before the real session landed;
+ * both are closed here:
+ *
+ *  1. **Library not ready** (`libReady === false`) — use-wallet is still
+ *     resuming. Report "restoring", never "disconnected".
+ *  2. **Post-ready reconnect gap** (`libReady === true`, not yet connected, but
+ *     `reconnectPending === true`) — use-wallet has flipped ready, yet a saved
+ *     Pera/WalletConnect session is still repopulating `activeAddress` a tick
+ *     later. Reporting "disconnected" in this gap is exactly the "spinner →
+ *     connect screen → game" flash the owner saw. Keep reporting "restoring"
+ *     until the address lands (or the bounded grace in the provider gives up).
+ *
+ * Genuinely-disconnected visitors (ready, not connected, nothing pending) get
+ * "disconnected" immediately — so a brand-new player still sees the connect gate
+ * without delay.
  */
-export function deriveWalletStatus(libReady: boolean, isConnected: boolean): WalletStatus {
+export function deriveWalletStatus(
+  libReady: boolean,
+  isConnected: boolean,
+  reconnectPending = false,
+): WalletStatus {
   if (!libReady) return "restoring";
-  return isConnected ? "connected" : "disconnected";
+  if (isConnected) return "connected";
+  if (reconnectPending) return "restoring";
+  return "disconnected";
+}
+
+/**
+ * localStorage flag remembering that THIS browser had a wallet connected on a
+ * previous load. Used only as a hint to hold the "restoring" spinner across the
+ * post-ready reconnect gap (see {@link deriveWalletStatus}) instead of flashing
+ * the connect-gate. Written when an address is active; cleared only on an
+ * explicit user disconnect.
+ */
+export const WALLET_SESSION_HINT_KEY = "frontier_wallet_session";
+
+/**
+ * How long to keep showing "restoring" after the library is ready while we wait
+ * for a saved session to repopulate the address. Generous enough for a real
+ * WalletConnect resume to land, finite so a session that will NEVER resume falls
+ * through to the connect-gate instead of spinning forever. NOT the old cosmetic
+ * blind timer — it only applies when there is concrete evidence (active wallet
+ * or persisted hint) that a reconnect is actually expected, and it is
+ * short-circuited the instant the address arrives.
+ */
+export const RECONNECT_GRACE_MS = 3_000;
+
+/** Read the persisted "we had a session last load" hint (SSR/test safe). */
+export function readWalletSessionHint(): boolean {
+  try {
+    return typeof window !== "undefined" && !!window.localStorage?.getItem(WALLET_SESSION_HINT_KEY);
+  } catch {
+    return false;
+  }
 }
 
 /** Thrown when a wallet connect attempt exceeds {@link CONNECT_TIMEOUT_MS}. */
@@ -185,6 +228,14 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const authAttemptedFor = useRef<string | null>(null);
   const isReconnecting = useRef(false);
 
+  // Did THIS browser have a wallet connected last load? If so we expect an async
+  // resume to land shortly, so we hold the "restoring" spinner across the
+  // post-ready reconnect gap instead of flashing the connect-gate.
+  const hadSessionHint = useRef<boolean>(readWalletSessionHint());
+  // Flips true once the bounded reconnect grace elapses, so a session that will
+  // never resume falls through to the gate instead of spinning forever.
+  const [restoreGraceElapsed, setRestoreGraceElapsed] = useState(false);
+
   useEffect(() => {
     fetchBlockchainStatus().then((status) => {
       setBlockchainReady(status.ready || !!status.adminAddress);
@@ -210,6 +261,21 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
       }
     }
   }, [activeAddress, signTransactions]);
+
+  // Remember that this browser had a live session, so the NEXT load holds the
+  // restoring spinner across the reconnect gap instead of flashing the gate.
+  // Deliberately NOT cleared when activeAddress drops to null (that transient
+  // drop IS the reconnect gap we're papering over) — only an explicit user
+  // disconnect clears it.
+  useEffect(() => {
+    if (!activeAddress) return;
+    hadSessionHint.current = true;
+    try {
+      window.localStorage?.setItem(WALLET_SESSION_HINT_KEY, "1");
+    } catch {
+      /* storage unavailable (private mode / SSR) — hint is best-effort */
+    }
+  }, [activeAddress]);
 
   // ── Wallet-signature authentication ─────────────────────────────────────────
   // Prove control of the connected wallet to the server and obtain a session
@@ -344,6 +410,15 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     setIsAuthenticated(false);
     setAuthError(null);
     authAttemptedFor.current = null;
+    // Explicit user disconnect — forget the resume hint and skip the grace so
+    // the connect-gate shows immediately (no lingering "restoring" spinner).
+    hadSessionHint.current = false;
+    setRestoreGraceElapsed(true);
+    try {
+      window.localStorage?.removeItem(WALLET_SESSION_HINT_KEY);
+    } catch {
+      /* best-effort */
+    }
     void logoutWallet();
   }, [wallets]);
 
@@ -352,7 +427,28 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const activeWallet = wallets.find((w: any) => w.isActive) ?? null;
   const walletType = activeWallet?.id ?? null;
 
-  const walletStatus: WalletStatus = deriveWalletStatus(walletLibReady, isConnected);
+  // We expect an address to land (so keep showing "restoring", not the gate)
+  // while use-wallet still marks a wallet active OR this browser had a session
+  // last load — until the bounded grace gives up.
+  const hasActiveWallet = !!activeWallet;
+  const reconnectPending =
+    !restoreGraceElapsed && (hasActiveWallet || hadSessionHint.current);
+
+  // Start the bounded grace once the library is ready but we're not yet
+  // connected and a reconnect is expected. If the address never lands, give up
+  // so the connect-gate can show instead of an endless spinner.
+  useEffect(() => {
+    if (!walletLibReady || isConnected || restoreGraceElapsed) return;
+    if (!hasActiveWallet && !hadSessionHint.current) return;
+    const t = setTimeout(() => setRestoreGraceElapsed(true), RECONNECT_GRACE_MS);
+    return () => clearTimeout(t);
+  }, [walletLibReady, isConnected, hasActiveWallet, restoreGraceElapsed]);
+
+  const walletStatus: WalletStatus = deriveWalletStatus(
+    walletLibReady,
+    isConnected,
+    reconnectPending,
+  );
 
   const availableWallets: WalletInfo[] = wallets.map((w: any) => ({
     id: w.id,
