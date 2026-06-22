@@ -14,7 +14,7 @@ import { useFrame } from "@react-three/fiber";
 import type { LandParcel } from "@shared/schema";
 import { GLOBE_RADIUS, FILL_SIZE } from "@/lib/globe/globeConstants";
 import { tangentFrame } from "@/lib/globe/globeUtils";
-import { TERMINATOR_SOFTNESS } from "./sunModelV2";
+import { SUN_GLSL } from "./sunModelV2";
 import type { PlanetDataV2 } from "./planetDataV2";
 
 const TILE_LIFT = 1.004; // sit just proud of the surface so tiles never z-fight
@@ -37,22 +37,26 @@ export function PlotTilesV2({ data, sunDirRef, parcels, onParcelSelect }: PlotTi
     const mat = new THREE.MeshBasicMaterial({ toneMapped: true });
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uSunDir = sunUniform.current;
+      // Terminator on the GPU, using the SAME dayFactorV2() the surface + JS use.
       shader.vertexShader = shader.vertexShader
         .replace(
           "#include <common>",
-          `#include <common>\nuniform vec3 uSunDir;\nvarying float vDay;`,
+          `#include <common>\nuniform vec3 uSunDir;\nvarying float vDay;\n${SUN_GLSL}`,
         )
         .replace(
           "#include <begin_vertex>",
           `#include <begin_vertex>
            vec3 wCenter = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-           vDay = smoothstep(-${TERMINATOR_SOFTNESS.toFixed(3)}, ${TERMINATOR_SOFTNESS.toFixed(3)}, dot(normalize(wCenter), uSunDir));`,
+           vDay = dayFactorV2(wCenter, uSunDir);`,
         );
+      // Dim the night side on diffuseColor (LINEAR space, before <tonemapping_fragment>
+      // + <colorspace_fragment>), so the tiles match the surface's linear night blend
+      // instead of being multiplied in already-encoded sRGB space.
       shader.fragmentShader = shader.fragmentShader
         .replace("#include <common>", `#include <common>\nvarying float vDay;`)
         .replace(
-          "#include <dithering_fragment>",
-          `#include <dithering_fragment>\n gl_FragColor.rgb *= mix(${NIGHT_DIM.toFixed(2)}, 1.0, vDay);`,
+          "#include <color_fragment>",
+          `#include <color_fragment>\n diffuseColor.rgb *= mix(${NIGHT_DIM.toFixed(2)}, 1.0, vDay);`,
         );
     };
     return mat;

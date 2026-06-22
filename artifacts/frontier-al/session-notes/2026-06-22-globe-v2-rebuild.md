@@ -41,6 +41,24 @@ Plus:
   owner-side dev-server smoke test of `/globe-rebuild-preview.html` (and/or mounting
   `<PlanetGlobeV2 />`) before it could replace the old globe.
 
+## /code-review fixes (same PR, post-review)
+`/code-review` on the diff surfaced color-pipeline defects that would make the v2
+surface look dark/inconsistent — fixed in-PR (GLSL, typecheck/build-verified, NOT
+GPU-verified):
+- **#1 (high):** `PlanetSurfaceV2` raw ShaderMaterial wrote `gl_FragColor` with no
+  tone-map/encode (three only runs `<tonemapping_fragment>`/`<colorspace_fragment>` for
+  built-in materials), so the surface read dark + disagreed with the tiles. Now inlines
+  three's exact ACES fit + linear→sRGB (`uToneExposure` matches the Canvas 1.15).
+- **#2 (med):** `PlotTilesV2` night dim was applied at `<dithering_fragment>` (after
+  tone-map/encode). Moved to `diffuseColor` at `<color_fragment>` → dims in linear space,
+  matching the surface.
+- **#3 (med):** `SUN_GLSL` was exported as the shader-side single source of truth but
+  unused. Now wired into both shaders (`dayFactorV2()`); the inline terminator copies are
+  gone, so CPU/surface/tile drift is impossible by construction.
+- Same fixes mirrored into `globe-rebuild-preview.html`.
+- Deferred: #4 (texture `colorSpace` set in a post-render effect w/o `needsUpdate`) and the
+  mock-data opt-in guardrail — documented, not yet changed.
+
 ## Next
 - Owner smoke-test the preview harness + mock `<PlanetGlobeV2 />`.
 - If it looks right, a follow-up unit wires `PlanetGlobeV2` into `GameLayout` behind a
