@@ -35,10 +35,13 @@ export function GlobeTerrain() {
 
     void main() {
       vec4 dayCol = texture2D(albedoMap, vUv);
-      // Planet is UNLIT (lights/"sun" don't affect it) — this multiplier IS the
-      // brightness. Raised from 1.4 so the globe reads bright without the glow.
-      vec3 boosted = boostSat(dayCol.rgb, 1.5) * 2.6;
-      gl_FragColor = vec4(boosted, 1.0);
+      // Brightness tuning: saturation boost x1.5, exposure x2.0 (was 1.4), plus a
+      // small ambient floor so dark texels never read as pure black. Bump EXPOSURE
+      // or FLOOR if the globe is still too dark; lower them if it blows out.
+      float EXPOSURE = 2.0;
+      float FLOOR = 0.50;
+      vec3 boosted = boostSat(dayCol.rgb, 1.5) * EXPOSURE + FLOOR;
+      gl_FragColor = vec4(min(boosted, vec3(1.0)), 1.0);
     }
   `;
 
