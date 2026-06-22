@@ -357,6 +357,7 @@ export async function fetchBlockchainStatus(): Promise<{
   ready: boolean;
   ascendAsaId: number | null;
   adminAddress: string | null;
+  freePurchases?: boolean;
 }> {
   try {
     const res = await fetch("/api/blockchain/status");

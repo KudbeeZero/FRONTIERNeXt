@@ -19,6 +19,7 @@ Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical 
 | `SESSION_SECRET` **[REQ][SEC]** | ≥16-char random string. Signs wallet-auth session tokens. If unset/weak → ephemeral key (sessions reset on restart). Generate: `openssl rand -hex 32`. |
 | `PUBLIC_BASE_URL` **[REQ]** | This service's public URL, e.g. `https://api.ascendancyalgo.xyz` (used for NFT metadata URLs). |
 | `ALGORAND_NETWORK` **[REQ]** | `mainnet` or `testnet`. Must be explicit in prod. |
+| `FREE_PURCHASES` **[TESTNET-ONLY]** | `true` → plot/commander purchases are free (no ALGO/ASCEND charge). **MUST be unset (or `ECONOMY_MODE=production`) for any mainnet deploy** — `computeFreePurchases` force-disables it on mainnet/production, but do not rely on that as the only guard: leave it out of mainnet config. |
 | `NODE_ENV` | Set `production`. Enables strict CSP, secure cookies, fail-closed admin. |
 | `PORT` | Railway injects automatically. |
 

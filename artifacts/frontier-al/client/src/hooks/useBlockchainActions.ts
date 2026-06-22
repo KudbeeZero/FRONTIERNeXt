@@ -42,11 +42,15 @@ export function useBlockchainActions() {
   // tri-state: undefined = checking, true = opted in, false = not opted in
   const [isOptedIn, setIsOptedIn] = useState<boolean | undefined>(undefined);
   const [treasuryAddress, setTreasuryAddress] = useState<string>("");
+  // TestNet testing toggle: when true, plot/commander purchases skip the wallet
+  // ALGO payment entirely (server skips verification too). Server-authoritative.
+  const [freePurchases, setFreePurchases] = useState<boolean>(false);
 
   useEffect(() => {
     fetchBlockchainStatus().then((status) => {
       if (status.ascendAsaId) setAscendAsaId(status.ascendAsaId);
       if (status.adminAddress) setTreasuryAddress(status.adminAddress);
+      setFreePurchases(status.freePurchases === true);
     });
   }, []);
 
@@ -496,6 +500,7 @@ export function useBlockchainActions() {
   return {
     isPending,
     lastTxId,
+    freePurchases,
     signMineAction,
     signUpgradeAction,
     signBuildAction,
