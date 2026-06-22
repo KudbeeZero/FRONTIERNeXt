@@ -171,8 +171,14 @@ export function WalletConnect({ className }: { className?: string }) {
           onOpenChange={setShowPicker}
           wallets={availableWallets}
           onSelect={(walletId) => {
+            // Close the picker, THEN start connect on the next frame. Starting
+            // wallet.connect() in the SAME tick we close this Radix dialog can
+            // leave `body { pointer-events: none }` / a focus trap behind, which
+            // strands Pera's QR modal: it mounts but is invisible/non-interactive,
+            // so the button just spins forever ("Pera keeps spinning, nothing
+            // opens"). Deferring past the close lets Radix fully clean up first.
             setShowPicker(false);
-            connect(walletId);
+            window.setTimeout(() => connect(walletId), 250);
           }}
         />
       </>

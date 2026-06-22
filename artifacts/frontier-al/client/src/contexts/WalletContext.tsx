@@ -63,6 +63,29 @@ export function deriveWalletStatus(libReady: boolean, isConnected: boolean): Wal
   return isConnected ? "connected" : "disconnected";
 }
 
+/** Thrown when a wallet connect attempt exceeds {@link CONNECT_TIMEOUT_MS}. */
+export const CONNECT_TIMEOUT_MESSAGE = "CONNECT_TIMEOUT";
+/**
+ * How long to wait for `wallet.connect()` before giving up. Generous enough for
+ * a real Pera QR scan (grab phone, scan, approve) but finite so a connect that
+ * never surfaces a modal (the desktop "spins forever, nothing opens" hang)
+ * becomes a recoverable "try again" error instead of an infinite spinner.
+ */
+export const CONNECT_TIMEOUT_MS = 90_000;
+
+/**
+ * Race a promise against a timeout. Rejects with {@link CONNECT_TIMEOUT_MESSAGE}
+ * if `p` has not settled within `ms`. The timer is always cleared so it can't
+ * leak or fire after the promise settles.
+ */
+export function promiseWithTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(CONNECT_TIMEOUT_MESSAGE)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
+}
+
 interface WalletProviderProps {
   children: ReactNode;
   /**
@@ -92,6 +115,11 @@ function isUserCancellation(msg: string, data?: { type?: string }): boolean {
 
 // Map raw SDK errors to user-friendly messages.
 function friendlyErrorMessage(walletId: string, msg: string): string {
+  if (msg === CONNECT_TIMEOUT_MESSAGE) {
+    return walletId === "pera" || walletId === "defly"
+      ? "The wallet didn't respond. Make sure the QR / wallet popup opened, then try again."
+      : "The wallet didn't respond — please try again.";
+  }
   const lower = msg.toLowerCase();
   const isExtensionWallet = walletId === "lute" || walletId === "kibisis";
   const isNotInstalled =
@@ -248,7 +276,8 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     const attemptConnect = async () => {
       const wallet = wallets.find((w: any) => w.id === walletId);
       if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
-      await wallet.connect();
+      // Bound the connect so a modal that never surfaces can't spin forever.
+      await promiseWithTimeout(wallet.connect(), CONNECT_TIMEOUT_MS);
     };
 
     try {
