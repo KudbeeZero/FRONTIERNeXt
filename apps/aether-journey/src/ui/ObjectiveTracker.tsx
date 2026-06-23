@@ -46,6 +46,18 @@ const OBJECTIVE: Record<Exclude<Phase, "idle">, { title: string; detail: string 
     title: "LIVE WITH THE CHOICE",
     detail: "The bus is set. See what it cost — and what it kept.",
   },
+  blackout: {
+    title: "FIND THE SIGNAL",
+    detail: "Comms are blind in Mars's shadow. A beacon is out there — go read it.",
+  },
+  decode: {
+    title: "DECODE THE BEACON",
+    detail: "Probe the code; the beacon tells you how close. Trust Aether's read, or work it yourself.",
+  },
+  fix: {
+    title: "POSITION FIXED",
+    detail: "The beacon is decoded. Steady on for the descent.",
+  },
 };
 
 export function ObjectiveTracker() {

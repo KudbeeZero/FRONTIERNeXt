@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useGameStore } from "./gameStore";
 import type { Connection } from "../lib/navCircuit";
+import { allCodes, score, remainingCount, type Probe } from "../lib/beacon";
+import { NAV_BEACON } from "../data/beacon";
 
 const conn = (id: string, fromId: string, toId: string, toSlot: number, path: [number, number][]): Connection => ({
   id, fromId, toId, toSlot, path: path.map(([x, y]) => ({ x, y })),
@@ -208,5 +210,89 @@ describe("gameStore — Chapter 3 power triage", () => {
     expect(second.ok).toBe(false); // guarded by triageCommitted
     expect(g().trust).toBe(trustAfter); // trust shift NOT re-applied
     expect(g().ledger.length).toBe(ledgerLen); // no duplicate ledger entries
+  });
+});
+
+describe("gameStore — Chapter 4 signal decode", () => {
+  const { secret, length: L, palette: P } = NAV_BEACON;
+
+  // Build a NON-exact probe history that uniquely pins the secret (so Aether's
+  // proposal becomes the secret without us pre-solving it).
+  const pinningHistory = (): Probe[] => {
+    const hist: Probe[] = [];
+    for (const gcode of allCodes(L, P)) {
+      if (gcode.every((v, i) => v === secret[i])) continue; // never the exact secret
+      hist.push({ guess: gcode, score: score(gcode, secret) });
+      if (remainingCount(hist, L, P) === 1) break;
+    }
+    return hist;
+  };
+
+  beforeEach(() => {
+    useGameStore.setState({
+      phase: "aftermath", dialogueIndex: 0, ledger: [],
+      trust: 50, flags: [], trustSeeded: true,
+      probes: [], signalLocked: false,
+    });
+  });
+
+  it("beginBlackout enters the briefing with a fresh board", () => {
+    useGameStore.setState({ probes: [{ guess: [0, 0, 0, 0], score: { exact: 0, partial: 0 } }] });
+    g().beginBlackout();
+    expect(g().phase).toBe("blackout");
+    expect(g().probes).toHaveLength(0);
+    expect(g().signalLocked).toBe(false);
+  });
+
+  it("a non-solving probe records feedback + logs PROBE_SENT, no lock", () => {
+    g().enterDecode();
+    const r = g().submitProbe([0, 0, 0, 0]); // all-absent glyphs vs secret
+    expect(r.solved).toBe(false);
+    expect(g().probes).toHaveLength(1);
+    expect(g().signalLocked).toBe(false);
+    expect(g().ledger.some((e) => e.kind === "PROBE_SENT")).toBe(true);
+  });
+
+  it("an exact solo probe locks the signal (+4 trust, solo_decode)", () => {
+    g().enterDecode();
+    const r = g().submitProbe([...secret]);
+    expect(r.solved).toBe(true);
+    expect(g().signalLocked).toBe(true);
+    expect(g().phase).toBe("fix");
+    expect(g().trust).toBe(54); // +4
+    expect(g().flags).toContain("solo_decode");
+    expect(g().ledger.some((e) => e.kind === "SIGNAL_LOCKED")).toBe(true);
+  });
+
+  it("accepting Aether's read when it's right is the trust beat (+9, trusted_aether)", () => {
+    // Pin the secret with non-exact probes so her proposal == secret, low uncertainty.
+    useGameStore.setState({ probes: pinningHistory() });
+    const r = g().acceptAetherProposal();
+    expect(r.solved).toBe(true);
+    expect(r.blind).toBe(false); // only the secret remained → not a blind leap
+    expect(g().signalLocked).toBe(true);
+    expect(g().trust).toBe(59); // +9
+    expect(g().flags).toContain("trusted_aether");
+  });
+
+  it("accepting her read while still uncertain does not lock if she's wrong", () => {
+    // Empty history → her proposal is the first consistent code, almost surely not the secret.
+    g().enterDecode();
+    const r = g().acceptAetherProposal();
+    expect(r.blind).toBe(true); // whole space still open
+    expect(r.solved).toBe(false);
+    expect(g().signalLocked).toBe(false);
+    expect(g().trust).toBe(50); // no trust change on a non-locking read
+  });
+
+  it("is idempotent — no probes accepted after the signal is locked", () => {
+    g().enterDecode();
+    g().submitProbe([...secret]); // locks
+    const ledgerLen = g().ledger.length;
+    const trustAfter = g().trust;
+    expect(g().submitProbe([0, 1, 2, 3]).locked).toBe(true);
+    expect(g().acceptAetherProposal().locked).toBe(true);
+    expect(g().ledger.length).toBe(ledgerLen);
+    expect(g().trust).toBe(trustAfter);
   });
 });

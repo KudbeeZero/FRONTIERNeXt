@@ -21,7 +21,11 @@ export type Phase =
   // ── Chapter 3 — The Quiet Mutiny ──────────────────────────────────────────
   | "mutiny" // briefing: VESTA wakes corrupted and clamps power from Aether
   | "triage" // hands-on: allocate the scarce power bus across the three consumers
-  | "aftermath"; // resolve: the cost of the choice lands; trust has shifted
+  | "aftermath" // resolve: the cost of the choice lands; trust has shifted
+  // ── Chapter 4 — Blackout ──────────────────────────────────────────────────
+  | "blackout" // briefing: comms dead zone; the beacon signal is degraded
+  | "decode" // hands-on: deduce the beacon code from partial feedback
+  | "fix"; // resolve: position fixed, set up the Ch.5 descent
 
 /** The four load-bearing ship subsystems shown on the status HUD (0–100). */
 export interface ShipSystems {
@@ -82,7 +86,10 @@ export interface OnchainEvent {
     // ── Chapter 3 ──
     | "POWER_ALLOCATED"
     | "VESTA_CONTAINED"
-    | "RESOURCE_SPENT";
+    | "RESOURCE_SPENT"
+    // ── Chapter 4 ──
+    | "PROBE_SENT"
+    | "SIGNAL_LOCKED";
   label: string;
   /** Free-form, JSON-serializable detail (future: ASA id, reward amounts, etc.). */
   payload?: Record<string, number | string | boolean>;
