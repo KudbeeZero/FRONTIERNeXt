@@ -166,8 +166,8 @@ export function SignalDecode() {
               paddingTop: 10,
             }}
           >
-            <div style={{ fontSize: 10, color: remaining <= 2 ? "#6ee7a0" : "#9fb4c9" }}>
-              {remaining} possible{remaining === 1 ? " — locked in" : ""}
+            <div style={{ fontSize: 10, color: remaining === 1 ? "#6ee7a0" : "#9fb4c9" }}>
+              {remaining} possible{remaining === 1 ? " — pinned, send it" : ""}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={onAether} style={actionBtn(true)}>
