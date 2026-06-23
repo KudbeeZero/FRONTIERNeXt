@@ -40,6 +40,18 @@ describe("score", () => {
     // leftover secret {1,4}, leftover guess {4,1} → partial 2.
     expect(score([3, 4, 1, 1], secret)).toEqual({ exact: 2, partial: 2 });
   });
+
+  it("caps duplicates from the GUESS side without borrowing other glyphs", () => {
+    // guess [1,1,5,5] vs secret [1,2,3,3]: pos0 exact; the 2nd guess-1 has no other
+    // secret-1, and the 5s match nothing → exact 1, partial 0 (no borrowing).
+    expect(score([1, 1, 5, 5], [1, 2, 3, 3])).toEqual({ exact: 1, partial: 0 });
+  });
+
+  it("handles the inverse case — secret holds more of a glyph than the guess", () => {
+    // secret [1,1,2,3] has two 1s; guess [2,1,5,1]: pos1 exact (one 1 consumed).
+    // remaining secret {1,2,3} vs remaining guess {2,5,1} → partial 2 (the 2 and the 1).
+    expect(score([2, 1, 5, 1], [1, 1, 2, 3])).toEqual({ exact: 1, partial: 2 });
+  });
 });
 
 describe("isSolved", () => {
