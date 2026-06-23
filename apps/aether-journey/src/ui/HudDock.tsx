@@ -168,6 +168,8 @@ export function HudDock() {
   const phase = useGameStore((s) => s.phase);
   const journeyResumed = useGameStore((s) => s.journeyResumed);
   const ledgerCount = useGameStore((s) => s.ledger.length);
+  const nodesAligned = useGameStore((s) => s.nodesAligned);
+  const totalNodes = useGameStore((s) => s.totalNodes);
   const [tab, setTab] = useState<Tab | null>(null);
 
   // Pause the soundscape while the System sheet is open (= the pause menu).
@@ -252,6 +254,9 @@ export function HudDock() {
           <div className="min-w-0 flex-1">
             <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-[#ffd9a0]">
               ◇ {obj.title}
+              {phase === "repair" && (
+                <span className="text-aether-core"> · {nodesAligned}/{totalNodes} locked</span>
+              )}
             </div>
             <div className="line-clamp-2 text-[11px] leading-tight text-[#9fb4c9]">{obj.detail}</div>
           </div>
