@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
-import { audio } from "../lib/audioEngine";
 import { useSettingsStore } from "../store/settingsStore";
 
 // ---------------------------------------------------------------------------
-// The menu shell: a pause overlay reachable in-flight (☰ / Esc) plus the
-// reusable settings toggles, which the start screen also embeds. Pausing
-// suspends the soundscape; resuming restarts it. No game state is touched —
-// "restart" is a clean page reload.
+// Reusable settings toggles, embedded by both the start screen (StartGate) and
+// the in-flight HudDock's System sheet. The in-flight pause/menu shell now lives
+// in HudDock; this module is just the shared settings rows.
 // ---------------------------------------------------------------------------
 
 function Toggle({
@@ -105,70 +102,5 @@ export function SettingsToggles() {
         onToggle={setReducedMotion}
       />
     </div>
-  );
-}
-
-/** In-flight pause button + overlay. Render only while the scene is playing. */
-export function MenuLayer() {
-  const [open, setOpen] = useState(false);
-
-  const openMenu = () => {
-    audio.suspend();
-    setOpen(true);
-  };
-  const closeMenu = () => {
-    audio.resume();
-    setOpen(false);
-  };
-
-  // Esc toggles the pause menu.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") (open ? closeMenu : openMenu)();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  return (
-    <>
-      <button
-        onClick={openMenu}
-        aria-label="Open menu"
-        className="holo-panel pointer-events-auto absolute right-4 top-4 z-30 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-aether-core text-glow transition hover:bg-aether-core/10"
-      >
-        ☰ Menu
-      </button>
-
-      {open && (
-        <div className="pointer-events-auto absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#03060d]/85 px-6 text-center backdrop-blur-sm">
-          <div className="mb-1 font-mono text-xs uppercase tracking-[0.5em] text-aether-core">
-            paused
-          </div>
-          <h2 className="font-display text-3xl font-black uppercase tracking-[0.2em] text-[#e7f4ff] text-glow">
-            Systems Menu
-          </h2>
-
-          <div className="mt-8">
-            <SettingsToggles />
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <button
-              onClick={closeMenu}
-              className="rounded border border-aether-core/60 bg-aether-core/15 px-8 py-3 font-display text-sm uppercase tracking-[0.3em] text-aether-core text-glow transition hover:bg-aether-core/25"
-            >
-              Resume
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="rounded border border-white/15 bg-white/5 px-6 py-3 font-display text-sm uppercase tracking-[0.3em] text-[#9fb4c9] transition hover:bg-white/10"
-            >
-              ↻ Restart
-            </button>
-          </div>
-        </div>
-      )}
-    </>
   );
 }

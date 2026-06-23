@@ -20,7 +20,7 @@ export function Subtitles() {
   if (!line) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-24 z-30 flex justify-center px-6">
+    <div className="pointer-events-none absolute inset-x-0 bottom-44 z-30 flex justify-center px-6">
       <p className="max-w-2xl rounded bg-black/70 px-4 py-2 text-center text-sm leading-relaxed text-[#dfeefc] backdrop-blur-sm">
         <span className="font-mono text-xs uppercase tracking-widest text-aether-core">
           {line.name}:
