@@ -1,10 +1,7 @@
 import { SceneCanvas } from "./three/SceneCanvas";
-import { StatusHUD } from "./ui/StatusHUD";
-import { ObjectiveTracker } from "./ui/ObjectiveTracker";
 import { DialogueOverlay } from "./ui/DialogueOverlay";
-import { OnchainLedger } from "./ui/OnchainLedger";
 import { StartGate, WakeFade, EndCard } from "./ui/CinematicLayer";
-import { MenuLayer } from "./ui/MenuLayer";
+import { HudDock } from "./ui/HudDock";
 import { Subtitles } from "./ui/Subtitles";
 import { useDialogueDriver } from "./ui/useDialogueDriver";
 import { useRunStats } from "./store/settingsStore";
@@ -13,10 +10,11 @@ import { useGameStore } from "./store/gameStore";
 // ---------------------------------------------------------------------------
 // FRONTIER: Aether's Journey — Phase 1 root.
 //
-// The 3D cockpit is the persistent backdrop; the HUD + dialogue overlays sit on
-// top once the player wakes. The dialogue driver runs the narrative beats; the
-// menu layer (☰ / Esc) provides pause + settings. The whole frame wears a CRT
-// scanline veil for cabin-feed texture.
+// The 3D cockpit is the persistent backdrop. Once the player wakes, a single
+// mobile-first HudDock (the bottom bar + collapsible sheets) carries every HUD
+// surface — objective, ship status, ledger, settings, pause — so nothing clutters
+// the corners or blocks the in-world boards. The dialogue overlay sits just above
+// the dock bar. The whole frame wears a CRT scanline veil for cabin-feed texture.
 // ---------------------------------------------------------------------------
 
 export default function App() {
@@ -32,15 +30,12 @@ export default function App() {
       {/* Persistent 3D cockpit. */}
       <SceneCanvas />
 
-      {/* In-flight HUD + narrative + menu (only once awake). */}
+      {/* In-flight narrative + the single consolidated HUD dock (only once awake). */}
       {playing && (
         <>
-          <StatusHUD />
-          <ObjectiveTracker />
           <DialogueOverlay />
-          <OnchainLedger />
           <Subtitles />
-          <MenuLayer />
+          <HudDock />
         </>
       )}
 
