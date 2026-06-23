@@ -13,7 +13,11 @@ export type Phase =
   | "waking" // fade-from-black, first contact with a damaged Aether
   | "diagnostic" // objective: scan Aether to surface the neural fault
   | "repair" // hands-on: realign the neural matrix nodes
-  | "stabilized"; // emotional payoff + on-chain commit, journey resumes
+  | "stabilized" // Ch.1 payoff: Aether restored, course to Mars locked
+  // ── Chapter 2 — The Debris Field ──────────────────────────────────────────
+  | "approach" // proximity alarm + briefing: the nav computer can't autopilot the field
+  | "rewiring" // hands-on: the two-stage nav-circuit reroute puzzle
+  | "transit"; // resolve: the ship flies the restored course through the field
 
 /** The four load-bearing ship subsystems shown on the status HUD (0–100). */
 export interface ShipSystems {
@@ -39,7 +43,11 @@ export interface OnchainEvent {
     | "DIAGNOSTIC_RUN"
     | "NODE_ALIGNED"
     | "AETHER_STABILIZED"
-    | "SYSTEM_RESTORED";
+    | "SYSTEM_RESTORED"
+    // ── Chapter 2 ──
+    | "NAV_STAGE_CLEARED"
+    | "NAV_ONLINE"
+    | "TRANSIT_COMPLETE";
   label: string;
   /** Free-form, JSON-serializable detail (future: ASA id, reward amounts, etc.). */
   payload?: Record<string, number | string | boolean>;

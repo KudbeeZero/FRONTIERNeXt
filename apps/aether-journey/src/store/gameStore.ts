@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { AetherMood, OnchainEvent, Phase, ShipSystems } from "./types";
+import { boardForStage } from "../data/circuits";
+import { isBoardSolved, shortReason, type Connection } from "../lib/navCircuit";
 
 // ---------------------------------------------------------------------------
 // Central game store (zustand).
@@ -35,6 +37,16 @@ interface GameState {
   /** Set once the player chooses to continue past the Phase-1 payoff. */
   journeyResumed: boolean;
 
+  // --- Chapter 2: nav-circuit reroute --------------------------------------
+  /** Active board stage (1 = power routing, 2 = logic restoration). */
+  navStage: number;
+  /** Wires laid on the current board. */
+  navConnections: Connection[];
+  /** Drift/fuel remaining on the current board. */
+  navFuel: number;
+  /** True once both stages are solved (nav core back online). */
+  navOnline: boolean;
+
   // --- actions -------------------------------------------------------------
   begin: () => void;
   setPhase: (phase: Phase) => void;
@@ -48,6 +60,15 @@ interface GameState {
   alignNode: () => void;
   setSystem: (key: keyof ShipSystems, value: number) => void;
   resumeJourney: () => void;
+
+  // Chapter 2 transitions
+  beginApproach: () => void;
+  enterRewiring: () => void;
+  /** Attempt to lay a wire. Returns ok, or a short reason (and charges fuel). */
+  addNavConnection: (conn: Connection) => { ok: boolean; reason?: string };
+  /** Clear the current board's wires to retry (drift/fuel is permanent). */
+  clearNavBoard: () => void;
+  completeTransit: () => void;
 
   logOnchain: (event: Omit<OnchainEvent, "seq" | "ts">) => void;
 }
@@ -76,6 +97,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   ledger: [],
 
   journeyResumed: false,
+
+  navStage: 1,
+  navConnections: [],
+  navFuel: 0,
+  navOnline: false,
 
   begin: () => {
     set({ phase: "waking", dialogueIndex: 0 });
@@ -160,6 +186,69 @@ export const useGameStore = create<GameState>((set, get) => ({
       // First leg of the healed journey toward Mars.
       journeyProgress: Math.min(1, s.journeyProgress + 0.08),
     })),
+
+  // ── Chapter 2 — The Debris Field ─────────────────────────────────────────
+  beginApproach: () => set({ phase: "approach", dialogueIndex: 0, aetherMood: "focused" }),
+
+  enterRewiring: () => {
+    const board = boardForStage(1);
+    set({
+      phase: "rewiring",
+      dialogueIndex: 0,
+      aetherMood: "focused",
+      navStage: 1,
+      navConnections: [],
+      navFuel: board.fuelBudget,
+    });
+  },
+
+  addNavConnection: (conn) => {
+    const stage = get().navStage;
+    const board = boardForStage(stage);
+    const reason = shortReason(board, conn, get().navConnections);
+    if (reason) {
+      // A short is rejected AND vents drift/fuel — soft cost, never a hard fail.
+      set((s) => ({ navFuel: Math.max(0, s.navFuel - board.shortCost) }));
+      return { ok: false, reason };
+    }
+    const next = [...get().navConnections, conn];
+    set({ navConnections: next });
+
+    if (isBoardSolved(board, next)) {
+      get().logOnchain({
+        kind: "NAV_STAGE_CLEARED",
+        label: `${board.title} restored`,
+        payload: { stage, fuel: get().navFuel },
+      });
+      if (stage === 1) {
+        const b2 = boardForStage(2);
+        set({ navStage: 2, navConnections: [], navFuel: b2.fuelBudget });
+      } else {
+        get().logOnchain({
+          kind: "NAV_ONLINE",
+          label: "Nav core back online — trajectory through the field solved",
+          payload: { fuel: get().navFuel },
+        });
+        set({ phase: "transit", navOnline: true, dialogueIndex: 0, aetherMood: "hopeful" });
+      }
+    }
+    return { ok: true };
+  },
+
+  clearNavBoard: () => set({ navConnections: [] }),
+
+  completeTransit: () => {
+    get().logOnchain({
+      kind: "TRANSIT_COMPLETE",
+      label: "Cleared the debris field — Mars approach nominal",
+      payload: { fuel: get().navFuel },
+    });
+    set((s) => ({
+      aetherMood: "stable",
+      journeyResumed: true,
+      journeyProgress: Math.min(1, s.journeyProgress + 0.12),
+    }));
+  },
 
   logOnchain: (event) =>
     set((s) => ({
