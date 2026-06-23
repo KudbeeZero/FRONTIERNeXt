@@ -60,6 +60,8 @@ interface GameState {
   trust: number;
   /** Story flags set by decisions; drive later dialogue + the ending. */
   flags: string[];
+  /** True once trust has been seeded from stability — prevents a reseed clobber. */
+  trustSeeded: boolean;
 
   // --- Chapter 3: power triage ---------------------------------------------
   /** Working allocation of the power bus across the three consumers. */
@@ -148,6 +150,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   trust: 50,
   flags: [],
+  trustSeeded: false,
 
   // Default to a balanced, contained allocation so the board opens in a legal state.
   triageAllocation: balancedAllocation(VESTA_TRIAGE, true),
@@ -294,7 +297,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   // ── Decision system ──────────────────────────────────────────────────────
-  seedTrustFromStability: () => set((s) => ({ trust: seedTrust(s.systems.aetherStability) })),
+  seedTrustFromStability: () =>
+    set((s) => ({ trust: seedTrust(s.systems.aetherStability), trustSeeded: true })),
 
   makeChoice: (decisionId, option) => {
     const s = get();
@@ -320,18 +324,27 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // ── Chapter 3 — The Quiet Mutiny ─────────────────────────────────────────
   beginMutiny: () => {
-    // Ch.3 is where carried-over trust starts to matter — seed it from how whole
-    // Aether came out of Ch.1 if it hasn't diverged yet.
+    // Ch.3 is where carried-over trust starts to matter. Seed it from how whole
+    // Aether came out of Ch.1 — but only ONCE, so a trust value an earlier decision
+    // already moved is never clobbered (trust and flags can diverge independently).
     set((s) => ({
       phase: "mutiny",
       dialogueIndex: 0,
       aetherMood: "wounded",
-      trust: s.flags.length === 0 ? seedTrust(s.systems.aetherStability) : s.trust,
+      trust: s.trustSeeded ? s.trust : seedTrust(s.systems.aetherStability),
+      trustSeeded: true,
     }));
   },
 
   enterTriage: () =>
-    set({ phase: "triage", dialogueIndex: 0, aetherMood: "focused", triageCommitted: false }),
+    set((s) => ({
+      phase: "triage",
+      dialogueIndex: 0,
+      aetherMood: "focused",
+      triageCommitted: false,
+      // Open the board in a legal, balanced state for the current VESTA disposition.
+      triageAllocation: balancedAllocation(VESTA_TRIAGE, s.containVesta),
+    })),
 
   setAllocation: (allocation) => set({ triageAllocation: allocation }),
 
@@ -339,6 +352,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   commitTriage: () => {
     const s = get();
+    if (s.triageCommitted) {
+      // Idempotent: never re-apply the trust shift or duplicate ledger entries.
+      return { ok: false, reason: "Power has already been committed." };
+    }
     const outcome = resolveTriage(VESTA_TRIAGE, s.triageAllocation, s.containVesta);
     if (!outcome.valid) {
       return { ok: false, reason: "Over the power budget — pull units back first." };

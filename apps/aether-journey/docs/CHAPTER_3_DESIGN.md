@@ -78,6 +78,13 @@ The `Phase` union in `src/store/types.ts` is the seam — extend it and `tsc` fl
 | **HUD / Objectives** | `src/ui/StatusHUD.tsx`, `src/ui/ObjectiveTracker.tsx` | show the three consumer tiers + remaining units during `triage`; objective text per phase. |
 | **Gate CTAs** | `src/ui/DialogueOverlay.tsx` | `aftermath`/transit end card → `beginMutiny()`; commit happens on the in-world board (COMMIT button, disabled until a valid allocation). |
 
+> **Implementation note (as built).** `commitTriage` folds the resolve transition inline
+> (`phase: "aftermath"`) rather than via a separate `enterAftermath()`, and adds an
+> `enterTriage()` seam to open the board. It is **idempotent** (guarded by `triageCommitted`)
+> and seeds trust **once** via a `trustSeeded` flag, not a flag-count proxy. For the VESTA
+> scenario the resolver yields no `ShipSystems` deltas, so "persist system deltas" is a no-op
+> today and `RESOURCE_SPENT` is reserved vocabulary for when a decision spends a raw resource.
+
 ## 4. Scope — in vs. out
 
 **This unit (first Ch.3 PR):** the pure `powerTriage` resolver + `VESTA_TRIAGE` data + **tests**
