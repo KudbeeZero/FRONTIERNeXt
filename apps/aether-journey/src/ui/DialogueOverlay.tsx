@@ -30,6 +30,7 @@ export function DialogueOverlay() {
   const beginBlackout = useGameStore((s) => s.beginBlackout);
   const enterDecode = useGameStore((s) => s.enterDecode);
   const completeFix = useGameStore((s) => s.completeFix);
+  const beginDescent = useGameStore((s) => s.beginDescent);
   const concludeRun = useGameStore((s) => s.concludeRun);
 
   if (phase === "idle") return null;
@@ -43,10 +44,14 @@ export function DialogueOverlay() {
   // Any non-final line can be clicked to continue — including long voiced takes.
   const canSkip = !isLast;
   // Some final lines are GATES with no button — the in-world board is the gate
-  // (rewiring = nav puzzle, triage = power bus, decode = signal board). The panel must
-  // NOT capture pointer events then, or it eats clicks meant for the board underneath.
+  // (rewiring = nav, triage = power bus, decode = signal, descent = burn board). The
+  // panel must NOT capture pointer events then, or it eats clicks meant for the board.
   const hasCTA =
-    waiting && phase !== "rewiring" && phase !== "triage" && phase !== "decode";
+    waiting &&
+    phase !== "rewiring" &&
+    phase !== "triage" &&
+    phase !== "decode" &&
+    phase !== "descent";
   const interactive = canSkip || hasCTA;
 
   return (
@@ -161,11 +166,22 @@ export function DialogueOverlay() {
         )}
         {waiting && phase === "fix" && (
           <CTAButton
+            label="▸ BEGIN THE DESCENT"
+            onClick={() => {
+              audio.confirm();
+              audio.glitchBurst(0.4);
+              // Chapter 4 → 5: position fixed; fly the insertion by hand.
+              completeFix();
+              beginDescent();
+            }}
+          />
+        )}
+        {waiting && phase === "arrival" && (
+          <CTAButton
             label="▸ CONTINUE"
             onClick={() => {
               audio.confirm();
-              // Temporary terminus until Ch.5 — surfaces the run summary / EndCard.
-              completeFix();
+              // The finale terminus — surfaces the trust-gated ending on the EndCard.
               concludeRun();
             }}
           />

@@ -4,6 +4,7 @@ import { useSettingsStore } from "../store/settingsStore";
 import { audio } from "../lib/audioEngine";
 import { SettingsToggles } from "./MenuLayer";
 import { ClaimPanel } from "./ClaimPanel";
+import { ENDING_COPY } from "../lib/descent";
 
 // ---------------------------------------------------------------------------
 // The cinematic bookends that frame the playable scene:
@@ -94,22 +95,29 @@ export function EndCard() {
   const journeyResumed = useGameStore((s) => s.journeyResumed);
   const ledger = useGameStore((s) => s.ledger);
   const stability = useGameStore((s) => s.systems.aetherStability);
+  const ending = useGameStore((s) => s.ending);
+  const trust = useGameStore((s) => s.trust);
   const stats = useSettingsStore((s) => s.stats);
   if (!journeyResumed) return null;
   const fmtMs = (ms: number | null) => (ms == null ? "—" : `${(ms / 1000).toFixed(1)}s`);
 
+  // After the descent, the run resolves to a trust-gated ending; if the EndCard is
+  // ever reached before the finale, fall back to the neutral hand-off copy.
+  const copy = ending ? ENDING_COPY[ending] : null;
+
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#03060d]/95 px-6 text-center backdrop-blur-sm">
       <div className="mb-3 font-mono text-xs uppercase tracking-[0.5em] text-aether-core">
-        first crossing complete
+        {ending ? "the journey's end" : "journey complete"}
       </div>
       <h2 className="font-display text-3xl font-black uppercase tracking-[0.2em] text-[#e7f4ff] text-glow sm:text-5xl">
-        First Watch
+        {copy ? copy.title : "First Watch"}
       </h2>
       <p className="mt-6 max-w-xl text-base leading-relaxed text-[#9fb4c9] sm:text-lg">
-        Aether is whole again — steady at <span className="text-aether-core">{Math.round(stability)}%</span>.
-        The debris field is behind you and the course to Mars holds. For the first
-        time since the storm, neither of you is alone. The frontier waits.
+        {copy
+          ? copy.line
+          : `Aether is whole again — steady at ${Math.round(stability)}% — and the course to Mars holds. The frontier waits.`}{" "}
+        <span className="text-aether-core">Trust in Aether: {Math.round(trust)}.</span>
       </p>
 
       {/* Commit the run to Algorand (testnet), then hand off to FRONTIER-AL. */}

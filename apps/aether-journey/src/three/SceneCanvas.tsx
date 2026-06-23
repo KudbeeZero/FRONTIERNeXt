@@ -14,6 +14,7 @@ import { NeuralRepair } from "./NeuralRepair";
 import { NavCircuit } from "./NavCircuit";
 import { PowerBus } from "./PowerBus";
 import { SignalDecode } from "./SignalDecode";
+import { Descent } from "./Descent";
 import { DiagnosticConsole } from "./DiagnosticConsole";
 import { useGameStore } from "../store/gameStore";
 
@@ -75,6 +76,9 @@ export function SceneCanvas() {
       {/* Chapter 4: the signal-decode board is only live during the decode beat. */}
       {phase === "decode" && <SignalDecode />}
 
+      {/* Chapter 5: the descent burn board is only live during the descent beat. */}
+      {phase === "descent" && <Descent />}
+
       {/* --- Camera control ------------------------------------------------ */}
       {/* Look-around is disabled during the repair beat: the nodes are a
           press-and-hold target, and an active orbit control competes for the
@@ -88,7 +92,8 @@ export function SceneCanvas() {
           phase !== "repair" &&
           phase !== "rewiring" &&
           phase !== "triage" &&
-          phase !== "decode"
+          phase !== "decode" &&
+          phase !== "descent"
         }
         target={[0, 0, -3]}
         enablePan={false}
