@@ -126,7 +126,7 @@ describe("gameStore — Chapter 3 power triage", () => {
       phase: "transit", dialogueIndex: 0, ledger: [],
       trust: 50, flags: [],
       systems: { power: 50, navigation: 50, lifeSupport: 50, aetherStability: 88 },
-      containVesta: true, triageCommitted: false,
+      containVesta: true, triageCommitted: false, trustSeeded: false,
       triageAllocation: { lifeSupport: 0, comms: 0, aetherCore: 0 },
     });
   });
@@ -134,18 +134,21 @@ describe("gameStore — Chapter 3 power triage", () => {
   it("beginMutiny enters the briefing and seeds trust from stability", () => {
     g().beginMutiny();
     expect(g().phase).toBe("mutiny");
-    expect(g().trust).toBe(88); // seeded — no prior decisions have diverged it
+    expect(g().trust).toBe(88); // seeded — trust hasn't been seeded before
+    expect(g().trustSeeded).toBe(true);
   });
 
-  it("does not reseed trust once decisions have diverged it", () => {
-    useGameStore.setState({ flags: ["prior_choice"], trust: 40 });
+  it("does not reseed trust once it has been seeded (no clobber of a diverged value)", () => {
+    // A decision moved trust without setting a flag; seeding must not overwrite it.
+    useGameStore.setState({ trustSeeded: true, trust: 40 });
     g().beginMutiny();
     expect(g().trust).toBe(40);
   });
 
-  it("enterTriage opens the board", () => {
+  it("enterTriage opens the board in a valid, committable state", () => {
     g().enterTriage();
     expect(g().phase).toBe("triage");
+    expect(g().commitTriage().ok).toBe(true); // balanced default is within budget
   });
 
   it("committing a valid allocation that keeps her whole raises trust + advances", () => {
@@ -185,5 +188,19 @@ describe("gameStore — Chapter 3 power triage", () => {
     expect(g().trust).toBe(76); // -12
     expect(g().flags).toEqual(expect.arrayContaining(["aether_starved", "sacrificed_aether"]));
     expect(g().aetherMood).toBe("fragmented");
+  });
+
+  it("is idempotent — a second commit re-applies nothing and doesn't duplicate the ledger", () => {
+    g().beginMutiny();
+    g().enterTriage();
+    g().setAllocation({ lifeSupport: 2, comms: 2, aetherCore: 4 });
+    expect(g().commitTriage().ok).toBe(true);
+    const trustAfter = g().trust;
+    const ledgerLen = g().ledger.length;
+
+    const second = g().commitTriage();
+    expect(second.ok).toBe(false); // guarded by triageCommitted
+    expect(g().trust).toBe(trustAfter); // trust shift NOT re-applied
+    expect(g().ledger.length).toBe(ledgerLen); // no duplicate ledger entries
   });
 });
