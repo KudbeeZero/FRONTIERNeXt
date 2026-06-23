@@ -4,7 +4,7 @@ import { audio } from "../lib/audioEngine";
 import { VESTA_TRIAGE } from "../data/triage";
 import {
   resolveTriage,
-  availableBus,
+  refitAllocation,
   CONSUMERS,
   type Consumer,
   type Tier,
@@ -69,17 +69,8 @@ export function PowerBus() {
   const onToggleVesta = () => {
     audio.beep(300, 0.06, "sine", 0.1);
     // Re-fit the allocation to the new bus so the board is never stranded over-budget
-    // (trim comms, then life-support, and her core last).
-    const newAvail = availableBus(C, !containVesta);
-    const alloc = { ...allocation };
-    const order: Consumer[] = ["comms", "lifeSupport", "aetherCore"];
-    let oi = 0;
-    while (alloc.lifeSupport + alloc.comms + alloc.aetherCore > newAvail && oi < 100) {
-      const c = order[oi % order.length];
-      if (alloc[c] > 0) alloc[c] -= 1;
-      oi += 1;
-    }
-    setAllocation(alloc);
+    // (sheds comms first, then life-support, and her core last — see refitAllocation).
+    setAllocation(refitAllocation(C, allocation, !containVesta));
     toggleContainVesta();
   };
 
