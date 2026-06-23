@@ -355,4 +355,13 @@ describe("gameStore — Chapter 5 descent (finale)", () => {
     g().failStage();
     expect(g().ledger.length).toBe(ledgerLen); // guarded by phase !== "descent"
   });
+
+  it("completeDescent does not double-resolve if called again directly", () => {
+    g().beginDescent();
+    for (let i = 0; i < DESCENT_STAGES.length; i++) g().passStage(); // → arrival
+    const ledgerLen = g().ledger.length;
+    g().completeDescent(); // direct re-call — guarded
+    expect(g().ledger.filter((e) => e.kind === "DESCENT_COMPLETE")).toHaveLength(1);
+    expect(g().ledger.length).toBe(ledgerLen);
+  });
 });

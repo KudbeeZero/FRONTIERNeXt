@@ -583,6 +583,7 @@ export const useGameStore = create<GameState>((set, get) => {
   },
 
   completeDescent: () => {
+    if (get().phase !== "descent") return; // idempotent — already arrived
     const ending = resolveEnding(get().trust, new Set(get().flags));
     get().logOnchain({
       kind: "DESCENT_COMPLETE",
