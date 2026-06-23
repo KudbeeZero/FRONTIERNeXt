@@ -9,6 +9,15 @@ import {
   type Allocation,
 } from "../lib/powerTriage";
 import { VESTA_TRIAGE } from "../data/triage";
+import {
+  score,
+  isSolved,
+  firstConsistent,
+  remainingCount,
+  type Code,
+  type Probe,
+} from "../lib/beacon";
+import { NAV_BEACON, HIGH_UNCERTAINTY } from "../data/beacon";
 import type { DecisionOption } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -71,6 +80,12 @@ interface GameState {
   /** True once the triage has been committed (locks the choice + trust shift). */
   triageCommitted: boolean;
 
+  // --- Chapter 4: signal decode --------------------------------------------
+  /** Probe history on the beacon (guess + feedback). */
+  probes: Probe[];
+  /** True once the beacon is decoded (locks the choice + trust shift). */
+  signalLocked: boolean;
+
   // --- actions -------------------------------------------------------------
   begin: () => void;
   setPhase: (phase: Phase) => void;
@@ -117,12 +132,64 @@ interface GameState {
    */
   commitTriage: () => { ok: boolean; reason?: string };
 
+  // Chapter 4 transitions
+  /** Enter the Ch.4 briefing (from Ch.3 aftermath). */
+  beginBlackout: () => void;
+  /** Open the signal-decode board. */
+  enterDecode: () => void;
+  /** Submit a probe you deduced yourself; locks (solo) on an exact decode. */
+  submitProbe: (guess: Code) => { ok: boolean; solved?: boolean; locked?: boolean };
+  /** Lock on Aether's read: submits her consistent proposal — the trust beat. */
+  acceptAetherProposal: () => {
+    ok: boolean;
+    solved?: boolean;
+    blind?: boolean;
+    locked?: boolean;
+  };
+  /** Resolve beat: position fixed, advance toward Ch.5. */
+  completeFix: () => void;
+
   logOnchain: (event: Omit<OnchainEvent, "seq" | "ts">) => void;
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n));
 
-export const useGameStore = create<GameState>((set, get) => ({
+export const useGameStore = create<GameState>((set, get) => {
+  // Closure-local decode-lock routine — deliberately NOT on the public store API,
+  // so no component can lock the signal (and bank trust) without an exact decode.
+  // Logs the lock, routes trust + flags through makeChoice, advances to the resolve
+  // beat. `mode` distinguishes a solo deduction from a trusting lock on Aether's read
+  // (the warmer beat, warmer still when blind).
+  const lockSignal = (mode: "solo" | "trust", blind: boolean) => {
+    get().logOnchain({
+      kind: "SIGNAL_LOCKED",
+      label:
+        mode === "trust"
+          ? blind
+            ? "Beacon decoded — you trusted her read in the dark"
+            : "Beacon decoded — Aether's read confirmed"
+          : "Beacon decoded — you fixed it yourself",
+      payload: { probes: get().probes.length, mode, blind },
+    });
+    if (mode === "trust") {
+      get().makeChoice("ch4_decode", {
+        id: blind ? "trust_blind" : "trust",
+        label: "Locked on Aether's read",
+        trust: blind ? 14 : 9,
+        flags: blind ? ["trusted_aether", "trusted_aether_blind"] : ["trusted_aether"],
+      });
+    } else {
+      get().makeChoice("ch4_decode", {
+        id: "solo",
+        label: "Locked the beacon yourself",
+        trust: 4,
+        flags: ["solo_decode"],
+      });
+    }
+    set({ signalLocked: true, phase: "fix", dialogueIndex: 0, aetherMood: "hopeful" });
+  };
+
+  return {
   phase: "idle",
   // The ship has already been through hell — systems are stressed but holding.
   systems: {
@@ -158,6 +225,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   triageAllocation: balancedAllocation(VESTA_TRIAGE, true),
   containVesta: true,
   triageCommitted: false,
+
+  probes: [],
+  signalLocked: false,
 
   begin: () => {
     set({ phase: "waking", dialogueIndex: 0 });
@@ -400,6 +470,57 @@ export const useGameStore = create<GameState>((set, get) => ({
       journeyProgress: Math.min(1, s.journeyProgress + 0.1),
     })),
 
+  // ── Chapter 4 — Blackout ─────────────────────────────────────────────────
+  beginBlackout: () =>
+    set({
+      phase: "blackout",
+      dialogueIndex: 0,
+      aetherMood: "wounded",
+      probes: [],
+      signalLocked: false,
+    }),
+
+  enterDecode: () => set({ phase: "decode", dialogueIndex: 0, aetherMood: "focused" }),
+
+  submitProbe: (guess) => {
+    if (get().signalLocked) return { ok: false, locked: true };
+    const s = score(guess, NAV_BEACON.secret);
+    set((st) => ({ probes: [...st.probes, { guess, score: s }] }));
+    const solved = isSolved(s, NAV_BEACON.length);
+    get().logOnchain({
+      kind: "PROBE_SENT",
+      label: `Probe ${get().probes.length}: ${s.exact} exact · ${s.partial} near`,
+      payload: { exact: s.exact, partial: s.partial },
+    });
+    if (solved) lockSignal("solo", false);
+    return { ok: true, solved };
+  },
+
+  acceptAetherProposal: () => {
+    if (get().signalLocked) return { ok: false, locked: true };
+    const proposal = firstConsistent(get().probes, NAV_BEACON.length, NAV_BEACON.palette);
+    if (!proposal) return { ok: false }; // contradictory history (unreachable from real feedback)
+    // Was this a leap of faith? Measure uncertainty BEFORE her proposal narrows it.
+    const blind =
+      remainingCount(get().probes, NAV_BEACON.length, NAV_BEACON.palette) > HIGH_UNCERTAINTY;
+    const s = score(proposal, NAV_BEACON.secret);
+    set((st) => ({ probes: [...st.probes, { guess: proposal, score: s }] }));
+    const solved = isSolved(s, NAV_BEACON.length);
+    get().logOnchain({
+      kind: "PROBE_SENT",
+      label: `Aether's read: ${s.exact} exact · ${s.partial} near`,
+      payload: { exact: s.exact, partial: s.partial, aether: true },
+    });
+    if (solved) lockSignal("trust", blind);
+    return { ok: true, solved, blind };
+  },
+
+  completeFix: () =>
+    set((s) => ({
+      aetherMood: "stable",
+      journeyProgress: Math.min(1, s.journeyProgress + 0.1),
+    })),
+
   logOnchain: (event) =>
     set((s) => ({
       ledger: [
@@ -407,4 +528,5 @@ export const useGameStore = create<GameState>((set, get) => ({
         { ...event, seq: s.ledger.length + 1, ts: Date.now() },
       ],
     })),
-}));
+  };
+});

@@ -331,6 +331,65 @@ export const DIALOGUE: Record<Exclude<Phase, "idle">, DialogueLine[]> = {
       autoMs: 0,
     },
   ],
+
+  // ── Chapter 4 — Blackout (Web Speech fallback) ─────────────────────────────
+  blackout: [
+    {
+      speaker: "system",
+      name: "AETHER VOYAGER",
+      text: "MARS SHADOW :: COMMS DEAD ZONE :: NAV CONFIDENCE DEGRADED",
+      mood: "focused",
+      glitch: 0.16,
+      autoMs: 3200,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      text: "There's a beacon still transmitting, but it's chewed to noise. I can hear it — and I have to be honest with you: I'm not sure I'm reading it right. The instruments can't confirm me.",
+      mood: "wounded",
+      glitch: 0.12,
+      autoMs: 5600,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → "READ THE SIGNAL" (enterDecode).
+      text: "I'll tell you what I think the code is. But it's your call whether to trust me, or work it yourself. I won't be hurt if you don't.",
+      mood: "wounded",
+      glitch: 0.09,
+      autoMs: 0,
+    },
+  ],
+  decode: [
+    {
+      speaker: "aether",
+      name: "AETHER",
+      text: "Send a guess and the beacon answers how close it was — exact glyphs, then near ones. Narrow it down. I'll offer my read whenever you want it.",
+      mood: "focused",
+      glitch: 0.07,
+      autoMs: 4600,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // Holds (GATE) while the player decodes; an exact lock changes phase.
+      text: "Every probe costs us a little of the window. But a wrong lock costs more. Take the read you believe.",
+      mood: "focused",
+      glitch: 0.05,
+      autoMs: 0,
+    },
+  ],
+  fix: [
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → "CONTINUE". Mood (set on lock) colors whether this lands warm.
+      text: "That's it — position fixed. I can see where we are again. ... However we got here, we got here together. Mars is close now.",
+      mood: "hopeful",
+      glitch: 0.04,
+      autoMs: 0,
+    },
+  ],
 };
 
 // Reserved for when dialogue branching exists: `ch1_s12c_aether_01` is the
