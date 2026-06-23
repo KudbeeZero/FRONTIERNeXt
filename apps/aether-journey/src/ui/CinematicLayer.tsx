@@ -101,15 +101,15 @@ export function EndCard() {
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#03060d]/95 px-6 text-center backdrop-blur-sm">
       <div className="mb-3 font-mono text-xs uppercase tracking-[0.5em] text-aether-core">
-        phase 01 complete
+        first crossing complete
       </div>
       <h2 className="font-display text-3xl font-black uppercase tracking-[0.2em] text-[#e7f4ff] text-glow sm:text-5xl">
         First Watch
       </h2>
       <p className="mt-6 max-w-xl text-base leading-relaxed text-[#9fb4c9] sm:text-lg">
         Aether is whole again — steady at <span className="text-aether-core">{Math.round(stability)}%</span>.
-        The course to Mars is locked, and for the first time since the storm,
-        neither of you is alone. The frontier waits.
+        The debris field is behind you and the course to Mars holds. For the first
+        time since the storm, neither of you is alone. The frontier waits.
       </p>
 
       {/* Commit the run to Algorand (testnet), then hand off to FRONTIER-AL. */}

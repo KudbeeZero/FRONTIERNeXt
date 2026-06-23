@@ -13,7 +13,11 @@ export type Phase =
   | "waking" // fade-from-black, first contact with a damaged Aether
   | "diagnostic" // objective: scan Aether to surface the neural fault
   | "repair" // hands-on: realign the neural matrix nodes
-  | "stabilized"; // emotional payoff + on-chain commit, journey resumes
+  | "stabilized" // Ch.1 payoff: Aether restored, course to Mars locked
+  // ── Chapter 2 — The Debris Field ──────────────────────────────────────────
+  | "approach" // proximity alarm + briefing: the nav computer can't autopilot the field
+  | "rewiring" // hands-on: the two-stage nav-circuit reroute puzzle
+  | "transit"; // resolve: the ship flies the restored course through the field
 
 /** The four load-bearing ship subsystems shown on the status HUD (0–100). */
 export interface ShipSystems {
@@ -25,6 +29,30 @@ export interface ShipSystems {
 
 /** Aether's emotional/operational register — modulates dialogue + glitch FX. */
 export type AetherMood = "fragmented" | "wounded" | "focused" | "hopeful" | "stable";
+
+/**
+ * One choice at a decision point. Effects are data so the whole branching model is
+ * authorable + serializable (on-chain-ready) and testable as a pure function.
+ */
+export interface DecisionOption {
+  id: string;
+  label: string;
+  /** Trust delta applied when chosen (may be negative). */
+  trust?: number;
+  /** Story flags set when chosen (drive later dialogue / endings). */
+  flags?: string[];
+  /** Ship-system deltas applied when chosen. */
+  systems?: Partial<ShipSystems>;
+  /** Short consequence line surfaced after the choice. */
+  outcome?: string;
+}
+
+/** A branch point: a prompt and its mutually-exclusive options. */
+export interface DecisionPoint {
+  id: string;
+  prompt: string;
+  options: DecisionOption[];
+}
 
 /**
  * A player action worth remembering. In Phase 1 these live in memory; the field
@@ -39,7 +67,14 @@ export interface OnchainEvent {
     | "DIAGNOSTIC_RUN"
     | "NODE_ALIGNED"
     | "AETHER_STABILIZED"
-    | "SYSTEM_RESTORED";
+    | "SYSTEM_RESTORED"
+    // ── Chapter 2 ──
+    | "NAV_STAGE_CLEARED"
+    | "NAV_ONLINE"
+    | "TRANSIT_COMPLETE"
+    // ── Decision system (Ch.3+) ──
+    | "DECISION_MADE"
+    | "TRUST_SHIFT";
   label: string;
   /** Free-form, JSON-serializable detail (future: ASA id, reward amounts, etc.). */
   payload?: Record<string, number | string | boolean>;

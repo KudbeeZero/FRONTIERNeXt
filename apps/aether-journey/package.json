@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "check": "tsc --noEmit",
+    "test": "vitest run",
     "voice:dry": "tsx scripts/voice/generate-all.ts --dry-run",
     "voice:generate": "tsx scripts/voice/generate-all.ts",
     "voice:one": "tsx scripts/voice/generate-one.ts",
@@ -37,6 +38,7 @@
     "tsx": "^4.21.0",
     "typescript": "5.6.3",
     "vite": "^7.3.3",
-    "vite-plugin-node-polyfills": "^0.25.0"
+    "vite-plugin-node-polyfills": "^0.25.0",
+    "vitest": "^4.1.0"
   }
 }

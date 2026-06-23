@@ -205,6 +205,73 @@ export const DIALOGUE: Record<Exclude<Phase, "idle">, DialogueLine[]> = {
       voiceId: "ch1_archivist_close",
     },
   ],
+
+  // ── Chapter 2 — The Debris Field (no pre-rendered VO yet → Web Speech) ──────
+  approach: [
+    {
+      speaker: "system",
+      name: "AETHER VOYAGER",
+      text: "PROXIMITY ALERT :: DEBRIS FIELD :: IMPACT IN T-04:00",
+      mood: "focused",
+      glitch: 0.12,
+      autoMs: 3000,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      text: "The storm tore a derelict apart — right across our heading. I can see it. I just can't solve it. My routing logic is still scarred.",
+      mood: "focused",
+      glitch: 0.08,
+      autoMs: 5200,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → "TO THE NAV CORE" (beginApproach already ran; CTA runs enterRewiring).
+      text: "Autopilot is blind in there. I need you at the nav core with me. Will you?",
+      mood: "wounded",
+      glitch: 0.05,
+      autoMs: 0,
+    },
+  ],
+  rewiring: [
+    {
+      speaker: "aether",
+      name: "AETHER",
+      text: "Two boards. First the power bus, then the logic array. Lay the lines — I'll watch for shorts.",
+      mood: "focused",
+      glitch: 0.05,
+      autoMs: 4200,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // Holds (GATE) while the player solves the puzzle; solving it changes phase.
+      text: "Mind the burned traces. Every short costs us drift we can't spare.",
+      mood: "focused",
+      glitch: 0.04,
+      autoMs: 0,
+    },
+  ],
+  transit: [
+    {
+      speaker: "aether",
+      name: "AETHER",
+      text: "Core's warm. Trajectory's clean. Hold on — I'm threading us through.",
+      mood: "hopeful",
+      glitch: 0.02,
+      autoMs: 4800,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → "CONTINUE" (completeTransit).
+      text: "We made it. Both of us.",
+      mood: "stable",
+      glitch: 0,
+      autoMs: 0,
+    },
+  ],
 };
 
 // Reserved for when dialogue branching exists: `ch1_s12c_aether_01` is the

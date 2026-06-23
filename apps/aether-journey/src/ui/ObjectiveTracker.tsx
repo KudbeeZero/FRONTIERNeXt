@@ -22,6 +22,18 @@ const OBJECTIVE: Record<Exclude<Phase, "idle">, { title: string; detail: string 
     title: "COURSE LOCKED",
     detail: "Aether is stable. Resume the journey to Mars.",
   },
+  approach: {
+    title: "BRACE FOR THE FIELD",
+    detail: "The nav computer is blind. Get to the core with Aether.",
+  },
+  rewiring: {
+    title: "REROUTE THE NAV CORE",
+    detail: "Wire both boards to restore the trajectory. Avoid burned traces — shorts cost drift.",
+  },
+  transit: {
+    title: "THREAD THE FIELD",
+    detail: "Hold steady as Aether flies the restored course.",
+  },
 };
 
 export function ObjectiveTracker() {

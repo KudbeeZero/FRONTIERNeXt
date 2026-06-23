@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import type { AetherMood, OnchainEvent, Phase, ShipSystems } from "./types";
+import { boardForStage } from "../data/circuits";
+import { isBoardSolved, shortReason, type Connection } from "../lib/navCircuit";
+import { applyOption, seedTrust } from "../lib/decisions";
+import type { DecisionOption } from "./types";
 
 // ---------------------------------------------------------------------------
 // Central game store (zustand).
@@ -35,6 +39,22 @@ interface GameState {
   /** Set once the player chooses to continue past the Phase-1 payoff. */
   journeyResumed: boolean;
 
+  // --- Chapter 2: nav-circuit reroute --------------------------------------
+  /** Active board stage (1 = power routing, 2 = logic restoration). */
+  navStage: number;
+  /** Wires laid on the current board. */
+  navConnections: Connection[];
+  /** Drift/fuel remaining on the current board. */
+  navFuel: number;
+  /** True once both stages are solved (nav core back online). */
+  navOnline: boolean;
+
+  // --- Decision system (Ch.3+) ---------------------------------------------
+  /** Persistent trust axis (0–100), seeded from Aether's healed stability. */
+  trust: number;
+  /** Story flags set by decisions; drive later dialogue + the ending. */
+  flags: string[];
+
   // --- actions -------------------------------------------------------------
   begin: () => void;
   setPhase: (phase: Phase) => void;
@@ -47,7 +67,21 @@ interface GameState {
   enterRepair: () => void;
   alignNode: () => void;
   setSystem: (key: keyof ShipSystems, value: number) => void;
-  resumeJourney: () => void;
+
+  // Chapter 2 transitions
+  beginApproach: () => void;
+  enterRewiring: () => void;
+  /** Attempt to lay a wire. Returns ok, or a short reason (and charges fuel). */
+  addNavConnection: (conn: Connection) => { ok: boolean; reason?: string };
+  /** Clear the current board's wires to retry (drift/fuel is permanent). */
+  clearNavBoard: () => void;
+  completeTransit: () => void;
+
+  // Decision system
+  /** Seed trust from Aether's current healed stability (call entering Ch.3). */
+  seedTrustFromStability: () => void;
+  /** Apply a chosen option: shift trust, set flags + systems, log it. */
+  makeChoice: (decisionId: string, option: DecisionOption) => void;
 
   logOnchain: (event: Omit<OnchainEvent, "seq" | "ts">) => void;
 }
@@ -76,6 +110,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   ledger: [],
 
   journeyResumed: false,
+
+  navStage: 1,
+  navConnections: [],
+  navFuel: 0,
+  navOnline: false,
+
+  trust: 50,
+  flags: [],
 
   begin: () => {
     set({ phase: "waking", dialogueIndex: 0 });
@@ -153,13 +195,93 @@ export const useGameStore = create<GameState>((set, get) => ({
   setSystem: (key, value) =>
     set((s) => ({ systems: { ...s.systems, [key]: clamp(value) } })),
 
-  resumeJourney: () =>
+  // ── Chapter 2 — The Debris Field ─────────────────────────────────────────
+  beginApproach: () => set({ phase: "approach", dialogueIndex: 0, aetherMood: "focused" }),
+
+  enterRewiring: () => {
+    const board = boardForStage(1);
+    set({
+      phase: "rewiring",
+      dialogueIndex: 0,
+      aetherMood: "focused",
+      navStage: 1,
+      navConnections: [],
+      navFuel: board.fuelBudget,
+    });
+  },
+
+  addNavConnection: (conn) => {
+    const stage = get().navStage;
+    const board = boardForStage(stage);
+    const reason = shortReason(board, conn, get().navConnections);
+    if (reason) {
+      // A short is rejected AND vents drift/fuel — soft cost, never a hard fail.
+      set((s) => ({ navFuel: Math.max(0, s.navFuel - board.shortCost) }));
+      return { ok: false, reason };
+    }
+    const next = [...get().navConnections, conn];
+    set({ navConnections: next });
+
+    if (isBoardSolved(board, next)) {
+      get().logOnchain({
+        kind: "NAV_STAGE_CLEARED",
+        label: `${board.title} restored`,
+        payload: { stage, fuel: get().navFuel },
+      });
+      if (stage === 1) {
+        const b2 = boardForStage(2);
+        set({ navStage: 2, navConnections: [], navFuel: b2.fuelBudget });
+      } else {
+        get().logOnchain({
+          kind: "NAV_ONLINE",
+          label: "Nav core back online — trajectory through the field solved",
+          payload: { fuel: get().navFuel },
+        });
+        set({ phase: "transit", navOnline: true, dialogueIndex: 0, aetherMood: "hopeful" });
+      }
+    }
+    return { ok: true };
+  },
+
+  clearNavBoard: () => set({ navConnections: [] }),
+
+  completeTransit: () => {
+    get().logOnchain({
+      kind: "TRANSIT_COMPLETE",
+      label: "Cleared the debris field — Mars approach nominal",
+      payload: { fuel: get().navFuel },
+    });
     set((s) => ({
       aetherMood: "stable",
       journeyResumed: true,
-      // First leg of the healed journey toward Mars.
-      journeyProgress: Math.min(1, s.journeyProgress + 0.08),
-    })),
+      journeyProgress: Math.min(1, s.journeyProgress + 0.12),
+    }));
+  },
+
+  // ── Decision system ──────────────────────────────────────────────────────
+  seedTrustFromStability: () => set((s) => ({ trust: seedTrust(s.systems.aetherStability) })),
+
+  makeChoice: (decisionId, option) => {
+    const s = get();
+    const before = s.trust;
+    const next = applyOption(
+      { trust: s.trust, flags: new Set(s.flags), systems: s.systems },
+      option,
+    );
+    set({ trust: next.trust, flags: Array.from(next.flags), systems: next.systems });
+    get().logOnchain({
+      kind: "DECISION_MADE",
+      label: option.label,
+      payload: { decision: decisionId, option: option.id },
+    });
+    if (next.trust !== before) {
+      get().logOnchain({
+        kind: "TRUST_SHIFT",
+        label: `Trust ${next.trust >= before ? "+" : ""}${next.trust - before} → ${next.trust}`,
+        payload: { trust: next.trust, delta: next.trust - before },
+      });
+    }
+  },
 
   logOnchain: (event) =>
     set((s) => ({
