@@ -27,6 +27,9 @@ export function DialogueOverlay() {
   const beginMutiny = useGameStore((s) => s.beginMutiny);
   const enterTriage = useGameStore((s) => s.enterTriage);
   const completeTransit = useGameStore((s) => s.completeTransit);
+  const beginBlackout = useGameStore((s) => s.beginBlackout);
+  const enterDecode = useGameStore((s) => s.enterDecode);
+  const completeFix = useGameStore((s) => s.completeFix);
   const concludeRun = useGameStore((s) => s.concludeRun);
 
   if (phase === "idle") return null;
@@ -40,9 +43,10 @@ export function DialogueOverlay() {
   // Any non-final line can be clicked to continue — including long voiced takes.
   const canSkip = !isLast;
   // Some final lines are GATES with no button — the in-world board is the gate
-  // (rewiring = nav puzzle, triage = power bus). The panel must NOT capture pointer
-  // events then, or it eats clicks meant for the board underneath it.
-  const hasCTA = waiting && phase !== "rewiring" && phase !== "triage";
+  // (rewiring = nav puzzle, triage = power bus, decode = signal board). The panel must
+  // NOT capture pointer events then, or it eats clicks meant for the board underneath.
+  const hasCTA =
+    waiting && phase !== "rewiring" && phase !== "triage" && phase !== "decode";
   const interactive = canSkip || hasCTA;
 
   return (
@@ -140,7 +144,28 @@ export function DialogueOverlay() {
             label="▸ CONTINUE"
             onClick={() => {
               audio.confirm();
-              // Temporary terminus until Ch.4 — surfaces the run summary / EndCard.
+              // Chapter 3 → 4: into the Mars-shadow comms blackout.
+              beginBlackout();
+            }}
+          />
+        )}
+        {waiting && phase === "blackout" && (
+          <CTAButton
+            label="▸ READ THE SIGNAL"
+            onClick={() => {
+              audio.confirm();
+              audio.glitchBurst(0.4);
+              enterDecode();
+            }}
+          />
+        )}
+        {waiting && phase === "fix" && (
+          <CTAButton
+            label="▸ CONTINUE"
+            onClick={() => {
+              audio.confirm();
+              // Temporary terminus until Ch.5 — surfaces the run summary / EndCard.
+              completeFix();
               concludeRun();
             }}
           />
