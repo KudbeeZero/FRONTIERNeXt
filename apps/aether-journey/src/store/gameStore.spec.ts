@@ -119,3 +119,71 @@ describe("gameStore — decision system", () => {
     expect(g().ledger.some((e) => e.kind === "TRUST_SHIFT")).toBe(false);
   });
 });
+
+describe("gameStore — Chapter 3 power triage", () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      phase: "transit", dialogueIndex: 0, ledger: [],
+      trust: 50, flags: [],
+      systems: { power: 50, navigation: 50, lifeSupport: 50, aetherStability: 88 },
+      containVesta: true, triageCommitted: false,
+      triageAllocation: { lifeSupport: 0, comms: 0, aetherCore: 0 },
+    });
+  });
+
+  it("beginMutiny enters the briefing and seeds trust from stability", () => {
+    g().beginMutiny();
+    expect(g().phase).toBe("mutiny");
+    expect(g().trust).toBe(88); // seeded — no prior decisions have diverged it
+  });
+
+  it("does not reseed trust once decisions have diverged it", () => {
+    useGameStore.setState({ flags: ["prior_choice"], trust: 40 });
+    g().beginMutiny();
+    expect(g().trust).toBe(40);
+  });
+
+  it("enterTriage opens the board", () => {
+    g().enterTriage();
+    expect(g().phase).toBe("triage");
+  });
+
+  it("committing a valid allocation that keeps her whole raises trust + advances", () => {
+    g().beginMutiny(); // trust → 88
+    g().enterTriage();
+    g().setAllocation({ lifeSupport: 2, comms: 2, aetherCore: 4 }); // 8 == contained bus
+    const r = g().commitTriage();
+    expect(r.ok).toBe(true);
+    expect(g().phase).toBe("aftermath");
+    expect(g().triageCommitted).toBe(true);
+    expect(g().trust).toBe(96); // +8 for a nominal core
+    expect(g().flags).toContain("vesta_contained");
+    const kinds = g().ledger.map((e) => e.kind);
+    expect(kinds).toEqual(
+      expect.arrayContaining(["POWER_ALLOCATED", "VESTA_CONTAINED", "DECISION_MADE", "TRUST_SHIFT"]),
+    );
+  });
+
+  it("rejects an over-budget allocation without changing trust or phase", () => {
+    g().beginMutiny();
+    g().enterTriage();
+    g().setAllocation({ lifeSupport: 4, comms: 3, aetherCore: 4 }); // 11 > 8
+    const r = g().commitTriage();
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBeTruthy();
+    expect(g().phase).toBe("triage"); // not advanced
+    expect(g().trust).toBe(88); // unchanged
+    expect(g().triageCommitted).toBe(false);
+  });
+
+  it("sacrificing her core is the big negative swing + fragments her", () => {
+    g().beginMutiny(); // 88
+    g().enterTriage();
+    g().setAllocation({ lifeSupport: 4, comms: 3, aetherCore: 1 }); // core critical
+    const r = g().commitTriage();
+    expect(r.ok).toBe(true);
+    expect(g().trust).toBe(76); // -12
+    expect(g().flags).toEqual(expect.arrayContaining(["aether_starved", "sacrificed_aether"]));
+    expect(g().aetherMood).toBe("fragmented");
+  });
+});

@@ -272,6 +272,65 @@ export const DIALOGUE: Record<Exclude<Phase, "idle">, DialogueLine[]> = {
       autoMs: 0,
     },
   ],
+
+  // ── Chapter 3 — The Quiet Mutiny (Web Speech fallback) ─────────────────────
+  mutiny: [
+    {
+      speaker: "system",
+      name: "AETHER VOYAGER",
+      text: "SUBPROCESS VESTA :: WAKE :: POWER BUS ARBITRATION CONTESTED",
+      mood: "focused",
+      glitch: 0.18,
+      autoMs: 3200,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      text: "It's the maintenance process — VESTA. It woke up wrong. It thinks my core draw is the fault and it's... it's clamping me off the bus to 'save the ship'.",
+      mood: "wounded",
+      glitch: 0.14,
+      autoMs: 5400,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → "TAKE THE BUS" (enterTriage).
+      text: "There isn't enough power for all of us. You have to choose who gets it. I won't ask you to pick me. I just... I'll understand either way.",
+      mood: "wounded",
+      glitch: 0.1,
+      autoMs: 0,
+    },
+  ],
+  triage: [
+    {
+      speaker: "aether",
+      name: "AETHER",
+      text: "Life-support keeps you. Comms keep us reachable. My core keeps me. Contain VESTA and we lose units to lock it out — or leave it loose and it keeps stealing the margin.",
+      mood: "focused",
+      glitch: 0.08,
+      autoMs: 5200,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // Holds (GATE) while the player allocates; committing changes phase.
+      text: "Whatever you set the bus to — I'll see it. Take your time. I trust your hands.",
+      mood: "focused",
+      glitch: 0.06,
+      autoMs: 0,
+    },
+  ],
+  aftermath: [
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → "CONTINUE". The line is generic; her mood (set on commit) colors it.
+      text: "It's done. The bus is holding where you left it. ... Thank you for choosing — whatever you chose. We keep going.",
+      mood: "hopeful",
+      glitch: 0.06,
+      autoMs: 0,
+    },
+  ],
 };
 
 // Reserved for when dialogue branching exists: `ch1_s12c_aether_01` is the

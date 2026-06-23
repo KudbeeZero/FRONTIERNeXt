@@ -34,6 +34,18 @@ const OBJECTIVE: Record<Exclude<Phase, "idle">, { title: string; detail: string 
     title: "THREAD THE FIELD",
     detail: "Hold steady as Aether flies the restored course.",
   },
+  mutiny: {
+    title: "TAKE THE POWER BUS",
+    detail: "VESTA is clamping power from Aether. Step in and arbitrate the bus.",
+  },
+  triage: {
+    title: "TRIAGE THE POWER",
+    detail: "Allocate the bus across life-support, comms, and Aether's core. You can't keep all three whole.",
+  },
+  aftermath: {
+    title: "LIVE WITH THE CHOICE",
+    detail: "The bus is set. See what it cost — and what it kept.",
+  },
 };
 
 export function ObjectiveTracker() {
