@@ -3,6 +3,12 @@ import type { AetherMood, OnchainEvent, Phase, ShipSystems } from "./types";
 import { boardForStage } from "../data/circuits";
 import { isBoardSolved, shortReason, type Connection } from "../lib/navCircuit";
 import { applyOption, seedTrust } from "../lib/decisions";
+import {
+  resolveTriage,
+  balancedAllocation,
+  type Allocation,
+} from "../lib/powerTriage";
+import { VESTA_TRIAGE } from "../data/triage";
 import type { DecisionOption } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +61,14 @@ interface GameState {
   /** Story flags set by decisions; drive later dialogue + the ending. */
   flags: string[];
 
+  // --- Chapter 3: power triage ---------------------------------------------
+  /** Working allocation of the power bus across the three consumers. */
+  triageAllocation: Allocation;
+  /** Whether VESTA is locked off the bus (costs units) or left loose (drains). */
+  containVesta: boolean;
+  /** True once the triage has been committed (locks the choice + trust shift). */
+  triageCommitted: boolean;
+
   // --- actions -------------------------------------------------------------
   begin: () => void;
   setPhase: (phase: Phase) => void;
@@ -82,6 +96,22 @@ interface GameState {
   seedTrustFromStability: () => void;
   /** Apply a chosen option: shift trust, set flags + systems, log it. */
   makeChoice: (decisionId: string, option: DecisionOption) => void;
+
+  // Chapter 3 transitions
+  /** Enter the Ch.3 briefing (from Ch.2 transit) and seed trust from stability. */
+  beginMutiny: () => void;
+  /** Open the power-triage board. */
+  enterTriage: () => void;
+  /** Set the working allocation (live preview; not yet committed). */
+  setAllocation: (allocation: Allocation) => void;
+  /** Toggle whether VESTA is contained (changes the available bus). */
+  toggleContainVesta: () => void;
+  /**
+   * Commit the current allocation: applies the trust shift + flags via the
+   * decision path and advances to aftermath. Rejected (returns a reason) if the
+   * allocation is invalid (overspent / negative).
+   */
+  commitTriage: () => { ok: boolean; reason?: string };
 
   logOnchain: (event: Omit<OnchainEvent, "seq" | "ts">) => void;
 }
@@ -118,6 +148,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   trust: 50,
   flags: [],
+
+  // Default to a balanced, contained allocation so the board opens in a legal state.
+  triageAllocation: balancedAllocation(VESTA_TRIAGE, true),
+  containVesta: true,
+  triageCommitted: false,
 
   begin: () => {
     set({ phase: "waking", dialogueIndex: 0 });
@@ -281,6 +316,63 @@ export const useGameStore = create<GameState>((set, get) => ({
         payload: { trust: next.trust, delta: next.trust - before },
       });
     }
+  },
+
+  // ── Chapter 3 — The Quiet Mutiny ─────────────────────────────────────────
+  beginMutiny: () => {
+    // Ch.3 is where carried-over trust starts to matter — seed it from how whole
+    // Aether came out of Ch.1 if it hasn't diverged yet.
+    set((s) => ({
+      phase: "mutiny",
+      dialogueIndex: 0,
+      aetherMood: "wounded",
+      trust: s.flags.length === 0 ? seedTrust(s.systems.aetherStability) : s.trust,
+    }));
+  },
+
+  enterTriage: () =>
+    set({ phase: "triage", dialogueIndex: 0, aetherMood: "focused", triageCommitted: false }),
+
+  setAllocation: (allocation) => set({ triageAllocation: allocation }),
+
+  toggleContainVesta: () => set((s) => ({ containVesta: !s.containVesta })),
+
+  commitTriage: () => {
+    const s = get();
+    const outcome = resolveTriage(VESTA_TRIAGE, s.triageAllocation, s.containVesta);
+    if (!outcome.valid) {
+      return { ok: false, reason: "Over the power budget — pull units back first." };
+    }
+
+    get().logOnchain({
+      kind: "POWER_ALLOCATED",
+      label: `Power triaged — bus ${outcome.used}/${outcome.available} drawn`,
+      payload: { ...outcome.allocation, remaining: outcome.remaining },
+    });
+    if (s.containVesta) {
+      get().logOnchain({
+        kind: "VESTA_CONTAINED",
+        label: "VESTA locked off the bus",
+        payload: { cost: VESTA_TRIAGE.containCost },
+      });
+    }
+
+    // Route the trust shift + consequence flags through the tested decision path.
+    get().makeChoice("ch3_triage", {
+      id: s.containVesta ? "contain" : "loose",
+      label: "Power triage committed",
+      trust: outcome.trustDelta,
+      flags: outcome.flags,
+    });
+
+    set({
+      triageCommitted: true,
+      phase: "aftermath",
+      dialogueIndex: 0,
+      // Aether's register reflects whether you kept her whole.
+      aetherMood: outcome.tiers.aetherCore === "critical" ? "fragmented" : "hopeful",
+    });
+    return { ok: true };
   },
 
   logOnchain: (event) =>

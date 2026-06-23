@@ -17,7 +17,11 @@ export type Phase =
   // ── Chapter 2 — The Debris Field ──────────────────────────────────────────
   | "approach" // proximity alarm + briefing: the nav computer can't autopilot the field
   | "rewiring" // hands-on: the two-stage nav-circuit reroute puzzle
-  | "transit"; // resolve: the ship flies the restored course through the field
+  | "transit" // resolve: the ship flies the restored course through the field
+  // ── Chapter 3 — The Quiet Mutiny ──────────────────────────────────────────
+  | "mutiny" // briefing: VESTA wakes corrupted and clamps power from Aether
+  | "triage" // hands-on: allocate the scarce power bus across the three consumers
+  | "aftermath"; // resolve: the cost of the choice lands; trust has shifted
 
 /** The four load-bearing ship subsystems shown on the status HUD (0–100). */
 export interface ShipSystems {
@@ -74,7 +78,11 @@ export interface OnchainEvent {
     | "TRANSIT_COMPLETE"
     // ── Decision system (Ch.3+) ──
     | "DECISION_MADE"
-    | "TRUST_SHIFT";
+    | "TRUST_SHIFT"
+    // ── Chapter 3 ──
+    | "POWER_ALLOCATED"
+    | "VESTA_CONTAINED"
+    | "RESOURCE_SPENT";
   label: string;
   /** Free-form, JSON-serializable detail (future: ASA id, reward amounts, etc.). */
   payload?: Record<string, number | string | boolean>;
