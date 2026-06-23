@@ -4,6 +4,7 @@ import {
   tierFor,
   resolveTriage,
   balancedAllocation,
+  refitAllocation,
   CONSUMERS,
   type Allocation,
 } from "./powerTriage";
@@ -116,5 +117,28 @@ describe("balancedAllocation", () => {
     const a = balancedAllocation(C, true);
     expect(tierFor(a.aetherCore, C.consumers.aetherCore)).not.toBe("critical");
     expect(resolveTriage(C, a, true).valid).toBe(true);
+  });
+});
+
+describe("refitAllocation", () => {
+  it("leaves an already-fitting allocation unchanged", () => {
+    const a = alloc(2, 2, 4); // 8 == contained bus
+    expect(refitAllocation(C, a, true)).toEqual(a);
+  });
+
+  it("sheds comms first and protects her core when the bus shrinks", () => {
+    // {2,2,4}=8 is 1 over the loose bus (7) → trims exactly one comms unit
+    const r = refitAllocation(C, alloc(2, 2, 4), false);
+    expect(r.lifeSupport + r.comms + r.aetherCore).toBeLessThanOrEqual(availableBus(C, false));
+    expect(r.aetherCore).toBe(4); // core untouched
+    expect(r.comms).toBe(1);
+  });
+
+  it("drains comms fully before touching life-support, core last", () => {
+    // avail 3 (tiny bus), used 10 → comms→0, then life-support, core preserved longest
+    const r = refitAllocation({ ...C, busTotal: 5 }, alloc(3, 3, 4), true);
+    expect(r.comms).toBe(0);
+    expect(r.lifeSupport + r.comms + r.aetherCore).toBeLessThanOrEqual(3);
+    expect(r.aetherCore).toBeGreaterThan(0);
   });
 });

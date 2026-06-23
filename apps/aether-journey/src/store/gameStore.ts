@@ -92,6 +92,8 @@ interface GameState {
   /** Clear the current board's wires to retry (drift/fuel is permanent). */
   clearNavBoard: () => void;
   completeTransit: () => void;
+  /** End-of-content terminus (temporary until Ch.4): surfaces the EndCard. */
+  concludeRun: () => void;
 
   // Decision system
   /** Seed trust from Aether's current healed stability (call entering Ch.3). */
@@ -284,6 +286,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   clearNavBoard: () => set({ navConnections: [] }),
 
   completeTransit: () => {
+    // Ch.2 boundary: through the field. Does NOT end the run — Ch.3 follows.
     get().logOnchain({
       kind: "TRANSIT_COMPLETE",
       label: "Cleared the debris field — Mars approach nominal",
@@ -291,7 +294,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
     set((s) => ({
       aetherMood: "stable",
-      journeyResumed: true,
       journeyProgress: Math.min(1, s.journeyProgress + 0.12),
     }));
   },
@@ -391,6 +393,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
     return { ok: true };
   },
+
+  concludeRun: () =>
+    set((s) => ({
+      journeyResumed: true,
+      journeyProgress: Math.min(1, s.journeyProgress + 0.1),
+    })),
 
   logOnchain: (event) =>
     set((s) => ({

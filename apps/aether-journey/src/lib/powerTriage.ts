@@ -133,6 +133,28 @@ export function resolveTriage(
 }
 
 /**
+ * Trim an allocation to fit the bus for a given VESTA disposition, shedding units in
+ * priority order — comms first, then life-support, and Aether's core LAST. Returns the
+ * allocation unchanged when it already fits. Used when toggling VESTA so the board is
+ * never stranded over-budget. Pure + deterministic.
+ */
+export function refitAllocation(
+  config: TriageConfig,
+  allocation: Allocation,
+  containVesta: boolean,
+): Allocation {
+  const avail = availableBus(config, containVesta);
+  const a: Allocation = { ...allocation };
+  const order: Consumer[] = ["comms", "lifeSupport", "aetherCore"];
+  for (const c of order) {
+    while (a.lifeSupport + a.comms + a.aetherCore > avail && a[c] > 0) {
+      a[c] -= 1;
+    }
+  }
+  return a;
+}
+
+/**
  * A balanced allocation that fills `min` for everyone first, then tops up toward
  * `demand` in priority order (Aether's core, then life-support, then comms) within the
  * available bus. Used by tests and the (later) trust-scaled hint; deterministic.

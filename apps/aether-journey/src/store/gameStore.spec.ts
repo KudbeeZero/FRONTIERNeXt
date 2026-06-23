@@ -72,13 +72,19 @@ describe("gameStore — Chapter 2 nav-circuit flow", () => {
     expect(g().ledger.some((e) => e.kind === "NAV_ONLINE")).toBe(true);
   });
 
-  it("completeTransit logs the payoff and resumes the journey", () => {
-    useGameStore.setState({ phase: "transit", navOnline: true });
+  it("completeTransit logs the payoff and advances — but does NOT end the run (Ch.3 follows)", () => {
+    useGameStore.setState({ phase: "transit", navOnline: true, journeyResumed: false });
     const before = g().journeyProgress;
     g().completeTransit();
-    expect(g().journeyResumed).toBe(true);
     expect(g().journeyProgress).toBeGreaterThan(before);
     expect(g().ledger.some((e) => e.kind === "TRANSIT_COMPLETE")).toBe(true);
+    expect(g().journeyResumed).toBe(false); // terminus moved to concludeRun
+  });
+
+  it("concludeRun is the end-of-content terminus that surfaces the EndCard", () => {
+    useGameStore.setState({ journeyResumed: false });
+    g().concludeRun();
+    expect(g().journeyResumed).toBe(true);
   });
 
   it("clearNavBoard wipes wires but keeps drift/fuel", () => {
