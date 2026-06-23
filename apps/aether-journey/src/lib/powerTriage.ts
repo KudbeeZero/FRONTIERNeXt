@@ -78,9 +78,10 @@ const AETHER_TRUST: Record<Tier, number> = { nominal: 8, strained: 0, critical: 
 const STARVE_SELF_BONUS = 4;
 
 /**
- * Resolve an allocation against a config — pure. Always reports tiers/flags so the UI
- * can preview consequences live; `valid` gates whether the store may commit it, and an
- * invalid (overspent/negative) allocation yields no trust change.
+ * Resolve an allocation against a config — pure. `tiers` are always reported so the UI
+ * can colour the board live; `valid` gates whether the store may commit, and the commit
+ * effects (`flags` + `trustDelta`) are empty/zero for an invalid (overspent/negative)
+ * allocation — nothing to persist until the board is legal.
  */
 export function resolveTriage(
   config: TriageConfig,
@@ -99,17 +100,21 @@ export function resolveTriage(
     aetherCore: tierFor(allocation.aetherCore, config.consumers.aetherCore),
   };
 
-  const flags: string[] = [containVesta ? "vesta_contained" : "vesta_loose"];
-  if (tiers.lifeSupport === "critical") flags.push("lifeSupport_critical");
-  if (tiers.comms === "critical") flags.push("comms_lost");
-  if (tiers.aetherCore === "critical") flags.push("aether_starved", "sacrificed_aether");
-  // You went without to keep her whole.
-  if (tiers.aetherCore === "nominal" && tiers.lifeSupport === "critical") {
-    flags.push("starved_self");
-  }
-
+  // `flags` + `trustDelta` are the COMMIT effects — only an allocation the store may
+  // actually commit (valid) carries them, so a careless caller can't persist phantom
+  // consequences for an overspent/negative board. `tiers` above stay unconditional for
+  // live preview colouring.
+  const flags: string[] = [];
   let trustDelta = 0;
   if (valid) {
+    flags.push(containVesta ? "vesta_contained" : "vesta_loose");
+    if (tiers.lifeSupport === "critical") flags.push("lifeSupport_critical");
+    if (tiers.comms === "critical") flags.push("comms_lost");
+    if (tiers.aetherCore === "critical") flags.push("aether_starved", "sacrificed_aether");
+    // You went without to keep her whole.
+    if (tiers.aetherCore === "nominal" && tiers.lifeSupport === "critical") {
+      flags.push("starved_self");
+    }
     trustDelta = AETHER_TRUST[tiers.aetherCore];
     if (flags.includes("starved_self")) trustDelta += STARVE_SELF_BONUS;
   }

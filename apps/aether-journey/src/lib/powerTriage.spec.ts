@@ -60,6 +60,16 @@ describe("resolveTriage — validity", () => {
     expect(o.used).toBe(8);
     expect(o.remaining).toBe(0);
   });
+
+  it("emits no commit effects for an invalid allocation (no phantom flags)", () => {
+    // Overspent (10 > 8) but each consumer looks 'fine' — must NOT leak flags/trust.
+    const o = resolveTriage(C, alloc(1, 5, 4), true);
+    expect(o.valid).toBe(false);
+    expect(o.flags).toEqual([]);
+    expect(o.trustDelta).toBe(0);
+    // tiers still reported for live preview colouring
+    expect(o.tiers.aetherCore).toBe("nominal");
+  });
 });
 
 describe("resolveTriage — trust swing (Aether's core drives it)", () => {
