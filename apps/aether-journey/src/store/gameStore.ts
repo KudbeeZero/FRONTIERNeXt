@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type { AetherMood, OnchainEvent, Phase, ShipSystems } from "./types";
 import { boardForStage } from "../data/circuits";
 import { isBoardSolved, shortReason, type Connection } from "../lib/navCircuit";
+import { applyOption, seedTrust } from "../lib/decisions";
+import type { DecisionOption } from "./types";
 
 // ---------------------------------------------------------------------------
 // Central game store (zustand).
@@ -47,6 +49,12 @@ interface GameState {
   /** True once both stages are solved (nav core back online). */
   navOnline: boolean;
 
+  // --- Decision system (Ch.3+) ---------------------------------------------
+  /** Persistent trust axis (0–100), seeded from Aether's healed stability. */
+  trust: number;
+  /** Story flags set by decisions; drive later dialogue + the ending. */
+  flags: string[];
+
   // --- actions -------------------------------------------------------------
   begin: () => void;
   setPhase: (phase: Phase) => void;
@@ -68,6 +76,12 @@ interface GameState {
   /** Clear the current board's wires to retry (drift/fuel is permanent). */
   clearNavBoard: () => void;
   completeTransit: () => void;
+
+  // Decision system
+  /** Seed trust from Aether's current healed stability (call entering Ch.3). */
+  seedTrustFromStability: () => void;
+  /** Apply a chosen option: shift trust, set flags + systems, log it. */
+  makeChoice: (decisionId: string, option: DecisionOption) => void;
 
   logOnchain: (event: Omit<OnchainEvent, "seq" | "ts">) => void;
 }
@@ -101,6 +115,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   navConnections: [],
   navFuel: 0,
   navOnline: false,
+
+  trust: 50,
+  flags: [],
 
   begin: () => {
     set({ phase: "waking", dialogueIndex: 0 });
@@ -239,6 +256,31 @@ export const useGameStore = create<GameState>((set, get) => ({
       journeyResumed: true,
       journeyProgress: Math.min(1, s.journeyProgress + 0.12),
     }));
+  },
+
+  // ── Decision system ──────────────────────────────────────────────────────
+  seedTrustFromStability: () => set((s) => ({ trust: seedTrust(s.systems.aetherStability) })),
+
+  makeChoice: (decisionId, option) => {
+    const s = get();
+    const before = s.trust;
+    const next = applyOption(
+      { trust: s.trust, flags: new Set(s.flags), systems: s.systems },
+      option,
+    );
+    set({ trust: next.trust, flags: Array.from(next.flags), systems: next.systems });
+    get().logOnchain({
+      kind: "DECISION_MADE",
+      label: option.label,
+      payload: { decision: decisionId, option: option.id },
+    });
+    if (next.trust !== before) {
+      get().logOnchain({
+        kind: "TRUST_SHIFT",
+        label: `Trust ${next.trust >= before ? "+" : ""}${next.trust - before} → ${next.trust}`,
+        payload: { trust: next.trust, delta: next.trust - before },
+      });
+    }
   },
 
   logOnchain: (event) =>

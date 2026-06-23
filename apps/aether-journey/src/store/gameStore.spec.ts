@@ -90,3 +90,32 @@ describe("gameStore — Chapter 2 nav-circuit flow", () => {
     expect(g().navFuel).toBe(fuel);
   });
 });
+
+describe("gameStore — decision system", () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      trust: 50, flags: [], ledger: [],
+      systems: { power: 50, navigation: 50, lifeSupport: 50, aetherStability: 88 },
+    });
+  });
+
+  it("seedTrustFromStability seeds trust from Aether's stability", () => {
+    g().seedTrustFromStability();
+    expect(g().trust).toBe(88);
+  });
+
+  it("makeChoice applies trust + flags and logs DECISION_MADE + TRUST_SHIFT", () => {
+    g().makeChoice("d1", { id: "give", label: "Give Aether the power", trust: 12, flags: ["chose_aether"] });
+    expect(g().trust).toBe(62);
+    expect(g().flags).toContain("chose_aether");
+    expect(g().ledger.some((e) => e.kind === "DECISION_MADE")).toBe(true);
+    expect(g().ledger.some((e) => e.kind === "TRUST_SHIFT")).toBe(true);
+  });
+
+  it("makeChoice with no trust delta logs the decision but no TRUST_SHIFT", () => {
+    g().makeChoice("d2", { id: "neutral", label: "Wait" });
+    expect(g().trust).toBe(50);
+    expect(g().ledger.some((e) => e.kind === "DECISION_MADE")).toBe(true);
+    expect(g().ledger.some((e) => e.kind === "TRUST_SHIFT")).toBe(false);
+  });
+});
