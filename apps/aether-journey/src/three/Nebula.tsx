@@ -65,7 +65,9 @@ export function Nebula() {
     const t = state.clock.elapsedTime;
     g.rotation.z = Math.sin(t * 0.01) * 0.04;
     for (let i = 0; i < g.children.length; i++) {
-      g.children[i].position.x += Math.sin(t * 0.02 + i) * 0.0007;
+      // Absolute sway from the authored base x — frame-rate independent + bounded
+      // (no accumulation), so it looks identical at 30 vs 60 fps.
+      g.children[i].position.x = CLOUDS[i].pos[0] + Math.sin(t * 0.02 + i) * 0.6;
     }
   });
 
