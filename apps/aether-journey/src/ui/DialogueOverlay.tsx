@@ -36,11 +36,16 @@ export function DialogueOverlay() {
   const waiting = isLast && (line.autoMs ?? 0) === 0;
   // Any non-final line can be clicked to continue — including long voiced takes.
   const canSkip = !isLast;
+  // Rewiring's final line is a GATE with no button — the puzzle is the gate. The
+  // panel must NOT capture pointer events then, or it eats clicks meant for the
+  // nav-circuit nodes underneath it on short viewports.
+  const hasCTA = waiting && phase !== "rewiring";
+  const interactive = canSkip || hasCTA;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-6 sm:pb-10">
       <div
-        className="holo-panel pointer-events-auto relative w-full max-w-3xl rounded-md px-6 py-5"
+        className={`holo-panel relative w-full max-w-3xl rounded-md px-6 py-5 ${interactive ? "pointer-events-auto" : "pointer-events-none"}`}
         onClick={() => {
           if (canSkip) {
             audio.beep(600, 0.04, "sine", 0.06);

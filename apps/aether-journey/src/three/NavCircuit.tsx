@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Html, Line } from "@react-three/drei";
 import { useGameStore } from "../store/gameStore";
 import { audio } from "../lib/audioEngine";
@@ -51,8 +51,15 @@ export function NavCircuit() {
   const [pending, setPending] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Reset the half-made wire whenever the board changes (stage 1 → 2).
+  // Live power state of every node, for colouring nodes/wires.
   const powered = useMemo(() => evaluate(board, navConnections), [board, navConnections]);
+
+  // Drop any half-made selection when the board swaps (stage 1 → 2), so a pending
+  // node id from the previous board can never target the new one.
+  useEffect(() => {
+    setPending(null);
+    setFeedback(null);
+  }, [navStage]);
 
   const worldPos = (c: Cell): [number, number, number] => [
     c.x * CELL - ((board.width - 1) * CELL) / 2,

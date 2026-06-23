@@ -59,7 +59,6 @@ interface GameState {
   enterRepair: () => void;
   alignNode: () => void;
   setSystem: (key: keyof ShipSystems, value: number) => void;
-  resumeJourney: () => void;
 
   // Chapter 2 transitions
   beginApproach: () => void;
@@ -178,14 +177,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setSystem: (key, value) =>
     set((s) => ({ systems: { ...s.systems, [key]: clamp(value) } })),
-
-  resumeJourney: () =>
-    set((s) => ({
-      aetherMood: "stable",
-      journeyResumed: true,
-      // First leg of the healed journey toward Mars.
-      journeyProgress: Math.min(1, s.journeyProgress + 0.08),
-    })),
 
   // ── Chapter 2 — The Debris Field ─────────────────────────────────────────
   beginApproach: () => set({ phase: "approach", dialogueIndex: 0, aetherMood: "focused" }),
