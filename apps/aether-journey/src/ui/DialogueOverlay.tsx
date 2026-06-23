@@ -24,7 +24,10 @@ export function DialogueOverlay() {
   const enterRepair = useGameStore((s) => s.enterRepair);
   const beginApproach = useGameStore((s) => s.beginApproach);
   const enterRewiring = useGameStore((s) => s.enterRewiring);
+  const beginMutiny = useGameStore((s) => s.beginMutiny);
+  const enterTriage = useGameStore((s) => s.enterTriage);
   const completeTransit = useGameStore((s) => s.completeTransit);
+  const concludeRun = useGameStore((s) => s.concludeRun);
 
   if (phase === "idle") return null;
   const track = DIALOGUE[phase];
@@ -36,10 +39,10 @@ export function DialogueOverlay() {
   const waiting = isLast && (line.autoMs ?? 0) === 0;
   // Any non-final line can be clicked to continue — including long voiced takes.
   const canSkip = !isLast;
-  // Rewiring's final line is a GATE with no button — the puzzle is the gate. The
-  // panel must NOT capture pointer events then, or it eats clicks meant for the
-  // nav-circuit nodes underneath it on short viewports.
-  const hasCTA = waiting && phase !== "rewiring";
+  // Some final lines are GATES with no button — the in-world board is the gate
+  // (rewiring = nav puzzle, triage = power bus). The panel must NOT capture pointer
+  // events then, or it eats clicks meant for the board underneath it.
+  const hasCTA = waiting && phase !== "rewiring" && phase !== "triage";
   const interactive = canSkip || hasCTA;
 
   return (
@@ -116,7 +119,29 @@ export function DialogueOverlay() {
             label="▸ CONTINUE"
             onClick={() => {
               audio.confirm();
+              // Chapter 2 → 3: the debris field is behind you; VESTA stirs.
               completeTransit();
+              beginMutiny();
+            }}
+          />
+        )}
+        {waiting && phase === "mutiny" && (
+          <CTAButton
+            label="▸ TAKE THE POWER BUS"
+            onClick={() => {
+              audio.confirm();
+              audio.glitchBurst(0.4);
+              enterTriage();
+            }}
+          />
+        )}
+        {waiting && phase === "aftermath" && (
+          <CTAButton
+            label="▸ CONTINUE"
+            onClick={() => {
+              audio.confirm();
+              // Temporary terminus until Ch.4 — surfaces the run summary / EndCard.
+              concludeRun();
             }}
           />
         )}
