@@ -22,7 +22,9 @@ export function DialogueOverlay() {
   const advanceDialogue = useGameStore((s) => s.advanceDialogue);
   const enterDiagnostic = useGameStore((s) => s.enterDiagnostic);
   const enterRepair = useGameStore((s) => s.enterRepair);
-  const resumeJourney = useGameStore((s) => s.resumeJourney);
+  const beginApproach = useGameStore((s) => s.beginApproach);
+  const enterRewiring = useGameStore((s) => s.enterRewiring);
+  const completeTransit = useGameStore((s) => s.completeTransit);
 
   if (phase === "idle") return null;
   const track = DIALOGUE[phase];
@@ -87,10 +89,29 @@ export function DialogueOverlay() {
         )}
         {waiting && phase === "stabilized" && (
           <CTAButton
-            label="▸ CONTINUE THE JOURNEY"
+            label="▸ RESUME COURSE TO MARS"
             onClick={() => {
               audio.confirm();
-              resumeJourney();
+              beginApproach();
+            }}
+          />
+        )}
+        {waiting && phase === "approach" && (
+          <CTAButton
+            label="▸ TAKE THE NAV CONSOLE"
+            onClick={() => {
+              audio.confirm();
+              audio.glitchBurst(0.4);
+              enterRewiring();
+            }}
+          />
+        )}
+        {waiting && phase === "transit" && (
+          <CTAButton
+            label="▸ CONTINUE"
+            onClick={() => {
+              audio.confirm();
+              completeTransit();
             }}
           />
         )}

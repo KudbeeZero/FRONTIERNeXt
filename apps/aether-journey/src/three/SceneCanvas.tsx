@@ -11,6 +11,7 @@ import { ForwardViewport } from "./ForwardViewport";
 import { DustMotes } from "./DustMotes";
 import { AetherHologram } from "./AetherHologram";
 import { NeuralRepair } from "./NeuralRepair";
+import { NavCircuit } from "./NavCircuit";
 import { DiagnosticConsole } from "./DiagnosticConsole";
 import { useGameStore } from "../store/gameStore";
 
@@ -63,6 +64,9 @@ export function SceneCanvas() {
       {/* The repair rig is only live during the repair beat. */}
       {phase === "repair" && <NeuralRepair />}
 
+      {/* Chapter 2: the nav-circuit board is only live during the rewiring beat. */}
+      {phase === "rewiring" && <NavCircuit />}
+
       {/* --- Camera control ------------------------------------------------ */}
       {/* Look-around is disabled during the repair beat: the nodes are a
           press-and-hold target, and an active orbit control competes for the
@@ -70,7 +74,9 @@ export function SceneCanvas() {
           when it claims the drag for the camera, which aborts the node's charge
           before it can lock. Freezing the camera here keeps the hold intact. */}
       <OrbitControls
-        enabled={phase !== "repair"}
+        // Freeze look-around during the hands-on beats (repair hold + nav-circuit
+        // clicks) so the camera doesn't steal the pointer/touch gesture.
+        enabled={phase !== "repair" && phase !== "rewiring"}
         target={[0, 0, -3]}
         enablePan={false}
         enableZoom={false}

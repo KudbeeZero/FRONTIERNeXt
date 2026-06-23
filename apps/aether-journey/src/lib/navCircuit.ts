@@ -180,3 +180,58 @@ export function shortReason(board: CircuitBoard, conn: Connection, existing: Con
   const v = validateConnection(board, conn, existing);
   return v.ok ? null : (v.reason ?? "short");
 }
+
+/**
+ * Shortest valid orthogonal path from one node to another (BFS), avoiding damaged
+ * cells, every other node, and existing wires' interiors. Returns the cell path
+ * inclusive of both endpoints, or null if no route exists. Powers the click-to-route
+ * interaction: the player picks two nodes, the ship finds the wire.
+ */
+export function findPath(
+  board: CircuitBoard,
+  fromId: string,
+  toId: string,
+  existing: Connection[],
+): Cell[] | null {
+  const from = board.nodes.find((n) => n.id === fromId);
+  const to = board.nodes.find((n) => n.id === toId);
+  if (!from || !to) return null;
+
+  const key = (c: Cell) => `${c.x},${c.y}`;
+  const blocked = new Set<string>();
+  for (const d of board.damaged) blocked.add(key(d));
+  for (const n of board.nodes) if (n.id !== fromId && n.id !== toId) blocked.add(key(n.pos));
+  for (const e of existing) for (const c of interior(e.path)) blocked.add(key(c));
+
+  const goal = key(to.pos);
+  const start = from.pos;
+  const queue: Cell[] = [start];
+  const cameFrom = new Map<string, string>();
+  const seen = new Set<string>([key(start)]);
+
+  while (queue.length) {
+    const cur = queue.shift()!;
+    if (key(cur) === goal) {
+      // reconstruct
+      const path: Cell[] = [];
+      let k: string | undefined = goal;
+      while (k) {
+        const [x, y] = k.split(",").map(Number);
+        path.unshift({ x, y });
+        k = cameFrom.get(k);
+      }
+      return path;
+    }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nxt: Cell = { x: cur.x + dx, y: cur.y + dy };
+      const nk = key(nxt);
+      if (seen.has(nk)) continue;
+      if (!inBounds(nxt, board)) continue;
+      if (blocked.has(nk) && nk !== goal) continue;
+      seen.add(nk);
+      cameFrom.set(nk, key(cur));
+      queue.push(nxt);
+    }
+  }
+  return null;
+}

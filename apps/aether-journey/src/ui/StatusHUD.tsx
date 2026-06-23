@@ -1,5 +1,6 @@
 import { useGameStore } from "../store/gameStore";
 import type { ShipSystems } from "../store/types";
+import { boardForStage } from "../data/circuits";
 
 // ---------------------------------------------------------------------------
 // Top-left ship status panel: the four load-bearing subsystems + the journey
@@ -45,6 +46,12 @@ function Bar({ label, value }: { label: string; value: number }) {
 export function StatusHUD() {
   const systems = useGameStore((s) => s.systems);
   const journeyProgress = useGameStore((s) => s.journeyProgress);
+  const phase = useGameStore((s) => s.phase);
+  const navStage = useGameStore((s) => s.navStage);
+  const navFuel = useGameStore((s) => s.navFuel);
+  // During the nav-circuit reroute, show the drift buffer (shorts erode it).
+  const driftPct =
+    phase === "rewiring" ? (navFuel / boardForStage(navStage).fuelBudget) * 100 : null;
 
   return (
     <div className="holo-panel pointer-events-none absolute left-4 top-4 z-30 w-60 rounded-md px-4 py-3.5 sm:w-72">
@@ -63,6 +70,12 @@ export function StatusHUD() {
       {(Object.keys(LABELS) as (keyof ShipSystems)[]).map((k) => (
         <Bar key={k} label={LABELS[k]} value={systems[k]} />
       ))}
+
+      {driftPct !== null && (
+        <div className="mt-3 border-t border-[#1c3147] pt-2.5">
+          <Bar label={`NAV DRIFT BUFFER · STAGE ${navStage}`} value={driftPct} />
+        </div>
+      )}
 
       <div className="mt-3 border-t border-[#1c3147] pt-2.5">
         <div className="mb-1 flex items-center justify-between font-mono text-[10px] uppercase tracking-widest">

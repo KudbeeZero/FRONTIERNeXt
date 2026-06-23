@@ -5,6 +5,7 @@ import {
   evaluate,
   isBoardSolved,
   shortReason,
+  findPath,
   type CircuitBoard,
   type Connection,
 } from "./navCircuit";
@@ -155,6 +156,36 @@ describe("shortReason", () => {
     expect(shortReason(STAGE_1_POWER, S1_A, [])).toBeNull();
     const damaged = conn("x", "s1", "k1", 0, [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0]]);
     expect(shortReason(STAGE_1_POWER, damaged, [])).toMatch(/damaged/);
+  });
+});
+
+describe("findPath (click-to-route)", () => {
+  it("finds a valid route that the validator accepts", () => {
+    const path = findPath(STAGE_1_POWER, "s1", "k1", []);
+    expect(path).not.toBeNull();
+    const c = { id: "p", fromId: "s1", toId: "k1", toSlot: 0, path: path! };
+    expect(validateConnection(STAGE_1_POWER, c, []).ok).toBe(true);
+  });
+
+  it("routes around an existing wire's interior", () => {
+    const first = findPath(STAGE_1_POWER, "s1", "k1", [])!;
+    const second = findPath(STAGE_1_POWER, "s2", "k2", [{ id: "a", fromId: "s1", toId: "k1", toSlot: 0, path: first }]);
+    expect(second).not.toBeNull();
+    const c = { id: "b", fromId: "s2", toId: "k2", toSlot: 0, path: second! };
+    expect(validateConnection(STAGE_1_POWER, c, [{ id: "a", fromId: "s1", toId: "k1", toSlot: 0, path: first }]).ok).toBe(true);
+  });
+
+  it("returns null when the target is walled off", () => {
+    const boxed: CircuitBoard = {
+      id: "z", title: "z", width: 3, height: 3,
+      nodes: [
+        { id: "a", type: "source", pos: { x: 0, y: 0 } },
+        { id: "k", type: "sink", pos: { x: 2, y: 2 } },
+      ],
+      damaged: [{ x: 1, y: 2 }, { x: 2, y: 1 }], // seal the corner around k
+      fuelBudget: 10, shortCost: 1,
+    };
+    expect(findPath(boxed, "a", "k", [])).toBeNull();
   });
 });
 
