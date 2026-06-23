@@ -148,15 +148,48 @@ interface GameState {
   };
   /** Resolve beat: position fixed, advance toward Ch.5. */
   completeFix: () => void;
-  /** @internal shared decode-lock routine (solo vs. trusting Aether's read). */
-  _lockSignal: (mode: "solo" | "trust", blind: boolean) => void;
 
   logOnchain: (event: Omit<OnchainEvent, "seq" | "ts">) => void;
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n));
 
-export const useGameStore = create<GameState>((set, get) => ({
+export const useGameStore = create<GameState>((set, get) => {
+  // Closure-local decode-lock routine — deliberately NOT on the public store API,
+  // so no component can lock the signal (and bank trust) without an exact decode.
+  // Logs the lock, routes trust + flags through makeChoice, advances to the resolve
+  // beat. `mode` distinguishes a solo deduction from a trusting lock on Aether's read
+  // (the warmer beat, warmer still when blind).
+  const lockSignal = (mode: "solo" | "trust", blind: boolean) => {
+    get().logOnchain({
+      kind: "SIGNAL_LOCKED",
+      label:
+        mode === "trust"
+          ? blind
+            ? "Beacon decoded — you trusted her read in the dark"
+            : "Beacon decoded — Aether's read confirmed"
+          : "Beacon decoded — you fixed it yourself",
+      payload: { probes: get().probes.length, mode, blind },
+    });
+    if (mode === "trust") {
+      get().makeChoice("ch4_decode", {
+        id: blind ? "trust_blind" : "trust",
+        label: "Locked on Aether's read",
+        trust: blind ? 14 : 9,
+        flags: blind ? ["trusted_aether", "trusted_aether_blind"] : ["trusted_aether"],
+      });
+    } else {
+      get().makeChoice("ch4_decode", {
+        id: "solo",
+        label: "Locked the beacon yourself",
+        trust: 4,
+        flags: ["solo_decode"],
+      });
+    }
+    set({ signalLocked: true, phase: "fix", dialogueIndex: 0, aetherMood: "hopeful" });
+  };
+
+  return {
   phase: "idle",
   // The ship has already been through hell — systems are stressed but holding.
   systems: {
@@ -459,7 +492,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       label: `Probe ${get().probes.length}: ${s.exact} exact · ${s.partial} near`,
       payload: { exact: s.exact, partial: s.partial },
     });
-    if (solved) get()._lockSignal("solo", false);
+    if (solved) lockSignal("solo", false);
     return { ok: true, solved };
   },
 
@@ -478,7 +511,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       label: `Aether's read: ${s.exact} exact · ${s.partial} near`,
       payload: { exact: s.exact, partial: s.partial, aether: true },
     });
-    if (solved) get()._lockSignal("trust", blind);
+    if (solved) lockSignal("trust", blind);
     return { ok: true, solved, blind };
   },
 
@@ -488,38 +521,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       journeyProgress: Math.min(1, s.journeyProgress + 0.1),
     })),
 
-  // Shared lock routine: log the decode, route trust + flags through makeChoice,
-  // and advance to the resolve beat. `mode` distinguishes a solo deduction from a
-  // trusting lock on Aether's read (the warmer beat, warmer still when blind).
-  _lockSignal: (mode, blind) => {
-    get().logOnchain({
-      kind: "SIGNAL_LOCKED",
-      label:
-        mode === "trust"
-          ? blind
-            ? "Beacon decoded — you trusted her read in the dark"
-            : "Beacon decoded — Aether's read confirmed"
-          : "Beacon decoded — you fixed it yourself",
-      payload: { probes: get().probes.length, mode, blind },
-    });
-    if (mode === "trust") {
-      get().makeChoice("ch4_decode", {
-        id: blind ? "trust_blind" : "trust",
-        label: "Locked on Aether's read",
-        trust: blind ? 14 : 9,
-        flags: blind ? ["trusted_aether", "trusted_aether_blind"] : ["trusted_aether"],
-      });
-    } else {
-      get().makeChoice("ch4_decode", {
-        id: "solo",
-        label: "Locked the beacon yourself",
-        trust: 4,
-        flags: ["solo_decode"],
-      });
-    }
-    set({ signalLocked: true, phase: "fix", dialogueIndex: 0, aetherMood: "hopeful" });
-  },
-
   logOnchain: (event) =>
     set((s) => ({
       ledger: [
@@ -527,4 +528,5 @@ export const useGameStore = create<GameState>((set, get) => ({
         { ...event, seq: s.ledger.length + 1, ts: Date.now() },
       ],
     })),
-}));
+  };
+});
