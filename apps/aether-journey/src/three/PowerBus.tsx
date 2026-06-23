@@ -88,6 +88,7 @@ export function PowerBus() {
     <group>
       <Html position={[0, 0.15, Z]} center>
         <div
+          className="anim-board-in"
           style={{
             width: 372,
             fontFamily: "'JetBrains Mono', monospace",

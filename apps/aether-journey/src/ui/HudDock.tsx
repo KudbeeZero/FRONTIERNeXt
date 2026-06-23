@@ -238,7 +238,7 @@ export function HudDock() {
                 ✕
               </button>
             </div>
-            <div className="max-h-[42vh] overflow-y-auto pr-1">
+            <div key={tab} className="anim-fade-in max-h-[42vh] overflow-y-auto pr-1">
               {tab === "ship" && <ShipPanel />}
               {tab === "ledger" && <LedgerPanel />}
               {tab === "system" && <SystemPanel onClose={() => setTab(null)} />}
@@ -251,7 +251,7 @@ export function HudDock() {
           className="holo-panel pointer-events-auto mb-2 mt-1.5 flex items-center gap-2 rounded-lg px-3 py-2"
           style={{ marginBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
         >
-          <div className="min-w-0 flex-1">
+          <div key={phase} className="anim-line-in min-w-0 flex-1">
             <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-[#ffd9a0]">
               ◇ {obj.title}
               {phase === "repair" && (

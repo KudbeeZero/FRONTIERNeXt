@@ -89,6 +89,7 @@ export function SignalDecode() {
     <group>
       <Html position={[0, 0.15, Z]} center>
         <div
+          className="anim-board-in"
           style={{
             width: 376,
             fontFamily: "'JetBrains Mono', monospace",

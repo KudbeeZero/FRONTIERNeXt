@@ -79,7 +79,10 @@ export function DialogueOverlay() {
           {line.name}
         </div>
 
-        <p className="font-display text-lg leading-relaxed text-[#e7f4ff] sm:text-xl">
+        <p
+          key={`${phase}-${idx}`}
+          className="anim-line-in font-display text-lg leading-relaxed text-[#e7f4ff] sm:text-xl"
+        >
           <GlitchText text={line.text} severity={line.glitch} />
         </p>
 

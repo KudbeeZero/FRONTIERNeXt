@@ -110,9 +110,9 @@ export function SceneCanvas() {
       {/* --- Post-processing ---------------------------------------------- */}
       <EffectComposer>
         <Bloom
-          intensity={0.9}
-          luminanceThreshold={0.25}
-          luminanceSmoothing={0.5}
+          intensity={1.05}
+          luminanceThreshold={0.2}
+          luminanceSmoothing={0.55}
           mipmapBlur
         />
         <Vignette eskil={false} offset={0.28} darkness={0.95} />

@@ -3,8 +3,9 @@ import { DialogueOverlay } from "./ui/DialogueOverlay";
 import { StartGate, WakeFade, EndCard } from "./ui/CinematicLayer";
 import { HudDock } from "./ui/HudDock";
 import { Subtitles } from "./ui/Subtitles";
+import { PhaseFlash } from "./ui/PhaseFlash";
 import { useDialogueDriver } from "./ui/useDialogueDriver";
-import { useRunStats } from "./store/settingsStore";
+import { useRunStats, useSettingsStore } from "./store/settingsStore";
 import { useGameStore } from "./store/gameStore";
 
 // ---------------------------------------------------------------------------
@@ -23,16 +24,23 @@ export default function App() {
   // Record local best-run stats (repair time, final stability).
   useRunStats();
   const phase = useGameStore((s) => s.phase);
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion);
   const playing = phase !== "idle";
 
   return (
-    <div className="scanlines relative h-full w-full overflow-hidden bg-[#03060d]">
+    <div
+      className={
+        "scanlines relative h-full w-full overflow-hidden bg-[#03060d]" +
+        (reducedMotion ? " reduce-motion" : "")
+      }
+    >
       {/* Persistent 3D cockpit. */}
       <SceneCanvas />
 
       {/* In-flight narrative + the single consolidated HUD dock (only once awake). */}
       {playing && (
         <>
+          <PhaseFlash />
           <DialogueOverlay />
           <Subtitles />
           <HudDock />
