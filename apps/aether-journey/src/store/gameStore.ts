@@ -18,6 +18,7 @@ import {
   type Probe,
 } from "../lib/beacon";
 import { NAV_BEACON, HIGH_UNCERTAINTY } from "../data/beacon";
+import { DESCENT_STAGES, resolveEnding, type Ending } from "../lib/descent";
 import type { DecisionOption } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,14 @@ interface GameState {
   /** True once the beacon is decoded (locks the choice + trust shift). */
   signalLocked: boolean;
 
+  // --- Chapter 5: descent (finale) -----------------------------------------
+  /** Current stage in the insertion sequence (0-based). */
+  stageIndex: number;
+  /** How many stages have been failed + retried (the finale's soft cost). */
+  stageFails: number;
+  /** The resolved ending, set on touchdown (null until then). */
+  ending: Ending | null;
+
   // --- actions -------------------------------------------------------------
   begin: () => void;
   setPhase: (phase: Phase) => void;
@@ -148,6 +157,16 @@ interface GameState {
   };
   /** Resolve beat: position fixed, advance toward Ch.5. */
   completeFix: () => void;
+
+  // Chapter 5 transitions
+  /** Enter the descent (from Ch.4 fix), reset the stage sequence. */
+  beginDescent: () => void;
+  /** Clear the current stage; advances, or resolves the ending after the last. */
+  passStage: () => void;
+  /** Fail the current stage — retry it (soft cost), never a game-over. */
+  failStage: () => void;
+  /** Touchdown: resolve the ending from accumulated trust + flags. */
+  completeDescent: () => void;
 
   logOnchain: (event: Omit<OnchainEvent, "seq" | "ts">) => void;
 }
@@ -228,6 +247,10 @@ export const useGameStore = create<GameState>((set, get) => {
 
   probes: [],
   signalLocked: false,
+
+  stageIndex: 0,
+  stageFails: 0,
+  ending: null,
 
   begin: () => {
     set({ phase: "waking", dialogueIndex: 0 });
@@ -520,6 +543,60 @@ export const useGameStore = create<GameState>((set, get) => {
       aetherMood: "stable",
       journeyProgress: Math.min(1, s.journeyProgress + 0.1),
     })),
+
+  // ── Chapter 5 — Descent (finale) ─────────────────────────────────────────
+  beginDescent: () =>
+    set({
+      phase: "descent",
+      dialogueIndex: 0,
+      aetherMood: "focused",
+      stageIndex: 0,
+      stageFails: 0,
+      ending: null,
+    }),
+
+  passStage: () => {
+    if (get().phase !== "descent") return; // ignore once the descent is over
+    const i = get().stageIndex;
+    get().logOnchain({
+      kind: "STAGE_PASSED",
+      label: `${DESCENT_STAGES[i].label} — clear`,
+      payload: { stage: i },
+    });
+    if (i >= DESCENT_STAGES.length - 1) {
+      get().completeDescent();
+    } else {
+      set({ stageIndex: i + 1 });
+    }
+  },
+
+  failStage: () => {
+    if (get().phase !== "descent") return;
+    const i = get().stageIndex;
+    set((s) => ({ stageFails: s.stageFails + 1 }));
+    // A failed stage retries in place (no game-over) — the soft cost is the count.
+    get().logOnchain({
+      kind: "STAGE_FAILED",
+      label: `${DESCENT_STAGES[i].label} — faltered, retry`,
+      payload: { stage: i, fails: get().stageFails },
+    });
+  },
+
+  completeDescent: () => {
+    if (get().phase !== "descent") return; // idempotent — already arrived
+    const ending = resolveEnding(get().trust, new Set(get().flags));
+    get().logOnchain({
+      kind: "DESCENT_COMPLETE",
+      label: `Touchdown — ${ending}`,
+      payload: { ending, fails: get().stageFails, trust: get().trust },
+    });
+    set({
+      phase: "arrival",
+      ending,
+      dialogueIndex: 0,
+      aetherMood: ending === "severance" ? "wounded" : "stable",
+    });
+  },
 
   logOnchain: (event) =>
     set((s) => ({

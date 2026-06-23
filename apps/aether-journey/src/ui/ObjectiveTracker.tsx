@@ -58,6 +58,14 @@ const OBJECTIVE: Record<Exclude<Phase, "idle">, { title: string; detail: string 
     title: "POSITION FIXED",
     detail: "The beacon is decoded. Steady on for the descent.",
   },
+  descent: {
+    title: "FLY THE DESCENT",
+    detail: "Manual insertion — clear each stage before its window closes. Miss one and you retry it.",
+  },
+  arrival: {
+    title: "TOUCHDOWN",
+    detail: "You're down. See how the journey resolved.",
+  },
 };
 
 export function ObjectiveTracker() {

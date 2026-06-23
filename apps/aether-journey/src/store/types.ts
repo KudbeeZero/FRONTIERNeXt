@@ -25,7 +25,10 @@ export type Phase =
   // ── Chapter 4 — Blackout ──────────────────────────────────────────────────
   | "blackout" // briefing: comms dead zone; the beacon signal is degraded
   | "decode" // hands-on: deduce the beacon code from partial feedback
-  | "fix"; // resolve: position fixed, set up the Ch.5 descent
+  | "fix" // resolve: position fixed, set up the Ch.5 descent
+  // ── Chapter 5 — Descent (finale) ──────────────────────────────────────────
+  | "descent" // hands-on: the staged insertion burn, recombining prior verbs
+  | "arrival"; // resolve: touchdown → the ending
 
 /** The four load-bearing ship subsystems shown on the status HUD (0–100). */
 export interface ShipSystems {
@@ -89,7 +92,11 @@ export interface OnchainEvent {
     | "RESOURCE_SPENT"
     // ── Chapter 4 ──
     | "PROBE_SENT"
-    | "SIGNAL_LOCKED";
+    | "SIGNAL_LOCKED"
+    // ── Chapter 5 ──
+    | "STAGE_PASSED"
+    | "STAGE_FAILED"
+    | "DESCENT_COMPLETE";
   label: string;
   /** Free-form, JSON-serializable detail (future: ASA id, reward amounts, etc.). */
   payload?: Record<string, number | string | boolean>;

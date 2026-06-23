@@ -390,6 +390,38 @@ export const DIALOGUE: Record<Exclude<Phase, "idle">, DialogueLine[]> = {
       autoMs: 0,
     },
   ],
+
+  // ── Chapter 5 — Descent / finale (Web Speech fallback) ─────────────────────
+  descent: [
+    {
+      speaker: "system",
+      name: "AETHER VOYAGER",
+      text: "ORBITAL INSERTION :: MANUAL :: AUTOPILOT OFFLINE :: WINDOW CLOSING",
+      mood: "focused",
+      glitch: 0.14,
+      autoMs: 3000,
+    },
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → the descent board takes over (the burn sequence is the gate).
+      text: "No autopilot for this part. Just us. Five steps, fast — everything you've learned, all at once. Miss one and we go around again. I'm right here. Fly us down.",
+      mood: "focused",
+      glitch: 0.06,
+      autoMs: 0,
+    },
+  ],
+  arrival: [
+    {
+      speaker: "aether",
+      name: "AETHER",
+      // GATE → "CONTINUE" → the EndCard renders the resolved ending. Mood set on touchdown.
+      text: "We're down. ... We're actually down. Mars, under us, holding. Whatever comes next on this frontier — we reach it the way we got here.",
+      mood: "stable",
+      glitch: 0.03,
+      autoMs: 0,
+    },
+  ],
 };
 
 // Reserved for when dialogue branching exists: `ch1_s12c_aether_01` is the

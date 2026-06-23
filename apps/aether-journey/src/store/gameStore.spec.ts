@@ -3,6 +3,7 @@ import { useGameStore } from "./gameStore";
 import type { Connection } from "../lib/navCircuit";
 import { allCodes, score, remainingCount, type Probe } from "../lib/beacon";
 import { NAV_BEACON } from "../data/beacon";
+import { DESCENT_STAGES } from "../lib/descent";
 
 const conn = (id: string, fromId: string, toId: string, toSlot: number, path: [number, number][]): Connection => ({
   id, fromId, toId, toSlot, path: path.map(([x, y]) => ({ x, y })),
@@ -294,5 +295,73 @@ describe("gameStore — Chapter 4 signal decode", () => {
     expect(g().acceptAetherProposal().locked).toBe(true);
     expect(g().ledger.length).toBe(ledgerLen);
     expect(g().trust).toBe(trustAfter);
+  });
+});
+
+describe("gameStore — Chapter 5 descent (finale)", () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      phase: "fix", dialogueIndex: 0, ledger: [],
+      trust: 80, flags: [],
+      stageIndex: 0, stageFails: 0, ending: null,
+    });
+  });
+
+  it("beginDescent enters the burn with a reset sequence", () => {
+    useGameStore.setState({ stageIndex: 3, stageFails: 2 });
+    g().beginDescent();
+    expect(g().phase).toBe("descent");
+    expect(g().stageIndex).toBe(0);
+    expect(g().stageFails).toBe(0);
+    expect(g().ending).toBeNull();
+  });
+
+  it("passStage advances through the sequence, logging each clear", () => {
+    g().beginDescent();
+    g().passStage();
+    expect(g().stageIndex).toBe(1);
+    expect(g().ledger.filter((e) => e.kind === "STAGE_PASSED")).toHaveLength(1);
+  });
+
+  it("failStage retries in place (no advance) and counts the fail", () => {
+    g().beginDescent();
+    g().passStage(); // at stage 1
+    g().failStage();
+    expect(g().stageIndex).toBe(1); // did NOT advance
+    expect(g().stageFails).toBe(1);
+    expect(g().ledger.some((e) => e.kind === "STAGE_FAILED")).toBe(true);
+  });
+
+  it("passing the last stage completes the descent and resolves the ending", () => {
+    g().beginDescent();
+    for (let i = 0; i < DESCENT_STAGES.length; i++) g().passStage();
+    expect(g().phase).toBe("arrival");
+    expect(g().ending).toBe("bonded"); // trust 80, no flags
+    expect(g().ledger.some((e) => e.kind === "DESCENT_COMPLETE")).toBe(true);
+  });
+
+  it("the ending honors the accumulated flags (sacrifice → severance)", () => {
+    useGameStore.setState({ trust: 90, flags: ["sacrificed_aether"] });
+    g().beginDescent();
+    for (let i = 0; i < DESCENT_STAGES.length; i++) g().passStage();
+    expect(g().ending).toBe("severance"); // override beats high trust
+  });
+
+  it("stage actions no-op once the descent is over (idempotent)", () => {
+    g().beginDescent();
+    for (let i = 0; i < DESCENT_STAGES.length; i++) g().passStage(); // → arrival
+    const ledgerLen = g().ledger.length;
+    g().passStage();
+    g().failStage();
+    expect(g().ledger.length).toBe(ledgerLen); // guarded by phase !== "descent"
+  });
+
+  it("completeDescent does not double-resolve if called again directly", () => {
+    g().beginDescent();
+    for (let i = 0; i < DESCENT_STAGES.length; i++) g().passStage(); // → arrival
+    const ledgerLen = g().ledger.length;
+    g().completeDescent(); // direct re-call — guarded
+    expect(g().ledger.filter((e) => e.kind === "DESCENT_COMPLETE")).toHaveLength(1);
+    expect(g().ledger.length).toBe(ledgerLen);
   });
 });
