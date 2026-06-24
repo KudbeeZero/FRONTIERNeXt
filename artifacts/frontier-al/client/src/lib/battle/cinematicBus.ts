@@ -16,6 +16,8 @@ export interface CinematicHandle {
   seq: BattleSequence;
   /** Wall-clock ms (Date.now) the cinematic started, so the HUD shares the clock. */
   startMs: number;
+  /** True when the current player is the attacker or defender (the camera only follows these). */
+  involvesPlayer?: boolean;
 }
 
 type CinematicCallback = (h: CinematicHandle) => void;
