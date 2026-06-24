@@ -107,13 +107,22 @@ export function EndCard() {
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#03060d]/95 px-6 text-center backdrop-blur-sm">
-      <div className="mb-3 font-mono text-xs uppercase tracking-[0.5em] text-aether-core">
+      <div
+        className="anim-rise-in mb-3 font-mono text-xs uppercase tracking-[0.5em] text-aether-core"
+        style={{ animationDelay: "0.05s" }}
+      >
         {ending ? "the journey's end" : "journey complete"}
       </div>
-      <h2 className="font-display text-3xl font-black uppercase tracking-[0.2em] text-[#e7f4ff] text-glow sm:text-5xl">
+      <h2
+        className="anim-rise-in font-display text-3xl font-black uppercase tracking-[0.2em] text-[#e7f4ff] text-glow sm:text-5xl"
+        style={{ animationDelay: "0.18s" }}
+      >
         {copy ? copy.title : "First Watch"}
       </h2>
-      <p className="mt-6 max-w-xl text-base leading-relaxed text-[#9fb4c9] sm:text-lg">
+      <p
+        className="anim-rise-in mt-6 max-w-xl text-base leading-relaxed text-[#9fb4c9] sm:text-lg"
+        style={{ animationDelay: "0.34s" }}
+      >
         {copy
           ? copy.line
           : `Aether is whole again — steady at ${Math.round(stability)}% — and the course to Mars holds. The frontier waits.`}{" "}

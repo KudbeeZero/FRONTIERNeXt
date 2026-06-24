@@ -77,3 +77,55 @@ body,
     animation: none !important;
   }
 }
+
+/* ── Polish: entrance + ambient motion ──────────────────────────────────── */
+/* Boards (triage/decode/descent/nav) ease in instead of popping. */
+@keyframes board-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.anim-board-in { animation: board-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Each new dialogue line / objective rises softly into place. */
+@keyframes line-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-line-in { animation: line-in 0.36s ease-out both; }
+
+/* Dramatic, staggerable reveal for the ending card. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-rise-in { animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* A brief luminous cross-fade veil on every phase/chapter transition. */
+@keyframes phase-flash {
+  0%   { opacity: 0; }
+  22%  { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+.anim-phase-flash { animation: phase-flash 0.75s ease-out both; }
+
+/* Sheet content easing in when a dock tab opens. */
+.anim-fade-in { animation: line-in 0.28s ease-out both; }
+
+/* Reduced motion — honor BOTH the runtime setting (.reduce-motion root class)
+   and the OS preference. */
+.reduce-motion .anim-board-in,
+.reduce-motion .anim-line-in,
+.reduce-motion .anim-rise-in,
+.reduce-motion .anim-phase-flash,
+.reduce-motion .anim-fade-in {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-board-in,
+  .anim-line-in,
+  .anim-rise-in,
+  .anim-phase-flash,
+  .anim-fade-in {
+    animation: none !important;
+  }
+}
