@@ -21,6 +21,8 @@ export interface VisualPrefs {
   battleCinematics: boolean;
   /** Cinematic camera: gently follow YOUR battles' strikes. Opt-in (off by default). */
   cinematicCamera: boolean;
+  /** Battle sound cues (synth hits on launch/impact/swing/resolve). Opt-in (off by default). */
+  battleSound: boolean;
 }
 
 export const DEFAULT_PREFS: VisualPrefs = {
@@ -30,6 +32,7 @@ export const DEFAULT_PREFS: VisualPrefs = {
   observerMode: false,
   battleCinematics: true,
   cinematicCamera: false,
+  battleSound: false,
 };
 
 function load(): VisualPrefs {
@@ -45,6 +48,7 @@ function load(): VisualPrefs {
       observerMode: parsed.observerMode ?? DEFAULT_PREFS.observerMode,
       battleCinematics: parsed.battleCinematics ?? DEFAULT_PREFS.battleCinematics,
       cinematicCamera: parsed.cinematicCamera ?? DEFAULT_PREFS.cinematicCamera,
+      battleSound: parsed.battleSound ?? DEFAULT_PREFS.battleSound,
     };
   } catch {
     return DEFAULT_PREFS;

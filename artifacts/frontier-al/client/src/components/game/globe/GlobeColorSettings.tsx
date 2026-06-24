@@ -91,6 +91,17 @@ export function GlobeColorSettings() {
             />
           </label>
 
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 10px", cursor: "pointer" }}>
+            <span style={{ fontSize: 11, color: "rgba(180,210,255,0.8)" }} title="Synth sound cues on launch / impact / swing / resolve">Battle Sound</span>
+            <input
+              type="checkbox"
+              checked={prefs.battleSound}
+              onChange={(e) => setVisualPref("battleSound", e.target.checked)}
+              aria-label="Battle Sound"
+              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#00e5ff" }}
+            />
+          </label>
+
           <button
             onClick={() => resetVisualPrefs()}
             style={{
