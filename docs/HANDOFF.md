@@ -9,11 +9,29 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ONE OPEN PR (closeout/baton, AWAITING_AUDIT) · main `bad11d4` · deploy LIVE
-- **Main:** green at **`bad11d4`** (Merge **#101** — globe v2 rebuild). CI-parity locally: `check` clean,
-  server **336 passed**/11 skipped, client **107 passed**. The only open PR is **this chat's baton update** (AWAITING_AUDIT).
-- **🛑 OWNER DIRECTIVE (LOCKED):** **Do NOT auto-merge anything.** The owner reviews, approves, and
-  merges **every** PR. Open PRs as drafts; never self-merge.
+## Current baton — NO OPEN PRs · main `8fe0d09` · deploy LIVE
+- **Main:** green at **`8fe0d09`** (Merge **#125**). CI green on every merged head. Local CI-parity:
+  `check` clean, **server 359** passed/11 skipped, **client 141** passed, `build` ✓. No open PRs.
+- **🆕 Shipped this chat — the BATTLE SEQUENCE SYSTEM (PRs #122–#125; #121 aether dock alongside):**
+  a battle is now one *connected* cinematic — a pure, deterministic **10-beat** timeline
+  (`shared/battle-sequence.ts`: muster → lock → launch → transit → brace → impact → clash → swing →
+  resolve → aftermath) that the **watch modal**, the **globe**, and a **HUD callout** all drive off ONE
+  clock. Real `randFactor` reaches the globe via a new `battle:resolved` client bus (#123); the capture
+  burst/arc carry the conqueror's **faction colour** (#125). The modal's fabricated mock feed now runs
+  only for *live* battles. **+23 engine / +34 client tests; all pure logic test-pinned.**
+  - ⚠️ **R3F globe layers + DOM HUD/modal are NOT browser/GPU-verified here.** Owner smoke-test on the
+    Cloudflare preview is the remaining gate (open a resolved battle in the modal; watch one resolve on
+    the globe). No funds/chain/schema/server-behavior change (the one server-touching item, #123, only
+    *consumes* a message the server already broadcast). Detail:
+    `artifacts/frontier-al/session-notes/2026-06-24-battle-sequence-engine.md`.
+  - ➡️ **Next (optional polish, not started):** camera that follows the strike along the arc; a
+    pre-resolution "incoming attack" telegraph during the pending countdown; per-beat sound cues.
+- **🛑 OWNER DIRECTIVE:** this chat the owner explicitly authorised the build+merge `/loop` (merging
+  directly). The **default remains owner-reviews/merges**; do not self-merge in future chats without a
+  fresh explicit go.
+
+### Prior baton — main `bad11d4` (#101 globe v2 rebuild) — SUPERSEDED
+- Was green at **`bad11d4`**; CI-parity: `check` clean, server **336**/11-skip, client **107**.
 - **Shipped + merged THIS chat:** **#101** — `globe/v2/` rebuilt from the recovered `REBUILD_NOTES`:
   ONE world-space sun (`sunModelV2`) → real terminator, driving `PlanetSurfaceV2` / `PlotTilesV2`
   (21k instanced, GPU terminator) / `AtmosphereV2` (blue rim) / `SunV2` / `PlanetGlobeV2` (+ layer
