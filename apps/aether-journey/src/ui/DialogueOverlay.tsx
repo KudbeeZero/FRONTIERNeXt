@@ -2,6 +2,7 @@ import { useGameStore } from "../store/gameStore";
 import { DIALOGUE } from "../data/dialogue";
 import { GlitchText } from "./GlitchText";
 import { audio } from "../lib/audioEngine";
+import { panelHasCTA } from "./dialogueGate";
 
 // ---------------------------------------------------------------------------
 // Aether's dialogue box. Purely presentational — the driver hook handles timing
@@ -44,14 +45,11 @@ export function DialogueOverlay() {
   // Any non-final line can be clicked to continue — including long voiced takes.
   const canSkip = !isLast;
   // Some final lines are GATES with no button — the in-world board is the gate
-  // (rewiring = nav, triage = power bus, decode = signal, descent = burn board). The
-  // panel must NOT capture pointer events then, or it eats clicks meant for the board.
-  const hasCTA =
-    waiting &&
-    phase !== "rewiring" &&
-    phase !== "triage" &&
-    phase !== "decode" &&
-    phase !== "descent";
+  // (repair = neural, rewiring = nav, triage = power bus, decode = signal,
+  // descent = burn board). The panel must NOT capture pointer events then, or it
+  // eats clicks meant for the board. (`repair` was missing here — that froze the
+  // end of Chapter 1: the neural-repair nodes couldn't be clicked. See dialogueGate.)
+  const hasCTA = panelHasCTA(phase, waiting);
   const interactive = canSkip || hasCTA;
 
   return (
