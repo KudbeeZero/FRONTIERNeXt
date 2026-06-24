@@ -11,6 +11,7 @@ import type { FlowRunner } from "../types.js";
 import { skip } from "../assert.js";
 import { marketFlow } from "./market.js";
 import { tokenFlow } from "./token.js";
+import { battleFlow } from "./battle.js";
 
 function pending(name: string): FlowRunner {
   return {
@@ -26,4 +27,5 @@ export const FLOWS: FlowRunner[] = [
   tokenFlow,
   pending("trade"),
   marketFlow,
+  battleFlow,
 ];
