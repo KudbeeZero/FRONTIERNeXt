@@ -4,6 +4,7 @@ import { useSettingsStore } from "../store/settingsStore";
 import { audio } from "../lib/audioEngine";
 import { SettingsToggles } from "./MenuLayer";
 import { ClaimPanel } from "./ClaimPanel";
+import { ShareCard } from "./ShareCard";
 import { ENDING_COPY } from "../lib/descent";
 
 // ---------------------------------------------------------------------------
@@ -106,7 +107,7 @@ export function EndCard() {
   const copy = ending ? ENDING_COPY[ending] : null;
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#03060d]/95 px-6 text-center backdrop-blur-sm">
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-start gap-0 overflow-y-auto bg-[#03060d]/95 px-6 py-12 text-center backdrop-blur-sm">
       <div
         className="anim-rise-in mb-3 font-mono text-xs uppercase tracking-[0.5em] text-aether-core"
         style={{ animationDelay: "0.05s" }}
@@ -128,6 +129,9 @@ export function EndCard() {
           : `Aether is whole again — steady at ${Math.round(stability)}% — and the course to Mars holds. The frontier waits.`}{" "}
         <span className="text-aether-core">Trust in Aether: {Math.round(trust)}.</span>
       </p>
+
+      {/* The shareable payoff — your unique run as a card you can post. */}
+      <ShareCard />
 
       {/* Commit the run to Algorand (testnet), then hand off to FRONTIER-AL. */}
       <ClaimPanel events={ledger} />
