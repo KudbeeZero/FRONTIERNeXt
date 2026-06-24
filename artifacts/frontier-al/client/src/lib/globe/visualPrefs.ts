@@ -19,6 +19,8 @@ export interface VisualPrefs {
   observerMode: boolean;
   /** Battle cinematics (globe resolution FX, incoming telegraph, HUD callout). On by default. */
   battleCinematics: boolean;
+  /** Cinematic camera: gently follow YOUR battles' strikes. Opt-in (off by default). */
+  cinematicCamera: boolean;
 }
 
 export const DEFAULT_PREFS: VisualPrefs = {
@@ -27,6 +29,7 @@ export const DEFAULT_PREFS: VisualPrefs = {
   fogOfWar: false,
   observerMode: false,
   battleCinematics: true,
+  cinematicCamera: false,
 };
 
 function load(): VisualPrefs {
@@ -41,6 +44,7 @@ function load(): VisualPrefs {
       fogOfWar: parsed.fogOfWar ?? DEFAULT_PREFS.fogOfWar,
       observerMode: parsed.observerMode ?? DEFAULT_PREFS.observerMode,
       battleCinematics: parsed.battleCinematics ?? DEFAULT_PREFS.battleCinematics,
+      cinematicCamera: parsed.cinematicCamera ?? DEFAULT_PREFS.cinematicCamera,
     };
   } catch {
     return DEFAULT_PREFS;

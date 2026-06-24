@@ -24,6 +24,7 @@ import { GlobeLiveEvents } from "./globe/GlobeLiveEvents";
 import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
 import { BattleCalloutHUD } from "./globe/BattleCalloutHUD";
 import { GlobeIncomingTelegraph } from "./globe/GlobeIncomingTelegraph";
+import { GlobeCinematicCamera } from "./globe/GlobeCinematicCamera";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
@@ -124,6 +125,7 @@ function Scene({
       <SatelliteOrbitLayer players={players} />
       <LiveWeaponLayer />
       <GlobeBattleSequence battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
+      <GlobeCinematicCamera controlsRef={controlsRef} />
       <GlobeLiveEvents />
       <OrbitControls
         ref={controlsRef as any}

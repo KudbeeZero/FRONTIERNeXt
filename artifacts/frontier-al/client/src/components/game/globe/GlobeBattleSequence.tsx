@@ -227,9 +227,12 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
       const toVec = latLngToVec3(target.lat, target.lng, GLOBE_RADIUS * 1.01);
       const seq = buildSequenceFromFacts(facts);
       const startMs = Date.now();
+      const involvesPlayer =
+        !!battle && (battle.attackerId === currentPlayerId || battle.defenderId === currentPlayerId);
 
-      // Let the DOM HUD speak the same beats off the same clock.
-      publishCinematic({ seq, startMs });
+      // Let the DOM HUD speak the same beats off the same clock; the camera
+      // follows only the player's own battles.
+      publishCinematic({ seq, startMs, involvesPlayer });
 
       setActive((prev) => {
         const next = prev.filter((c) => c.key !== event.battleId);
@@ -238,8 +241,6 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
     });
     return () => unsub();
   }, []);
-
-  void currentPlayerId; // available for future faction-colour theming
 
   if (!play || active.length === 0) return null;
   return (
