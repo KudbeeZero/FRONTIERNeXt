@@ -230,6 +230,11 @@ export interface MintResult {
  * @throws ClaimError (with `cancelled` set when the user dismissed the wallet).
  */
 export async function mintJourneyNft(address: string, card: JourneyCard): Promise<MintResult> {
+  // HARD RULE: minting is TestNet-only. Refuse outright if anything is misconfigured
+  // toward mainnet (Pera is already pinned to the testnet chain-id, but fail closed).
+  if (TESTNET_CHAIN_ID !== 416002 || /mainnet/i.test(ALGOD_URL) || /mainnet/i.test(NETWORK_LABEL)) {
+    throw new ClaimError("Minting is TestNet-only and is disabled in this configuration.");
+  }
   const p = getPera();
   const suggestedParams = await algod.getTransactionParams().do();
   const { assetName, unitName, url, note } = journeyAssetParams(card);

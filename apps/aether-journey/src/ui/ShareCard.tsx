@@ -160,6 +160,8 @@ export function ShareCard() {
   const flags = useGameStore((s) => s.flags);
   const stats = useSettingsStore((s) => s.stats);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [mint, setMint] = useState<{
@@ -258,9 +260,11 @@ export function ShareCard() {
       const mod = await import("../lib/chain/claim");
       const addr = await mod.connectWallet();
       const res = await mod.mintJourneyNft(addr, card);
+      if (!mounted.current) return;
       setMint({ stage: "minted", assetId: res.assetId, url: mod.explorerAssetUrl(res.assetId) });
       audio.confirm();
     } catch (err) {
+      if (!mounted.current) return;
       const e = err as { message?: string; cancelled?: boolean };
       if (e?.cancelled) {
         setMint({ stage: "idle" });

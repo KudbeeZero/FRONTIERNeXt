@@ -55,7 +55,11 @@ export function journeyAssetParams(card: JourneyCard): JourneyAssetParams {
 
   // Full note, then progressively trim to fit Algorand's 1024-byte note cap.
   let note = build(card.verdict, card.highlights);
-  if (bytes(note) > 1024) note = build(clampBytes(card.verdict, 160), card.highlights.slice(0, 2));
+  if (bytes(note) > 1024)
+    note = build(
+      clampBytes(card.verdict, 160),
+      card.highlights.slice(0, 2).map((c) => clampBytes(c, 80)),
+    );
   if (bytes(note) > 1024) note = build("", []);
 
   return { assetName, unitName: "AETHER", url, note };

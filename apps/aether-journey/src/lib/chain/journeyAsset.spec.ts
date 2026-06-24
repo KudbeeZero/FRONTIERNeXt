@@ -45,6 +45,33 @@ describe("journeyAssetParams", () => {
     expect(journeyAssetParams(card)).toEqual(journeyAssetParams(card));
   });
 
+  it("keeps every ending (and the null-ending fallback) within the byte caps", () => {
+    const cards = [
+      buildJourneyCard({ ending: "bonded", trust: 92, flags: ["starved_self"] }),
+      buildJourneyCard({ ending: "functional", trust: 54, flags: ["solo_decode", "comms_lost"] }),
+      buildJourneyCard({ ending: "severance", trust: 28, flags: ["sacrificed_aether", "comms_lost"] }),
+      buildJourneyCard({ ending: null, trust: 60, flags: [] }),
+    ];
+    for (const c of cards) {
+      const p = journeyAssetParams(c);
+      expect(bytes(p.assetName)).toBeLessThanOrEqual(32);
+      expect(bytes(p.unitName)).toBeLessThanOrEqual(8);
+      expect(bytes(p.note)).toBeLessThanOrEqual(1024);
+      expect(JSON.parse(p.note).standard).toBe("arc69");
+    }
+  });
+
+  it("survives a pathological verdict AND oversized choices via the empty-meta backstop", () => {
+    const base = buildJourneyCard({ ending: "severance", trust: 10, flags: [] });
+    const p = journeyAssetParams({
+      ...base,
+      verdict: "x".repeat(5000),
+      highlights: ["a".repeat(900), "b".repeat(900), "c".repeat(900)],
+    });
+    expect(bytes(p.note)).toBeLessThanOrEqual(1024);
+    expect(JSON.parse(p.note).standard).toBe("arc69");
+  });
+
   it("explorerAssetUrl points at the TestNet asset page", () => {
     expect(explorerAssetUrl(12345)).toBe(
       "https://testnet.explorer.perawallet.app/asset/12345/",
