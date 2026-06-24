@@ -225,14 +225,18 @@ export function HudDock() {
         aria-pressed={active}
         aria-label={TAB_META[t].title}
         className={
-          "pointer-events-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 font-mono text-[10px] tabular-nums transition " +
+          "pointer-events-auto relative flex items-center gap-1 rounded-full px-2.5 py-1.5 font-mono text-[10px] tabular-nums transition " +
           (active
-            ? "bg-aether-core/20 text-aether-core text-glow"
-            : "text-[#9fb4c9] hover:bg-aether-core/10")
+            ? "bg-aether-core/15 text-aether-core text-glow ring-1 ring-inset ring-aether-core/45 shadow-[0_0_12px_rgba(127,231,255,0.35)]"
+            : "text-[#8ba0b4] hover:bg-aether-core/10 hover:text-[#bcd3e8]")
         }
       >
         {TAB_ICON[t]}
-        {t === "ledger" && <span>{ledgerCount}</span>}
+        {t === "ledger" && ledgerCount > 0 && (
+          <span className="ml-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#f59e0b] px-1 text-[9px] font-semibold leading-none text-[#0a0e14]">
+            {ledgerCount}
+          </span>
+        )}
       </button>
     );
   };
@@ -248,17 +252,17 @@ export function HudDock() {
             (tab ? "max-h-[58vh] opacity-100" : "max-h-0 opacity-0")
           }
         >
-          <div className="frosted pointer-events-auto rounded-t-2xl px-4 pb-3 pt-2">
-            {/* grab handle */}
-            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-aether-core/30" />
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-aether-core">
+          <div className="frosted-sheet pointer-events-auto rounded-t-3xl px-4 pb-3 pt-2">
+            {/* grab handle — signals swipe-to-dismiss */}
+            <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-white/25" />
+            <div className="mb-2.5 flex items-center justify-between">
+              <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-[#cffafe] text-glow">
                 {tab ? TAB_META[tab].title : ""}
               </span>
               <button
                 onClick={() => setTab(null)}
                 aria-label="Close panel"
-                className="rounded px-2 py-1 font-mono text-xs text-[#9fb4c9] transition hover:text-aether-core"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/12 bg-white/5 font-mono text-xs text-[#cbd5e1] transition hover:border-aether-core/40 hover:bg-aether-core/12 hover:text-aether-core"
               >
                 ✕
               </button>
@@ -280,7 +284,12 @@ export function HudDock() {
         >
           <div className="frosted pointer-events-auto flex max-w-[94vw] items-center gap-2 rounded-full py-1 pl-3 pr-1.5">
             <div key={phase} className="anim-line-in flex min-w-0 items-center gap-1.5">
-              <span className="text-[10px] text-[#ffd9a0]">◇</span>
+              <span
+                className="text-[10px] text-[#fbbf24]"
+                style={{ filter: "drop-shadow(0 0 6px rgba(245,158,11,0.5))" }}
+              >
+                ◇
+              </span>
               <span className="truncate font-mono text-[9px] uppercase tracking-[0.2em] text-[#cfe3f5]">
                 {obj.title}
                 {phase === "repair" && (
@@ -288,7 +297,7 @@ export function HudDock() {
                 )}
               </span>
             </div>
-            <span className="h-3.5 w-px shrink-0 bg-aether-core/20" />
+            <span className="h-3 w-px shrink-0 self-center bg-white/12" />
             <div className="flex shrink-0 items-center gap-0.5">
               {(["ship", "ledger", "system"] as Tab[]).map(tabBtn)}
             </div>

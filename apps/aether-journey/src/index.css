@@ -66,6 +66,25 @@ body,
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.4);
 }
 
+/* The expandable sheet sits over the brightest part of the nebula, so it needs a
+   firmer, top-anchored scrim than the pill — headers and the first rows must stay
+   legible against the white star core. Top edge is lit to read as one surface with
+   the pill that docks above it. */
+.frosted-sheet {
+  background: linear-gradient(
+    180deg,
+    rgba(7, 13, 23, 0.93) 0%,
+    rgba(7, 13, 23, 0.78) 100%
+  );
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+  backdrop-filter: blur(20px) saturate(125%);
+  border: 1px solid rgba(127, 231, 255, 0.14);
+  border-top: 1px solid rgba(127, 231, 255, 0.24);
+  box-shadow:
+    0 -8px 30px rgba(0, 0, 0, 0.5),
+    0 -6px 26px rgba(34, 211, 238, 0.08);
+}
+
 .text-glow {
   text-shadow: 0 0 10px rgba(29, 233, 255, 0.5);
 }
