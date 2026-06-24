@@ -20,6 +20,9 @@ import { GLOBE_RADIUS } from "@/lib/globe/globeConstants";
 import { latLngToVec3 } from "@/lib/globe/globeUtils";
 import { serverNow } from "@/lib/serverClock";
 import { incomingTelegraph } from "@/lib/battle/incomingTelegraph";
+import { shouldPlayBattleCinematics } from "@/lib/battle/cinematicsEnabled";
+import { useVisualPrefs } from "@/hooks/useVisualPrefs";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 const WARNING_COLOR = "#f59e0b"; // amber-500
 const MAX_RETICLES = 16;
@@ -75,6 +78,7 @@ interface GlobeIncomingTelegraphProps {
 }
 
 export function GlobeIncomingTelegraph({ battles, parcels }: GlobeIncomingTelegraphProps) {
+  const play = shouldPlayBattleCinematics(useVisualPrefs().battleCinematics, usePrefersReducedMotion());
   const parcelLatLng = useMemo(() => {
     const m = new Map<string, { lat: number; lng: number }>();
     for (const p of parcels) m.set(p.id, { lat: p.lat, lng: p.lng });
@@ -97,7 +101,7 @@ export function GlobeIncomingTelegraph({ battles, parcels }: GlobeIncomingTelegr
     return out;
   }, [battles, parcelLatLng]);
 
-  if (reticles.length === 0) return null;
+  if (!play || reticles.length === 0) return null;
   return (
     <group>
       {reticles.map((r) => (

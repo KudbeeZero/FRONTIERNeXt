@@ -31,6 +31,9 @@ import { playbackAt } from "@/lib/globe/battleSequencePlayback";
 import { buildSequenceFromFacts, factsFromResolvedEvent } from "@/lib/battle/sequenceFromBattle";
 import { publishCinematic } from "@/lib/battle/cinematicBus";
 import { factionColor } from "@/lib/battle/factionColor";
+import { shouldPlayBattleCinematics } from "@/lib/battle/cinematicsEnabled";
+import { useVisualPrefs } from "@/hooks/useVisualPrefs";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type { BattleSequence } from "@shared/battle-sequence";
 
 // Match the living-map palette (liveEventDisplay): cyan victory, red defense.
@@ -159,6 +162,7 @@ interface GlobeBattleSequenceProps {
 
 export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId }: GlobeBattleSequenceProps) {
   const [active, setActive] = useState<ActiveCinematic[]>([]);
+  const play = shouldPlayBattleCinematics(useVisualPrefs().battleCinematics, usePrefersReducedMotion());
 
   // Caches kept current from props so a resolution can be choreographed even
   // after the battle drops off the active list.
@@ -237,7 +241,7 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
 
   void currentPlayerId; // available for future faction-colour theming
 
-  if (active.length === 0) return null;
+  if (!play || active.length === 0) return null;
   return (
     <group>
       {active.map((cin) => (

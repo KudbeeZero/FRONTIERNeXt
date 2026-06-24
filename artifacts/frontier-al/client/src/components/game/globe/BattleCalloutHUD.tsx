@@ -11,6 +11,9 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { onCinematic, activeCallout, type CinematicHandle, type Callout } from "@/lib/battle/cinematicBus";
+import { shouldPlayBattleCinematics } from "@/lib/battle/cinematicsEnabled";
+import { useVisualPrefs } from "@/hooks/useVisualPrefs";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 const VICTORY_COLOR = "#22d3ee";
 const DEFENSE_COLOR = "#f87171";
@@ -20,6 +23,7 @@ export function BattleCalloutHUD() {
   const [handle, setHandle] = useState<CinematicHandle | null>(null);
   const [callout, setCallout] = useState<Callout | null>(null);
   const rafRef = useRef(0);
+  const play = shouldPlayBattleCinematics(useVisualPrefs().battleCinematics, usePrefersReducedMotion());
 
   // Latest cinematic wins (one callout strip at a time).
   useEffect(() => onCinematic(setHandle), []);
@@ -40,7 +44,7 @@ export function BattleCalloutHUD() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [handle]);
 
-  if (!handle || !callout) return null;
+  if (!play || !handle || !callout) return null;
 
   const { seq } = handle;
   const attackerTone = seq.attacker.color ?? VICTORY_COLOR;

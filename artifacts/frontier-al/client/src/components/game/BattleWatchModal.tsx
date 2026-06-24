@@ -9,6 +9,9 @@ import type { Battle, Player, CommanderAvatar, LandParcel } from "@shared/schema
 import { COMMANDER_INFO } from "@shared/schema";
 import { BattleSequenceTimeline } from "./BattleSequenceTimeline";
 import { buildSequenceFromReplay } from "@/lib/battle/sequenceFromReplay";
+import { shouldPlayBattleCinematics } from "@/lib/battle/cinematicsEnabled";
+import { useVisualPrefs } from "@/hooks/useVisualPrefs";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 // ── Deterministic seeded event generation ─────────────────────────────────
 
@@ -276,6 +279,10 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isResolved, replay, battle.id]);
 
+  // Respect the cinematics toggle + OS reduced-motion: animate the timeline only
+  // when allowed; otherwise show the beats as a static list (no playhead motion).
+  const cinematicsOn = shouldPlayBattleCinematics(useVisualPrefs().battleCinematics, usePrefersReducedMotion());
+
   // Mock narrative feed — only for LIVE battles (no real outcome yet to play).
   const events = isResolved
     ? []
@@ -366,7 +373,14 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
               </p>
             </div>
             <div ref={feedRef} className="p-3 space-y-2 max-h-48 sm:max-h-64 min-h-[140px] overflow-y-auto">
-              {isResolved && sequence && <BattleSequenceTimeline seq={sequence} />}
+              {isResolved && sequence && cinematicsOn && <BattleSequenceTimeline seq={sequence} />}
+              {isResolved && sequence && !cinematicsOn && (
+                <div className="space-y-1.5" data-testid="battle-sequence-static">
+                  {sequence.beats.map((b) => (
+                    <div key={b.kind} className="text-xs text-muted-foreground leading-snug">• {b.caption}</div>
+                  ))}
+                </div>
+              )}
               {isResolved && !sequence && (
                 <p className="text-xs text-muted-foreground text-center py-6 italic">
                   {replayLoading ? "Loading battle sequence…" : "Sequence unavailable (replay expired)"}
