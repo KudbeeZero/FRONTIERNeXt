@@ -9,10 +9,16 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — NO OPEN PRs · main `8fe1030` · deploy LIVE
-- **Main:** green at **`8fe1030`** (Merge **#129**). CI green on every merged head. Local CI-parity:
-  `check` clean, **server 359** passed/11 skipped, **client 150** passed, `build` ✓. No open PRs.
-- **🆕 Shipped this chat — the BATTLE SEQUENCE SYSTEM (PRs #122–#129; #121 aether dock alongside):**
+## Current baton — NO OPEN PRs · main `001d182` · deploy LIVE
+- **Main:** green at **`001d182`** (Merge **#132**). CI green on every merged head. Local CI-parity:
+  `check` clean, **server 359** passed/11 skipped, **client 161** passed, `build` ✓. No open PRs.
+- **Two more cinematic layers since #129:** **#131** opt-in **cinematic camera** that gently follows YOUR
+  battles' strikes (default OFF, scoped to your battles, releases control); **#132** synth **battle sound
+  cues** (launch/impact/swing/resolve via WebAudio, no assets, default OFF). Both gated by the
+  `battleCinematics` toggle; `cameraDirector`/`beatSound` mappings are pure + test-pinned. The planned
+  cinematic queue (engine → modal → globe → randFactor → callout → faction colour → incoming telegraph →
+  reduced-motion → camera → sound) is now **complete**.
+- **🆕 Shipped this chat — the BATTLE SEQUENCE SYSTEM (PRs #122–#132; #121 aether dock alongside):**
   a battle is now one *connected* cinematic — a pure, deterministic **10-beat** timeline
   (`shared/battle-sequence.ts`: muster → lock → launch → transit → brace → impact → clash → swing →
   resolve → aftermath) that the **watch modal**, the **globe**, and a **HUD callout** all drive off ONE
@@ -32,8 +38,11 @@
     Owner smoke-test per the guide above (open a resolved battle in the modal; watch one resolve on the
     globe). No funds/chain/schema change; the only server-touching item (#123) just *consumes* a message
     the server already broadcast. Session note: `…/session-notes/2026-06-24-battle-sequence-engine.md`.
-  - ➡️ **Next (optional polish, NOT started):** camera that follows the strike along the arc; per-beat
-    sound cues. (The incoming-telegraph + reduced-motion items from the prior baton are now DONE.)
+  - ✅ **Camera-follow (#131) + sound cues (#132) now DONE** — the planned cinematic queue is complete.
+  - ➡️ **The real remaining gate is OWNER VERIFICATION**, not more code: smoke-test on the preview per
+    `artifacts/frontier-al/docs/BATTLE_CINEMATICS_SMOKETEST.md` (enable Cinematic Camera + Battle Sound in
+    globe settings to see/hear those two). Report any beat that looks/sounds off → it maps to one module.
+    Genuinely-open future ideas (only if wanted): server-side replay persistence; commander-specific cues.
 - **🛑 OWNER DIRECTIVE:** this chat the owner explicitly authorised the build+merge `/loop` (merging
   directly). The **default remains owner-reviews/merges**; do not self-merge in future chats without a
   fresh explicit go.
