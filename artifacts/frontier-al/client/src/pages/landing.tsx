@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
 import { GAME_URL, goToGame } from "@/lib/gameUrl";
+import { apiRequest } from "@/lib/queryClient";
+import { setAuthToken } from "@/lib/authToken";
+import { DEV_MODE, startDevSession } from "@/lib/devSession";
 
 // ─── Animated Rocket ──────────────────────────────────────────────────────────
 function Rocket() {
@@ -453,6 +456,30 @@ export default function LandingPage() {
   // and the game's own 3D loader cover the transition.
   const handleEnter = () => { goToGame(); };
 
+  // DEV / TEST entry: sign in as a persistent test player (no wallet) and enter
+  // the game. Shown only when VITE_DEV_MODE === "true"; backed by the server's
+  // DEV_LOGIN_ENABLED-gated /api/dev/quick-auth.
+  const [devBusy, setDevBusy] = useState(false);
+  const handleDevMode = async () => {
+    if (devBusy) return;
+    setDevBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/dev/quick-auth", {});
+      const data = await res.json();
+      if (data?.token && data?.address) {
+        setAuthToken(data.token);
+        startDevSession(data.address);
+        goToGame();
+      } else {
+        alert("Dev mode is not enabled on this server (set DEV_LOGIN_ENABLED=true).");
+        setDevBusy(false);
+      }
+    } catch {
+      alert("Dev login failed — is DEV_LOGIN_ENABLED=true on the server?");
+      setDevBusy(false);
+    }
+  };
+
   return (
     <div style={{
       position: "relative", minHeight: "100vh", width: "100%",
@@ -506,6 +533,15 @@ export default function LandingPage() {
                 cursor: "pointer", fontWeight: 700, fontFamily: "inherit",
                 boxShadow: "0 0 24px rgba(60,100,255,0.2)",
               }}>▶ Enter Game</button>
+              {DEV_MODE && (
+                <button onClick={handleDevMode} disabled={devBusy} title="Enter as a test player — no wallet needed (TestNet dev tool)" style={{
+                  background: "rgba(255,176,32,0.16)", border: "1px solid rgba(255,176,32,0.55)",
+                  borderRadius: 8, padding: "13px 24px", color: "rgba(255,210,120,0.95)",
+                  fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",
+                  cursor: devBusy ? "wait" : "pointer", fontWeight: 700, fontFamily: "inherit",
+                  boxShadow: "0 0 24px rgba(255,176,32,0.14)", opacity: devBusy ? 0.6 : 1,
+                }}>⚙ {devBusy ? "Entering…" : "Dev / Test Mode"}</button>
+              )}
               {/* Story prologue — Aether's Journey. Real <a> (not wouter) so the
                   static bundle served at /story/ loads instead of the SPA router. */}
               <a href="/story/" style={{

@@ -39,6 +39,8 @@
 | INDEXER_URL | Custom Algorand indexer URL (optional, defaults to algonode) | `https://mainnet-idx.algonode.cloud` |
 | ALGOD_TOKEN | Algorand node API token (optional) | |
 | INDEXER_TOKEN | Algorand indexer API token (optional) | |
+| DEV_LOGIN_ENABLED | **TestNet dev tool.** `true` enables `POST /api/dev/quick-auth`, which signs a request in as a persistent test player **without a wallet/signature** (for testing battles + recording video). **Fail-closed** — any other value (unset/`false`/`1`) returns 403. **Never enable on mainnet.** Pair with `VITE_DEV_MODE=true` so the landing button shows. | `true` (testnet) / unset (prod) |
+| DEV_LOGIN_ADDRESS | The address the dev/test player is bound to. Defaults to a **non-wallet sentinel** (`DEV-TEST-COMMANDER`) which cannot move real funds. Override only if you knowingly want a real wallet identity. | unset (sentinel) |
 
 ## Frontend (Vercel)
 
@@ -48,6 +50,7 @@
 | VITE_GAME_URL | Where the landing's "Enter Game" CTA navigates. Defaults to `/game` (same-origin — correct on the backend host). On a static homepage host (Cloudflare Pages) set this to the backend that serves the live game. | `https://frontiernext.fly.dev/game` |
 | VITE_ALGOD_URL | Algorand node URL override (optional, defaults to testnet algonode) | `https://mainnet-api.algonode.cloud` |
 | VITE_INDEXER_URL | Algorand indexer URL override (optional, defaults to testnet algonode) | `https://mainnet-idx.algonode.cloud` |
+| VITE_DEV_MODE | **TestNet dev tool.** `true` shows the amber **"⚙ Dev / Test Mode"** button on the landing page, which enters the game as a test player with no wallet (calls `DEV_LOGIN_ENABLED`-gated `/api/dev/quick-auth`). Unset on mainnet. | `true` (testnet) / unset (prod) |
 
 ## Flags
 
