@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { Stars, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
 import { Nebula } from "./Nebula";
-import { isReducedMotion } from "../store/settingsStore";
+import { useSettingsStore } from "../store/settingsStore";
 
 // ---------------------------------------------------------------------------
 // What lies beyond the cockpit glass: a deep starfield, a distant sun raking
@@ -44,7 +44,9 @@ function Mars() {
 }
 
 export function ForwardViewport() {
-  const rm = isReducedMotion();
+  // Subscribe directly so a runtime Reduced Motion toggle freezes the star/sparkle
+  // drift immediately — no reliance on a parent re-render to propagate it.
+  const rm = useSettingsStore((s) => s.reducedMotion);
   return (
     <group>
       {/* Deep colour field — the sense of vast open space. Drawn farthest back. */}
