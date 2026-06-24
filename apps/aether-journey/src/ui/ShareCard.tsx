@@ -85,11 +85,11 @@ function drawCard(
   // ── Header ────────────────────────────────────────────────────────────────
   ctx.textAlign = "center";
   ctx.fillStyle = "#9fb4c9";
-  ctx.font = "600 28px 'JetBrains Mono', monospace";
+  ctx.font = "500 28px 'JetBrains Mono', monospace";
   ctx.fillText("A E T H E R ' S   J O U R N E Y", cx, 132);
 
   // ── Ending title (the hero) ────────────────────────────────────────────────
-  ctx.font = "800 124px 'Orbitron', 'Rajdhani', sans-serif";
+  ctx.font = "900 124px 'Orbitron', 'Rajdhani', sans-serif";
   ctx.fillStyle = hue;
   ctx.shadowColor = hue;
   ctx.shadowBlur = 44;
@@ -118,15 +118,15 @@ function drawCard(
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.fillStyle = "#e7f4ff";
-  ctx.font = "800 62px 'Orbitron', 'Rajdhani', sans-serif";
+  ctx.font = "900 62px 'Orbitron', 'Rajdhani', sans-serif";
   ctx.fillText(`${card.trust}`, cx, ringY + 12);
   ctx.fillStyle = "#9fb4c9";
-  ctx.font = "600 20px 'JetBrains Mono', monospace";
+  ctx.font = "500 20px 'JetBrains Mono', monospace";
   ctx.fillText("TRUST IN AETHER", cx, ringY + 50);
 
   // rating seal
   ctx.fillStyle = hue;
-  ctx.font = "800 30px 'Orbitron', 'Rajdhani', sans-serif";
+  ctx.font = "900 30px 'Orbitron', 'Rajdhani', sans-serif";
   ctx.fillText(`◈ RANK ${card.rating}`, cx, ringY - 130);
 
   // ── Defining choices ───────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ function drawCard(
   // ── Footer: on-chain hook + fingerprint ────────────────────────────────────
   ctx.textAlign = "center";
   ctx.fillStyle = "#7fe7ff";
-  ctx.font = "600 26px 'JetBrains Mono', monospace";
+  ctx.font = "500 26px 'JetBrains Mono', monospace";
   ctx.fillText(`⛓  MINTED ON ALGORAND TESTNET  ·  ${card.seed}`, cx, SIZE - 86);
   ctx.fillStyle = "#5f7da0";
   ctx.font = "500 22px 'JetBrains Mono', monospace";
