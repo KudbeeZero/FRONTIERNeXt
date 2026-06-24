@@ -69,6 +69,17 @@ export function GlobeColorSettings() {
             />
           </label>
 
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 10px", cursor: "pointer" }}>
+            <span style={{ fontSize: 11, color: "rgba(180,210,255,0.8)" }} title="Battle resolution FX, incoming-attack telegraph, and HUD callouts (auto-off under OS reduced-motion)">Battle Cinematics</span>
+            <input
+              type="checkbox"
+              checked={prefs.battleCinematics}
+              onChange={(e) => setVisualPref("battleCinematics", e.target.checked)}
+              aria-label="Battle Cinematics"
+              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#00e5ff" }}
+            />
+          </label>
+
           <button
             onClick={() => resetVisualPrefs()}
             style={{

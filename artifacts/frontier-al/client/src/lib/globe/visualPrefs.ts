@@ -17,6 +17,8 @@ export interface VisualPrefs {
   fogOfWar: boolean;
   /** Observer mode: zoom out to look into the past (event replay). Opt-in. */
   observerMode: boolean;
+  /** Battle cinematics (globe resolution FX, incoming telegraph, HUD callout). On by default. */
+  battleCinematics: boolean;
 }
 
 export const DEFAULT_PREFS: VisualPrefs = {
@@ -24,6 +26,7 @@ export const DEFAULT_PREFS: VisualPrefs = {
   enemyColor: "#ff4400",     // matches COLOR_ENEMY
   fogOfWar: false,
   observerMode: false,
+  battleCinematics: true,
 };
 
 function load(): VisualPrefs {
@@ -37,6 +40,7 @@ function load(): VisualPrefs {
       enemyColor: parsed.enemyColor || DEFAULT_PREFS.enemyColor,
       fogOfWar: parsed.fogOfWar ?? DEFAULT_PREFS.fogOfWar,
       observerMode: parsed.observerMode ?? DEFAULT_PREFS.observerMode,
+      battleCinematics: parsed.battleCinematics ?? DEFAULT_PREFS.battleCinematics,
     };
   } catch {
     return DEFAULT_PREFS;
