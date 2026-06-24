@@ -13,6 +13,7 @@ import { Slider } from "@/components/ui/slider";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { serverNow } from "@/lib/serverClock";
+import { CommanderCombatRecord } from "./CommanderCombatRecord";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
 import {
   COMMANDER_INFO, SPECIAL_ATTACK_INFO, DRONE_MINT_COST_ASCEND, MAX_DRONES,
@@ -664,6 +665,9 @@ export function CommanderPanel({
             </div>
           ))}
         </div>
+
+        {/* Per-commander combat record (derived from /api/players/:id/commander-stats) */}
+        <CommanderCombatRecord playerId={player.id} commanders={commanders} />
 
         {/* Player row */}
         <div className="flex items-start gap-2">
