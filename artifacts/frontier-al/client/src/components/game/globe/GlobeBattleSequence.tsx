@@ -29,6 +29,7 @@ import { GLOBE_RADIUS, ARC_TUBE_RADIUS, ARC_SEGMENTS } from "@/lib/globe/globeCo
 import { latLngToVec3, buildArcCurve } from "@/lib/globe/globeUtils";
 import { playbackAt } from "@/lib/globe/battleSequencePlayback";
 import { buildSequenceFromFacts, factsFromResolvedEvent } from "@/lib/battle/sequenceFromBattle";
+import { publishCinematic } from "@/lib/battle/cinematicBus";
 import type { BattleSequence } from "@shared/battle-sequence";
 
 // Match the living-map palette (liveEventDisplay): cyan victory, red defense.
@@ -218,10 +219,14 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
       const fromVec = hasSource ? latLngToVec3(source.lat, source.lng, GLOBE_RADIUS * 1.01) : null;
       const toVec = latLngToVec3(target.lat, target.lng, GLOBE_RADIUS * 1.01);
       const seq = buildSequenceFromFacts(facts);
+      const startMs = Date.now();
+
+      // Let the DOM HUD speak the same beats off the same clock.
+      publishCinematic({ seq, startMs });
 
       setActive((prev) => {
         const next = prev.filter((c) => c.key !== event.battleId);
-        return [...next, { key: event.battleId, seq, fromVec, toVec, startMs: Date.now() }].slice(-6);
+        return [...next, { key: event.battleId, seq, fromVec, toVec, startMs }].slice(-6);
       });
     });
     return () => unsub();

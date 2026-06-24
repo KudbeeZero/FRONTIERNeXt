@@ -22,6 +22,7 @@ import { BattleArcs, MiningPulseLayer, OrbitalZoneLayer, SatelliteOrbitLayer } f
 import { LiveWeaponLayer } from "./globe/LiveWeaponLayer";
 import { GlobeLiveEvents } from "./globe/GlobeLiveEvents";
 import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
+import { BattleCalloutHUD } from "./globe/BattleCalloutHUD";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
@@ -259,6 +260,8 @@ export default function PlanetGlobe({
       )}
 
       <GlobeHUD activeBattleCount={activeBattleCount} replayTime={replayTime} />
+
+      <BattleCalloutHUD />
 
       <GlobeCompass controlsRef={controlsRef} />
 
