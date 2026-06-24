@@ -56,6 +56,16 @@ body,
   border: 1px solid rgba(127, 231, 255, 0.6);
 }
 
+/* Frosted-glass surface for the HUD dock — lighter + less intrusive than the
+   holo-panel, leans on a strong backdrop blur so it reads as glass over space. */
+.frosted {
+  background: rgba(8, 16, 28, 0.5);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(127, 231, 255, 0.16);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.4);
+}
+
 .text-glow {
   text-shadow: 0 0 10px rgba(29, 233, 255, 0.5);
 }

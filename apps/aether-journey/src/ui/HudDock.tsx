@@ -159,7 +159,7 @@ function SystemPanel({ onClose }: { onClose: () => void }) {
 }
 
 const TAB_META: Record<Tab, { label: string; title: string }> = {
-  ship: { label: "▤ Ship", title: "Ship Status" },
+  ship: { label: "▤", title: "Ship Status" },
   ledger: { label: "⛓ Ledger", title: "Algorand-ready Ledger" },
   system: { label: "⚙", title: "Paused · System" },
 };
@@ -201,7 +201,7 @@ export function HudDock() {
         onClick={() => toggle(t)}
         aria-pressed={active}
         className={
-          "pointer-events-auto whitespace-nowrap rounded-md px-2.5 py-2 font-mono text-[10px] uppercase tracking-widest transition " +
+          "pointer-events-auto whitespace-nowrap rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition " +
           (active
             ? "bg-aether-core/20 text-aether-core text-glow"
             : "text-[#9fb4c9] hover:bg-aether-core/10")
@@ -223,7 +223,7 @@ export function HudDock() {
             (tab ? "max-h-[58vh] opacity-100" : "max-h-0 opacity-0")
           }
         >
-          <div className="holo-panel pointer-events-auto rounded-t-xl px-4 pb-3 pt-2">
+          <div className="frosted pointer-events-auto rounded-t-2xl px-4 pb-3 pt-2">
             {/* grab handle */}
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-aether-core/30" />
             <div className="mb-2 flex items-center justify-between">
@@ -246,22 +246,27 @@ export function HudDock() {
           </div>
         </div>
 
-        {/* Always-visible slim bar: current objective + the three tabs. */}
+        {/* Always-visible bar — a compact frosted pill, just the objective title +
+            icon tabs, centered so it stays out of the way. The detailed instruction
+            lives on the in-world board + dialogue, not here. */}
         <div
-          className="holo-panel pointer-events-auto mb-2 mt-1.5 flex items-center gap-2 rounded-lg px-3 py-2"
-          style={{ marginBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
+          className="flex justify-center"
+          style={{ marginBottom: "calc(0.5rem + env(safe-area-inset-bottom))", marginTop: "0.375rem" }}
         >
-          <div key={phase} className="anim-line-in min-w-0 flex-1">
-            <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-[#ffd9a0]">
-              ◇ {obj.title}
-              {phase === "repair" && (
-                <span className="text-aether-core"> · {nodesAligned}/{totalNodes} locked</span>
-              )}
+          <div className="frosted pointer-events-auto flex max-w-[94vw] items-center gap-2 rounded-full py-1 pl-3 pr-1.5">
+            <div key={phase} className="anim-line-in flex min-w-0 items-center gap-1.5">
+              <span className="text-[10px] text-[#ffd9a0]">◇</span>
+              <span className="truncate font-mono text-[9px] uppercase tracking-[0.2em] text-[#cfe3f5]">
+                {obj.title}
+                {phase === "repair" && (
+                  <span className="text-aether-core"> · {nodesAligned}/{totalNodes}</span>
+                )}
+              </span>
             </div>
-            <div className="line-clamp-2 text-[11px] leading-tight text-[#9fb4c9]">{obj.detail}</div>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {(["ship", "ledger", "system"] as Tab[]).map(tabBtn)}
+            <span className="h-3.5 w-px shrink-0 bg-aether-core/20" />
+            <div className="flex shrink-0 items-center gap-0.5">
+              {(["ship", "ledger", "system"] as Tab[]).map(tabBtn)}
+            </div>
           </div>
         </div>
       </div>
