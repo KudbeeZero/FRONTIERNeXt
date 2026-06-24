@@ -59,6 +59,7 @@ import { fromMicroASCEND } from "./storage/game-rules";
 import { computePlayerBattleStats } from "./storage/battle-stats";
 import { computeAllCommanderStats, topCommanders } from "./storage/commander-stats";
 import { verifyBattleProof } from "./engine/battle/verify";
+import { isDevLoginEnabled, devLoginAddress } from "./devLogin";
 import { generateWhisper } from "./engine/narrative/whispers";
 import { synthesizeWhisper, isVoiceConfigured } from "./services/voice/elevenlabs";
 import {
@@ -496,6 +497,32 @@ export async function registerRoutes(
   app.post("/api/auth/logout", (_req, res) => {
     clearSessionCookie(res);
     res.json({ success: true });
+  });
+
+  /**
+   * POST /api/dev/quick-auth — DEV / TEST ONLY. Enter as a persistent test player
+   * WITHOUT a wallet/signature, for testing battles + recording video on TestNet.
+   * Fail-closed: 403 unless the server env DEV_LOGIN_ENABLED === "true" (see
+   * server/devLogin.ts). The dev player is bound to a non-wallet sentinel address
+   * by default, so it cannot move real funds. Mirrors /api/auth/verify's token
+   * issuance, minus the signature step.
+   */
+  app.post("/api/dev/quick-auth", async (_req, res) => {
+    if (!isDevLoginEnabled()) {
+      return res.status(403).json({ error: "Dev login is disabled" });
+    }
+    try {
+      const address = devLoginAddress();
+      const player = await storage.getOrCreatePlayerByAddress(address);
+      const wb = await maybeGrantWelcomeBonus(player.id, address);
+      const token = signSession({ address, playerId: player.id });
+      setSessionCookie(res, token);
+      const fresh = await storage.getPlayer(player.id);
+      res.json({ success: true, devMode: true, token, address, welcomeBonus: wb.granted, player: fresh });
+    } catch (error) {
+      console.error("[dev/quick-auth] error:", error);
+      res.status(500).json({ error: "Dev auth failed" });
+    }
   });
 
   // ── Global ownership guard for mutating game endpoints ───────────────────────

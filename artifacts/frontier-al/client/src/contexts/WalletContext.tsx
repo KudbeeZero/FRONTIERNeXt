@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { DEV_MODE, devSessionActive, devSessionAddress } from "@/lib/devSession";
 import { useWallet as useWalletLib } from "@txnlab/use-wallet-react";
 import {
   getAccountBalance,
@@ -496,6 +497,26 @@ export function useWallet() {
   const context = useContext(WalletContext);
   if (!context) {
     throw new Error("useWallet must be used within a WalletProvider");
+  }
+  // DEV / TEST entry: when a dev session is active and no real wallet is
+  // connected, present the dev address as a connected + authenticated identity
+  // so the whole game runs as the test player. The matching server session
+  // token is set by the landing page's dev button (POST /api/dev/quick-auth).
+  if (DEV_MODE && !context.isConnected && devSessionActive()) {
+    const address = devSessionAddress();
+    if (address) {
+      return {
+        ...context,
+        isConnected: true,
+        walletStatus: "connected" as WalletStatus,
+        address,
+        displayAddress: formatAddress(address),
+        signerReady: true,
+        blockchainReady: true,
+        isReady: true,
+        isAuthenticated: true,
+      };
+    }
   }
   return context;
 }
