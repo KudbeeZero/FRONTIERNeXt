@@ -30,6 +30,7 @@ import { latLngToVec3, buildArcCurve } from "@/lib/globe/globeUtils";
 import { playbackAt } from "@/lib/globe/battleSequencePlayback";
 import { buildSequenceFromFacts, factsFromResolvedEvent } from "@/lib/battle/sequenceFromBattle";
 import { publishCinematic } from "@/lib/battle/cinematicBus";
+import { factionColor } from "@/lib/battle/factionColor";
 import type { BattleSequence } from "@shared/battle-sequence";
 
 // Match the living-map palette (liveEventDisplay): cyan victory, red defense.
@@ -67,9 +68,11 @@ function SingleCinematic({ cin, onDone }: { cin: ActiveCinematic; onDone: (key: 
   const swingRef = useRef<THREE.Mesh>(null);
   const captureRef = useRef<THREE.Mesh>(null);
 
+  // Ring stays semantic (cyan win / red loss) for instant readability; the arc
+  // and capture burst carry the combatants' faction identity.
   const ringColor = seq.captured ? VICTORY_COLOR : DEFENSE_COLOR;
   const captureColor = seq.victorColor ?? VICTORY_COLOR;
-  const arcColor = seq.captured ? VICTORY_COLOR : DEFENSE_COLOR;
+  const arcColor = seq.attacker.color ?? VICTORY_COLOR;
 
   useFrame(() => {
     const elapsed = Date.now() - cin.startMs;
@@ -211,8 +214,8 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
           improvements: improvements as { type: string; level: number }[] | undefined,
           troopsCommitted: battle?.troopsCommitted,
           hasCommander: !!battle?.commanderId,
-          attackerColor: VICTORY_COLOR,
-          defenderColor: DEFENSE_COLOR,
+          attackerColor: factionColor(event.attackerName),
+          defenderColor: factionColor(event.defenderName === "Unclaimed" ? null : event.defenderName),
         },
       );
 
