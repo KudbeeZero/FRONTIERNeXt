@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Swords, Shield, Zap, Skull, Crosshair, Target, Clock, Trophy, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Battle, Player, CommanderAvatar, LandParcel } from "@shared/schema";
 import { COMMANDER_INFO } from "@shared/schema";
+import { BattleSequenceTimeline } from "./BattleSequenceTimeline";
+import { buildSequenceFromReplay } from "@/lib/battle/sequenceFromReplay";
 
 // ── Deterministic seeded event generation ─────────────────────────────────
 
@@ -31,6 +33,10 @@ interface ReplayLog {
 }
 
 interface BattleReplay {
+  attackerName?: string;
+  defenderName?: string;
+  plotId?: number;
+  biome?: string;
   attackerPower: number;
   defenderPower: number;
   randFactor: number;
@@ -240,14 +246,46 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
     : undefined;
   const commanderTier = usedCommander?.tier;
 
-  const events = generateEvents(battle, attackerName, defenderName, commanderTier, targetParcel);
+  const isResolved = battle.status === "resolved";
+
+  // Resolved battles play the REAL deterministic sequence (engine-derived).
+  // Memoised so the 1s `now` tick doesn't reset the timeline's playhead.
+  const sequence = useMemo(() => {
+    if (!isResolved || !replay) return null;
+    return buildSequenceFromReplay(
+      {
+        battleId: battle.id,
+        attackerName: replay.attackerName ?? attackerName,
+        defenderName: replay.defenderName ?? defenderName,
+        attackerPower: replay.attackerPower,
+        defenderPower: replay.defenderPower,
+        randFactor: replay.randFactor,
+        outcome: replay.outcome,
+        plotId: replay.plotId,
+        biome: replay.biome ?? targetParcel?.biome,
+        pillagedIron: replay.pillagedIron,
+        pillagedFuel: replay.pillagedFuel,
+        pillagedCrystal: replay.pillagedCrystal,
+      },
+      {
+        troopsCommitted: battle.troopsCommitted,
+        hasCommander: !!battle.commanderId,
+        improvements: targetParcel?.improvements,
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isResolved, replay, battle.id]);
+
+  // Mock narrative feed — only for LIVE battles (no real outcome yet to play).
+  const events = isResolved
+    ? []
+    : generateEvents(battle, attackerName, defenderName, commanderTier, targetParcel);
   const visibleEvents = events.filter((e) => now >= e.ts);
 
   const elapsed = now - battle.startTs;
   const totalDuration = battle.resolveTs - battle.startTs;
   const progress = Math.min(100, (elapsed / totalDuration) * 100);
   const remaining = Math.max(0, battle.resolveTs - now);
-  const isResolved = battle.status === "resolved";
   const timerExpired = now >= battle.resolveTs;
 
   const formatTime = (ms: number) => {
@@ -323,10 +361,18 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
           {/* Battle Feed */}
           <div className="border border-border rounded-md overflow-hidden flex-1 min-h-[200px]">
             <div className="px-3 py-2 border-b border-border bg-muted/30">
-              <p className="text-[10px] font-display uppercase tracking-wide text-muted-foreground">Battle Log</p>
+              <p className="text-[10px] font-display uppercase tracking-wide text-muted-foreground">
+                {isResolved && sequence ? "Battle Sequence" : "Battle Log"}
+              </p>
             </div>
             <div ref={feedRef} className="p-3 space-y-2 max-h-48 sm:max-h-64 min-h-[140px] overflow-y-auto">
-              {visibleEvents.length === 0 && (
+              {isResolved && sequence && <BattleSequenceTimeline seq={sequence} />}
+              {isResolved && !sequence && (
+                <p className="text-xs text-muted-foreground text-center py-6 italic">
+                  {replayLoading ? "Loading battle sequence…" : "Sequence unavailable (replay expired)"}
+                </p>
+              )}
+              {!isResolved && visibleEvents.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-6 italic">
                   Forces advancing... battle commencing
                 </p>
