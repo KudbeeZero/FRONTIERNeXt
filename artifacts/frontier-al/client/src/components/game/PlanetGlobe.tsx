@@ -21,6 +21,7 @@ import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 import { BattleArcs, MiningPulseLayer, OrbitalZoneLayer, SatelliteOrbitLayer } from "./globe/GlobeEvents";
 import { LiveWeaponLayer } from "./globe/LiveWeaponLayer";
 import { GlobeLiveEvents } from "./globe/GlobeLiveEvents";
+import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
@@ -119,6 +120,7 @@ function Scene({
       <OrbitalZoneLayer events={orbitalEvents} />
       <SatelliteOrbitLayer players={players} />
       <LiveWeaponLayer />
+      <GlobeBattleSequence battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
       <GlobeLiveEvents />
       <OrbitControls
         ref={controlsRef as any}
