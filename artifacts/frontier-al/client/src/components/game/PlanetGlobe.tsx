@@ -23,6 +23,7 @@ import { LiveWeaponLayer } from "./globe/LiveWeaponLayer";
 import { GlobeLiveEvents } from "./globe/GlobeLiveEvents";
 import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
 import { BattleCalloutHUD } from "./globe/BattleCalloutHUD";
+import { GlobeIncomingTelegraph } from "./globe/GlobeIncomingTelegraph";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
@@ -117,6 +118,7 @@ function Scene({
         )}
       </group>
       <BattleArcs battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
+      <GlobeIncomingTelegraph battles={battles} parcels={parcels} />
       <MiningPulseLayer pulses={livePulses} />
       <OrbitalZoneLayer events={orbitalEvents} />
       <SatelliteOrbitLayer players={players} />
