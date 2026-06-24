@@ -57,6 +57,7 @@ import {
 } from "./services/chain/factions";
 import { fromMicroASCEND } from "./storage/game-rules";
 import { computePlayerBattleStats } from "./storage/battle-stats";
+import { computeAllCommanderStats } from "./storage/commander-stats";
 import { generateWhisper } from "./engine/narrative/whispers";
 import { synthesizeWhisper, isVoiceConfigured } from "./services/voice/elevenlabs";
 import {
@@ -3782,6 +3783,22 @@ export async function registerRoutes(
       res.json(computePlayerBattleStats(battles, playerId));
     } catch (err) {
       console.error("[players/battle-stats]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /** GET /api/players/:id/commander-stats — per-commander combat record + leaderboard
+   *  for THIS player's commanders (ranked by wins). Scoped to the player's own
+   *  attacks so it only surfaces their commanders. Public read of already-public
+   *  aggregate data (powers, counts, battleId, public commander NFT id). */
+  app.get("/api/players/:id/commander-stats", async (req, res) => {
+    try {
+      const playerId = req.params.id;
+      const battles = await withDbRetry(() => storage.getPlayerBattles(playerId), "getPlayerBattles");
+      const ownAttacks = battles.filter((b) => b.attackerId === playerId);
+      res.json(computeAllCommanderStats(ownAttacks));
+    } catch (err) {
+      console.error("[players/commander-stats]", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
