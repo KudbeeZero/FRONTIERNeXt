@@ -35,6 +35,25 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 
 ---
 
+## What's New — Battle Theater & Fairness
+
+- **Battle Theater (cinematics).** A resolved battle now plays as one *connected*
+  cinematic on a single shared clock: an "incoming attack" telegraph builds on the
+  defending plot, a strike arcs across the globe, impact + a faction-coloured capture
+  burst land on the target, and a HUD callout narrates the beats — mirrored in the
+  battle watch modal. Respects OS **reduced-motion** and a **Battle Cinematics**
+  toggle. Two opt-in extras in globe settings: **Cinematic Camera** (gently follows
+  *your* battles) and **Battle Sound** (synth cues).
+- **Commander combat records + Top Commanders.** Every Commander has a derived combat
+  record (W–L, win rate, streak, biggest rout) in the Commander panel, plus a global
+  **Top Commanders** leaderboard (ranked by wins) in the leaderboard panel.
+- **Provable-fair battles.** Battle randomness is deterministic from a public seed
+  (`hashSeed(battleId, startTs)`), so **anyone can independently re-derive a resolved
+  battle's `randFactor` + outcome** and confirm the server recorded exactly what the
+  rule produces — via `GET /api/battle/:id/proof`. The veritas CLI grinds this on a loop.
+- **Durable replays.** Battle replays now persist to Postgres (migration `0011`), so
+  the cinematic replay survives past the 24-hour Redis cache.
+
 ## What's New in v1.5.0
 
 - **Fix**: TypeScript configuration (`tsconfig.json`) hardened — `types` array now references only packages present in `node_modules`, preventing spurious `TS2688` errors in CI and fresh-clone environments.
@@ -357,6 +376,16 @@ Singleton row (id=1). Stores `initialized`, `current_turn`, and `last_update_ts`
 | GET | `/api/game/player/:id` | Player profile |
 | GET | `/api/game/player-by-address/:address` | Look up (or auto-create) player by wallet address |
 | GET | `/api/game/leaderboard` | Ranked player list with all stats |
+
+### Battle Records & Fairness
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/battles/history` | Paginated resolved-battle log (filters: `outcome`, `player`, `limit`, `offset`) |
+| GET | `/api/battle/:battleId/replay` | Full replay record for a battle (Redis hot cache → Postgres fallback) |
+| GET | `/api/battle/:battleId/proof` | **Provable-fairness proof** — re-derives the seed + re-runs the resolver to confirm the recorded `randFactor` + outcome (`valid: true`) |
+| GET | `/api/players/:id/battle-stats` | A player's aggregated combat record (win/hold rate, streak, biggest victory, recent) |
+| GET | `/api/players/:id/commander-stats` | Per-commander combat records for that player's Commanders |
+| GET | `/api/commanders/leaderboard` | Global **Top Commanders** (top-killers), ranked by wins (`?top=N`) |
 
 ### Player Actions
 | Method | Endpoint | Body | Description |

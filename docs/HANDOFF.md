@@ -9,9 +9,13 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — main `#140` head · deploy LIVE · tractable roadmap COMPLETE
+## Current baton — PR **#141** AWAITING_AUDIT · branch `claude/baton-roadmap-complete`
+- **This PR (#141): baton refresh + PUBLIC-DOCS refresh (docs only).** Updates the player-facing docs to
+  cover this session's work — root `README.md` (front-door bullet), `frontier-al/README.md` (What's New
+  "Battle Theater & Fairness" + the new battle/stats/proof API endpoints), `FAQ.md` (provable-fairness +
+  cinematics Q&A), `GAME_MANUAL.md` (Ch.14 "Battle Theater" + "Provable Fairness"). No code/schema change.
 - **Main:** green; CI green on every merged head. Local CI-parity: `check` clean, **server 375** passed/14
-  skipped, **client 168** passed, `build` ✓. No open PRs.
+  skipped, **client 168** passed, `build` ✓.
 - **✅ The tractable battle-depth roadmap is DONE end-to-end** (cinematic + stats + durable history +
   provable fairness). What remains needs OWNER input, not more code:
   - **(a) Cryptographic-commitment seed scheme** — store `sha256(seed)` at battle deploy, reveal later, so
