@@ -6,7 +6,7 @@
  * rout line present only when there's a victory.
  */
 import { describe, it, expect } from "vitest";
-import { formatCommanderRecord, type CommanderRecord } from "../src/lib/battle/combatRecordFormat";
+import { formatCommanderRecord, shortCommanderId, type CommanderRecord } from "../src/lib/battle/combatRecordFormat";
 
 function rec(over: Partial<CommanderRecord> = {}): CommanderRecord {
   return {
@@ -40,5 +40,17 @@ describe("formatCommanderRecord", () => {
   it("shows the biggest rout only when there's a victory", () => {
     expect(formatCommanderRecord(rec({ biggestVictory: { margin: 149.6 } })).biggest).toBe("best rout +150");
     expect(formatCommanderRecord(rec({ biggestVictory: null })).biggest).toBe("");
+  });
+});
+
+describe("shortCommanderId", () => {
+  it("abbreviates a long uuid, stripping dashes", () => {
+    expect(shortCommanderId("a1b2c3d4-e5f6-7890-abcd-ef1234567890")).toBe("a1b2…7890");
+  });
+  it("leaves a short id intact", () => {
+    expect(shortCommanderId("abc123")).toBe("abc123");
+  });
+  it("falls back for an empty id", () => {
+    expect(shortCommanderId("")).toBe("Commander");
   });
 });

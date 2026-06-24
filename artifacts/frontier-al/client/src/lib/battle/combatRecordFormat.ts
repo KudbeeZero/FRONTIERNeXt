@@ -43,3 +43,13 @@ export function formatCommanderRecord(s: CommanderRecord): CommanderRecordDispla
 
   return { record, battlesLabel, streak, biggest };
 }
+
+/**
+ * Short, readable label for a commander's public NFT id (the global leaderboard
+ * has no name source). e.g. "a1b2c3d4-…-ef56" → "a1b2…ef56".
+ */
+export function shortCommanderId(id: string): string {
+  if (!id) return "Commander";
+  const compact = id.replace(/-/g, "");
+  return compact.length > 8 ? `${compact.slice(0, 4)}…${compact.slice(-4)}` : compact;
+}
