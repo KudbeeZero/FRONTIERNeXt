@@ -58,6 +58,7 @@ import {
 import { fromMicroASCEND } from "./storage/game-rules";
 import { computePlayerBattleStats } from "./storage/battle-stats";
 import { computeAllCommanderStats, topCommanders } from "./storage/commander-stats";
+import { verifyBattleProof } from "./engine/battle/verify";
 import { generateWhisper } from "./engine/narrative/whispers";
 import { synthesizeWhisper, isVoiceConfigured } from "./services/voice/elevenlabs";
 import {
@@ -2919,6 +2920,32 @@ export async function registerRoutes(
       res.json(replay);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch battle replay" });
+    }
+  });
+
+  /** GET /api/battle/:battleId/proof — provable-fairness proof for a RESOLVED battle.
+   *  Re-derives the seed (hashSeed(id, startTs)) and re-runs the real resolver to
+   *  confirm the recorded randFactor + outcome are exactly what the rule produces.
+   *  Public read of already-public data (id/startTs/powers + the derivation rule). */
+  app.get("/api/battle/:battleId/proof", async (req, res) => {
+    try {
+      const { battleId } = req.params;
+      const battle = await withDbRetry(() => storage.getBattle(battleId), "getBattle");
+      if (!battle || battle.status !== "resolved" || !battle.outcome) {
+        return res.status(404).json({ error: "Battle not found or not resolved" });
+      }
+      const proof = verifyBattleProof({
+        battleId: battle.id,
+        startTs: Number(battle.startTs),
+        attackerPower: battle.attackerPower,
+        defenderPower: battle.defenderPower,
+        recordedOutcome: battle.outcome as "attacker_wins" | "defender_wins",
+        recordedRandFactor: battle.randFactor ?? 0,
+      });
+      res.json({ ...proof, recordedRandFactor: battle.randFactor, recordedOutcome: battle.outcome });
+    } catch (err) {
+      console.error("[battle/proof]", err);
+      res.status(500).json({ error: "Failed to compute battle proof" });
     }
   });
 
