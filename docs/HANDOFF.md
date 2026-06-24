@@ -9,23 +9,31 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — NO OPEN PRs · main `8fe0d09` · deploy LIVE
-- **Main:** green at **`8fe0d09`** (Merge **#125**). CI green on every merged head. Local CI-parity:
-  `check` clean, **server 359** passed/11 skipped, **client 141** passed, `build` ✓. No open PRs.
-- **🆕 Shipped this chat — the BATTLE SEQUENCE SYSTEM (PRs #122–#125; #121 aether dock alongside):**
+## Current baton — NO OPEN PRs · main `8fe1030` · deploy LIVE
+- **Main:** green at **`8fe1030`** (Merge **#129**). CI green on every merged head. Local CI-parity:
+  `check` clean, **server 359** passed/11 skipped, **client 150** passed, `build` ✓. No open PRs.
+- **🆕 Shipped this chat — the BATTLE SEQUENCE SYSTEM (PRs #122–#129; #121 aether dock alongside):**
   a battle is now one *connected* cinematic — a pure, deterministic **10-beat** timeline
   (`shared/battle-sequence.ts`: muster → lock → launch → transit → brace → impact → clash → swing →
   resolve → aftermath) that the **watch modal**, the **globe**, and a **HUD callout** all drive off ONE
-  clock. Real `randFactor` reaches the globe via a new `battle:resolved` client bus (#123); the capture
-  burst/arc carry the conqueror's **faction colour** (#125). The modal's fabricated mock feed now runs
-  only for *live* battles. **+23 engine / +34 client tests; all pure logic test-pinned.**
-  - ⚠️ **R3F globe layers + DOM HUD/modal are NOT browser/GPU-verified here.** Owner smoke-test on the
-    Cloudflare preview is the remaining gate (open a resolved battle in the modal; watch one resolve on
-    the globe). No funds/chain/schema/server-behavior change (the one server-touching item, #123, only
-    *consumes* a message the server already broadcast). Detail:
-    `artifacts/frontier-al/session-notes/2026-06-24-battle-sequence-engine.md`.
-  - ➡️ **Next (optional polish, not started):** camera that follows the strike along the arc; a
-    pre-resolution "incoming attack" telegraph during the pending countdown; per-beat sound cues.
+  clock. Built out across 8 PRs:
+  - **#122** engine + watch-modal playback + on-globe cinematic (arc/impact/ring/capture); the modal's
+    fabricated mock feed now runs only for *live* battles.
+  - **#123** real `randFactor` to the globe via a new `battle:resolved` client bus → data-driven swing beat.
+  - **#124** HUD callout ticker (the verbal telegraphy) on a shared cinematic bus.
+  - **#125** faction-identity colour on the capture burst/arc.
+  - **#127** pre-resolution "incoming attack" telegraph (reticle builds on the defender plot pre-impact).
+  - **#128** battle-cinematics toggle + OS reduced-motion respect (static fallbacks).
+  - **#126** closeout/session note; **#129** owner smoke-test guide
+    (`artifacts/frontier-al/docs/BATTLE_CINEMATICS_SMOKETEST.md`).
+  - **+~70 tests** (engine determinism/gapless-10-beat/swing-flip; adapter; playback; faction colour;
+    incoming-telegraph; cinematics gate). All **pure logic** test-pinned.
+  - ⚠️ **R3F globe layers + DOM HUD/modal are NOT browser/GPU-verified here — this is the one gate left.**
+    Owner smoke-test per the guide above (open a resolved battle in the modal; watch one resolve on the
+    globe). No funds/chain/schema change; the only server-touching item (#123) just *consumes* a message
+    the server already broadcast. Session note: `…/session-notes/2026-06-24-battle-sequence-engine.md`.
+  - ➡️ **Next (optional polish, NOT started):** camera that follows the strike along the arc; per-beat
+    sound cues. (The incoming-telegraph + reduced-motion items from the prior baton are now DONE.)
 - **🛑 OWNER DIRECTIVE:** this chat the owner explicitly authorised the build+merge `/loop` (merging
   directly). The **default remains owner-reviews/merges**; do not self-merge in future chats without a
   fresh explicit go.
