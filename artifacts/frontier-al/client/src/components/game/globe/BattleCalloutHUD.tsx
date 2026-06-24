@@ -43,14 +43,16 @@ export function BattleCalloutHUD() {
   if (!handle || !callout) return null;
 
   const { seq } = handle;
+  const attackerTone = seq.attacker.color ?? VICTORY_COLOR;
+  const defenderTone = seq.defender.color ?? DEFENSE_COLOR;
   const tone =
     callout.kind === "swing"
       ? SWING_COLOR
       : callout.kind === "brace"
-        ? DEFENSE_COLOR
+        ? defenderTone
         : callout.kind === "resolve" || callout.kind === "aftermath"
-          ? seq.captured ? VICTORY_COLOR : DEFENSE_COLOR
-          : VICTORY_COLOR;
+          ? seq.victorColor ?? (seq.captured ? VICTORY_COLOR : DEFENSE_COLOR)
+          : attackerTone;
 
   return (
     <div
