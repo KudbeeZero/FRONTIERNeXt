@@ -4,22 +4,49 @@ import { Stars, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
 import { Nebula } from "./Nebula";
 import { useSettingsStore } from "../store/settingsStore";
+import { useGameStore } from "../store/gameStore";
 
 // ---------------------------------------------------------------------------
 // What lies beyond the cockpit glass: a deep starfield, a distant sun raking
 // light across the cabin, and Mars — a small red promise — slightly off-centre
-// for emotional framing. The player is travelling *toward* it.
+// early on. As the voyage closes it GROWS and, at touchdown ("we're down, Mars
+// under us"), swings large and low so it reads as the surface beneath the ship —
+// instead of staying a distant dot through the landing.
 // ---------------------------------------------------------------------------
 
+/** Mars' framing per story beat: [x, y, z, scale]. Lerped to, so moves are smooth. */
+function marsTarget(phase: string, progress: number): [number, number, number, number] {
+  // Touchdown — large and BELOW the window: the surface "under us".
+  if (phase === "arrival") return [0.6, -4.4, -13, 3.4];
+  // Descent — dropping in fast, filling more of the glass.
+  if (phase === "descent") return [1.8, -1.0, -18, 2.3];
+  // Cruise — drift in from far as the journey progresses (0→1).
+  const p = Math.max(0, Math.min(1, progress));
+  return [3.4 - 1.4 * p, 1.1 - 0.5 * p, -34 + 13 * p, 1 + 0.85 * p];
+}
+
 function Mars() {
-  const mars = useRef<THREE.Mesh>(null);
+  const body = useRef<THREE.Mesh>(null);
+  const group = useRef<THREE.Group>(null);
+  const phase = useGameStore((s) => s.phase);
+  const progress = useGameStore((s) => s.journeyProgress);
+
   useFrame((_, dt) => {
-    if (mars.current) mars.current.rotation.y += dt * 0.02;
+    if (body.current) body.current.rotation.y += dt * 0.02;
+    const g = group.current;
+    if (!g) return;
+    const [x, y, z, s] = marsTarget(phase, progress);
+    // Ease toward the beat's framing (frame-rate-independent).
+    const k = 1 - Math.pow(0.5, dt * 1.4);
+    g.position.lerp(new THREE.Vector3(x, y, z), k);
+    const cur = g.scale.x;
+    g.scale.setScalar(cur + (s - cur) * k);
   });
+
   return (
-    <group position={[3.4, 1.1, -34]}>
+    <group ref={group} position={[3.4, 1.1, -34]}>
       {/* Planet body — rusty, faintly self-lit so it reads in shadow. */}
-      <mesh ref={mars}>
+      <mesh ref={body}>
         <sphereGeometry args={[3.2, 64, 64]} />
         <meshStandardMaterial
           color="#c1582f"
