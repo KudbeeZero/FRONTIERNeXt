@@ -145,6 +145,44 @@ function dispatchWeaponEngagement(e: WeaponEngagementEvent): void {
   }
 }
 
+// ── Global battle-resolved bus (rich resolution payload for the cinematic) ────
+/**
+ * The server's `battle:resolved` broadcast — richer than the `battle_resolved`
+ * world event: it carries the real `randFactor` and the snapshot powers, which
+ * the globe cinematic needs to drive the luck-swing beat. Powers are the
+ * pre-randFactor snapshot the server stored on the battle row.
+ */
+export interface BattleResolvedEvent {
+  battleId: string;
+  outcome: "attacker_wins" | "defender_wins";
+  plotId: number;
+  lat: number;
+  lng: number;
+  biome: string;
+  attackerName: string;
+  defenderName: string;
+  attackerPower: number;
+  defenderPower: number;
+  randFactor: number;
+  timestamp: number;
+}
+type BattleResolvedCallback = (e: BattleResolvedEvent) => void;
+const _battleResolvedCallbacks: Map<number, BattleResolvedCallback> = new Map();
+let _battleResolvedCallbackId = 0;
+
+/** Register a callback to receive rich battle resolutions (drives the globe cinematic). */
+export function onBattleResolved(cb: BattleResolvedCallback): () => void {
+  const id = ++_battleResolvedCallbackId;
+  _battleResolvedCallbacks.set(id, cb);
+  return () => _battleResolvedCallbacks.delete(id);
+}
+
+function dispatchBattleResolved(e: BattleResolvedEvent): void {
+  for (const cb of _battleResolvedCallbacks.values()) {
+    try { cb(e); } catch { /* ignore */ }
+  }
+}
+
 /**
  * @param authTrigger Pass a value that changes when wallet auth completes (e.g.
  * `isAuthenticated`). The socket reconnects — now carrying the session token —
@@ -221,6 +259,10 @@ export function useGameSocket(authTrigger?: unknown, onAuthReject?: () => void) 
           // Live weapon engagement (missile launch / interception / impact)
           if (msg.type === "weapon_engagement" && msg.payload) {
             dispatchWeaponEngagement(msg.payload as WeaponEngagementEvent);
+          }
+          // Rich battle resolution (drives the on-globe resolution cinematic)
+          if (msg.type === "battle:resolved" && typeof msg.battleId === "string") {
+            dispatchBattleResolved(msg as BattleResolvedEvent);
           }
           // Server-authoritative active-battle set (drops resolved battles promptly)
           if (msg.type === "battle_tick" && Array.isArray(msg.battles)) {

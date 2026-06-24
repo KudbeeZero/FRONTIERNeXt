@@ -1,19 +1,20 @@
 /**
  * GlobeBattleSequence — the resolution cinematic, on the globe.
  *
- * Mount INSIDE the <Canvas> scene. Self-subscribes to the `battle_resolved`
- * world-event bus and, for each resolution, plays ONE timed sequence from the
- * shared Battle Sequence engine off a single clock: a telegraph/lock line and a
- * strike traveling the attacker→defender arc, an impact flash, a luck-swing
- * pulse (only when the swing decided it), and a victory/defense ring + capture
- * burst at the target. This is the "lines connecting everything together when
- * there's a battle" — the connective tissue `BattleArcs` (the persistent in-
- * flight arc for *pending* battles) doesn't cover.
+ * Mount INSIDE the <Canvas> scene. Self-subscribes to the rich `battle:resolved`
+ * bus and, for each resolution, plays ONE timed sequence from the shared Battle
+ * Sequence engine off a single clock: a telegraph/lock line and a strike
+ * traveling the attacker→defender arc, an impact flash, a luck-swing pulse (only
+ * when the swing decided it — now data-driven off the event's real randFactor),
+ * and a victory/defense ring + capture burst at the target. This is the "lines
+ * connecting everything together when there's a battle" — the connective tissue
+ * `BattleArcs` (the persistent in-flight arc for *pending* battles) doesn't cover.
  *
- * It reads source/target/powers/troops from the live `battles`+`parcels` props
- * it already receives (cached the moment a battle is seen, so it survives the
- * battle leaving the active list on resolve) — NO server change. If the source
- * plot is unknown it gracefully plays a target-only cinematic (no arc).
+ * The rich event carries randFactor + snapshot powers + names + biome; source
+ * position, troops and commander come from the live `battles`+`parcels` props
+ * (cached the moment a battle is seen, so they survive the battle leaving the
+ * active list on resolve) — NO server change. If the source plot is unknown it
+ * gracefully plays a target-only cinematic (no arc).
  *
  * All timing math is the tested pure engine + `battleSequencePlayback` +
  * `sequenceFromBattle`; this is a thin renderer. (R3F — typecheck/build-verified,
@@ -23,14 +24,12 @@ import * as THREE from "three";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { Battle, LandParcel, Player, SlimParcel } from "@shared/schema";
-import type { WorldEvent } from "@shared/worldEvents";
-import { onWorldEvent } from "@/hooks/useGameSocket";
+import { onBattleResolved, type BattleResolvedEvent } from "@/hooks/useGameSocket";
 import { GLOBE_RADIUS, ARC_TUBE_RADIUS, ARC_SEGMENTS } from "@/lib/globe/globeConstants";
 import { latLngToVec3, buildArcCurve } from "@/lib/globe/globeUtils";
 import { playbackAt } from "@/lib/globe/battleSequencePlayback";
-import { factsFromBattle, type ResolvedBattleFacts } from "@/lib/battle/sequenceFromBattle";
-import { buildSequenceFromFacts } from "@/lib/battle/sequenceFromBattle";
-import type { BattleSequence, BattleOutcome } from "@shared/battle-sequence";
+import { buildSequenceFromFacts, factsFromResolvedEvent } from "@/lib/battle/sequenceFromBattle";
+import type { BattleSequence } from "@shared/battle-sequence";
 
 // Match the living-map palette (liveEventDisplay): cyan victory, red defense.
 const VICTORY_COLOR = "#22d3ee";
@@ -75,7 +74,6 @@ function SingleCinematic({ cin, onDone }: { cin: ActiveCinematic; onDone: (key: 
     const elapsed = Date.now() - cin.startMs;
     const s = playbackAt(seq, elapsed);
 
-    // Telegraph line + traveling strike.
     if (tubeRef.current) {
       (tubeRef.current.material as THREE.MeshBasicMaterial).opacity = s.telegraphOpacity * 0.6;
       tubeRef.current.visible = s.telegraphOpacity > 0.01;
@@ -85,35 +83,24 @@ function SingleCinematic({ cin, onDone }: { cin: ActiveCinematic; onDone: (key: 
       (strikeRef.current.material as THREE.MeshBasicMaterial).opacity = s.strikeOpacity;
       strikeRef.current.visible = s.strikeOpacity > 0.01;
     }
-
-    // Impact flash at the target.
     if (flashRef.current) {
-      const scale = 0.04 + s.impactFlash * 0.2;
-      flashRef.current.scale.setScalar(scale);
+      flashRef.current.scale.setScalar(0.04 + s.impactFlash * 0.2);
       (flashRef.current.material as THREE.MeshBasicMaterial).opacity = s.impactFlash;
       flashRef.current.visible = s.impactFlash > 0.01;
     }
-
-    // Luck-swing pulse (decided swings only).
     if (swingRef.current) {
-      const scale = 1 + s.swingPulse * 3;
-      swingRef.current.scale.setScalar(scale);
+      swingRef.current.scale.setScalar(1 + s.swingPulse * 3);
       (swingRef.current.material as THREE.MeshBasicMaterial).opacity = s.swingPulse * 0.8;
       swingRef.current.visible = s.swingPulse > 0.01;
       swingRef.current.lookAt(ringLookAt);
     }
-
-    // Outcome ring.
     if (ringRef.current) {
       (ringRef.current.material as THREE.MeshBasicMaterial).opacity = s.ringOpacity * 0.85;
       ringRef.current.visible = s.ringOpacity > 0.01;
       ringRef.current.lookAt(ringLookAt);
     }
-
-    // Capture burst — expands and fades as the plot is taken.
     if (captureRef.current) {
-      const scale = 0.03 + s.captureProgress * 0.14;
-      captureRef.current.scale.setScalar(scale);
+      captureRef.current.scale.setScalar(0.03 + s.captureProgress * 0.14);
       (captureRef.current.material as THREE.MeshBasicMaterial).opacity =
         (1 - s.captureProgress) * 0.5 * (seq.captured ? 1 : 0);
       captureRef.current.visible = seq.captured && s.captureProgress > 0.01 && s.captureProgress < 1;
@@ -174,7 +161,6 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
   const battleCache = useRef<Map<string, Battle>>(new Map());
   const parcelById = useRef<Map<string, LandParcel | SlimParcel>>(new Map());
   const parcelByPlotId = useRef<Map<number, LandParcel | SlimParcel>>(new Map());
-  const playerById = useRef<Map<string, Player>>(new Map());
   const firstParcelOf = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -187,7 +173,6 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
   }, [parcels]);
 
   useEffect(() => {
-    playerById.current = new Map(players.map((p) => [p.id, p]));
     const fp = new Map<string, string>();
     for (const p of players) if (p.ownedParcels?.length) fp.set(p.id, p.ownedParcels[0]);
     firstParcelOf.current = fp;
@@ -198,47 +183,15 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
   }, []);
 
   useEffect(() => {
-    const unsub = onWorldEvent((event: WorldEvent) => {
-      if (event.type !== "battle_resolved") return;
-      const battleId = String(event.metadata?.battleId ?? event.id);
-      const outcome = (event.metadata?.outcome as BattleOutcome) ?? "attacker_wins";
-
+    const unsub = onBattleResolved((event: BattleResolvedEvent) => {
       const target = { lat: event.lat, lng: event.lng };
-      const facts = resolveFacts(event, battleId, outcome, target);
-      if (!facts) return;
-
-      // Draw the attacker→defender arc only when we have a REAL, distinct source.
-      const hasSource = facts.source.lat !== target.lat || facts.source.lng !== target.lng;
-      const fromVec = hasSource
-        ? latLngToVec3(facts.source.lat, facts.source.lng, GLOBE_RADIUS * 1.01)
-        : null;
-      const toVec = latLngToVec3(target.lat, target.lng, GLOBE_RADIUS * 1.01);
-      const seq = buildSequenceFromFacts(facts);
-
-      setActive((prev) => {
-        const next = prev.filter((c) => c.key !== battleId);
-        return [...next, { key: battleId, seq, fromVec, toVec, startMs: Date.now() }].slice(-6);
-      });
-    });
-    return () => unsub();
-
-    // Assemble the cinematic facts from caches + the event.
-    function resolveFacts(
-      event: WorldEvent,
-      battleId: string,
-      outcome: BattleOutcome,
-      target: { lat: number; lng: number },
-    ): ResolvedBattleFacts | null {
-      const battle = battleCache.current.get(battleId);
-      const targetParcel = event.plotId != null ? parcelByPlotId.current.get(event.plotId) : undefined;
-      const biome = (targetParcel?.biome as string) ?? "plains";
+      const battle = battleCache.current.get(event.battleId);
+      const targetParcel = parcelByPlotId.current.get(event.plotId);
       const improvements =
-        (targetParcel && "improvements" in targetParcel ? targetParcel.improvements : undefined) ??
-        undefined;
-      const plotId = event.plotId ?? targetParcel?.plotId ?? 0;
+        targetParcel && "improvements" in targetParcel ? targetParcel.improvements : undefined;
 
-      // Source coords from the battle's source/first parcel.
-      let source = target; // fallback: a "from above" strike if we truly can't tell
+      // Resolve the attacker (source) position from the cached battle, if known.
+      let source = target;
       let hasSource = false;
       if (battle) {
         const srcId = battle.sourceParcelId ?? firstParcelOf.current.get(battle.attackerId);
@@ -249,44 +202,29 @@ export function GlobeBattleSequence({ battles, parcels, players, currentPlayerId
         }
       }
 
-      const attacker = battle ? playerById.current.get(battle.attackerId) : undefined;
-      const defender = battle?.defenderId ? playerById.current.get(battle.defenderId) : undefined;
-      const attackerName = attacker?.name ?? String(event.metadata?.attacker ?? "Attacker");
+      const facts = factsFromResolvedEvent(
+        { ...event, defenderName: event.defenderName === "Unclaimed" ? null : event.defenderName },
+        {
+          source,
+          target,
+          improvements: improvements as { type: string; level: number }[] | undefined,
+          troopsCommitted: battle?.troopsCommitted,
+          hasCommander: !!battle?.commanderId,
+          attackerColor: VICTORY_COLOR,
+          defenderColor: DEFENSE_COLOR,
+        },
+      );
 
-      if (battle) {
-        return factsFromBattle(
-          battle,
-          outcome,
-          {
-            source: hasSource ? source : target,
-            target,
-            plotId,
-            biome,
-            improvements: improvements as { type: string; level: number }[] | undefined,
-          },
-          { attackerName, defenderName: defender?.name ?? null },
-          { attackerColor: VICTORY_COLOR, defenderColor: DEFENSE_COLOR },
-        );
-      }
+      const fromVec = hasSource ? latLngToVec3(source.lat, source.lng, GLOBE_RADIUS * 1.01) : null;
+      const toVec = latLngToVec3(target.lat, target.lng, GLOBE_RADIUS * 1.01);
+      const seq = buildSequenceFromFacts(facts);
 
-      // No cached battle — a minimal target-only cinematic from the event alone.
-      return {
-        battleId,
-        source: target,
-        target,
-        plotId,
-        biome,
-        attackerName,
-        defenderName: null,
-        attackerColor: VICTORY_COLOR,
-        defenderColor: DEFENSE_COLOR,
-        attackerPowerSnapshot: 0,
-        defenderPower: 0,
-        randFactor: 0,
-        outcome,
-        troopsCommitted: 0,
-      };
-    }
+      setActive((prev) => {
+        const next = prev.filter((c) => c.key !== event.battleId);
+        return [...next, { key: event.battleId, seq, fromVec, toVec, startMs: Date.now() }].slice(-6);
+      });
+    });
+    return () => unsub();
   }, []);
 
   void currentPlayerId; // available for future faction-colour theming
