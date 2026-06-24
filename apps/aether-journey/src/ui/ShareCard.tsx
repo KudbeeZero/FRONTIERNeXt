@@ -205,7 +205,8 @@ export function ShareCard() {
     const file = new File([blob], fileName, { type: "image/png" });
     const data = {
       title: "Aether's Journey",
-      text: `${card.title} — trust ${card.trust} in Aether. ${card.seed}`,
+      // Viral hook: name the stakes (an AI companion + real blockchain) and dare them.
+      text: `I reached the ${card.title} ending of Aether's Journey — ${card.trust} trust in my AI companion, and my run is minted on Algorand. Think you'd do better? ${card.seed}`,
       files: [file],
     };
     try {
