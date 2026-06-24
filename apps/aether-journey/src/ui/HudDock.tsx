@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useGameStore } from "../store/gameStore";
 import { audio } from "../lib/audioEngine";
 import type { Phase, ShipSystems } from "../store/types";
@@ -158,10 +158,33 @@ function SystemPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-const TAB_META: Record<Tab, { label: string; title: string }> = {
-  ship: { label: "▤", title: "Ship Status" },
-  ledger: { label: "⛓ Ledger", title: "Algorand-ready Ledger" },
-  system: { label: "⚙", title: "Paused · System" },
+const TAB_META: Record<Tab, { title: string }> = {
+  ship: { title: "Ship Status" },
+  ledger: { title: "Algorand-ready Ledger" },
+  system: { title: "Paused · System" },
+};
+
+// Crisp inline icons (no font-glyph tofu). 14px, currentColor stroke.
+const IC = "h-[13px] w-[13px]";
+const TAB_ICON: Record<Tab, ReactNode> = {
+  ship: (
+    <svg className={IC} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20v-5M10 20V4M16 20v-9M3 20h18" />
+    </svg>
+  ),
+  ledger: (
+    <svg className={IC} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 4h14M5 9h14M5 14h9M5 19h6" />
+    </svg>
+  ),
+  system: (
+    <svg className={IC} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16" />
+      <circle cx="9" cy="7" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="17" r="1.9" fill="currentColor" stroke="none" />
+    </svg>
+  ),
 };
 
 export function HudDock() {
@@ -200,14 +223,16 @@ export function HudDock() {
         key={t}
         onClick={() => toggle(t)}
         aria-pressed={active}
+        aria-label={TAB_META[t].title}
         className={
-          "pointer-events-auto whitespace-nowrap rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition " +
+          "pointer-events-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 font-mono text-[10px] tabular-nums transition " +
           (active
             ? "bg-aether-core/20 text-aether-core text-glow"
             : "text-[#9fb4c9] hover:bg-aether-core/10")
         }
       >
-        {t === "ledger" ? `⛓ ${ledgerCount}` : TAB_META[t].label}
+        {TAB_ICON[t]}
+        {t === "ledger" && <span>{ledgerCount}</span>}
       </button>
     );
   };
