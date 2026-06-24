@@ -9,15 +9,23 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — NO OPEN PRs · main `001d182` · deploy LIVE
-- **Main:** green at **`001d182`** (Merge **#132**). CI green on every merged head. Local CI-parity:
-  `check` clean, **server 359** passed/11 skipped, **client 161** passed, `build` ✓. No open PRs.
-- **Two more cinematic layers since #129:** **#131** opt-in **cinematic camera** that gently follows YOUR
-  battles' strikes (default OFF, scoped to your battles, releases control); **#132** synth **battle sound
-  cues** (launch/impact/swing/resolve via WebAudio, no assets, default OFF). Both gated by the
-  `battleCinematics` toggle; `cameraDirector`/`beatSound` mappings are pure + test-pinned. The planned
-  cinematic queue (engine → modal → globe → randFactor → callout → faction colour → incoming telegraph →
-  reduced-motion → camera → sound) is now **complete**.
+## Current baton — main `#138` head · deploy LIVE
+- **Main:** green; CI green on every merged head. Local CI-parity: `check` clean, **server 369** passed/14
+  skipped, **client 168** passed, `build` ✓.
+- **🆕 PHASE-2 BATTLE-DEPTH batch (PRs #134–#138)** — on top of the complete cinematic system, the battle
+  layer now has real stats + durable history + UI surfacing, all server-side test-backed where it counts:
+  - **#134** `computeCommanderStats` + `GET /api/players/:id/commander-stats` (pure aggregator, +tests).
+  - **#135** `topCommanders` + bounded `getRecentResolvedBattles` + `GET /api/commanders/leaderboard` (top-killers).
+  - **#136** battle replay → **Postgres persistence** (migration **0011** `battle_replays`; fire-and-forget
+    on a non-tx connection so it can't break resolution; Redis→Postgres read fallback; gated DB spec).
+    ⚠️ **Apply migration 0011** (`psql -f` / `db:push`) for replays to persist; build is safe before that.
+  - **#137** commander combat record in **CommanderPanel** (pure `formatCommanderRecord` + thin component).
+  - **#138** global **Top Commanders** board in **LeaderboardPanel** (`shortCommanderId` + self-hiding component).
+- **Cinematic system (PRs #122–#132) — COMPLETE:** engine → modal → globe → randFactor → callout → faction
+  colour → incoming telegraph → reduced-motion → camera (#131) → sound (#132).
+- **Open roadmap (not started):** veritas provable-fairness BATTLE verification flow (market flow done;
+  battle scaffolded) — complex/sensitive, wants explicit owner go. Plus owner smoke-test of the cinematic
+  visuals/audio (none browser-verified; pure logic is test-pinned).
 - **🆕 Shipped this chat — the BATTLE SEQUENCE SYSTEM (PRs #122–#132; #121 aether dock alongside):**
   a battle is now one *connected* cinematic — a pure, deterministic **10-beat** timeline
   (`shared/battle-sequence.ts`: muster → lock → launch → transit → brace → impact → clash → swing →

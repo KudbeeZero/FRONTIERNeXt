@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { LeaderboardEntry } from "@shared/schema";
+import { TopCommandersLeaderboard } from "./TopCommandersLeaderboard";
 
 interface LeaderboardPanelProps {
   entries: LeaderboardEntry[];
@@ -88,6 +89,8 @@ export function LeaderboardPanel({ entries, currentPlayerId, className }: Leader
               isSelf={entry.playerId === currentPlayerId}
             />
           ))}
+          {/* Global top-killers board (GET /api/commanders/leaderboard) — self-hides when empty. */}
+          <TopCommandersLeaderboard />
         </div>
       </ScrollArea>
     </div>
