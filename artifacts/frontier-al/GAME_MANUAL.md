@@ -472,6 +472,27 @@ with Mountain biome (1.4x): 60 × 1.4 = 84.0
 
 Result: 223.9 > 84.0 → **Attacker wins**
 
+### Battle Theater
+
+When a battle resolves you'll see it play out as one **connected cinematic** on the
+globe: an *incoming-attack* telegraph builds on the defending plot, a strike arcs across
+the planet, and impact + a faction-coloured capture burst land on the target, with a HUD
+callout narrating the beats (the battle watch modal shows the same sequence). It honours
+your OS **reduced-motion** setting and a **Battle Cinematics** toggle in globe settings.
+Two extras are **off by default** there — **Cinematic Camera** (gently follows *your*
+battles) and **Battle Sound** (synth cues). Resolved battles can be re-watched from the
+battle log.
+
+### Provable Fairness
+
+That `randFactor` swing isn't something the server can rig. It's derived deterministically
+from a **public seed** (the battle's id + start time), and resolution is fully
+deterministic — so **anyone can independently re-derive a resolved battle's `randFactor`
+and outcome and confirm the server recorded exactly what the rule produces**. Fetch the
+proof at `GET /api/battle/<battleId>/proof` (it returns the seed, the re-derived result, a
+reproducible hash, and `valid: true`). An automated checker (veritas) verifies live
+battles continuously.
+
 ---
 
 ## 15. Morale & Cooldowns

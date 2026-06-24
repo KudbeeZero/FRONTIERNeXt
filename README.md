@@ -56,6 +56,7 @@
 - **🪐 One shared world.** A single canonical 21,000-plot planet, distributed across 8 biomes via a Fibonacci sphere — every player and faction fights over the *same* map.
 - **⛓️ Real on-chain stakes.** Every plot you buy mints a unique **ARC-3 NFT**; every FRONTIER token you claim is a live Algorand ASA transfer to your wallet.
 - **🤖 A world that fights back.** Four autonomous AI factions expand, fortify, raid, and hoard — with Adaptive Dominance Regulation to stop any one power from owning the sky.
+- **⚔️ Battles you can watch — and trust.** Every resolution plays as a connected cinematic across the globe (strike → impact → capture), and every outcome is **provably fair**: anyone can independently re-derive the result from a public seed via `/api/battle/:id/proof`.
 
 ---
 

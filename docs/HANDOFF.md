@@ -9,9 +9,26 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — main `#138` head · deploy LIVE
-- **Main:** green; CI green on every merged head. Local CI-parity: `check` clean, **server 369** passed/14
+## Current baton — PR **#141** AWAITING_AUDIT · branch `claude/baton-roadmap-complete`
+- **This PR (#141): baton refresh + PUBLIC-DOCS refresh (docs only).** Updates the player-facing docs to
+  cover this session's work — root `README.md` (front-door bullet), `frontier-al/README.md` (What's New
+  "Battle Theater & Fairness" + the new battle/stats/proof API endpoints), `FAQ.md` (provable-fairness +
+  cinematics Q&A), `GAME_MANUAL.md` (Ch.14 "Battle Theater" + "Provable Fairness"). No code/schema change.
+- **Main:** green; CI green on every merged head. Local CI-parity: `check` clean, **server 375** passed/14
   skipped, **client 168** passed, `build` ✓.
+- **✅ The tractable battle-depth roadmap is DONE end-to-end** (cinematic + stats + durable history +
+  provable fairness). What remains needs OWNER input, not more code:
+  - **(a) Cryptographic-commitment seed scheme** — store `sha256(seed)` at battle deploy, reveal later, so
+    randomness is unpredictable even to the server pre-battle. A schema + RNG design change → explicit owner
+    go (the current proof uses the public `hashSeed(id, startTs)` derivation rule).
+  - **(b) Device smoke-test** of the cinematic visuals/audio — NONE browser-verified; every pure mapping is
+    test-pinned. See `artifacts/frontier-al/docs/BATTLE_CINEMATICS_SMOKETEST.md`.
+  - **(c) Apply migration 0011** (`psql -f` / `db:push`) so replays persist past Redis's 24h TTL.
+- **🆕 VERITAS provable-fairness for BATTLES (PRs #139–#140):**
+  - **#139** pure `verifyBattleProof` (re-uses the REAL resolver, no drift) + public `GET /api/battle/:id/proof`
+    (re-derives seed → confirms recorded randFactor + outcome; +6 tests).
+  - **#140** veritas CLI `battle` flow — sources a resolved battle from `/api/battles/history`, fetches the
+    proof, and independently re-derives + cross-checks the hash. Registered in `flows/index.ts`.
 - **🆕 PHASE-2 BATTLE-DEPTH batch (PRs #134–#138)** — on top of the complete cinematic system, the battle
   layer now has real stats + durable history + UI surfacing, all server-side test-backed where it counts:
   - **#134** `computeCommanderStats` + `GET /api/players/:id/commander-stats` (pure aggregator, +tests).
@@ -23,9 +40,8 @@
   - **#138** global **Top Commanders** board in **LeaderboardPanel** (`shortCommanderId` + self-hiding component).
 - **Cinematic system (PRs #122–#132) — COMPLETE:** engine → modal → globe → randFactor → callout → faction
   colour → incoming telegraph → reduced-motion → camera (#131) → sound (#132).
-- **Open roadmap (not started):** veritas provable-fairness BATTLE verification flow (market flow done;
-  battle scaffolded) — complex/sensitive, wants explicit owner go. Plus owner smoke-test of the cinematic
-  visuals/audio (none browser-verified; pure logic is test-pinned).
+- *(veritas BATTLE verification — now DONE in #139–#140; see above. Remaining veritas work = the
+  cryptographic-commitment scheme, item (a), which needs owner go.)*
 - **🆕 Shipped this chat — the BATTLE SEQUENCE SYSTEM (PRs #122–#132; #121 aether dock alongside):**
   a battle is now one *connected* cinematic — a pure, deterministic **10-beat** timeline
   (`shared/battle-sequence.ts`: muster → lock → launch → transit → brace → impact → clash → swing →

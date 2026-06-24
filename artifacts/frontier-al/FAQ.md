@@ -149,6 +149,37 @@ minimal resources, so they're never worth buying. Stick to land biomes.
 
 </details>
 
+<details>
+<summary><b>Is combat fair? Can I trust the outcome?</b></summary>
+
+<br/>
+
+Yes — and you don't have to take our word for it. Battle outcomes are **provably fair**.
+Each battle's random swing (the `randFactor`) is derived deterministically from a
+**public seed** (the battle's id + start time), and resolution is fully deterministic.
+So **anyone can independently re-run the exact resolver on the public inputs and confirm
+the recorded result** — the server can't fudge a winner after the fact.
+
+You can fetch the proof yourself at `GET /api/battle/<battleId>/proof`; it returns the
+seed, the re-derived `randFactor` + outcome, a reproducible hash, and `valid: true`. An
+automated fairness checker (veritas) verifies live battles on a loop.
+
+</details>
+
+<details>
+<summary><b>What's all the motion when a battle resolves? Can I turn it off?</b></summary>
+
+<br/>
+
+That's the **Battle Theater** — a connected cinematic: an incoming-attack telegraph on
+the target, a strike arcing across the globe, an impact + capture burst in the attacker's
+faction colour, and a HUD callout narrating it. It honours your OS **reduced-motion**
+setting, and there's a **Battle Cinematics** toggle in globe settings. Two extras are
+**off by default** there: **Cinematic Camera** (gently follows your own battles) and
+**Battle Sound** (synth cues).
+
+</details>
+
 ---
 
 ## 🪐 Map, Plots & NFTs
