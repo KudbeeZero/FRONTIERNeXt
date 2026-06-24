@@ -25,6 +25,7 @@ import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
 import { BattleCalloutHUD } from "./globe/BattleCalloutHUD";
 import { GlobeIncomingTelegraph } from "./globe/GlobeIncomingTelegraph";
 import { GlobeCinematicCamera } from "./globe/GlobeCinematicCamera";
+import { BattleSoundLayer } from "./globe/BattleSoundLayer";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
@@ -266,6 +267,7 @@ export default function PlanetGlobe({
       <GlobeHUD activeBattleCount={activeBattleCount} replayTime={replayTime} />
 
       <BattleCalloutHUD />
+      <BattleSoundLayer />
 
       <GlobeCompass controlsRef={controlsRef} />
 
