@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import type { TradeOrder, InsertTradeOrder } from "../db-schema";
+import type { BattleReplayRecord } from "../services/redis";
 import type {
   LandParcel,
   Player,
@@ -1161,6 +1162,18 @@ export class MemStorage implements IStorage {
       .filter((b) => b.status === "resolved")
       .sort((a, b) => b.resolveTs - a.resolveTs)
       .slice(0, n);
+  }
+
+  private persistedReplays = new Map<string, BattleReplayRecord>();
+
+  async persistBattleReplay(record: BattleReplayRecord): Promise<void> {
+    if (!this.persistedReplays.has(record.battleId)) {
+      this.persistedReplays.set(record.battleId, record); // idempotent on battleId
+    }
+  }
+
+  async getPersistedBattleReplay(battleId: string): Promise<BattleReplayRecord | null> {
+    return this.persistedReplays.get(battleId) ?? null;
   }
 
   async getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }> {

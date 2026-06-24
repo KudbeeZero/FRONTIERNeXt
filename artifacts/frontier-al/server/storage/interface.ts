@@ -34,6 +34,7 @@ import type {
 } from "@shared/schema";
 import type { TradeOrder, InsertTradeOrder } from "../db-schema";
 import type { PlayerWeaponProfile } from "@shared/weapons";
+import type { BattleReplayRecord } from "../services/redis";
 
 export interface IStorage {
   /** Initialize storage (run seeder if needed). */
@@ -92,6 +93,10 @@ export interface IStorage {
   getPlayerBattles(playerId: string): Promise<Battle[]>;
   /** Most recent resolved battles, newest first, bounded — for the global commander leaderboard. */
   getRecentResolvedBattles(limit: number): Promise<Battle[]>;
+  /** Durably store a battle replay record (Postgres) so it outlives the Redis 24h TTL. */
+  persistBattleReplay(record: BattleReplayRecord): Promise<void>;
+  /** Read a durably-persisted battle replay record, or null if none. */
+  getPersistedBattleReplay(battleId: string): Promise<BattleReplayRecord | null>;
   /** Whether the player owns a Comm Terminal facility and its max level — gates the whisper feed. */
   getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }>;
   runAITurn(): Promise<GameEvent[]>;
