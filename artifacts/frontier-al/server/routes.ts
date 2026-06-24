@@ -2905,11 +2905,15 @@ export async function registerRoutes(
       if (!battleId || typeof battleId !== "string") {
         return res.status(400).json({ error: "battleId is required" });
       }
-      const replay = await getBattleReplay(battleId);
+      // Redis is the hot path (24h TTL); fall back to the durable Postgres copy
+      // so replays survive past expiry.
+      const replay =
+        (await getBattleReplay(battleId)) ??
+        (await withDbRetry(() => storage.getPersistedBattleReplay(battleId), "getPersistedBattleReplay"));
       if (!replay) {
         return res.status(404).json({
           error: "Replay not available",
-          reason: "Battle replay expires after 24 hours or Redis is not configured"
+          reason: "Battle replay not found (or older than retention)"
         });
       }
       res.json(replay);

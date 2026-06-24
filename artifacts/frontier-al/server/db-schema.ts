@@ -334,6 +334,37 @@ export const battles = pgTable(
   })
 );
 
+// ─── battle_replays ───────────────────────────────────────────────────────────
+// Durable copy of the battle replay record (mirrors services/redis.ts
+// BattleReplayRecord) so the cinematic replays survive past the Redis 24h TTL.
+// Written fire-and-forget at resolution; read as a fallback by
+// GET /api/battle/replay/:battleId when Redis misses. Carries only the same
+// already-public data the Redis record does (no wallet addresses / UUIDs).
+
+export const battleReplays = pgTable(
+  "battle_replays",
+  {
+    battleId:        varchar("battle_id", { length: 36 }).primaryKey(),
+    attackerName:    text("attacker_name").notNull(),
+    defenderName:    text("defender_name").notNull(),
+    attackerPower:   real("attacker_power").notNull(),
+    defenderPower:   real("defender_power").notNull(),
+    randFactor:      real("rand_factor").notNull(),
+    outcome:         varchar("outcome", { length: 20 }).notNull(),
+    plotId:          integer("plot_id").notNull(),
+    biome:           varchar("biome", { length: 20 }).notNull(),
+    pillagedIron:    integer("pillaged_iron").notNull(),
+    pillagedFuel:    integer("pillaged_fuel").notNull(),
+    pillagedCrystal: integer("pillaged_crystal").notNull(),
+    resolvedAt:      bigint("resolved_at", { mode: "number" }).notNull(),
+    log:             jsonb("log").$type<Array<{ phase: string; message: string }>>().notNull(),
+  },
+  (t) => ({
+    /** Newest-first scans / future TTL pruning. */
+    resolvedIdx: index("battle_replays_resolved_idx").on(t.resolvedAt),
+  }),
+);
+
 // ─── orbital_events ───────────────────────────────────────────────────────────
 // Persists server-authoritative IMPACT events (cosmetic-only events are
 // generated deterministically on the client; no DB row required for those).

@@ -98,6 +98,7 @@ import {
   players as playersTable,
   parcels as parcelsTable,
   battles as battlesTable,
+  battleReplays as battleReplaysTable,
   gameEvents as gameEventsTable,
   orbitalEvents as orbitalEventsTable,
   tradeOrders as tradeOrdersTable,
@@ -682,6 +683,60 @@ export class DbStorage implements IStorage {
       .orderBy(desc(battlesTable.resolveTs))
       .limit(n);
     return rows.map(rowToBattle);
+  }
+
+  /** Durably store a battle replay (Postgres). Idempotent on battleId (re-resolution safe). */
+  async persistBattleReplay(record: BattleReplayRecord): Promise<void> {
+    await this.initialize();
+    await this.db.insert(battleReplaysTable).values({
+      battleId:        record.battleId,
+      attackerName:    record.attackerName,
+      defenderName:    record.defenderName,
+      attackerPower:   record.attackerPower,
+      defenderPower:   record.defenderPower,
+      randFactor:      record.randFactor,
+      outcome:         record.outcome,
+      plotId:          record.plotId,
+      biome:           record.biome,
+      pillagedIron:    record.pillagedIron,
+      pillagedFuel:    record.pillagedFuel,
+      pillagedCrystal: record.pillagedCrystal,
+      resolvedAt:      record.resolvedAt,
+      log:             record.log,
+    }).onConflictDoNothing();
+  }
+
+  /** Read a durably-persisted battle replay, or null if none / before the migration is applied. */
+  async getPersistedBattleReplay(battleId: string): Promise<BattleReplayRecord | null> {
+    await this.initialize();
+    let row;
+    try {
+      [row] = await this.db.select().from(battleReplaysTable)
+        .where(eq(battleReplaysTable.battleId, battleId))
+        .limit(1);
+    } catch (e) {
+      // Table not applied yet / transient error → behave as "no replay" (→ 404),
+      // never a 500. Mirrors the fire-and-forget writer.
+      console.error("[getPersistedBattleReplay] read failed (non-fatal)", e);
+      return null;
+    }
+    if (!row) return null;
+    return {
+      battleId:        row.battleId,
+      attackerName:    row.attackerName,
+      defenderName:    row.defenderName,
+      attackerPower:   row.attackerPower,
+      defenderPower:   row.defenderPower,
+      randFactor:      row.randFactor,
+      outcome:         row.outcome as "attacker_wins" | "defender_wins",
+      plotId:          row.plotId,
+      biome:           row.biome,
+      pillagedIron:    row.pillagedIron,
+      pillagedFuel:    row.pillagedFuel,
+      pillagedCrystal: row.pillagedCrystal,
+      resolvedAt:      row.resolvedAt,
+      log:             row.log,
+    };
   }
 
   /** Comm Terminal ownership + max level across the player's plots (gates the whisper feed). */
@@ -2095,6 +2150,12 @@ export class DbStorage implements IStorage {
           }),
         };
         saveBattleReplay(replayRecord).catch(() => {});
+        // Durable Postgres copy (outlives the Redis 24h TTL). Fire-and-forget on
+        // this.db — a SEPARATE connection from `tx`, so a missing table / error
+        // can never abort the resolution transaction.
+        this.persistBattleReplay(replayRecord).catch((e) =>
+          console.error("[resolveBattles] persist replay failed (non-fatal)", e),
+        );
 
         await this.bumpLastTs(now, tx);
         resolved.push(rowToBattle({ ...battleRow, status: "resolved", outcome, randFactor }));
