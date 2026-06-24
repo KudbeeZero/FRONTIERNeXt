@@ -673,6 +673,17 @@ export class DbStorage implements IStorage {
     return rows.map(rowToBattle);
   }
 
+  /** Most recent resolved battles, newest first, bounded — for the global commander leaderboard. */
+  async getRecentResolvedBattles(limit: number): Promise<Battle[]> {
+    await this.initialize();
+    const n = Math.max(1, Math.min(2000, Math.floor(limit) || 1));
+    const rows = await this.db.select().from(battlesTable)
+      .where(eq(battlesTable.status, "resolved"))
+      .orderBy(desc(battlesTable.resolveTs))
+      .limit(n);
+    return rows.map(rowToBattle);
+  }
+
   /** Comm Terminal ownership + max level across the player's plots (gates the whisper feed). */
   async getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }> {
     await this.initialize();

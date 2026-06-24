@@ -1155,6 +1155,14 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getRecentResolvedBattles(limit: number): Promise<Battle[]> {
+    const n = Math.max(1, Math.min(2000, Math.floor(limit) || 1));
+    return Array.from(this.battles.values())
+      .filter((b) => b.status === "resolved")
+      .sort((a, b) => b.resolveTs - a.resolveTs)
+      .slice(0, n);
+  }
+
   async getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }> {
     return commTerminalLevel(Array.from(this.parcels.values()), playerId);
   }
