@@ -55,7 +55,7 @@ export function DialogueOverlay() {
   const interactive = canSkip || hasCTA;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[84px] sm:pb-[88px]">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[60px] sm:pb-[64px]">
       <div
         className={`holo-panel relative w-full max-w-3xl rounded-md px-6 py-5 ${interactive ? "pointer-events-auto" : "pointer-events-none"}`}
         onClick={() => {
