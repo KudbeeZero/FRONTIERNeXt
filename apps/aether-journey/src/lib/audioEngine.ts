@@ -16,6 +16,52 @@ import { getMusicTrack } from "./music";
 /** Background music sits well under dialogue/FX — base ceiling before master volume. */
 const MUSIC_BASE = 0.4;
 
+// Web Speech voices are populated ASYNCHRONOUSLY — getVoices() is often empty on
+// the first call, so without caching the early lines fall back to the robotic
+// default before a good voice has loaded. Cache it and refresh on `voiceschanged`.
+let _voiceCache: SpeechSynthesisVoice[] = [];
+function refreshVoices() {
+  try {
+    _voiceCache = window.speechSynthesis.getVoices() ?? [];
+  } catch {
+    /* ignore */
+  }
+}
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  refreshVoices();
+  try {
+    window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Pick the warmest, most natural English voice available for Aether — preferring
+ * the OS's premium/neural voices (Samantha on iOS, the "Natural"/"Online" voices
+ * on Win/Chrome) over the generic robotic default. Greatly improves the Ch.2+
+ * fallback where no pre-rendered VO exists.
+ */
+function pickAetherVoice(): SpeechSynthesisVoice | undefined {
+  const voices =
+    _voiceCache.length || typeof window === "undefined" || !("speechSynthesis" in window)
+      ? _voiceCache
+      : window.speechSynthesis.getVoices();
+  if (!voices.length) return undefined;
+  const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang) || /english/i.test(v.name));
+  const pool = en.length ? en : voices;
+  const tiers: RegExp[] = [
+    /natural|neural|premium|enhanced|online/i, // OS premium voices
+    /samantha|aria|jenny|libby|sonia|ava|allison|serena|moira|karen/i, // known-good named voices
+    /female|woman|google us english|google uk english female|zira/i, // female-leaning fallback
+  ];
+  for (const re of tiers) {
+    const hit = pool.find((v) => re.test(v.name));
+    if (hit) return hit;
+  }
+  return pool[0];
+}
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -303,14 +349,14 @@ class AudioEngine {
         // Strip glitch glyphs so the synth reads cleanly.
         text.replace(/[▓▒░#@%&*<>/\\|=+×÷¦‡†§¤]/g, ""),
       );
-      u.rate = 0.96 - glitch * 0.12;
-      u.pitch = 1.05 - glitch * 0.45;
+      u.lang = "en-US";
+      // Warmer + steadier than before (was pitch 1.05 → robotic). Glitch still
+      // drags the pitch/rate down so Aether's damage reads in Ch.1's voiced lines
+      // and the Ch.2+ fallback alike.
+      u.rate = 0.9 - glitch * 0.1;
+      u.pitch = 0.92 - glitch * 0.4;
       u.volume = 0.9;
-      // Prefer a softer / female-leaning voice if present.
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find((v) =>
-        /female|samantha|victoria|zira|google uk english female|aria/i.test(v.name),
-      );
+      const preferred = pickAetherVoice();
       if (preferred) u.voice = preferred;
       if (onEnded) u.onend = () => onEnded();
       window.speechSynthesis.cancel();
