@@ -11,7 +11,9 @@ import type { Battle } from "@shared/schema";
 import {
   buildSequenceFromFacts,
   factsFromBattle,
+  factsFromResolvedEvent,
   type ResolvedBattleFacts,
+  type ResolvedEventLike,
 } from "../src/lib/battle/sequenceFromBattle";
 
 function facts(over: Partial<ResolvedBattleFacts> = {}): ResolvedBattleFacts {
@@ -114,5 +116,52 @@ describe("factsFromBattle", () => {
     );
     expect(f.hasCommander).toBe(false);
     expect(f.defenderName).toBeNull();
+  });
+});
+
+describe("factsFromResolvedEvent", () => {
+  const event: ResolvedEventLike = {
+    battleId: "b-7",
+    outcome: "attacker_wins",
+    plotId: 555,
+    biome: "volcanic",
+    attackerName: "VANGUARD",
+    defenderName: "KRONOS",
+    attackerPower: 95, // snapshot (pre-randFactor)
+    defenderPower: 100,
+    randFactor: 8,
+  };
+
+  it("carries the REAL randFactor so a decided swing is detected on the globe", () => {
+    const f = factsFromResolvedEvent(event, {
+      source: { lat: 1, lng: 2 },
+      target: { lat: 3, lng: 4 },
+    });
+    expect(f.randFactor).toBe(8);
+    expect(f.attackerPowerSnapshot).toBe(95);
+    const seq = buildSequenceFromFacts(f);
+    // 95 < 100 raw, but 95×1.08 = 102.6 > 100 ⇒ the swing decided it
+    expect(seq.swingDecided).toBe(true);
+    expect(seq.attacker.power).toBeCloseTo(102.6, 5);
+  });
+
+  it("merges troops/commander/fortifications from context (event omits them)", () => {
+    const f = factsFromResolvedEvent(event, {
+      source: { lat: 1, lng: 2 },
+      target: { lat: 3, lng: 4 },
+      troopsCommitted: 40,
+      hasCommander: true,
+      improvements: [{ type: "turret", level: 3 }],
+    });
+    expect(f.troopsCommitted).toBe(40);
+    expect(f.hasCommander).toBe(true);
+    const seq = buildSequenceFromFacts(f);
+    expect(seq.beats.find((b) => b.kind === "brace")!.caption).toContain("L3");
+  });
+
+  it("defaults troops/commander to 0/false when context omits them", () => {
+    const f = factsFromResolvedEvent(event, { source: { lat: 0, lng: 0 }, target: { lat: 1, lng: 1 } });
+    expect(f.troopsCommitted).toBe(0);
+    expect(f.hasCommander).toBe(false);
   });
 });

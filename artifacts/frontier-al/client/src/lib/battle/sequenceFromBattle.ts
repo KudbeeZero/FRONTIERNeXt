@@ -74,6 +74,62 @@ export function buildSequenceFromFacts(f: ResolvedBattleFacts): BattleSequence {
   });
 }
 
+/** Minimal shape of the server's rich `battle:resolved` event (decoupled from the hook). */
+export interface ResolvedEventLike {
+  battleId: string;
+  outcome: BattleOutcome;
+  plotId: number;
+  biome: string;
+  attackerName: string;
+  defenderName?: string | null;
+  /** Snapshot attacker power (pre-randFactor), as broadcast. */
+  attackerPower: number;
+  defenderPower: number;
+  randFactor: number;
+}
+
+/** Context the event doesn't carry: globe positions, fortifications, troops, commander. */
+export interface ResolvedEventContext {
+  source: GeoPoint;
+  target: GeoPoint;
+  improvements?: ReadonlyArray<{ type: string; level: number }> | null;
+  /** From the cached battle row (event omits it) — affects only muster pacing. */
+  troopsCommitted?: number;
+  hasCommander?: boolean;
+  attackerColor?: string;
+  defenderColor?: string;
+}
+
+/**
+ * Build cinematic facts from the rich `battle:resolved` event + looked-up
+ * context. Preferred over {@link factsFromBattle} on the globe because the event
+ * carries the REAL randFactor and snapshot powers, so the luck-swing beat is
+ * data-driven (the world-event path defaults randFactor to 0).
+ */
+export function factsFromResolvedEvent(
+  e: ResolvedEventLike,
+  ctx: ResolvedEventContext,
+): ResolvedBattleFacts {
+  return {
+    battleId: e.battleId,
+    source: ctx.source,
+    target: ctx.target,
+    plotId: e.plotId,
+    biome: e.biome,
+    attackerName: e.attackerName,
+    defenderName: e.defenderName ?? null,
+    attackerColor: ctx.attackerColor,
+    defenderColor: ctx.defenderColor,
+    attackerPowerSnapshot: e.attackerPower,
+    defenderPower: e.defenderPower,
+    randFactor: e.randFactor,
+    outcome: e.outcome,
+    troopsCommitted: ctx.troopsCommitted ?? 0,
+    hasCommander: ctx.hasCommander ?? false,
+    improvements: ctx.improvements,
+  };
+}
+
 /** A parcel's position + display context, looked up by the globe layer. */
 export interface ParcelFacts {
   source: GeoPoint;
