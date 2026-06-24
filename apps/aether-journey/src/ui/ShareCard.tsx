@@ -162,6 +162,12 @@ export function ShareCard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [mint, setMint] = useState<{
+    stage: "idle" | "working" | "minted" | "error";
+    assetId?: number;
+    url?: string;
+    err?: string;
+  }>({ stage: "idle" });
 
   const card = buildJourneyCard({ ending, trust, flags });
 
@@ -243,6 +249,27 @@ export function ShareCard() {
     URL.revokeObjectURL(url);
   };
 
+  // Mint the run as a real ARC-69 NFT in the player's own TestNet wallet. The
+  // wallet/Pera stack is dynamically imported so it never weighs down the prologue.
+  const onMint = async () => {
+    setMint({ stage: "working" });
+    audio.beep(680, 0.06, "sine", 0.1);
+    try {
+      const mod = await import("../lib/chain/claim");
+      const addr = await mod.connectWallet();
+      const res = await mod.mintJourneyNft(addr, card);
+      setMint({ stage: "minted", assetId: res.assetId, url: mod.explorerAssetUrl(res.assetId) });
+      audio.confirm();
+    } catch (err) {
+      const e = err as { message?: string; cancelled?: boolean };
+      if (e?.cancelled) {
+        setMint({ stage: "idle" });
+        return;
+      }
+      setMint({ stage: "error", err: e?.message || "Mint failed." });
+    }
+  };
+
   return (
     <div className="mt-6 flex w-full max-w-sm flex-col items-center">
       <canvas
@@ -268,6 +295,41 @@ export function ShareCard() {
       </div>
       <div className="mt-2 min-h-[16px] font-mono text-[10px] uppercase tracking-widest text-[#5f7da0]">
         {note ?? "your run, as a card — share it"}
+      </div>
+
+      {/* Mint the card as a real, self-owned NFT on Algorand TestNet. */}
+      <div className="mt-3 flex w-full flex-col items-center gap-2">
+        {mint.stage !== "minted" && (
+          <button
+            onClick={onMint}
+            disabled={mint.stage === "working"}
+            className="w-full rounded border border-emerald-400/50 bg-emerald-400/10 px-5 py-2.5 font-mono text-xs uppercase tracking-widest text-emerald-200 transition hover:bg-emerald-400/25 disabled:opacity-60"
+          >
+            {mint.stage === "working" ? "Minting in your wallet…" : "◈ Mint as NFT · Algorand TestNet"}
+          </button>
+        )}
+        {mint.stage === "minted" && mint.url && (
+          <a
+            href={mint.url}
+            target="_blank"
+            rel="noreferrer"
+            className="w-full rounded border border-emerald-400/60 bg-emerald-400/15 px-5 py-2.5 text-center font-mono text-xs uppercase tracking-widest text-emerald-200 text-glow transition hover:bg-emerald-400/25"
+          >
+            ✓ Minted · ASA #{mint.assetId} — view your NFT ↗
+          </a>
+        )}
+        {mint.stage === "error" && (
+          <p className="text-center text-[10px] normal-case leading-snug text-rose-300">
+            {mint.err}{" "}
+            <button onClick={onMint} className="underline decoration-dotted">
+              retry
+            </button>
+          </p>
+        )}
+        <p className="max-w-xs text-center text-[9px] leading-snug text-[#46627d]">
+          Mint your run as a real NFT you own. TestNet only — needs a little free
+          testnet ALGO for the fee; no real funds move.
+        </p>
       </div>
     </div>
   );

@@ -14,6 +14,10 @@
 import algosdk from "algosdk";
 import { PeraWalletConnect } from "@perawallet/connect";
 import type { OnchainEvent } from "../../store/types";
+import type { JourneyCard } from "../journeyCard";
+import { journeyAssetParams } from "./journeyAsset";
+
+export { explorerAssetUrl } from "./journeyAsset";
 
 // Algorand TestNet chain id (genesis "testnet-v1.0"). Pera scopes its session
 // to this network so the wallet signs against testnet, not mainnet.
@@ -209,4 +213,71 @@ export async function claimLedgerOnChain(
   // txID() is deterministic from the (now group-stamped) txn objects.
   const txIds = txns.map((t) => t.txID());
   return { txIds, confirmedRound };
+}
+
+export interface MintResult {
+  assetId: number;
+  txId: string;
+  confirmedRound: number | null;
+}
+
+/**
+ * Mint the player's finished run as an ARC-69 NFT (ASA) on Algorand TestNet,
+ * created and owned by the connected wallet — a real, self-custodial NFT of their
+ * journey. total=1, decimals=0; the card identity rides in the ARC-69 note. The
+ * player signs in Pera and pays the trivial TestNet fee; no server key involved.
+ *
+ * @throws ClaimError (with `cancelled` set when the user dismissed the wallet).
+ */
+export async function mintJourneyNft(address: string, card: JourneyCard): Promise<MintResult> {
+  const p = getPera();
+  const suggestedParams = await algod.getTransactionParams().do();
+  const { assetName, unitName, url, note } = journeyAssetParams(card);
+
+  const txn = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
+    sender: address,
+    total: 1,
+    decimals: 0,
+    defaultFrozen: false,
+    assetName,
+    unitName,
+    assetURL: url,
+    manager: address,
+    reserve: address,
+    note: new TextEncoder().encode(note),
+    suggestedParams,
+  });
+
+  let signed: Uint8Array[];
+  try {
+    signed = await p.signTransaction([[{ txn }]]);
+  } catch (err) {
+    const msg = (err as Error)?.message || String(err);
+    throw new ClaimError(
+      looksCancelled(msg) ? "Mint cancelled in the wallet." : msg,
+      looksCancelled(msg),
+    );
+  }
+
+  try {
+    const { txid } = await algod.sendRawTransaction(signed).do();
+    const status = await algosdk.waitForConfirmation(algod, txid, 6);
+    const s = status as unknown as {
+      assetIndex?: bigint | number;
+      "asset-index"?: number;
+      confirmedRound?: bigint | number;
+      "confirmed-round"?: number;
+    };
+    const assetId = Number(s.assetIndex ?? s["asset-index"] ?? 0);
+    if (!assetId) throw new ClaimError("Mint confirmed but no asset id was returned.");
+    const round = s.confirmedRound ?? s["confirmed-round"];
+    return { assetId, txId: txn.txID(), confirmedRound: round != null ? Number(round) : null };
+  } catch (err) {
+    if (err instanceof ClaimError) throw err;
+    const msg = (err as Error)?.message || String(err);
+    const hint = /overspend|balance|insufficient|below min/i.test(msg)
+      ? " — this wallet needs a little testnet ALGO (≈0.2) to mint. Fund it free from the Algorand testnet dispenser."
+      : "";
+    throw new ClaimError(`Mint failed: ${msg}${hint}`);
+  }
 }
