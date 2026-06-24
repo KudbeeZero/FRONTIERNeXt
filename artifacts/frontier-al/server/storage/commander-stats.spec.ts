@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from "vitest";
 import type { Battle } from "@shared/schema";
-import { computeCommanderStats, computeAllCommanderStats } from "./commander-stats";
+import { computeCommanderStats, computeAllCommanderStats, topCommanders } from "./commander-stats";
 
 const CMD = "cmd-1";
 
@@ -122,5 +122,22 @@ describe("computeAllCommanderStats", () => {
   it("returns an empty leaderboard when no commander has fought", () => {
     expect(computeAllCommanderStats([])).toEqual([]);
     expect(computeAllCommanderStats([battle({ commanderId: undefined })])).toEqual([]);
+  });
+});
+
+describe("topCommanders", () => {
+  const rows = ["a", "b", "c", "d"].flatMap((id, i) =>
+    // a wins 4, b 3, c 2, d 1 → ranked a,b,c,d
+    Array.from({ length: 4 - i }, () => battle({ commanderId: id, outcome: "attacker_wins" })),
+  );
+
+  it("returns the top N ranked commanders", () => {
+    expect(topCommanders(rows, 2).map((c) => c.commanderId)).toEqual(["a", "b"]);
+  });
+
+  it("clamps top to [1, 100]", () => {
+    expect(topCommanders(rows, 0)).toHaveLength(1); // clamped up to 1
+    expect(topCommanders(rows, -5)).toHaveLength(1);
+    expect(topCommanders(rows, 999)).toHaveLength(4); // clamped down, but only 4 exist
   });
 });

@@ -95,6 +95,12 @@ export function computeCommanderStats(battles: Battle[], commanderId: string): C
  * stable order. Pass a single player's attacker battles to get *their*
  * commanders' records.
  */
+/** Top-N commanders for a global leaderboard. `top` is clamped to [1, 100]. */
+export function topCommanders(battles: Battle[], top: number): CommanderBattleStats[] {
+  const n = Math.max(1, Math.min(100, Math.floor(top) || 1));
+  return computeAllCommanderStats(battles).slice(0, n);
+}
+
 export function computeAllCommanderStats(battles: Battle[]): CommanderBattleStats[] {
   const ids = Array.from(
     new Set(

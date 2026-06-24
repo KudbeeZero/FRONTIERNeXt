@@ -57,7 +57,7 @@ import {
 } from "./services/chain/factions";
 import { fromMicroASCEND } from "./storage/game-rules";
 import { computePlayerBattleStats } from "./storage/battle-stats";
-import { computeAllCommanderStats } from "./storage/commander-stats";
+import { computeAllCommanderStats, topCommanders } from "./storage/commander-stats";
 import { generateWhisper } from "./engine/narrative/whispers";
 import { synthesizeWhisper, isVoiceConfigured } from "./services/voice/elevenlabs";
 import {
@@ -3799,6 +3799,19 @@ export async function registerRoutes(
       res.json(computeAllCommanderStats(ownAttacks));
     } catch (err) {
       console.error("[players/commander-stats]", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /** GET /api/commanders/leaderboard?top=N — global top-killers: commanders ranked by
+   *  wins across recent resolved battles. Public read of already-public aggregate data. */
+  app.get("/api/commanders/leaderboard", async (req, res) => {
+    try {
+      const top = Number.parseInt(String(req.query.top ?? "20"), 10);
+      const battles = await withDbRetry(() => storage.getRecentResolvedBattles(2000), "getRecentResolvedBattles");
+      res.json(topCommanders(battles, Number.isFinite(top) ? top : 20));
+    } catch (err) {
+      console.error("[commanders/leaderboard]", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
