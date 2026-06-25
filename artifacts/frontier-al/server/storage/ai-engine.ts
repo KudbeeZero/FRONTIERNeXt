@@ -27,6 +27,7 @@ import {
   type ContestedPlot,
 } from "../engine/ai/reconquest.js";
 import { rowToPlayer, rowToParcel } from "./game-rules";
+import { withFactionVoice } from "../engine/narrative/factionVoice.js";
 
 type DB = typeof db;
 
@@ -143,7 +144,7 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
 
                   const evt: GameEvent = {
                     id: randomUUID(), type: "ai_action", playerId: ai.id, parcelId: entry.p.id,
-                    description: `${ai.name} expanded toward NEXUS-7 territory (Cost: ${cost} ALGO)`, timestamp: now,
+                    description: withFactionVoice(ai.name, "expand", entry.p.plotId ?? now, `${ai.name} expanded toward NEXUS-7 territory (Cost: ${cost} ALGO)`), timestamp: now,
                   };
                   await ops.addEvent(evt);
                   newEvents.push(evt);
@@ -168,7 +169,7 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
             if (process.env.AI_ENABLED === 'true') {
               try {
                 await ops.purchaseLand({ playerId: ai.id, parcelId: target.id });
-                const desc = `${ai.name} purchased new territory`;
+                const desc = withFactionVoice(ai.name, "expand", target.plotId ?? now, `${ai.name} purchased new territory`);
                 const evt: GameEvent = {
                   id: randomUUID(), type: "ai_action", playerId: ai.id, parcelId: target.id,
                   description: desc, timestamp: now,
@@ -248,10 +249,14 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
                   resourcesBurned: { iron: ATTACK_BASE_COST.iron, fuel: ATTACK_BASE_COST.fuel },
                 });
 
-                const desc =
+                const desc = withFactionVoice(
+                  ai.name,
+                  "assault",
+                  now,
                   ai.name === "VANGUARD"
                     ? `${ai.name} executed Nexus strike`
-                    : `${ai.name} launched suppression strike`;
+                    : `${ai.name} launched suppression strike`,
+                );
 
                 const evt: GameEvent = {
                   id: randomUUID(),
@@ -287,7 +292,7 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
                       },
                     });
 
-                    const desc = `${ai.name} deployed troops`;
+                    const desc = withFactionVoice(ai.name, "assault", attackTarget.plotId ?? now, `${ai.name} deployed troops`);
 
                     const evt: GameEvent = {
                       id: randomUUID(),
@@ -383,7 +388,7 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
               type:        "ai_action",
               playerId:    ai.id,
               parcelId:    decision.targetParcelId,
-              description: decision.reason,
+              description: withFactionVoice(ai.name, "reconquest", now, decision.reason),
               timestamp:   now,
             };
             await ops.addEvent(evt);
@@ -420,7 +425,7 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
                 type:        "ai_action",
                 playerId:    ai.id,
                 parcelId:    raidPlot.id,
-                description: `${ai.name} raided plot #${raidPlot.plotId} and withdrew`,
+                description: withFactionVoice(ai.name, "raid", raidPlot.plotId ?? now, `${ai.name} raided plot #${raidPlot.plotId} and withdrew`),
                 timestamp:   now,
               };
               await ops.addEvent(evt);

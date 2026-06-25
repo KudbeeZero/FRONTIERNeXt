@@ -10,25 +10,23 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/testnet-wallet-auto-login-cl8cz9` · PR #151 · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/ai-faction-comms` · PR #152 · 1 open PR
 
-This chat added **zero-click TestNet dev auto-login** so the game can be developed
-without TestNet funds. **Next chat: `/handoff-audit` this PR before anything else.**
+This chat shipped **AI Battle Test — Unit 1: faction communication.** The 4 AI factions now
+**speak in character** in the live event feed during real turns. (Prior unit **#151** zero-click
+dev login was verified green + **merged** this chat to unblock.) **Next chat: `/handoff-audit` this PR first.**
 
-- **What this chat did (for the auditor):** new client flag `VITE_DEV_AUTOLOGIN` — when it
-  **and** `VITE_DEV_MODE` are both `"true"`, the landing page runs the **existing**
-  `DEV_LOGIN_ENABLED`-gated `/api/dev/quick-auth` on load and enters the game as the
-  non-spendable sentinel test player (no wallet, no funds, no button click).
-  - Gate is a **pure fail-closed fn** `shouldDevAutoLogin()` (both flags + single-fire),
-    unit-pinned in `client/tests/devAutoLogin.spec.ts` (mirrors `isDevLoginEnabled`).
-  - Reuses the existing dev quick-auth route — **no funds/ASA/transfer code touched**;
-    triple-gated (two build flags + server's `DEV_LOGIN_ENABLED` 403). Docs: `ENV_VARS.md` + `.env.example`.
-- **Verify gate (this chat, branch head `982775f`):** typecheck ✓ · server **380**/14-skip ✓ ·
-  client **178** ✓ (174 + **4** new) · build ✓.
-- **PRs:** **1 open (this one)** — audit + merge before starting the next unit.
-- **Honest flag:** logic + tests + build only — **NOT browser-verified on-device**. And it does
-  **NOT** solve real on-chain TestNet funding (sentinel can't hold ALGO); for real on-chain
-  testing the path is AlgoKit **LocalNet** (pre-funded) or the dispenser — separate unit.
+- **What this chat did (for the auditor):**
+  - New **pure** `server/engine/narrative/factionVoice.ts` — deterministic in-character one-liners
+    (`seed % n`), distinct personas for NEXUS-7 / KRONOS / VANGUARD / SPECTRE; unknown faction → null (fail-safe).
+  - Wired `withFactionVoice()` into **5** `ai-engine.ts` emission sites (expand×2, assault×2, reconquest, raid).
+    **Cosmetic only** — appends a quoted taunt to the event `description`; **no combat/economy/turn behavior changed**.
+  - `factionVoice.spec.ts` — **8** tests (determinism, total-over-seeds, distinct voices, fail-safe).
+  - **No funds/ASA/transfer code touched.**
+- **Verify gate (branch head):** typecheck ✓ · server **388**/14-skip ✓ (380 + **8** new) · client **178** ✓ · build ✓.
+- **#151 (merged):** `VITE_DEV_AUTOLOGIN` — zero-click fund-free dev login; triple-gated, fail-closed, tested.
+- **Honest flag:** logic + tests + build only — **NOT browser-verified on-device** (watch the event feed during an
+  AI turn with `AI_ENABLED=true`). Taunts surface wherever the event `description` is shown.
 - **Deploy:** Fly **`frontiernext`** (`frontiernext.fly.dev`) + Cloudflare **`frontierprotocol.app`** LIVE.
 - **Branch cleanup:** triaged all **140** non-`main` branches (73 merged + 67 unmerged) → all
   dead/superseded, **nothing valuable un-landed**; only **`wip/atomic-purchase` retained (OFF-LIMITS)**.
@@ -37,19 +35,27 @@ without TestNet funds. **Next chat: `/handoff-audit` this PR before anything els
   [`artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md`](../artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md).
 
 ### Recently shipped (merged + verified)
+- **#151** zero-click TestNet dev auto-login (`VITE_DEV_AUTOLOGIN`) — merged this chat.
 - **#149/#150** clean-launch baseline + branch-cleanup triage (prev chat).
 - **#146** Aether prologue polish — warmer Web Speech fallback + Mars "under us" landing (vendored `/story/` rebuilt).
 - **#147** weapons-combat **Unit 1** — offensive **Weapon Strike** (client wired to `/api/weapons/fire`; server unchanged).
 - **#148** baton reconcile + post-merge verification.
 
-### ➡️ NEXT UNITS (queued; one PR each)
-1. **Weapons Unit 2 — defensive DEPLOY UI** (`/api/weapons/deploy-defense`): "Deploy Defense" control on
-   owned parcels (defensive specs only; route is fog-of-war, not broadcast). Branch `claude/weapons-defense-ui`.
-   Route + engine already exist — mirror Unit 1's hook+panel pattern.
-2. **Weapons Unit 3 — engagement cinematic:** consume the `weapon_engagement` ws broadcast → globe strike
-   arc/impact + HUD callout (reuse the battle-cinematic layer). Today a fired shot only toasts.
-3. **Aether real VO for Ch.2–5** — generate ElevenLabs voice (needs `ELEVENLABS_API_KEY`) to replace the
-   improved-but-synthetic Web Speech fallback.
+### ➡️ NEXT UNITS — "AI Battle Test" public-playtest mode (owner vision; one PR each)
+Frictionless public playtest that doubles as marketing/onboarding: strategic+talking AIs → solo
+account vs AI → early-signup reward → cinematic intro. Full scope map: `scratchpad/ai-battle-test-roadmap.md`
+(session-local) — **next chat should re-derive it from the systems below if scratch is gone.**
+1. **AI Battle Test — Unit 2: guided solo-vs-AI entry.** Zero-click login (#151) drops the tester in, flags an
+   AI faction as the opponent, objective HUD ("knock out NEXUS-7 outposts"). Mostly onboarding glue over the
+   **existing** battle pipeline (`/api/weapons/fire-weapon` → `weapon_engagement` ws; AI parcels already targetable).
+2. **Cinematic intro** — replace the hardcoded **6s** `MissionLoadingScreen.tsx` counter with a real prologue via
+   the **existing** cinematic layer (`cameraDirector.ts` / `cinematicBus.ts` / `GlobeCinematicCamera.tsx`).
+3. **Early-access email/waitlist capture** — signup (landing + post-battle CTA) → rate-limited server route →
+   store/validate email. **No chain** — safe lead capture.
+4. **Playtest reward airdrop** (GATED, LAST) — grant ASCEND/NFT to signups. **Touches funds/ASA → requires
+   `/mainnet-gate` PASS + `algo-auditor`; TestNet only.**
+- **Also queued (pre-existing):** Weapons Unit 2 (defensive DEPLOY UI), Weapons Unit 3 (engagement cinematic
+  off `weapon_engagement` ws), Aether real VO Ch.2–5 (needs `ELEVENLABS_API_KEY`).
 - **Housekeeping (owner / when a delete path exists):** prune the 140 stale branches per the audit doc above.
 
 ### Open risks / honest flags
