@@ -10,13 +10,25 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟢 CLEAN LAUNCH BASELINE · main `210d405` (#149, +note #150) · 0 open PRs · deploy LIVE
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/testnet-wallet-auto-login-cl8cz9` · PR #151 · 1 open PR
 
-This chat reset the repo to a clean starting point. Everything is merged; the queue is fresh.
+This chat added **zero-click TestNet dev auto-login** so the game can be developed
+without TestNet funds. **Next chat: `/handoff-audit` this PR before anything else.**
 
-- **Launch gate (verified this chat on `main` @ `210d405`):** typecheck ✓ · server **380**/14-skip ✓ ·
-  client **174** ✓ · build ✓.
-- **PRs:** none open. All work landed through **#149** (this session note rides in docs PR **#150**).
+- **What this chat did (for the auditor):** new client flag `VITE_DEV_AUTOLOGIN` — when it
+  **and** `VITE_DEV_MODE` are both `"true"`, the landing page runs the **existing**
+  `DEV_LOGIN_ENABLED`-gated `/api/dev/quick-auth` on load and enters the game as the
+  non-spendable sentinel test player (no wallet, no funds, no button click).
+  - Gate is a **pure fail-closed fn** `shouldDevAutoLogin()` (both flags + single-fire),
+    unit-pinned in `client/tests/devAutoLogin.spec.ts` (mirrors `isDevLoginEnabled`).
+  - Reuses the existing dev quick-auth route — **no funds/ASA/transfer code touched**;
+    triple-gated (two build flags + server's `DEV_LOGIN_ENABLED` 403). Docs: `ENV_VARS.md` + `.env.example`.
+- **Verify gate (this chat, branch head `982775f`):** typecheck ✓ · server **380**/14-skip ✓ ·
+  client **178** ✓ (174 + **4** new) · build ✓.
+- **PRs:** **1 open (this one)** — audit + merge before starting the next unit.
+- **Honest flag:** logic + tests + build only — **NOT browser-verified on-device**. And it does
+  **NOT** solve real on-chain TestNet funding (sentinel can't hold ALGO); for real on-chain
+  testing the path is AlgoKit **LocalNet** (pre-funded) or the dispenser — separate unit.
 - **Deploy:** Fly **`frontiernext`** (`frontiernext.fly.dev`) + Cloudflare **`frontierprotocol.app`** LIVE.
 - **Branch cleanup:** triaged all **140** non-`main` branches (73 merged + 67 unmerged) → all
   dead/superseded, **nothing valuable un-landed**; only **`wip/atomic-purchase` retained (OFF-LIMITS)**.
@@ -25,6 +37,7 @@ This chat reset the repo to a clean starting point. Everything is merged; the qu
   [`artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md`](../artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md).
 
 ### Recently shipped (merged + verified)
+- **#149/#150** clean-launch baseline + branch-cleanup triage (prev chat).
 - **#146** Aether prologue polish — warmer Web Speech fallback + Mars "under us" landing (vendored `/story/` rebuilt).
 - **#147** weapons-combat **Unit 1** — offensive **Weapon Strike** (client wired to `/api/weapons/fire`; server unchanged).
 - **#148** baton reconcile + post-merge verification.
