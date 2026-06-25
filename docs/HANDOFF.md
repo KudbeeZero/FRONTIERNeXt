@@ -9,23 +9,46 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 1 PR AWAITING AUDIT · main `#146` head · deploy LIVE
+## Current baton — 1 PR AWAITING AUDIT · main `#147` head · deploy LIVE
 
-### ⏳ AWAITING AUDIT — `claude/weapons-strike-ui` → main · weapons-combat **Unit 1** (Weapon Strike)
-- **Audit finding:** weapons are acquirable in the Armory but **inert in combat** —
-  `/api/weapons/fire` + `/deploy-defense` were orphaned (no client callers); "Initiate Invasion"
-  runs the *legacy* troops/resources battle engine and ignores weapons. "Invasion" is a label, not a
-  missing engine. Full report: `artifacts/frontier-al/docs/audit/2026-06-25-weapons-combat-wiring.md`.
-- **This PR wires the OFFENSIVE half:** pure `client/src/lib/weaponStrike.ts` (`eligibleStrikes`,
-  +6 tests) · `client/src/hooks/useWeapons.ts` (`useWeaponCatalog`/`useFireWeapon`) ·
-  self-contained `StrikePanel.tsx` · a **Weapon Strike** button beside "Initiate Invasion" in
-  `GlobeHUD.tsx`. **Server unchanged** (route + engine already existed, broadcasts `weapon_engagement`).
-- **HARD-RULE:** fire/deploy debit via `storage.spendAscend` — the same in-game ASCEND ledger the live
-  Armory already uses → **no new funds/ASA/chain surface**; not a `/mainnet-gate` trigger.
-- **Green locally:** `check` ✓ · client **174** ✓ · server **380**/14-skip ✓. ⚠️ **NOT browser-verified**
-  (panel visuals + live fire round-trip untested on-device).
-- **Next units (only after this merges):** Unit 2 = defensive **deploy** UI (`/api/weapons/deploy-defense`);
-  Unit 3 = consume `weapon_engagement` ws → globe strike cinematic + HUD callout.
+### ⏳ AWAITING AUDIT — `claude/baton-refresh-postmerge` → main · closeout (baton reconcile + post-merge verification)
+- **Docs-only relay PR.** No game/app behavior change — rewrites this baton + adds a session note.
+- **Why:** the owner merged #146 and #147 directly (build+merge authority this chat), so the prior baton
+  was left mid-relay — it still showed #147 "AWAITING AUDIT" *after* it had already merged. This PR
+  reconciles state and records the post-merge verification that stood in for the skipped `/handoff-audit`.
+- **Verify:** `docs/HANDOFF.md` shows no open code units; CI green on the head commit (no `[skip ci]`).
+
+### ✅ SHIPPED THIS CHAT (both merged + verified)
+- **#146 — Aether prologue polish (MERGED, deployed):** warmer Web Speech fallback — cache voices +
+  refresh on `voiceschanged`, prioritise natural/named voices, warmer pitch/rate (fixes the robotic
+  Ch.2–5 TTS) — plus the Mars viewport now grows and drops "under us" at landing. Rebuilt the vendored
+  `/story/` bundle so it ships. aether `check`/`test` **125**/`build` ✓. ⚠️ visuals/audio NOT browser-verified.
+- **#147 — weapons-combat Unit 1 / offensive Weapon Strike (MERGED, POST-MERGE VERIFIED):** the
+  invasion-wiring audit found weapons were acquirable but **inert in combat** (`/api/weapons/fire` +
+  `/deploy-defense` orphaned; "Initiate Invasion" runs the legacy troops engine). This wired the
+  OFFENSIVE half: pure `weaponStrike.ts` (`eligibleStrikes`, +6 tests) · `useWeapons.ts`
+  (`useWeaponCatalog`/`useFireWeapon`) · self-contained `StrikePanel.tsx` · a **Weapon Strike** button in
+  `GlobeHUD.tsx`. **Server unchanged.** HARD-RULE: reuses `storage.spendAscend` (in-game ledger) → **no
+  new funds/ASA/chain surface.** Re-verified on merged `main` `dffa7bf`: `check` ✓ · client **174** (incl.
+  6 new) · server **380**/14-skip ✓; diff = 8 files, no server/shared edits. Audit report:
+  `artifacts/frontier-al/docs/audit/2026-06-25-weapons-combat-wiring.md`. ⚠️ on-device fire round-trip
+  still NOT verified (the one open checklist box on #147).
+
+### ➡️ NEXT UNITS (queued; one PR each)
+- **Weapons Unit 2 — defensive DEPLOY UI** (`/api/weapons/deploy-defense`): a "Deploy Defense" control on
+  owned parcels (defensive specs only; fog-of-war — route intentionally not broadcast). Branch
+  `claude/weapons-defense-ui`. Server route + engine already exist; mirror Unit 1's hook+panel pattern.
+- **Weapons Unit 3 — engagement cinematic:** consume the `weapon_engagement` ws broadcast → globe strike
+  arc/impact + HUD callout (reuse the battle-cinematic layer). Today a fired shot only toasts.
+- **Aether real VO (BLOCKED on owner):** generate ElevenLabs VO for Ch.2–5 (needs `ELEVENLABS_API_KEY`) to
+  replace the improved-but-still-synthetic Web Speech fallback.
+- **Owner smoke-tests (no code):** fire a weapon on the live site (Strike-panel round-trip); replay the
+  prologue (warmer voice + Mars landing).
+
+### 🛑 STANDING OWNER DIRECTIVE (granted this chat)
+- Owner granted **proceed-without-asking** authority when approval is a foregone conclusion (build → merge
+  → closeout). Still honour: one PR at a time, nothing on `main` unverified (CI + this verification stand in
+  for an independent audit), and the HARD RULES below remain absolute — funds/chain stay gated.
 
 ---
 
