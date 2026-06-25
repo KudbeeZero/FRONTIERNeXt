@@ -3,7 +3,7 @@ import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS }
 import { GAME_URL, goToGame } from "@/lib/gameUrl";
 import { apiRequest } from "@/lib/queryClient";
 import { setAuthToken } from "@/lib/authToken";
-import { DEV_MODE, startDevSession } from "@/lib/devSession";
+import { DEV_MODE, DEV_AUTOLOGIN, startDevSession, devSessionActive, shouldDevAutoLogin } from "@/lib/devSession";
 
 // ─── Animated Rocket ──────────────────────────────────────────────────────────
 function Rocket() {
@@ -460,17 +460,28 @@ export default function LandingPage() {
   // the game. Shown only when VITE_DEV_MODE === "true"; backed by the server's
   // DEV_LOGIN_ENABLED-gated /api/dev/quick-auth.
   const [devBusy, setDevBusy] = useState(false);
+
+  // Shared dev entry: server quick-auth → store token + session → enter game.
+  // Returns false if the server hasn't enabled DEV_LOGIN_ENABLED (the 403 gate),
+  // so callers can decide whether to surface that.
+  const quickAuthAndEnter = async (): Promise<boolean> => {
+    const res = await apiRequest("POST", "/api/dev/quick-auth", {});
+    const data = await res.json();
+    if (data?.token && data?.address) {
+      setAuthToken(data.token);
+      startDevSession(data.address);
+      goToGame();
+      return true;
+    }
+    return false;
+  };
+
   const handleDevMode = async () => {
     if (devBusy) return;
     setDevBusy(true);
     try {
-      const res = await apiRequest("POST", "/api/dev/quick-auth", {});
-      const data = await res.json();
-      if (data?.token && data?.address) {
-        setAuthToken(data.token);
-        startDevSession(data.address);
-        goToGame();
-      } else {
+      const ok = await quickAuthAndEnter();
+      if (!ok) {
         alert("Dev mode is not enabled on this server (set DEV_LOGIN_ENABLED=true).");
         setDevBusy(false);
       }
@@ -479,6 +490,19 @@ export default function LandingPage() {
       setDevBusy(false);
     }
   };
+
+  // Zero-click dev auto-login: when VITE_DEV_MODE and VITE_DEV_AUTOLOGIN are both
+  // "true" and no dev session is active yet, sign in as the test player and enter
+  // the game on load — no button click. Stays fail-closed behind the server's
+  // DEV_LOGIN_ENABLED gate: if the server hasn't enabled it, we silently stay on
+  // the landing page (button still available).
+  useEffect(() => {
+    if (!shouldDevAutoLogin(DEV_MODE, DEV_AUTOLOGIN, devSessionActive())) return;
+    void quickAuthAndEnter().catch(() => {
+      /* server gate off or network error — stay on the landing page */
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{

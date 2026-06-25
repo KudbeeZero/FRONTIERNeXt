@@ -13,8 +13,30 @@
  */
 export const DEV_MODE = import.meta.env.VITE_DEV_MODE === "true";
 
+/**
+ * Zero-click variant: when this is also "true", the landing page performs the
+ * dev quick-auth on load and enters the game WITHOUT a button click — for fast
+ * local iteration when you can't get TestNet funds. Still triple-gated: this
+ * flag AND VITE_DEV_MODE (build-time) AND the server's DEV_LOGIN_ENABLED (which
+ * 403s otherwise). Off by default; never set it in a production build.
+ */
+export const DEV_AUTOLOGIN = import.meta.env.VITE_DEV_AUTOLOGIN === "true";
+
 const SESSION_KEY = "frontier_dev_session";
 const ADDRESS_KEY = "frontier_dev_address";
+
+/**
+ * Fail-closed gate for zero-click auto-login. Both build flags must be on AND no
+ * dev session may already exist (so it fires once, never loops). Pure so the
+ * "off unless explicitly enabled" property is unit-pinned.
+ */
+export function shouldDevAutoLogin(
+  devMode: boolean,
+  devAutoLogin: boolean,
+  sessionAlreadyActive: boolean,
+): boolean {
+  return devMode && devAutoLogin && !sessionAlreadyActive;
+}
 
 /** True when a dev/test session has been started in this browser (and DEV_MODE is on). */
 export function devSessionActive(): boolean {

@@ -51,6 +51,7 @@
 | VITE_ALGOD_URL | Algorand node URL override (optional, defaults to testnet algonode) | `https://mainnet-api.algonode.cloud` |
 | VITE_INDEXER_URL | Algorand indexer URL override (optional, defaults to testnet algonode) | `https://mainnet-idx.algonode.cloud` |
 | VITE_DEV_MODE | **TestNet dev tool.** `true` shows the amber **"⚙ Dev / Test Mode"** button on the landing page, which enters the game as a test player with no wallet (calls `DEV_LOGIN_ENABLED`-gated `/api/dev/quick-auth`). Unset on mainnet. | `true` (testnet) / unset (prod) |
+| VITE_DEV_AUTOLOGIN | **TestNet dev tool — zero-click.** `true` makes the landing page run the dev quick-auth on load and enter the game with **no button click** (frictionless local iteration when you can't get TestNet funds). Triple-gated: requires `VITE_DEV_MODE=true` too AND the server's `DEV_LOGIN_ENABLED` (silently stays on the landing page if the server hasn't enabled it). Unset on mainnet. | `true` (testnet) / unset (prod) |
 
 ## Flags
 
