@@ -10,7 +10,7 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/faction-select-entry` · PR #__ · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/faction-select-entry` · PR #153 · 1 open PR
 
 This chat shipped the **faction-select entry gate + optional play-to-waitlist** ("just let me get
 in": pick a faction, drop into the game fund-free, optionally leave wallet/email for early access).
