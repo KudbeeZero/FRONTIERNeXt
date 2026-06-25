@@ -10,23 +10,25 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/ai-faction-comms` · PR #152 · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/faction-select-entry` · PR #__ · 1 open PR
 
-This chat shipped **AI Battle Test — Unit 1: faction communication.** The 4 AI factions now
-**speak in character** in the live event feed during real turns. (Prior unit **#151** zero-click
-dev login was verified green + **merged** this chat to unblock.) **Next chat: `/handoff-audit` this PR first.**
+This chat shipped the **faction-select entry gate + optional play-to-waitlist** ("just let me get
+in": pick a faction, drop into the game fund-free, optionally leave wallet/email for early access).
+(Prior units **#151** dev login + **#152** AI faction comms were verified green + **merged** this chat.)
+**Next chat: `/handoff-audit` this PR first.**
 
 - **What this chat did (for the auditor):**
-  - New **pure** `server/engine/narrative/factionVoice.ts` — deterministic in-character one-liners
-    (`seed % n`), distinct personas for NEXUS-7 / KRONOS / VANGUARD / SPECTRE; unknown faction → null (fail-safe).
-  - Wired `withFactionVoice()` into **5** `ai-engine.ts` emission sites (expand×2, assault×2, reconquest, raid).
-    **Cosmetic only** — appends a quoted taunt to the event `description`; **no combat/economy/turn behavior changed**.
-  - `factionVoice.spec.ts` — **8** tests (determinism, total-over-seeds, distinct voices, fail-safe).
-  - **No funds/ASA/transfer code touched.**
-- **Verify gate (branch head):** typecheck ✓ · server **388**/14-skip ✓ (380 + **8** new) · client **178** ✓ · build ✓.
-- **#151 (merged):** `VITE_DEV_AUTOLOGIN` — zero-click fund-free dev login; triple-gated, fail-closed, tested.
-- **Honest flag:** logic + tests + build only — **NOT browser-verified on-device** (watch the event feed during an
-  AI turn with `AI_ENABLED=true`). Taunts surface wherever the event `description` is shown.
+  - **`shared/waitlist.ts`** (+spec, 12 tests) — pure validation/normalize (known faction + ≥1 valid
+    contact) + cosmetic commit→tier ladder. Shared so client + server validate identically.
+  - **Client:** `lib/factions.ts` (metadata + localStorage choice) + `FactionSelectGate.tsx`, mounted as a
+    **page-level overlay** in `game.tsx` — **does NOT touch the globe/combat canvas**. Shows once. (`factions.spec.ts`, 4 tests.)
+  - **Server:** `POST /api/waitlist/join` (shared validate + **hard `algosdk.isValidAddress`**, rate-limited
+    `WAITLIST_RATE_LIMIT`); `waitlistStore.ts` → Upstash Redis (`redisRecordWaitlist`) w/ in-memory fallback
+    (`waitlistStore.spec.ts`, 2 tests). **NO funds/ASA/transfer code.**
+- **Verify gate (branch head):** typecheck ✓ · server **400**/14-skip ✓ (+12) · client **182** ✓ (+4) · build ✓.
+- **Merged this chat:** **#151** `VITE_DEV_AUTOLOGIN` (zero-click dev login) · **#152** AI faction voice (taunts in live feed).
+- **Honest flag:** logic + tests + build only — **NOT browser-verified on-device**. The waitlist **reward payout**
+  is intentionally **NOT built** — that's the gated on-chain unit (needs `/mainnet-gate` + `algo-auditor`).
 - **Deploy:** Fly **`frontiernext`** (`frontiernext.fly.dev`) + Cloudflare **`frontierprotocol.app`** LIVE.
 - **Branch cleanup:** triaged all **140** non-`main` branches (73 merged + 67 unmerged) → all
   dead/superseded, **nothing valuable un-landed**; only **`wip/atomic-purchase` retained (OFF-LIMITS)**.
@@ -35,6 +37,7 @@ dev login was verified green + **merged** this chat to unblock.) **Next chat: `/
   [`artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md`](../artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md).
 
 ### Recently shipped (merged + verified)
+- **#152** AI faction communication — the 4 factions taunt in the live feed — merged this chat.
 - **#151** zero-click TestNet dev auto-login (`VITE_DEV_AUTOLOGIN`) — merged this chat.
 - **#149/#150** clean-launch baseline + branch-cleanup triage (prev chat).
 - **#146** Aether prologue polish — warmer Web Speech fallback + Mars "under us" landing (vendored `/story/` rebuilt).
@@ -42,18 +45,18 @@ dev login was verified green + **merged** this chat to unblock.) **Next chat: `/
 - **#148** baton reconcile + post-merge verification.
 
 ### ➡️ NEXT UNITS — "AI Battle Test" public-playtest mode (owner vision; one PR each)
-Frictionless public playtest that doubles as marketing/onboarding: strategic+talking AIs → solo
-account vs AI → early-signup reward → cinematic intro. Full scope map: `scratchpad/ai-battle-test-roadmap.md`
-(session-local) — **next chat should re-derive it from the systems below if scratch is gone.**
-1. **AI Battle Test — Unit 2: guided solo-vs-AI entry.** Zero-click login (#151) drops the tester in, flags an
-   AI faction as the opponent, objective HUD ("knock out NEXUS-7 outposts"). Mostly onboarding glue over the
-   **existing** battle pipeline (`/api/weapons/fire-weapon` → `weapon_engagement` ws; AI parcels already targetable).
-2. **Cinematic intro** — replace the hardcoded **6s** `MissionLoadingScreen.tsx` counter with a real prologue via
-   the **existing** cinematic layer (`cameraDirector.ts` / `cinematicBus.ts` / `GlobeCinematicCamera.tsx`).
-3. **Early-access email/waitlist capture** — signup (landing + post-battle CTA) → rate-limited server route →
-   store/validate email. **No chain** — safe lead capture.
-4. **Playtest reward airdrop** (GATED, LAST) — grant ASCEND/NFT to signups. **Touches funds/ASA → requires
-   `/mainnet-gate` PASS + `algo-auditor`; TestNet only.**
+Frictionless public playtest that doubles as marketing/onboarding. **Shipped so far this session:**
+talking AIs (#152) · zero-click entry (#151) · faction-select gate + play-to-waitlist (PR #__ this chat).
+**Remaining:**
+1. **Guided solo-vs-AI objective HUD** — after faction-select, flag the rival AI faction as the opponent and
+   show an objective ("knock out NEXUS-7 outposts"). Glue over the **existing** battle pipeline
+   (`/api/weapons/fire-weapon` → `weapon_engagement` ws; AI parcels already targetable).
+2. **Cinematic intro polish** — the dead `MissionLoadingScreen.tsx` 6s counter has **no importer**; build a real
+   prologue via the **existing** cinematic layer (`cameraDirector.ts` / `cinematicBus.ts` / `GlobeCinematicCamera.tsx`)
+   and surface it on entry (e.g. behind/around the faction gate).
+3. **Waitlist reward payout** (GATED, LAST) — convert engagement `tier` (already computed, see `shared/waitlist.ts`)
+   into an on-chain ASCEND/NFT grant. **Touches funds/ASA → requires `/mainnet-gate` PASS + `algo-auditor`; TestNet only.**
+   The capture + tier ladder are done; only the payout is pending.
 - **Also queued (pre-existing):** Weapons Unit 2 (defensive DEPLOY UI), Weapons Unit 3 (engagement cinematic
   off `weapon_engagement` ws), Aether real VO Ch.2–5 (needs `ELEVENLABS_API_KEY`).
 - **Housekeeping (owner / when a delete path exists):** prune the 140 stale branches per the audit doc above.
