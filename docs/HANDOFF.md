@@ -10,13 +10,13 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟢 CLEAN LAUNCH BASELINE · main `8cae734` (#148) · 0 open PRs · deploy LIVE
+## Current baton — 🟢 CLEAN LAUNCH BASELINE · main `210d405` (#149, +note #150) · 0 open PRs · deploy LIVE
 
-This chat reset the repo to a clean starting point. Everything below #148 is merged; the queue is fresh.
+This chat reset the repo to a clean starting point. Everything is merged; the queue is fresh.
 
-- **Launch gate (verified this chat on `main` @ `8cae734`):** typecheck ✓ · server **380**/14-skip ✓ ·
+- **Launch gate (verified this chat on `main` @ `210d405`):** typecheck ✓ · server **380**/14-skip ✓ ·
   client **174** ✓ · build ✓.
-- **PRs:** none open. All work landed through **#148**.
+- **PRs:** none open. All work landed through **#149** (this session note rides in docs PR **#150**).
 - **Deploy:** Fly **`frontiernext`** (`frontiernext.fly.dev`) + Cloudflare **`frontierprotocol.app`** LIVE.
 - **Branch cleanup:** triaged all **140** non-`main` branches (73 merged + 67 unmerged) → all
   dead/superseded, **nothing valuable un-landed**; only **`wip/atomic-purchase` retained (OFF-LIMITS)**.
