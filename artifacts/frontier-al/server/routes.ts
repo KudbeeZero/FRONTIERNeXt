@@ -21,6 +21,15 @@ const adviceLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many advice requests — try again shortly." },
 });
+
+// Per-IP limiter for the optional waitlist signup on the faction-select gate.
+const waitlistLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Math.max(1, Number(process.env.WAITLIST_RATE_LIMIT) || 12),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many signups — try again shortly." },
+});
 import { broadcastGameState, broadcastRaw, markDirty, wsClientCount } from "./wsServer";
 import { clampIntervalMs } from "./util/intervals";
 import * as weaponService from "./weapons/service";
@@ -38,6 +47,8 @@ import {
 } from "@shared/weapons";
 import { getModule } from "@shared/university";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
+import { validateWaitlistSignup, waitlistKey } from "@shared/waitlist";
+import { recordWaitlistSignup } from "./waitlistStore";
 
 // ── Chain Service ─────────────────────────────────────────────────────────────
 // All algosdk usage is now isolated in server/services/chain/*.
@@ -522,6 +533,30 @@ export async function registerRoutes(
     } catch (error) {
       console.error("[dev/quick-auth] error:", error);
       res.status(500).json({ error: "Dev auth failed" });
+    }
+  });
+
+  /**
+   * POST /api/waitlist/join — optional early-access signup from the faction-select
+   * entry gate. Body: { faction, address?, email? }. Validated/normalized with the
+   * shared rules (known faction + at least one valid contact). Records the signup
+   * and bumps an engagement counter ("the more you play, the higher your tier").
+   * NO funds: it never opts in, mints, or transfers — the on-chain reward the tier
+   * maps to is a separate, gated unit.
+   */
+  app.post("/api/waitlist/join", waitlistLimiter, async (req, res) => {
+    const check = validateWaitlistSignup(req.body ?? {});
+    if (!check.ok) return res.status(400).json({ error: check.error });
+    // Defense in depth beyond the shared shape check: hard-validate a real address.
+    if (check.value.address && !algosdk.isValidAddress(check.value.address)) {
+      return res.status(400).json({ error: "Invalid wallet address" });
+    }
+    try {
+      const result = await recordWaitlistSignup(waitlistKey(check.value), check.value);
+      res.json({ ok: true, tier: result.tier, commitCount: result.commitCount });
+    } catch (error) {
+      console.error("[waitlist/join] error:", error);
+      res.status(500).json({ error: "Signup failed" });
     }
   });
 

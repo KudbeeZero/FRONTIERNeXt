@@ -1,0 +1,72 @@
+/**
+ * client/src/lib/factions.ts
+ *
+ * Player-facing metadata for the four factions you can align with on the
+ * faction-select entry gate, plus tiny localStorage helpers that remember the
+ * choice so the gate only shows once. The personas mirror the AI faction voices
+ * (server/engine/narrative/factionVoice.ts) so the opponent you hear taunting
+ * you is the one you (or your rivals) picked.
+ */
+import { PLAYER_FACTION_IDS, type PlayerFactionId } from "@shared/waitlist";
+
+export interface FactionMeta {
+  id: PlayerFactionId;
+  name: string;
+  tagline: string;   // one-line hook
+  blurb: string;     // a sentence of flavor
+  color: string;     // accent
+  behavior: string;  // playstyle label
+}
+
+export const PLAYER_FACTIONS: FactionMeta[] = [
+  {
+    id: "NEXUS-7",
+    name: "NEXUS-7",
+    tagline: "Expansion is arithmetic.",
+    blurb: "A cold optimizing intelligence that grows by relentless, calculated math.",
+    color: "#4fc3f7",
+    behavior: "Expansionist",
+  },
+  {
+    id: "KRONOS",
+    name: "KRONOS",
+    tagline: "Time is on my side.",
+    blurb: "Patient and immovable — it does not rush, it simply arrives and holds.",
+    color: "#a78bfa",
+    behavior: "Defensive",
+  },
+  {
+    id: "VANGUARD",
+    name: "VANGUARD",
+    tagline: "We march. You move.",
+    blurb: "Aggressive raiders who breach, take ground, and never stop charging.",
+    color: "#f472b6",
+    behavior: "Raider",
+  },
+  {
+    id: "SPECTRE",
+    name: "SPECTRE",
+    tagline: "A whisper, then a knife.",
+    blurb: "Sly economic operators who tilt the ledger before you notice it moved.",
+    color: "#34d399",
+    behavior: "Economic",
+  },
+];
+
+const FACTION_KEY = "frontier_faction";
+
+export function chosenFaction(): PlayerFactionId | null {
+  if (typeof window === "undefined") return null;
+  const v = window.localStorage.getItem(FACTION_KEY);
+  return v && (PLAYER_FACTION_IDS as readonly string[]).includes(v) ? (v as PlayerFactionId) : null;
+}
+
+export function chooseFaction(id: PlayerFactionId): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(FACTION_KEY, id);
+}
+
+export function clearFaction(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(FACTION_KEY);
+}
