@@ -6,11 +6,12 @@
  *   ParcelHUD      — selected parcel info card with action buttons
  */
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { LandParcel, Player } from "@shared/schema";
-import { Sword, HardHat, Pickaxe, Zap, Gift } from "lucide-react";
+import { Sword, HardHat, Pickaxe, Zap, Gift, Crosshair } from "lucide-react";
 import { useChainHealth } from "@/hooks/useGameSocket";
+import { StrikePanel } from "./StrikePanel";
 
 // ── GlobeHUD ──────────────────────────────────────────────────────────────────
 
@@ -213,6 +214,7 @@ interface ParcelHUDProps {
 export function ParcelHUD({ parcel, currentPlayerId, playerMap, onAttack, onMine, onBuild, onPurchase, onParcelSelect, nftInfo, onDeliverNft, isDeliveringNft }: ParcelHUDProps) {
   const isPlayer = parcel.ownerId === currentPlayerId;
   const isUnclaimed = !parcel.ownerId;
+  const [striking, setStriking] = useState(false);
 
   const accentColor = isPlayer ? "#00ff6a"
     : parcel.ownerId ? "#ff6e40"
@@ -355,11 +357,28 @@ export function ParcelHUD({ parcel, currentPlayerId, playerMap, onAttack, onMine
               )}
             </>
           ) : parcel.ownerId ? (
-            <button onClick={onAttack}
-              className="col-span-2 flex items-center justify-center gap-2 h-10 rounded-lg text-[11px] font-mono uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95"
-              style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}50`, color: accentColor, boxShadow: `0 0 20px ${accentColor}20` }}>
-              <Sword className="w-4 h-4" /> Initiate Invasion
-            </button>
+            <>
+              <button onClick={onAttack}
+                className="col-span-2 flex items-center justify-center gap-2 h-10 rounded-lg text-[11px] font-mono uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95"
+                style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}50`, color: accentColor, boxShadow: `0 0 20px ${accentColor}20` }}>
+                <Sword className="w-4 h-4" /> Initiate Invasion
+              </button>
+              {currentPlayerId && (
+                <button onClick={() => setStriking(true)}
+                  className="col-span-2 flex items-center justify-center gap-2 h-9 rounded-lg text-[11px] font-mono uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95"
+                  style={{ background: "#ff5a5a12", border: "1px solid #ff5a5a45", color: "#ff7a7a" }}>
+                  <Crosshair className="w-3.5 h-3.5" /> Weapon Strike
+                </button>
+              )}
+              {striking && currentPlayerId && (
+                <StrikePanel
+                  playerId={currentPlayerId}
+                  target={parcel}
+                  accentColor="#ff5a5a"
+                  onClose={() => setStriking(false)}
+                />
+              )}
+            </>
           ) : (
             <button
               onClick={onPurchase}

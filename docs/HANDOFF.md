@@ -9,7 +9,27 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — NO OPEN PRs · main `#141` head · deploy LIVE · tractable roadmap COMPLETE
+## Current baton — 1 PR AWAITING AUDIT · main `#146` head · deploy LIVE
+
+### ⏳ AWAITING AUDIT — `claude/weapons-strike-ui` → main · weapons-combat **Unit 1** (Weapon Strike)
+- **Audit finding:** weapons are acquirable in the Armory but **inert in combat** —
+  `/api/weapons/fire` + `/deploy-defense` were orphaned (no client callers); "Initiate Invasion"
+  runs the *legacy* troops/resources battle engine and ignores weapons. "Invasion" is a label, not a
+  missing engine. Full report: `artifacts/frontier-al/docs/audit/2026-06-25-weapons-combat-wiring.md`.
+- **This PR wires the OFFENSIVE half:** pure `client/src/lib/weaponStrike.ts` (`eligibleStrikes`,
+  +6 tests) · `client/src/hooks/useWeapons.ts` (`useWeaponCatalog`/`useFireWeapon`) ·
+  self-contained `StrikePanel.tsx` · a **Weapon Strike** button beside "Initiate Invasion" in
+  `GlobeHUD.tsx`. **Server unchanged** (route + engine already existed, broadcasts `weapon_engagement`).
+- **HARD-RULE:** fire/deploy debit via `storage.spendAscend` — the same in-game ASCEND ledger the live
+  Armory already uses → **no new funds/ASA/chain surface**; not a `/mainnet-gate` trigger.
+- **Green locally:** `check` ✓ · client **174** ✓ · server **380**/14-skip ✓. ⚠️ **NOT browser-verified**
+  (panel visuals + live fire round-trip untested on-device).
+- **Next units (only after this merges):** Unit 2 = defensive **deploy** UI (`/api/weapons/deploy-defense`);
+  Unit 3 = consume `weapon_engagement` ws → globe strike cinematic + HUD callout.
+
+---
+
+## Prior baton — NO OPEN PRs · main `#141` head · deploy LIVE · tractable roadmap COMPLETE
 - **Last shipped (#141, merged):** baton + PUBLIC-DOCS refresh (docs only) — player-facing docs now cover
   this session's work: root `README.md` (front-door bullet), `frontier-al/README.md` (What's New
   "Battle Theater & Fairness" + the new battle/stats/proof API endpoints), `FAQ.md` (provable-fairness +
