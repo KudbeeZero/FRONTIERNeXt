@@ -10,7 +10,7 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/ai-faction-comms` · PR #__ · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/ai-faction-comms` · PR #152 · 1 open PR
 
 This chat shipped **AI Battle Test — Unit 1: faction communication.** The 4 AI factions now
 **speak in character** in the live event feed during real turns. (Prior unit **#151** zero-click
