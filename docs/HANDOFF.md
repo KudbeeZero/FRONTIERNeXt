@@ -10,7 +10,7 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/session-closeout` · PR #__ · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/session-closeout` · PR #158 · 1 open PR
 
 **AI Battle Test onboarding — built end-to-end this session (7 units, #151–#157, all merged green).** This
 PR is the **session closeout** (baton + session note only — no code). A `/loop` drove the build, testing
