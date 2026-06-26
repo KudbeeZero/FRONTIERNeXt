@@ -1,13 +1,15 @@
 import { GameLayout } from "@/components/game/GameLayout";
+import { IntroCinematic } from "@/components/game/IntroCinematic";
 import { FactionSelectGate } from "@/components/game/FactionSelectGate";
 import { ObjectiveHud } from "@/components/game/ObjectiveHud";
 
 export default function GamePage() {
   return (
     <>
-      {/* Fun, fund-free entry gate: pick your faction (+ optional waitlist), then
-          drop into the game. Page-level overlay — does not touch the globe/combat
-          canvas. Shows once, then remembers your pick. */}
+      {/* Entry cinematic (replaces the old launch counter) → faction-select gate →
+          game. All three are page-level overlays; none touch the globe/combat
+          canvas. The cinematic and gate each show once and remember. */}
+      <IntroCinematic />
       <FactionSelectGate />
       <GameLayout />
       {/* Live AI Battle Test objective — top-center, pointer-events:none, so it
