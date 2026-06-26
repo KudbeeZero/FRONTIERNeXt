@@ -3,7 +3,7 @@
  * and win/lose/active progress math (defensive against bad inputs).
  */
 import { describe, it, expect } from "vitest";
-import { rivalOf, missionBriefing, evaluateObjective } from "./battleObjective";
+import { rivalOf, missionBriefing, evaluateObjective, rivalStanding } from "./battleObjective";
 import { PLAYER_FACTION_IDS } from "./waitlist";
 
 describe("rivalOf", () => {
@@ -67,5 +67,24 @@ describe("evaluateObjective", () => {
     expect(s.status).toBe("active");
     expect(s.progress).toBe(0);
     expect(Number.isFinite(s.progress)).toBe(true);
+  });
+});
+
+describe("rivalStanding", () => {
+  const standings = [
+    { name: "NEXUS-7", territoryCount: 12 },
+    { name: "KRONOS", territoryCount: 7 },
+    { name: "VANGUARD", territoryCount: 3 },
+    { name: "SPECTRE", territoryCount: 9 },
+  ];
+
+  it("returns the rival's live standing", () => {
+    expect(rivalStanding(standings, "NEXUS-7")).toEqual({ name: "KRONOS", territoryCount: 7 });
+    expect(rivalStanding(standings, "VANGUARD")).toEqual({ name: "SPECTRE", territoryCount: 9 });
+  });
+
+  it("is null for an unknown faction or a missing rival", () => {
+    expect(rivalStanding(standings, "BOGUS")).toBeNull();
+    expect(rivalStanding([{ name: "NEXUS-7", territoryCount: 1 }], "NEXUS-7")).toBeNull();
   });
 });

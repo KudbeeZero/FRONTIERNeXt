@@ -45,6 +45,22 @@ export function missionBriefing(faction: string): MissionBriefing | null {
   };
 }
 
+/** A faction's live standing as returned by GET /api/factions. */
+export interface FactionStanding {
+  name: string;
+  territoryCount: number;
+}
+
+/** The rival's current standing from a /api/factions list, or null if unknown. */
+export function rivalStanding(
+  factions: FactionStanding[],
+  faction: string,
+): FactionStanding | null {
+  const rival = rivalOf(faction);
+  if (!rival) return null;
+  return factions.find((f) => f.name === rival) ?? null;
+}
+
 export type ObjectiveStatus = "active" | "won" | "lost";
 
 export interface ObjectiveState {
