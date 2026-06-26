@@ -32,6 +32,7 @@
 | ELEVENLABS_API_KEY | **Optional.** ElevenLabs key for Comm Terminal whisper voice (text-to-speech). If unset, the Comm Terminal runs **text-only** — no network call is made. Never commit a real key. | _(unset → text-only)_ |
 | COMM_TERMINAL_VOICE_ID | **Optional.** ElevenLabs voice id used for Comm Terminal whispers. Voice synthesis requires **both** this and `ELEVENLABS_API_KEY`; absent either, the terminal is text-only. | _(unset → text-only)_ |
 | ADVICE_RATE_LIMIT | Per-IP limit (per minute) on the LLM terraform-advice endpoint. | `30` (default) |
+| WAITLIST_RATE_LIMIT | Per-IP limit (per minute) on `POST /api/waitlist/join` (optional faction-select early-access signup). Signups persist to Upstash Redis when configured, else per-instance memory. No funds. | `12` (default) |
 | WALLET_AUTH_REQUIRED | Enforce wallet-signature auth on all mutating game endpoints. **Defaults to ON** (any value except `false`). Set to `false` ONLY during a split-host rollout window where the new client is not yet deployed, then flip back. | `true` (default) |
 | WELCOME_BONUS_SYBIL_CHECK | Gate the 500 FRONTIER welcome bonus behind an on-chain minimum-balance check (anti-Sybil). **Defaults to ON**; set `false` to disable. | `true` (default) |
 | WELCOME_BONUS_MIN_ALGO | Minimum wallet ALGO balance required to claim the welcome bonus. `0` disables the balance gate. | `1` (default) |

@@ -206,6 +206,27 @@ export async function redisGetWorldEvents(
   }
 }
 
+// ── Waitlist signups (early-access "play-to-list") ───────────────────────────
+const WAITLIST_HASH_KEY   = "frontier:waitlist";
+const WAITLIST_COMMIT_KEY = "frontier:waitlist:commits";
+
+/**
+ * Record/refresh a waitlist signup and bump its commit counter. `field` is the
+ * stable per-signup key. Returns the new commit count, or null if Redis is
+ * unavailable / the call failed (caller falls back to per-instance memory).
+ */
+export async function redisRecordWaitlist(field: string, payload: object): Promise<number | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    await r.hset(WAITLIST_HASH_KEY, { [field]: JSON.stringify(payload) });
+    const n = await r.hincrby(WAITLIST_COMMIT_KEY, field, 1);
+    return typeof n === "number" ? n : Number(n);
+  } catch {
+    return null;
+  }
+}
+
 // ── Sub-Parcel World Events ───────────────────────────────────────────────────
 
 export interface SubParcelWorldEvent {
