@@ -10,11 +10,15 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/session-closeout` · PR #158 · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/hide-dev-claim-nags` · PR #159 · 1 open PR
 
-**AI Battle Test onboarding — built end-to-end this session (7 units, #151–#157, all merged green).** This
-PR is the **session closeout** (baton + session note only — no code). A `/loop` drove the build, testing
-after each unit; it was wound down because only gated/taste work remains. **Next chat: `/handoff-audit` this PR.**
+**This PR (#159):** stop the NFT **claim/mint nags** (and the "NFT Required" mining lock) for the
+**dev/test player** — it can never claim (sentinel wallet), so they were noise that blocked testing.
+`effectiveInCustody()` (devSession.ts, +2 tests) collapses custody→false for the dev player only;
+applied in CommanderPanel/LandSheet/GlobeHUD/NftClaimNotification. **No funds/server code.** Real players
+unaffected. check ✓ · client **189** (+2) · server 411 ✓ · build ✓. **Next chat: `/handoff-audit` this PR.**
+
+> Prior: **AI Battle Test onboarding built end-to-end (7 units #151–#157, all merged green)** + closeout **#158** (merged).
 
 - **The 7 merged units (all: typecheck + server + client + build green at merge):**
   - **#151** zero-click TestNet dev login (`VITE_DEV_AUTOLOGIN`, triple-gated, fail-closed).
