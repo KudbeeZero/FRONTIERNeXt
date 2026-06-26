@@ -15,6 +15,11 @@ primary_region = 'ord'
   # build. Remove these args (and DEV_LOGIN_ENABLED) to require real wallets again.
   [build.args]
     VITE_DEV_MODE = 'true'
+    # Zero-click: auto-sign-in as the shared test player on page load, so a
+    # no-wallet visitor lands straight in the game (no faction-gate dependency,
+    # works for returning visitors too). TestNet playtest only; pair with
+    # DEV_LOGIN_ENABLED. Disables real-wallet login while on — remove to restore.
+    VITE_DEV_AUTOLOGIN = 'true'
 
 [env]
   ALGORAND_NETWORK = 'testnet'
