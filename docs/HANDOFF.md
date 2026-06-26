@@ -10,20 +10,19 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/objective-hud` · PR #155 · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/faction-persist` · PR #156 · 1 open PR
 
-This chat built the **"AI Battle Test" onboarding end-to-end (5 units)**. This PR (#155) adds the
-**live objective HUD**. **Next chat: `/handoff-audit` this PR first.**
+Running a `/loop` to build the AI Battle Test units, testing after each. This PR (#156) **persists the
+faction pick to the player record (DB)**. **Next chat: `/handoff-audit` this PR first.**
 
-- **What this PR (#155) did (for the auditor):**
-  - **`shared/battleObjective.ts`** — `rivalStanding()` pure helper (+2 tests) feeding the already-tested
-    `evaluateObjective()`.
-  - **`ObjectiveHud.tsx`** — fixed top-center, **`pointer-events:none`** page-level overlay; polls
-    `GET /api/factions` (read-only), shows live progress vs the rival; per-rival start in localStorage.
-  - **`game.tsx`** mounts it alongside the gate. **No funds/canvas/combat touched.**
-- **Verify gate (branch head):** typecheck ✓ · server **411**/14-skip ✓ (+2) · client **182** ✓ · build ✓.
-- **Merged this chat (verified green):** **#151** zero-click dev login · **#152** AI faction voice (live-feed taunts) ·
-  **#153** faction-select gate + play-to-waitlist · **#154** rival + mission briefing.
+- **What this PR (#156) did (for the auditor):**
+  - **`factions.ts`** — `nextFactionSync()` pure decision (+2 tests): join only when a faction is picked
+    and differs from the player's current alignment.
+  - **`FactionSelectGate.tsx`** — best-effort persistence in `enter()` via `/api/auth/me` → existing
+    `POST /api/factions/:name/join`; never blocks entry. **No funds/canvas/combat touched.**
+- **Verify gate (branch head):** typecheck ✓ · server **411**/14-skip ✓ · client **184** ✓ (+2) · build ✓.
+- **Merged this session (verified green):** **#151** zero-click dev login · **#152** AI faction voice ·
+  **#153** faction-select gate + play-to-waitlist · **#154** rival + mission briefing · **#155** live objective HUD.
 - **Honest flag:** all 5 units are logic + tests + build — **NOT browser-verified on-device** (eyeball HUD overlap).
   The waitlist **reward payout** is intentionally **NOT built** — gated on-chain unit (`/mainnet-gate` + `algo-auditor`).
 - **Deploy:** Fly **`frontiernext`** (`frontiernext.fly.dev`) + Cloudflare **`frontierprotocol.app`** LIVE.
