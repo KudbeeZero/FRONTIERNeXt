@@ -16,6 +16,7 @@ import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { PLAYER_FACTIONS, chosenFaction, chooseFaction } from "@/lib/factions";
 import { validateWaitlistSignup, type PlayerFactionId } from "@shared/waitlist";
+import { missionBriefing } from "@shared/battleObjective";
 
 export function FactionSelectGate() {
   const [visible, setVisible] = useState(() => chosenFaction() == null);
@@ -106,6 +107,24 @@ export function FactionSelectGate() {
           );
         })}
       </div>
+
+      {/* Mission briefing — your rival + objective, the moment you pick a side */}
+      {selected && (() => {
+        const b = missionBriefing(selected);
+        if (!b) return null;
+        return (
+          <div style={{
+            maxWidth: 460, textAlign: "center", padding: "10px 16px",
+            background: "rgba(255,90,90,0.08)", border: "1px solid rgba(255,120,120,0.35)",
+            borderRadius: 10,
+          }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,150,150,0.8)", marginBottom: 4 }}>
+              ⚔ Mission · {b.headline}
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(220,225,255,0.85)" }}>{b.objective}</div>
+          </div>
+        );
+      })()}
 
       {/* Optional waitlist */}
       <div style={{ width: "100%", maxWidth: 460, textAlign: "center" }}>
