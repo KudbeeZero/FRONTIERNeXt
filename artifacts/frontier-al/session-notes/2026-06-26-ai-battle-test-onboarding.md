@@ -20,9 +20,20 @@ faction-gated entry, and an optional play-to-waitlist with rewards in the real g
    fallback, rate-limited, hard `algosdk.isValidAddress`). No funds.
 4. **#154** — **rival + mission briefing**. `shared/battleObjective.ts` (`rivalOf`,
    `missionBriefing`, `evaluateObjective`) shown on faction pick.
-5. **#155** — **live objective HUD** (this PR at note time). `rivalStanding()` +
-   `ObjectiveHud.tsx` (fixed, `pointer-events:none`) polling `GET /api/factions`
-   for live rival outpost counts → progress bar, win at zero.
+5. **#155** — **live objective HUD**. `rivalStanding()` + `ObjectiveHud.tsx`
+   (fixed, `pointer-events:none`) polling `GET /api/factions` for live rival
+   outpost counts → progress bar, win at zero.
+6. **#156** — **persist faction to the player record (DB)**. `nextFactionSync()`
+   pure decision + gate calls existing `POST /api/factions/:name/join` (best-effort).
+7. **#157** — **cinematic intro** replacing the launch counter. Pure
+   `introPhaseAt`/`introProgress` timeline + `IntroCinematic.tsx` (rAF overlay:
+   ignition → orbital push-in → "AI BATTLE TEST" title), skippable, once.
+
+### Loop wind-down
+Units 6–7 were built under a `/loop` (owner: "build in a loop, tested after each").
+The loop was wound down after #157 because only **gated** (reward payout) and
+**taste** (cinematic refinement) work remains — neither should be auto-built.
+End-state `main` @ `c731caf`: **server 411 / client 187 / build green.**
 
 ## Test/verify
 Each unit ran the full gate green before merge: `check` (tsc) · `test:server` ·
