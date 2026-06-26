@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { effectiveInCustody } from "@/lib/devSession";
 import type { LandParcel, Player, ImprovementType, SpecialAttackType, DefenseImprovementType, FacilityType, SubParcel, BiomeType, SubParcelArchetype, EnergyAlignment } from "@shared/schema";
 import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS, DEFENSE_IMPROVEMENT_INFO, FACILITY_INFO, IMPROVEMENT_INFO, SPECIAL_ATTACK_INFO, SUB_PARCEL_HOLD_HOURS, BASE_YIELD, SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, ARCHETYPE_FACTION_BONUSES, TERRAFORM_COSTS, TERRAFORM_BIOME_MAP, isImprovementAllowedForArchetype } from "@shared/schema";
 
@@ -723,6 +724,9 @@ export function LandSheet({
   const isEnemyOwned = parcel.ownerId && parcel.ownerId !== player?.id;
   const isUnclaimed = !parcel.ownerId;
   const canMine = isOwned && Date.now() - parcel.lastMineTs >= MINE_COOLDOWN_MS;
+  // Dev/test player can never claim — never treat its plots as escrow-locked, so
+  // mining/upgrades stay unlocked and no claim prompt shows.
+  const inCustody = effectiveInCustody(nftInfo?.inCustody);
   const biomeBonus = biomeBonuses[parcel.biome];
   const totalStored = parcel.ironStored + parcel.fuelStored + parcel.crystalStored;
   const storagePercent = (totalStored / parcel.storageCapacity) * 100;
@@ -927,18 +931,18 @@ export function LandSheet({
           {nftInfo && (
             <div className={cn(
               "p-2.5 rounded-lg border",
-              nftInfo.inCustody
+              inCustody
                 ? "bg-amber-500/10 border-amber-500/40"
                 : "bg-primary/5 border-primary/20"
             )}>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <PackageCheck className={cn("w-4 h-4 shrink-0", nftInfo.inCustody ? "text-amber-400" : "text-primary")} />
+                  <PackageCheck className={cn("w-4 h-4 shrink-0", inCustody ? "text-amber-400" : "text-primary")} />
                   <div className="min-w-0">
-                    <span className={cn("text-xs font-display uppercase tracking-wide font-bold block", nftInfo.inCustody ? "text-amber-400" : "text-primary")}>
-                      {nftInfo.inCustody ? "NFT Awaiting Claim" : "Plot NFT"}
+                    <span className={cn("text-xs font-display uppercase tracking-wide font-bold block", inCustody ? "text-amber-400" : "text-primary")}>
+                      {inCustody ? "NFT Awaiting Claim" : "Plot NFT"}
                     </span>
-                    {nftInfo.inCustody && (
+                    {inCustody && (
                       <span className="text-[9px] text-amber-300/70">Claim to unlock mining &amp; upgrades</span>
                     )}
                   </div>
@@ -952,7 +956,7 @@ export function LandSheet({
                   >
                     ASA {nftInfo.assetId} ↗
                   </a>
-                  {nftInfo.inCustody && onDeliverNft && (
+                  {inCustody && onDeliverNft && (
                     <Button
                       size="sm"
                       onClick={onDeliverNft}
@@ -966,7 +970,7 @@ export function LandSheet({
                       )}
                     </Button>
                   )}
-                  {!nftInfo.inCustody && (
+                  {!inCustody && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-green-400 border-green-500/30 bg-green-500/10">In Wallet ✓</Badge>
                   )}
                 </div>
@@ -985,26 +989,26 @@ export function LandSheet({
                 <Button
                   size="sm"
                   onClick={onMine}
-                  disabled={!canMine || isMining || !!nftInfo?.inCustody}
+                  disabled={!canMine || isMining || !!inCustody}
                   className={cn(
                     "flex-1 font-display uppercase tracking-wide text-xs font-semibold",
-                    canMine && !isMining && !nftInfo?.inCustody && "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg",
-                    !!nftInfo?.inCustody && "opacity-50 cursor-not-allowed"
+                    canMine && !isMining && !inCustody && "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg",
+                    !!inCustody && "opacity-50 cursor-not-allowed"
                   )}
                   data-testid="button-mine"
-                  title={nftInfo?.inCustody ? "Claim your NFT first to unlock mining" : undefined}
+                  title={inCustody ? "Claim your NFT first to unlock mining" : undefined}
                 >
                   <Pickaxe className="w-4 h-4 mr-1.5" />
-                  {isMining ? "Mining..." : nftInfo?.inCustody ? "NFT Required" : "Mine"}
+                  {isMining ? "Mining..." : inCustody ? "NFT Required" : "Mine"}
                 </Button>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => setExpanded(true)}
-                  disabled={!!nftInfo?.inCustody}
-                  className={cn("font-display uppercase tracking-wide text-xs font-semibold", !!nftInfo?.inCustody && "opacity-50 cursor-not-allowed")}
+                  disabled={!!inCustody}
+                  className={cn("font-display uppercase tracking-wide text-xs font-semibold", !!inCustody && "opacity-50 cursor-not-allowed")}
                   data-testid="button-upgrade"
-                  title={nftInfo?.inCustody ? "Claim your NFT first to unlock upgrades" : undefined}
+                  title={inCustody ? "Claim your NFT first to unlock upgrades" : undefined}
                 >
                   <Hammer className="w-3.5 h-3.5 mr-1" />
                   Upgrade ↑
