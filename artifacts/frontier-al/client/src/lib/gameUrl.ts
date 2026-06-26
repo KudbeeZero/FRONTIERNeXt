@@ -9,12 +9,25 @@
 //
 // So "Enter Game" must jump to the backend that serves the live game.
 //
-//   - Default `/game` (relative) → correct when the app is already served by its
-//     own backend (Fly): the CTA stays on the same origin.
-//   - On Cloudflare Pages set `VITE_GAME_URL=https://frontiernext.fly.dev/game`
-//     so "Enter Game" leaves the static homepage and lands on the backend game.
-export const GAME_URL =
-  (import.meta.env.VITE_GAME_URL as string | undefined)?.trim() || "/game";
+//   - VITE_GAME_URL (build-time) → explicit override, always wins.
+//   - On localhost / *.fly.dev → use relative `/game` (same-origin backend).
+//   - Any other host (e.g. frontierprotocol.app on Cloudflare) → cross-origin
+//     to the Fly backend so dev/session flags work. No dashboard config required.
+const FLY_GAME_URL = "https://frontiernext.fly.dev/game";
+
+function resolveGameUrl(): string {
+  const envUrl = (import.meta.env.VITE_GAME_URL as string | undefined)?.trim();
+  if (envUrl) return envUrl;
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1" && !host.endsWith("fly.dev")) {
+      return FLY_GAME_URL;
+    }
+  }
+  return "/game";
+}
+
+export const GAME_URL = resolveGameUrl();
 
 /**
  * Navigate to the game. Uses a full-page navigation (not the SPA router) so an
