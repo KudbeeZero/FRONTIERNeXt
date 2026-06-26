@@ -32,6 +32,14 @@ COPY . .
 # does not block the build.
 RUN pnpm install --frozen-lockfile
 
+# Build-time client flags (baked into the Vite bundle). Passed from fly.toml
+# [build.args]. VITE_DEV_MODE='true' enables the no-wallet playtest entry; unset
+# on a normal/mainnet build so the dev paths compile out. Defaults to off.
+ARG VITE_DEV_MODE=""
+ARG VITE_DEV_AUTOLOGIN=""
+ENV VITE_DEV_MODE=$VITE_DEV_MODE
+ENV VITE_DEV_AUTOLOGIN=$VITE_DEV_AUTOLOGIN
+
 # Build the client (Vite → dist/public) and server (esbuild → dist/index.cjs).
 RUN pnpm --filter @workspace/frontier-al run build
 
