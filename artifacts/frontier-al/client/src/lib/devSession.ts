@@ -60,3 +60,18 @@ export function endDevSession(): void {
   window.localStorage.removeItem(SESSION_KEY);
   window.localStorage.removeItem(ADDRESS_KEY);
 }
+
+/**
+ * The dev/test player is bound to a non-wallet sentinel and can NEVER claim an
+ * NFT out of escrow — so for it, "in custody" is meaningless noise that both nags
+ * (Claim-NFT prompts) and blocks (mining/upgrades show "NFT Required"). Collapse
+ * it to false for the dev player so the test experience is unblocked and quiet.
+ * Real players are unaffected (passthrough). Pure — `devActive` is injectable so
+ * the rule is unit-pinned without a DOM.
+ */
+export function effectiveInCustody(
+  rawInCustody: boolean | null | undefined,
+  devActive: boolean = devSessionActive(),
+): boolean {
+  return devActive ? false : !!rawInCustody;
+}

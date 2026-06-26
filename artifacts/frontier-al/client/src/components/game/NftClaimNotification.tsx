@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { Gift, X, ExternalLink, Shield, MapPin, Loader2 } from "lucide-react";
+import { devSessionActive } from "@/lib/devSession";
 import type { Player, LandParcel } from "@shared/schema";
 
 interface NftClaimNotificationProps {
@@ -97,7 +98,8 @@ export function NftClaimNotification({
   });
 
   const all = [...claimableCommanders, ...claimablePlots];
-  if (all.length === 0) return null;
+  // The dev/test player can never claim — never nag it with claim cards.
+  if (devSessionActive() || all.length === 0) return null;
 
   return (
     <div

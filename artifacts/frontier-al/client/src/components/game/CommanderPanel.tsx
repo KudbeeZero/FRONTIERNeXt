@@ -13,6 +13,7 @@ import { Slider } from "@/components/ui/slider";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { serverNow } from "@/lib/serverClock";
+import { devSessionActive, effectiveInCustody } from "@/lib/devSession";
 import { CommanderCombatRecord } from "./CommanderCombatRecord";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
 import {
@@ -507,10 +508,13 @@ export function CommanderPanel({
     })),
   });
 
+  // The dev/test player can never claim (sentinel wallet) — collapse custody to
+  // false so the claim banner + rows never nag it.
+  const isDevPlayer = devSessionActive();
   const pendingNftPlots = ownedParcels.slice(0, 25).flatMap((parcel, idx) => {
     const d = plotNftQueries[idx]?.data;
     if (!d?.assetId) return [];
-    const inCustody = !!d.mintedToAddress && d.mintedToAddress !== wallet?.address;
+    const inCustody = effectiveInCustody(!!d.mintedToAddress && d.mintedToAddress !== wallet?.address, isDevPlayer);
     if (!inCustody) return [];
     return [{ plotId: parcel.plotId, assetId: d.assetId, biome: parcel.biome as string }];
   });
@@ -692,22 +696,24 @@ export function CommanderPanel({
               </div>
             )}
           </div>
-          <button
-            onClick={() => setShowMintSection(!showMintSection)}
-            className="shrink-0 px-3 py-2 rounded-lg text-[10px] font-display font-bold uppercase tracking-wide leading-tight text-center transition-all"
-            style={{
-              background: showMintSection
-                ? "rgba(239,68,68,0.4)"
-                : "linear-gradient(135deg, rgba(239,68,68,0.9) 0%, rgba(185,28,28,0.95) 100%)",
-              border: "1px solid rgba(239,68,68,0.6)",
-              boxShadow: showMintSection ? "none" : "0 0 12px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
-              color: "white",
-              minWidth: 76,
-            }}
-          >
-            MINT<br />
-            <span className="font-mono text-[9px] opacity-80">{COMMANDER_INFO[selectedTier]?.mintCostAscend ?? 10} ASCEND</span>
-          </button>
+          {!isDevPlayer && (
+            <button
+              onClick={() => setShowMintSection(!showMintSection)}
+              className="shrink-0 px-3 py-2 rounded-lg text-[10px] font-display font-bold uppercase tracking-wide leading-tight text-center transition-all"
+              style={{
+                background: showMintSection
+                  ? "rgba(239,68,68,0.4)"
+                  : "linear-gradient(135deg, rgba(239,68,68,0.9) 0%, rgba(185,28,28,0.95) 100%)",
+                border: "1px solid rgba(239,68,68,0.6)",
+                boxShadow: showMintSection ? "none" : "0 0 12px rgba(239,68,68,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+                color: "white",
+                minWidth: 76,
+              }}
+            >
+              MINT<br />
+              <span className="font-mono text-[9px] opacity-80">{COMMANDER_INFO[selectedTier]?.mintCostAscend ?? 10} ASCEND</span>
+            </button>
+          )}
         </div>
 
         {/* Bottom border glow */}
