@@ -70,3 +70,19 @@ export function clearFaction(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(FACTION_KEY);
 }
+
+/**
+ * Decide whether to persist a freshly-picked faction to the player's record on
+ * the server (POST /api/factions/:name/join), so the alignment is attached to the
+ * wallet/DB — not just localStorage. Pure: only join when a faction was picked and
+ * it differs from what the player is already aligned with (avoids redundant writes
+ * and needless cooldown hits).
+ */
+export function nextFactionSync(
+  currentPlayerFactionId: string | null | undefined,
+  chosen: PlayerFactionId | null,
+): { shouldJoin: boolean; faction: PlayerFactionId | null } {
+  if (!chosen) return { shouldJoin: false, faction: null };
+  if (chosen === currentPlayerFactionId) return { shouldJoin: false, faction: chosen };
+  return { shouldJoin: true, faction: chosen };
+}

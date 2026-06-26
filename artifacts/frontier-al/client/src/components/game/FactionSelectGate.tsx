@@ -14,7 +14,7 @@
  */
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
-import { PLAYER_FACTIONS, chosenFaction, chooseFaction } from "@/lib/factions";
+import { PLAYER_FACTIONS, chosenFaction, chooseFaction, nextFactionSync } from "@/lib/factions";
 import { validateWaitlistSignup, type PlayerFactionId } from "@shared/waitlist";
 import { missionBriefing } from "@shared/battleObjective";
 
@@ -32,6 +32,21 @@ export function FactionSelectGate() {
     if (!selected || busy) return;
     setBusy(true);
     chooseFaction(selected);
+
+    // Persist the alignment to the player's record (best-effort) so the faction is
+    // attached to the wallet/DB, not just localStorage. Never blocks entry.
+    try {
+      const meRes = await apiRequest("GET", "/api/auth/me");
+      const me = await meRes.json().catch(() => ({}));
+      const sync = nextFactionSync(me?.player?.playerFactionId, selected);
+      if (sync.shouldJoin && me?.player?.id) {
+        await apiRequest("POST", `/api/factions/${encodeURIComponent(selected)}/join`, {
+          playerId: me.player.id,
+        });
+      }
+    } catch {
+      /* non-blocking — enter anyway */
+    }
 
     // Optional waitlist signup — only if they typed a contact. Best-effort: a
     // failed/disabled signup must never block entry.

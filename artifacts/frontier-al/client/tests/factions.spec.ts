@@ -9,6 +9,7 @@ import {
   chosenFaction,
   chooseFaction,
   clearFaction,
+  nextFactionSync,
 } from "@/lib/factions";
 
 // The client suite runs in node (no jsdom). Stub a minimal window.localStorage so
@@ -56,5 +57,17 @@ describe("faction choice persistence", () => {
     chooseFaction("KRONOS");
     clearFaction();
     expect(chosenFaction()).toBeNull();
+  });
+});
+
+describe("nextFactionSync", () => {
+  it("joins when a faction is picked and differs from the player's current", () => {
+    expect(nextFactionSync(null, "VANGUARD")).toEqual({ shouldJoin: true, faction: "VANGUARD" });
+    expect(nextFactionSync("KRONOS", "VANGUARD")).toEqual({ shouldJoin: true, faction: "VANGUARD" });
+  });
+
+  it("does not join when nothing picked or already aligned (no redundant write / cooldown hit)", () => {
+    expect(nextFactionSync("KRONOS", null)).toEqual({ shouldJoin: false, faction: null });
+    expect(nextFactionSync("VANGUARD", "VANGUARD")).toEqual({ shouldJoin: false, faction: "VANGUARD" });
   });
 });
