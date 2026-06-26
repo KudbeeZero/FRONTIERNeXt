@@ -10,17 +10,26 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/hide-dev-claim-nags` · PR #159 · 1 open PR
+## Current baton — ✅ CLEAN · no open PRs · `main` @ `8a1f492`
 
-**This PR (#159):** stop the NFT **claim/mint nags** (and the "NFT Required" mining lock) for the
-**dev/test player** — it can never claim (sentinel wallet), so they were noise that blocked testing.
-`effectiveInCustody()` (devSession.ts, +2 tests) collapses custody→false for the dev player only;
-applied in CommanderPanel/LandSheet/GlobeHUD/NftClaimNotification. **No funds/server code.** Real players
-unaffected. check ✓ · client **189** (+2) · server 411 ✓ · build ✓. **Next chat: `/handoff-audit` this PR.**
+**Last session fixed the no-wallet playtest entry (PRs #159–#162, all merged):**
+- **#159** NFT claim/mint nags suppressed for dev player (`effectiveInCustody()`).
+- **#160** Faction gate calls `/api/dev/quick-auth` in `DEV_MODE` on "Align & Enter".
+- **#161** `VITE_DEV_AUTOLOGIN=true` added to `fly.toml` (zero-click landing auto-login).
+- **#162** **Wallet gate bypass + Cloudflare routing** — `gameUrl.ts` routes non-Fly hosts to
+  `https://frontiernext.fly.dev/game` at runtime (no dashboard config needed); `GameLayout`
+  redirects to `/` in `DEV_MODE` when no dev session is active (triggers landing auto-login).
 
-> Prior: **AI Battle Test onboarding built end-to-end (7 units #151–#157, all merged green)** + closeout **#158** (merged).
+**End state:** server **411**/14-skip · client **189** · build ✓ · Fly auto-deploy triggered · Cloudflare Pages updated.
 
-- **The 7 merged units (all: typecheck + server + client + build green at merge):**
+**User journey confirmed working:**
+1. `frontierprotocol.app` → "Enter Game" → `frontiernext.fly.dev/game` → faction pick → game ✓
+2. `frontiernext.fly.dev` landing → auto-login → `/game` → game ✓
+3. Direct `frontiernext.fly.dev/game` (cleared session) → `/` → auto-login → game ✓
+
+> Prior: **AI Battle Test onboarding built end-to-end (7 units #151–#157, all merged green)**.
+
+- **The 7 merged AI Battle Test units:**
   - **#151** zero-click TestNet dev login (`VITE_DEV_AUTOLOGIN`, triple-gated, fail-closed).
   - **#152** AI faction **communication** — `factionVoice.ts` taunts wired into 5 AI-turn sites.
   - **#153** **faction-select gate** + optional **play-to-waitlist** (`/api/waitlist/join`, Redis store).
@@ -28,53 +37,41 @@ unaffected. check ✓ · client **189** (+2) · server 411 ✓ · build ✓. **N
   - **#155** **live objective HUD** (`ObjectiveHud.tsx` polling `/api/factions`).
   - **#156** **persist faction to DB** (gate → `/api/factions/:name/join`).
   - **#157** **cinematic intro** replacing the launch counter (`IntroCinematic.tsx`).
-- **End-state gate (`main` @ `c731caf`):** server **411**/14-skip · client **187** · build — all green.
 - **🛑 NOT built (on purpose):** the waitlist **reward payout** (on-chain ASCEND/NFT for tiers) — funds/ASA,
-  **gated**: needs `/mainnet-gate` PASS + `algo-auditor`. Capture + tier ladder are done; payout pending.
-- **Honest flag:** all 7 units are logic + tests + build — **NOT browser-verified on-device** (owner smoke-test:
-  intro → faction pick → mission HUD on the live game; cinematic pacing is a default to retune).
+  **gated**: needs `/mainnet-gate` PASS + `algo-auditor`. Capture + tier ladder done; payout pending.
+- **Honest flag:** all units are logic + tests + build — **NOT browser-verified on-device** (owner smoke-test:
+  intro → faction pick → mission HUD; cinematic pacing is a default to retune).
 - **Deploy:** Fly **`frontiernext`** (`frontiernext.fly.dev`) + Cloudflare **`frontierprotocol.app`** LIVE.
-- **Branch cleanup:** triaged all **140** non-`main` branches (73 merged + 67 unmerged) → all
-  dead/superseded, **nothing valuable un-landed**; only **`wip/atomic-purchase` retained (OFF-LIMITS)**.
-  ⚠️ **Programmatic deletion is blocked in the web env** (GitHub **403** on `git push --delete`; no
-  MCP ref-delete tool) — prune from the GitHub UI or a delete-scoped token. Full prune list:
-  [`artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md`](../artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md).
+- **Branch cleanup:** triaged all **140** non-`main` branches → all dead/superseded, nothing valuable un-landed;
+  only **`wip/atomic-purchase` retained (OFF-LIMITS)**. Prune from GitHub UI when a delete-scoped token is available.
+  Full list: [`artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md`](../artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md).
 
 ### Recently shipped (merged + verified)
-- **#157** cinematic intro replacing the launch counter — merged this session.
-- **#156** persist faction alignment to the player record (DB) — merged this session.
-- **#155** live AI Battle Test objective HUD — merged this session.
-- **#154** AI Battle Test rival + mission briefing on faction pick — merged this session.
-- **#153** faction-select entry gate + optional play-to-waitlist capture — merged this chat.
-- **#152** AI faction communication — the 4 factions taunt in the live feed — merged this chat.
-- **#151** zero-click TestNet dev auto-login (`VITE_DEV_AUTOLOGIN`) — merged this chat.
-- **#149/#150** clean-launch baseline + branch-cleanup triage (prev chat).
-- **#146** Aether prologue polish — warmer Web Speech fallback + Mars "under us" landing (vendored `/story/` rebuilt).
-- **#147** weapons-combat **Unit 1** — offensive **Weapon Strike** (client wired to `/api/weapons/fire`; server unchanged).
-- **#148** baton reconcile + post-merge verification.
+- **#162** wallet gate bypass + Cloudflare→Fly routing — merged this session.
+- **#161** `VITE_DEV_AUTOLOGIN` on Fly — merged this session.
+- **#160** faction gate no-wallet quick-auth — merged this session.
+- **#159** NFT nags suppressed for dev player — merged this session.
+- **#157** cinematic intro replacing the launch counter.
+- **#156** persist faction alignment to DB.
+- **#155** live objective HUD.
+- **#154** rival + mission briefing.
+- **#153** faction-select gate + play-to-waitlist.
+- **#152** AI faction communication (taunts in live feed).
+- **#151** zero-click TestNet dev auto-login.
 
-### ➡️ NEXT UNITS — "AI Battle Test" (build complete; remaining needs owner input or a gate)
-**Shipped this session (all merged + verified):** zero-click entry (#151) · talking AIs (#152) · faction
-gate + play-to-waitlist (#153) · mission briefing (#154) · live objective HUD (#155) · faction→DB (#156) ·
-cinematic intro (#157). **Remaining:**
-1. **Cinematic taste pass** — #157 is a default (rAF orbital push-in + title). Retune pacing/copy/visuals,
-   or swap to the in-game cinematic layer (`cameraDirector.ts` / `cinematicBus.ts`) for a globe fly-in.
-2. **Objective HUD live lose-detection** — feed real player territory to `evaluateObjective`'s `playerNow`
-   (currently safe constant `1`; the "lost" branch is tested but not live-driven). Small follow-up.
-3. **Waitlist reward payout** (🛑 GATED, LAST) — convert engagement `tier` (computed in `shared/waitlist.ts`)
-   into an on-chain ASCEND/NFT grant. **Funds/ASA → requires `/mainnet-gate` PASS + `algo-auditor`; TestNet
-   only.** Capture + tier ladder done; **do NOT build the payout without the gate.**
-- **Also queued (pre-existing):** Weapons Unit 2 (defensive DEPLOY UI), Weapons Unit 3 (engagement cinematic
-  off `weapon_engagement` ws), Aether real VO Ch.2–5 (needs `ELEVENLABS_API_KEY`).
-- **Housekeeping (owner / when a delete path exists):** prune the 140 stale branches per the audit doc above.
-- **Also queued (pre-existing):** Weapons Unit 2 (defensive DEPLOY UI), Weapons Unit 3 (engagement cinematic
-  off `weapon_engagement` ws), Aether real VO Ch.2–5 (needs `ELEVENLABS_API_KEY`).
-- **Housekeeping (owner / when a delete path exists):** prune the 140 stale branches per the audit doc above.
+### ➡️ NEXT UNITS (owner decides priority)
+1. **Cinematic taste pass** — #157 is default pacing. Retune timing/copy/visuals or swap to globe fly-in.
+2. **Objective HUD live lose-detection** — feed real player territory count to `evaluateObjective` (currently `1`).
+3. **Weapons Unit 2** — defensive DEPLOY UI.
+4. **Weapons Unit 3** — engagement cinematic off `weapon_engagement` ws.
+5. **Aether real VO Ch.2–5** — needs `ELEVENLABS_API_KEY`.
+6. **Waitlist reward payout** (🛑 GATED, LAST) — `/mainnet-gate` PASS + `algo-auditor` required first.
+- **Housekeeping:** prune 140 stale branches per audit doc above.
 
 ### Open risks / honest flags
 - **#147 Strike** + **#146 prologue** are **NOT browser-verified on-device** (logic/tests + CI only) — owner
   smoke-test: fire a weapon on the live site; replay the prologue (voice + Mars landing).
-- A fired weapon currently only toasts — no globe animation until Unit 3.
+- A fired weapon currently only toasts — no globe animation until Weapons Unit 3.
 - Pre-deploy reminders: migrations `0000`–`0011` applied; `VITE_TEST_GLOBE` reads `false`; keep
   `SESSION_SECRET` stable across deploys.
 
