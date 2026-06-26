@@ -10,22 +10,22 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🟡 AWAITING_AUDIT · branch `claude/ai-battle-objective` · PR #154 · 1 open PR
+## Current baton — 🟡 AWAITING_AUDIT · branch `claude/objective-hud` · PR #155 · 1 open PR
 
-This chat built out the **"AI Battle Test" onboarding** end-to-end (4 units). This PR (#154) adds the
-**rival + mission briefing** on faction-select. **Next chat: `/handoff-audit` this PR first.**
+This chat built the **"AI Battle Test" onboarding end-to-end (5 units)**. This PR (#155) adds the
+**live objective HUD**. **Next chat: `/handoff-audit` this PR first.**
 
-- **What this PR (#154) did (for the auditor):**
-  - **`shared/battleObjective.ts`** (+spec, 9 tests) — pure symmetric rivalry map (NEXUS-7↔KRONOS,
-    VANGUARD↔SPECTRE), `missionBriefing()`, and `evaluateObjective()` win/lost/active progress math
-    (defensive vs bad inputs). No funds/I/O.
-  - **`FactionSelectGate.tsx`** — shows "⚔ Mission · X vs Y — dismantle their outposts" on select.
-  - **No canvas/combat/funds touched.**
-- **Verify gate (branch head):** typecheck ✓ · server **409**/14-skip ✓ (+9) · client **182** ✓ · build ✓.
+- **What this PR (#155) did (for the auditor):**
+  - **`shared/battleObjective.ts`** — `rivalStanding()` pure helper (+2 tests) feeding the already-tested
+    `evaluateObjective()`.
+  - **`ObjectiveHud.tsx`** — fixed top-center, **`pointer-events:none`** page-level overlay; polls
+    `GET /api/factions` (read-only), shows live progress vs the rival; per-rival start in localStorage.
+  - **`game.tsx`** mounts it alongside the gate. **No funds/canvas/combat touched.**
+- **Verify gate (branch head):** typecheck ✓ · server **411**/14-skip ✓ (+2) · client **182** ✓ · build ✓.
 - **Merged this chat (verified green):** **#151** zero-click dev login · **#152** AI faction voice (live-feed taunts) ·
-  **#153** faction-select gate + play-to-waitlist capture.
-- **Honest flag:** logic + tests + build only — **NOT browser-verified on-device**. The waitlist **reward payout**
-  is intentionally **NOT built** — that's the gated on-chain unit (needs `/mainnet-gate` + `algo-auditor`).
+  **#153** faction-select gate + play-to-waitlist · **#154** rival + mission briefing.
+- **Honest flag:** all 5 units are logic + tests + build — **NOT browser-verified on-device** (eyeball HUD overlap).
+  The waitlist **reward payout** is intentionally **NOT built** — gated on-chain unit (`/mainnet-gate` + `algo-auditor`).
 - **Deploy:** Fly **`frontiernext`** (`frontiernext.fly.dev`) + Cloudflare **`frontierprotocol.app`** LIVE.
 - **Branch cleanup:** triaged all **140** non-`main` branches (73 merged + 67 unmerged) → all
   dead/superseded, **nothing valuable un-landed**; only **`wip/atomic-purchase` retained (OFF-LIMITS)**.
@@ -34,6 +34,7 @@ This chat built out the **"AI Battle Test" onboarding** end-to-end (4 units). Th
   [`artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md`](../artifacts/frontier-al/docs/audit/2026-06-25-branch-cleanup.md).
 
 ### Recently shipped (merged + verified)
+- **#154** AI Battle Test rival + mission briefing on faction pick — merged this chat.
 - **#153** faction-select entry gate + optional play-to-waitlist capture — merged this chat.
 - **#152** AI faction communication — the 4 factions taunt in the live feed — merged this chat.
 - **#151** zero-click TestNet dev auto-login (`VITE_DEV_AUTOLOGIN`) — merged this chat.
@@ -43,13 +44,14 @@ This chat built out the **"AI Battle Test" onboarding** end-to-end (4 units). Th
 - **#148** baton reconcile + post-merge verification.
 
 ### ➡️ NEXT UNITS — "AI Battle Test" public-playtest mode (owner vision; one PR each)
-Frictionless public playtest that doubles as marketing/onboarding. **Shipped so far this session:** zero-click entry (#151) · talking AIs (#152) · faction-select gate +
-play-to-waitlist (#153) · rival + mission briefing (#154, this PR). **Remaining:**
-1. **Live objective HUD** — feed `evaluateObjective()` (built + tested in `shared/battleObjective.ts`) live rival
-   outpost counts → an in-game progress readout + win/lose. Needs a faction-standings data source on the client.
-2. **Cinematic intro** (VISUAL — get owner taste) — build a real prologue via the **existing** cinematic layer
-   (`cameraDirector.ts` / `cinematicBus.ts` / `GlobeCinematicCamera.tsx`); the old `MissionLoadingScreen.tsx` 6s
-   counter is dead (no importer). Surface on entry around the faction gate.
+Frictionless public playtest that doubles as marketing/onboarding. **Shipped this session (all merged + verified):** zero-click entry (#151) · talking AIs (#152) · faction-select
+gate + play-to-waitlist (#153) · rival + mission briefing (#154) · live objective HUD (#155, this PR).
+**Remaining (need owner input or a gate):**
+1. **Cinematic intro** (VISUAL — get owner taste first) — build a real prologue via the **existing** cinematic
+   layer (`cameraDirector.ts` / `cinematicBus.ts` / `GlobeCinematicCamera.tsx`); the old `MissionLoadingScreen.tsx`
+   6s counter is dead (no importer). Surface on entry around the faction gate.
+2. **Live lose-detection for the objective HUD** — feed real player territory to `evaluateObjective`'s `playerNow`
+   (currently a safe constant `1`, so the "lost" branch is tested but not live-driven). Small follow-up.
 3. **Waitlist reward payout** (🛑 GATED, LAST) — convert engagement `tier` (already computed, `shared/waitlist.ts`)
    into an on-chain ASCEND/NFT grant. **Touches funds/ASA → requires `/mainnet-gate` PASS + `algo-auditor`; TestNet
    only.** Capture + tier ladder are done; only the payout is pending — **do NOT build without the gate.**
