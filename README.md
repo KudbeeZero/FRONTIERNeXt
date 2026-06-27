@@ -94,6 +94,7 @@ For anyone deploying, extending, or auditing the frontier.
 
 | | Doc | Purpose |
 |---|---|---|
+| 💻 | **[Local Development](LOCAL_DEV.md)** | Run it on your desktop: clone → install → Postgres → run → test |
 | 🏛️ | **[Architecture](artifacts/frontier-al/ARCHITECTURE.md)** | System design: client, engine, blockchain service layer |
 | 🚢 | **[Deployment](artifacts/frontier-al/DEPLOYMENT.md)** | Ship to Railway / Render / DigitalOcean, plus the pre-go-live checklist |
 | 🔧 | **[Environment Variables](artifacts/frontier-al/ENV_VARS.md)** | Every config knob and required secret |
