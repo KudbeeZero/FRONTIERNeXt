@@ -74,6 +74,7 @@ building, and rebuild after any change.
 | `VITE_WS_URL` **[REQ for split-host]** | Backend WebSocket base, e.g. `wss://api.ascendancyalgo.xyz`. |
 | `VITE_ALGORAND_NETWORK` | `mainnet` or `testnet` (must match backend). |
 | `VITE_ALGOD_URL` / `VITE_INDEXER_URL` **[OPT]** | Override for mainnet; default to testnet algonode. |
+| `VITE_GLOBE_V2` **[OPT — keep UNSET in prod]** | Opt-in v2 globe lighting rebuild. Leave **unset** for production: v2 is not yet GPU-verified and is a visual preview only. Set `true` only on a throwaway smoke-test build. |
 
 ---
 

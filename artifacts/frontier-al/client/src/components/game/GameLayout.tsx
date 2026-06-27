@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { TopBar } from "./TopBar";
 import PlanetGlobe from "./PlanetGlobe";
+import PlanetGlobeV2 from "./globe/v2/PlanetGlobeV2";
+import { GLOBE_V2 } from "@/lib/globeVersion";
 import type { LivePulse } from "@/components/game/PlanetGlobe";
 import { BattleWatchModal } from "./BattleWatchModal";
 import { CommTerminal } from "./CommTerminal";
@@ -846,29 +848,42 @@ export function GameLayout() {
       {gameState ? (
         <>
           <div className="absolute inset-0 w-full h-full">
-            <PlanetGlobe
-              parcels={gameState.parcels}
-              players={gameState.players}
-              currentPlayerId={player?.id || null}
-              selectedParcelId={selectedParcelId}
-              onParcelSelect={handleParcelSelect}
-              onAttack={() => handleRequestAttack()}
-              onMine={handleMine}
-              onBuild={() => { /* LandSheet handles upgrades — stay on map */ }}
-              onPurchase={handlePurchase}
-              className="absolute inset-0 w-full h-full"
-              battles={gameState.battles}
-              livePulses={livePulses}
-              orbitalEvents={orbitalEvents}
-              replayEvents={replayEvents}
-              replayTime={replayTime}
-              replayVisibleTypes={replayVisibleTypes}
-              streamMode={streamMode}
-              flyRequestId={flyRequestId}
-              nftInfo={null}
-              onDeliverNft={undefined}
-              isDeliveringNft={false}
-            />
+            {GLOBE_V2 ? (
+              // Opt-in v2 lighting rebuild (VITE_GLOBE_V2=true). Shares the
+              // old globe's prop shape; the extra interaction props below are
+              // not yet supported by v2, so it's a visual preview only.
+              <PlanetGlobeV2
+                parcels={gameState.parcels}
+                currentPlayerId={player?.id || null}
+                onParcelSelect={handleParcelSelect}
+                className="absolute inset-0 w-full h-full"
+                showDebug={false}
+              />
+            ) : (
+              <PlanetGlobe
+                parcels={gameState.parcels}
+                players={gameState.players}
+                currentPlayerId={player?.id || null}
+                selectedParcelId={selectedParcelId}
+                onParcelSelect={handleParcelSelect}
+                onAttack={() => handleRequestAttack()}
+                onMine={handleMine}
+                onBuild={() => { /* LandSheet handles upgrades — stay on map */ }}
+                onPurchase={handlePurchase}
+                className="absolute inset-0 w-full h-full"
+                battles={gameState.battles}
+                livePulses={livePulses}
+                orbitalEvents={orbitalEvents}
+                replayEvents={replayEvents}
+                replayTime={replayTime}
+                replayVisibleTypes={replayVisibleTypes}
+                streamMode={streamMode}
+                flyRequestId={flyRequestId}
+                nftInfo={null}
+                onDeliverNft={undefined}
+                isDeliveringNft={false}
+              />
+            )}
           </div>
 
           {/* Brief overlay when transitioning from a panel to the map */}
