@@ -10,24 +10,29 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ✅ CLEAN · no open PRs · `main` @ `8a1f492`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#163** open · branch `claude/unreal-engine-implementation-yfcz16`
 
-**Last session fixed the no-wallet playtest entry (PRs #159–#162, all merged):**
-- **#159** NFT claim/mint nags suppressed for dev player (`effectiveInCustody()`).
-- **#160** Faction gate calls `/api/dev/quick-auth` in `DEV_MODE` on "Align & Enter".
-- **#161** `VITE_DEV_AUTOLOGIN=true` added to `fly.toml` (zero-click landing auto-login).
-- **#162** **Wallet gate bypass + Cloudflare routing** — `gameUrl.ts` routes non-Fly hosts to
-  `https://frontiernext.fly.dev/game` at runtime (no dashboard config needed); `GameLayout`
-  redirects to `/` in `DEV_MODE` when no dev session is active (triggers landing auto-login).
+**This chat — "how can we implement Unreal Engine?" → honest answer + first fidelity step:**
+- **`docs/UNREAL_ENGINE_FEASIBILITY.md`** — Unreal can't be dropped into the browser three.js
+  app; only **Pixel Streaming** (cloud GPU, ~$0.50–$3/concurrent player-hr, +50–150 ms) or a
+  **native desktop client** reach players — both multi-month. Recommendation: do the
+  browser-native **three.js fidelity uplift** first; Unreal stays a costed, deferred spike.
+- **Flag-gated globe v2** — wired the already-built, test-backed `globe/v2/PlanetGlobeV2`
+  behind **`VITE_GLOBE_V2`** (default **off**; `client/src/lib/globeVersion.ts` +
+  `GameLayout.tsx` conditional at the single mount site). Existing `PlanetGlobe` stays live.
+  Documented in `ENV_VARS.md` + `docs/DEPLOYMENT_ENV_CHECKLIST.md` (keep unset in prod).
 
-**End state:** server **411**/14-skip · client **189** · build ✓ · Fly auto-deploy triggered · Cloudflare Pages updated.
+**End state:** tsc ✓ · client **189** · server **411**/14-skip. **Globe v2 NOT GPU-verified**
+and **preview-only** (no selection/battles/weapon layers) — owner smoke-test required.
 
-**User journey confirmed working:**
-1. `frontierprotocol.app` → "Enter Game" → `frontiernext.fly.dev/game` → faction pick → game ✓
-2. `frontiernext.fly.dev` landing → auto-login → `/game` → game ✓
-3. Direct `frontiernext.fly.dev/game` (cleared session) → `/` → auto-login → game ✓
+**For the auditor (claims → check):**
+- Flag defaults off → live render path unchanged (`globeVersion.ts`, `GameLayout.tsx` default branch).
+- Reversible/additive: one mount-site conditional + new flag file + docs; no globe component modified.
+- No HARD RULES engaged (no funds/ASA/mainnet; no live behavior change; no mock data).
 
-> Prior: **AI Battle Test onboarding built end-to-end (7 units #151–#157, all merged green)**.
+> Prior: **no-wallet playtest entry fixed (PRs #159–#162, all merged)** — landing auto-login,
+> faction-gate quick-auth, wallet-gate bypass + Cloudflare→Fly routing.
+> Before that: **AI Battle Test onboarding (7 units #151–#157, all merged green)**.
 
 - **The 7 merged AI Battle Test units:**
   - **#151** zero-click TestNet dev login (`VITE_DEV_AUTOLOGIN`, triple-gated, fail-closed).
