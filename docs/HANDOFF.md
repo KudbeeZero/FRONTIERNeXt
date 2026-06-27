@@ -10,24 +10,28 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ✅ CLEAN · no open PRs · `main` @ `8a1f492`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#164** open · branch `claude/local-dev-quickstart` · `main` @ `fd6276e`
 
-**Last session fixed the no-wallet playtest entry (PRs #159–#162, all merged):**
-- **#159** NFT claim/mint nags suppressed for dev player (`effectiveInCustody()`).
-- **#160** Faction gate calls `/api/dev/quick-auth` in `DEV_MODE` on "Align & Enter".
-- **#161** `VITE_DEV_AUTOLOGIN=true` added to `fly.toml` (zero-click landing auto-login).
-- **#162** **Wallet gate bypass + Cloudflare routing** — `gameUrl.ts` routes non-Fly hosts to
-  `https://frontiernext.fly.dev/game` at runtime (no dashboard config needed); `GameLayout`
-  redirects to `/` in `DEV_MODE` when no dev session is active (triggers landing auto-login).
+**This chat — make the repo desktop-ready (docs only):**
+- **`LOCAL_DEV.md`** (new, repo root) + a README link — fresh-clone quickstart: prerequisites
+  (Node 22+, pnpm 10.33.0, Postgres 16), `pnpm install`, local Postgres + `db:push`, minimal
+  `.env` (incl. no-wallet dev-play toggles), two-process run (`dev:server` :5000 / `dev:client`
+  :3000), verify. Reuses `.env.example` + `ENV_VARS.md`; flags the fatal `DATABASE_URL`
+  requirement, the pnpm-only guard, and the template's `PORT=3000`↔client `:3000` collision.
 
-**End state:** server **411**/14-skip · client **189** · build ✓ · Fly auto-deploy triggered · Cloudflare Pages updated.
+**For the auditor (claims → check):**
+- Docs only: `git diff --stat main...HEAD` = `LOCAL_DEV.md` (new) + `README.md` (+1) + this baton.
+- Numbers backed on head: tsc green · server **411**/14-skip · client **189**.
+- Honest gap: Postgres-dependent steps (`db:push`, server boot) NOT executed here (no local DB) —
+  documented path, not run-verified.
 
-**User journey confirmed working:**
-1. `frontierprotocol.app` → "Enter Game" → `frontiernext.fly.dev/game` → faction pick → game ✓
-2. `frontiernext.fly.dev` landing → auto-login → `/game` → game ✓
-3. Direct `frontiernext.fly.dev/game` (cleared session) → `/` → auto-login → game ✓
+**Also dropped this chat (no code on `main`):** the **Unreal Engine** direction — investigated,
+deemed not worth it (Pixel Streaming / desktop client both multi-month), **PR #163 closed unmerged**
+on owner's call. The flag-gated `globe/v2` fidelity wiring lives on that closed branch, revivable.
 
-> Prior: **AI Battle Test onboarding built end-to-end (7 units #151–#157, all merged green)**.
+> Prior: **no-wallet playtest entry fixed (PRs #159–#162, all merged)** — landing auto-login,
+> faction-gate quick-auth, wallet-gate bypass + Cloudflare→Fly routing.
+> Before that: **AI Battle Test onboarding (7 units #151–#157, all merged green)**.
 
 - **The 7 merged AI Battle Test units:**
   - **#151** zero-click TestNet dev login (`VITE_DEV_AUTOLOGIN`, triple-gated, fail-closed).
