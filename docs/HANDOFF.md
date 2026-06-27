@@ -10,7 +10,7 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_AUDIT · PR **#TBD** (closeout docs) · branch `claude/closeout-wallet-diagnosis` · `main` @ `02863e8`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#165** (closeout docs) · branch `claude/closeout-wallet-diagnosis` · `main` @ `02863e8`
 
 **This chat (docs/baton only):** captured the **wallet-prompt diagnosis** + refreshed this baton.
 No app code changed. See [`session-notes/2026-06-27-wallet-prompt-diagnosis.md`](../artifacts/frontier-al/session-notes/2026-06-27-wallet-prompt-diagnosis.md).
