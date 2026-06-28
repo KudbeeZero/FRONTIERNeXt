@@ -391,6 +391,19 @@ export const SHARED_CSS = `
     from { background-position: 0 0; }
     to   { background-position: 0 60px; }
   }
+  /* Film-grain jitter — tiny stepped translate so the noise feels alive. */
+  @keyframes grain-shift {
+    0%, 100% { transform: translate(0, 0); }
+    10%      { transform: translate(-1px, -1px); }
+    20%      { transform: translate(1px, 1px); }
+    30%      { transform: translate(-1px, 1px); }
+    40%      { transform: translate(1px, -1px); }
+    50%      { transform: translate(-1px, 0); }
+    60%      { transform: translate(1px, 0); }
+    70%      { transform: translate(0, -1px); }
+    80%      { transform: translate(0, 1px); }
+    90%      { transform: translate(-1px, -1px); }
+  }
 
   .glow-text { animation: glow-pulse 3s ease-in-out infinite; }
   .float-anim { animation: float-up 4s ease-in-out infinite; }

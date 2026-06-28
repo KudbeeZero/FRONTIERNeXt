@@ -452,6 +452,14 @@ function EarlyAdopterSection({ onEnter }: { onEnter: () => void }) {
 
 // ─── Main Landing Page ────────────────────────────────────────────────────────
 export default function LandingPage() {
+  // Subtle film-grain overlay opacity for the hero backdrop. Kept faint so it
+  // tints the scene without muddying the foreground content.
+  const GRAIN_OVERLAY_OPACITY = 0.045;
+  // Respect the OS "reduce motion" setting: freeze the grain when requested.
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
   // Go straight to the game — no artificial countdown. The browser's page load
   // and the game's own 3D loader cover the transition.
   const handleEnter = () => { goToGame(); };
@@ -515,6 +523,17 @@ export default function LandingPage() {
       <div style={{
         position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1,
         background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.025) 2px, rgba(0,0,0,0.025) 4px)",
+      }} />
+
+      {/* Film-grain overlay — animated SVG turbulence noise, one layer above the
+          scan-line. pointerEvents:none so it never blocks the UI; opacity kept
+          faint via GRAIN_OVERLAY_OPACITY. Honors prefers-reduced-motion. */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+        pointerEvents: "none", zIndex: 2, opacity: GRAIN_OVERLAY_OPACITY,
+        backgroundImage:
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='grainFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23grainFilter)'/%3E%3C/svg%3E\")",
+        animation: prefersReducedMotion ? "none" : "grain-shift 0.15s steps(10) infinite",
       }} />
 
 
