@@ -460,6 +460,15 @@ export default function LandingPage() {
     typeof window !== "undefined" &&
     !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
+  // Scroll-driven hero blur: ramps 0 → SCROLL_BLUR_MAX_PX as the user scrolls
+  // toward SCROLL_BLUR_THRESHOLD_PX, then clamps. Capped so it never goes opaque.
+  const SCROLL_BLUR_MAX_PX = 8;
+  const SCROLL_BLUR_THRESHOLD_PX = 300;
+  // Live blur (px) applied to the hero section; driven by the rAF-throttled
+  // scroll listener below. rAF id is parked in a ref so cleanup can cancel it.
+  const [heroBlur, setHeroBlur] = useState(0);
+  const scrollRafRef = useRef<number | null>(null);
+
   // Go straight to the game — no artificial countdown. The browser's page load
   // and the game's own 3D loader cover the transition.
   const handleEnter = () => { goToGame(); };
@@ -512,6 +521,29 @@ export default function LandingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Scroll-driven hero blur — rAF-throttled (one frame per scroll burst). Skip
+  // entirely under reduced motion. Cleans up the listener + any pending rAF.
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const onScroll = () => {
+      if (scrollRafRef.current !== null) return;
+      scrollRafRef.current = requestAnimationFrame(() => {
+        scrollRafRef.current = null;
+        const blurPx = Math.min(
+          (window.scrollY / SCROLL_BLUR_THRESHOLD_PX) * SCROLL_BLUR_MAX_PX,
+          SCROLL_BLUR_MAX_PX,
+        );
+        setHeroBlur(blurPx);
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div style={{
       position: "relative", minHeight: "100vh", width: "100%",
@@ -549,6 +581,7 @@ export default function LandingPage() {
           width: "100%", maxWidth: 1100,
           display: "flex", alignItems: "center", justifyContent: "center",
           gap: 60, marginBottom: 70, flexWrap: "wrap",
+          filter: prefersReducedMotion ? "none" : `blur(${heroBlur}px)`,
         }}>
           {/* Left: Text */}
           <div style={{ flex: "1 1 360px", minWidth: 0, maxWidth: 560, animation: "fadeInLeft 0.9s ease-out forwards" }}>
