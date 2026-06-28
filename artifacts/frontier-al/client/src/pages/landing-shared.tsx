@@ -404,6 +404,22 @@ export const SHARED_CSS = `
     80%      { transform: translate(0, 1px); }
     90%      { transform: translate(-1px, -1px); }
   }
+  /* Hero CTA ripple — white radial flash on :active. */
+  @keyframes ripple-flash {
+    0%   { opacity: 0.35; }
+    100% { opacity: 0; }
+  }
+  .hero-btn-ripple { position: relative; overflow: hidden; }
+  .hero-btn-ripple::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle, rgba(255,255,255,0.35) 0%, transparent 70%);
+  }
+  .hero-btn-ripple:active::after {
+    animation: ripple-flash 0.4s ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-btn-ripple::after { animation: none !important; }
+  }
 
   .glow-text { animation: glow-pulse 3s ease-in-out infinite; }
   .float-anim { animation: float-up 4s ease-in-out infinite; }

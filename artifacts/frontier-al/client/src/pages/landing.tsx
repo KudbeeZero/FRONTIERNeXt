@@ -569,7 +569,7 @@ export default function LandingPage() {
               A massive-scale strategy game on Algorand. Claim 21,000 hex parcels, build your empire, crush AI factions — all on-chain.
             </p>
             <div className="hero-cta" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={handleEnter} style={{
+              <button onClick={handleEnter} className="hero-btn-ripple" style={{
                 background: "rgba(60,100,255,0.3)", border: "1px solid rgba(100,160,255,0.55)",
                 borderRadius: 8, padding: "13px 28px", color: "rgba(180,220,255,0.95)",
                 fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",
@@ -577,7 +577,7 @@ export default function LandingPage() {
                 boxShadow: "0 0 24px rgba(60,100,255,0.2)",
               }}>▶ Enter Game</button>
               {DEV_MODE && (
-                <button onClick={handleDevMode} disabled={devBusy} title="Enter as a test player — no wallet needed (TestNet dev tool)" style={{
+                <button onClick={handleDevMode} disabled={devBusy} title="Enter as a test player — no wallet needed (TestNet dev tool)" className="hero-btn-ripple" style={{
                   background: "rgba(255,176,32,0.16)", border: "1px solid rgba(255,176,32,0.55)",
                   borderRadius: 8, padding: "13px 24px", color: "rgba(255,210,120,0.95)",
                   fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",
