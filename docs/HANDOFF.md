@@ -10,23 +10,28 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_AUDIT · PR **#167** · branch `claude/wallet-dashboard-redesign-b78nwa` · `main` @ `b2da3b5`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#168** · branch `claude/wallet-dashboard-redesign-b78nwa` · `main` @ `d0dc59e`
 
-**This chat (unit 2):** **real wallet wins over dev/test auto-login.** Client-only; no funds/ASA/server change. See
-[`session-notes/2026-06-28-real-wallet-wins-over-dev-login.md`](../artifacts/frontier-al/session-notes/2026-06-28-real-wallet-wins-over-dev-login.md).
-- **Bug (owner screenshots):** Lute connected on landing (`NRJQZM…JGTQ`, 14.866 ALGO) but in-game TopBar showed
-  **DEV-TEST-COMMANDER · 0 ALGO** — the dev auto-login shadowed the real wallet.
-- **Fix:** `useWallet()` dev fallback now gates on `walletStatus === "disconnected"` via new pure `shouldUseDevIdentity()`
-  (not bare `!isConnected`), so it can't shadow a wallet that's **restoring** (the /game resume gap) or **connected**.
-  Plus: clear the dev session (`endDevSession()`) the moment a real `activeAddress` lands. Tests:
-  `client/tests/devIdentityPrecedence.spec.ts` (5). Green: tsc · client **200** · server **411**/14-skip · build OK.
+**This chat (unit 3):** **desktop dashboard widget system — foundation, flag-gated (default OFF).** Client-only; no
+server/funds/ASA/globe change. See
+[`session-notes/2026-06-28-dashboard-widget-foundation.md`](../artifacts/frontier-al/session-notes/2026-06-28-dashboard-widget-foundation.md).
+- **Why:** owner screenshots show the in-game menus overlapping/bunched; wants a draggable snap-grid dashboard.
+- **What:** pure 12-col grid engine (`lib/dashboard/layout.ts`, snap + versioned localStorage persistence) + flag
+  (`lib/dashboard/flag.ts`, `?dashboard=1`) + React layer (`components/game/dashboard/`: `useWidgetLayout`, dnd-kit
+  `Widget`, `DashboardCanvas`, `defaults.ts`). GameLayout: when `dashboardOn`, the two fixed desktop rails are replaced
+  by the canvas hosting the SAME 9 panels as movable widgets; **off → rails render exactly as before** (additive).
+  Added dep: `@dnd-kit/*`. Tests: `dashboardLayout.spec.ts` (15) + `dashboardFlag.spec.ts` (4).
+  Green: tsc · client **219** (200+19) · server **411**/14-skip · build OK.
 
-**For the auditor (claims → check):** `git diff --stat main...HEAD` = `WalletContext.tsx` + 1 new test + 1 session note.
-**Honest gap:** not browser-verified on-device (sandbox can't drive the Lute extension) — logic + unit tests + build only.
-Owner smoke-test: connect Lute → ENTER GAME → TopBar should show the Lute address + real balance, not DEV-TEST-COMMANDER.
+**For the auditor (claims → check):** `git diff --stat main...HEAD` = new `lib/dashboard/*` (2) + new
+`components/game/dashboard/*` (4) + `GameLayout.tsx` (additive flag gate) + `package.json`/lockfile (dnd-kit) +
+2 new tests + 1 session note. Confirm the rails are byte-unchanged when `dashboardOn` is false.
+**Honest gap:** the canvas is **NOT browser-verified** (sandbox can't render/drag). Engine + flag are unit-tested;
+React layer typechecks + builds only. Default OFF. Owner: evaluate on preview with `?dashboard=1`
+(`…frontieralgo.pages.dev/game?dashboard=1`).
 
-**Prior:** **#166 merged** (Lute connect timeout + siteName + version 2.0.1), **#165 merged** (wallet-prompt diagnosis),
-**#164 merged** (`LOCAL_DEV.md`), **#163 closed** (Unreal dropped).
+**Prior:** **#167 merged** (real wallet > dev login), **#166 merged** (Lute connect timeout + siteName + 2.0.1),
+**#165 merged** (wallet-prompt diagnosis), **#164 merged** (`LOCAL_DEV.md`), **#163 closed** (Unreal dropped).
 
 ### ➡️ NEXT UNITS (this push, owner-confirmed plan)
 1. **Branded-domain wallet prompt** — redirect `frontierprotocol.app` → `frontiernext.fly.dev` (option A, code-only,
