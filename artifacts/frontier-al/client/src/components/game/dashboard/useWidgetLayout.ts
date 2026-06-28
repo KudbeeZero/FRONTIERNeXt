@@ -22,6 +22,7 @@ export interface UseWidgetLayout {
   layout: DashboardLayout;
   grid: GridConfig;
   move: (id: string, x: number, y: number) => void;
+  resize: (id: string, w: number, h: number) => void;
   setMinimized: (id: string, minimized: boolean) => void;
   setHidden: (id: string, hidden: boolean) => void;
   focus: (id: string) => void;
@@ -47,6 +48,19 @@ export function useWidgetLayout(
         const item = prev[id];
         if (!item) return prev;
         const next = { ...prev, [id]: moveWidget(item, x, y, grid) };
+        saveLayout(next);
+        return next;
+      });
+    },
+    [grid],
+  );
+
+  const resize = useCallback(
+    (id: string, w: number, h: number) => {
+      setLayout((prev) => {
+        const item = prev[id];
+        if (!item) return prev;
+        const next = { ...prev, [id]: clampToGrid({ ...item, w, h }, grid) };
         saveLayout(next);
         return next;
       });
@@ -83,5 +97,5 @@ export function useWidgetLayout(
     commit(mergeWithDefaults(null, defaults));
   }, [commit, defaults]);
 
-  return { layout, grid, move, setMinimized, setHidden, focus, reset };
+  return { layout, grid, move, resize, setMinimized, setHidden, focus, reset };
 }

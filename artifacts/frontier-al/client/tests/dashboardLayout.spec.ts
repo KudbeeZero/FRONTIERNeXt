@@ -13,6 +13,7 @@ import {
   pixelToCell,
   cellToPixels,
   clampToGrid,
+  pixelToSize,
   moveWidget,
   mergeWithDefaults,
   bringToFront,
@@ -57,6 +58,20 @@ describe("pixelToCell / cellToPixels", () => {
     const grid = DEFAULT_GRID;
     const cell = pixelToCell(-50, -50, grid, 1000);
     expect(cell).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe("pixelToSize", () => {
+  it("is the inverse of the size half of cellToPixels", () => {
+    const grid = DEFAULT_GRID;
+    const container = 1000;
+    const rect = cellToPixels({ x: 0, y: 0, w: 5, h: 6 }, grid, container);
+    expect(pixelToSize(rect.width, rect.height, grid, container)).toEqual({ w: 5, h: 6 });
+  });
+
+  it("never collapses below 1×1", () => {
+    expect(pixelToSize(0, 0, DEFAULT_GRID, 1000)).toEqual({ w: 1, h: 1 });
+    expect(pixelToSize(-999, -999, DEFAULT_GRID, 1000)).toEqual({ w: 1, h: 1 });
   });
 });
 

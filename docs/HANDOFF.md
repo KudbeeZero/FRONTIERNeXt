@@ -10,28 +10,22 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_AUDIT · PR **#168** · branch `claude/wallet-dashboard-redesign-b78nwa` · `main` @ `d0dc59e`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#169** · branch `claude/wallet-dashboard-redesign-b78nwa` · `main` @ `ccdfe9b`
 
-**This chat (unit 3):** **desktop dashboard widget system — foundation, flag-gated (default OFF).** Client-only; no
-server/funds/ASA/globe change. See
-[`session-notes/2026-06-28-dashboard-widget-foundation.md`](../artifacts/frontier-al/session-notes/2026-06-28-dashboard-widget-foundation.md).
-- **Why:** owner screenshots show the in-game menus overlapping/bunched; wants a draggable snap-grid dashboard.
-- **What:** pure 12-col grid engine (`lib/dashboard/layout.ts`, snap + versioned localStorage persistence) + flag
-  (`lib/dashboard/flag.ts`, `?dashboard=1`) + React layer (`components/game/dashboard/`: `useWidgetLayout`, dnd-kit
-  `Widget`, `DashboardCanvas`, `defaults.ts`). GameLayout: when `dashboardOn`, the two fixed desktop rails are replaced
-  by the canvas hosting the SAME 9 panels as movable widgets; **off → rails render exactly as before** (additive).
-  Added dep: `@dnd-kit/*`. Tests: `dashboardLayout.spec.ts` (15) + `dashboardFlag.spec.ts` (4).
-  Green: tsc · client **219** (200+19) · server **411**/14-skip · build OK.
+**This chat (unit 4):** **dashboard v2 — in-HUD toggle + resizable widgets.** Builds on #168. Client-only. See
+[`session-notes/2026-06-28-dashboard-v2-toggle-resize.md`](../artifacts/frontier-al/session-notes/2026-06-28-dashboard-v2-toggle-resize.md).
+- **TopBar toggle** (`button-dashboard-toggle`, desktop) flips classic rails ↔ widget dashboard live; `dashboardOn`
+  is GameLayout state seeded from the flag, persisted via `setDashboardEnabled()`. No URL/reload needed.
+- **Resizable widgets** — `Widget` bottom-right resize handle → live px size → `DashboardCanvas` snaps via new pure
+  `pixelToSize()`; `useWidgetLayout.resize()` clamps to grid. Test added. Green: tsc · client **221** (+2) · build OK.
 
-**For the auditor (claims → check):** `git diff --stat main...HEAD` = new `lib/dashboard/*` (2) + new
-`components/game/dashboard/*` (4) + `GameLayout.tsx` (additive flag gate) + `package.json`/lockfile (dnd-kit) +
-2 new tests + 1 session note. Confirm the rails are byte-unchanged when `dashboardOn` is false.
-**Honest gap:** the canvas is **NOT browser-verified** (sandbox can't render/drag). Engine + flag are unit-tested;
-React layer typechecks + builds only. Default OFF. Owner: evaluate on preview with `?dashboard=1`
-(`…frontieralgo.pages.dev/game?dashboard=1`).
+**For the auditor:** `git diff --stat main...HEAD` = `TopBar.tsx` (toggle) + `GameLayout.tsx` (state+wire) +
+`dashboard/{Widget,DashboardCanvas,useWidgetLayout}.tsx` + `lib/dashboard/layout.ts` (`pixelToSize`) + test + note.
+**Honest gap:** still **NOT browser-verified** (no display in sandbox) — toggle/drag/resize are typecheck+build+unit
+green only. Owner testing locally (Windows clone) / on preview: load `/game`, click the grid icon in the top bar.
 
-**Prior:** **#167 merged** (real wallet > dev login), **#166 merged** (Lute connect timeout + siteName + 2.0.1),
-**#165 merged** (wallet-prompt diagnosis), **#164 merged** (`LOCAL_DEV.md`), **#163 closed** (Unreal dropped).
+**Prior:** **#168 merged** (dashboard foundation), **#167 merged** (real wallet > dev login), **#166 merged** (Lute
+timeout + 2.0.1), **#165 merged** (diagnosis docs), **#164 merged** (`LOCAL_DEV.md`), **#163 closed** (Unreal).
 
 ### ➡️ NEXT UNITS (this push, owner-confirmed plan)
 1. **Branded-domain wallet prompt** — redirect `frontierprotocol.app` → `frontiernext.fly.dev` (option A, code-only,

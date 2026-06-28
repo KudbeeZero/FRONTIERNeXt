@@ -99,6 +99,24 @@ export function pixelToCell(
 }
 
 /**
+ * Convert a pixel size (a widget's dragged width/height) to the nearest whole
+ * number of grid cells. Inverse of the size half of {@link cellToPixels}; floors
+ * at 1×1 so a widget never collapses to nothing.
+ */
+export function pixelToSize(
+  pxW: number,
+  pxH: number,
+  grid: GridConfig,
+  containerWidth: number,
+): { w: number; h: number } {
+  const stepX = columnWidth(grid, containerWidth) + grid.gap;
+  const stepY = grid.rowHeight + grid.gap;
+  const w = Math.max(1, Math.round((pxW + grid.gap) / stepX));
+  const h = Math.max(1, Math.round((pxH + grid.gap) / stepY));
+  return { w, h };
+}
+
+/**
  * Convert a widget's grid layout to an absolute pixel rect for rendering.
  * Inverse of {@link pixelToCell} for the cell origin.
  */
