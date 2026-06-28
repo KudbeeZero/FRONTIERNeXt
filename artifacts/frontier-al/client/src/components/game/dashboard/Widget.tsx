@@ -21,6 +21,8 @@ export interface WidgetProps {
   onMinimize: (id: string, minimized: boolean) => void;
   onHide: (id: string) => void;
   onFocus: (id: string) => void;
+  /** Live resize: reports the dragged pixel size; the canvas snaps it to cells. */
+  onResize: (id: string, pxWidth: number, pxHeight: number) => void;
 }
 
 const HEADER_H = 32;
@@ -35,8 +37,32 @@ export function Widget({
   onMinimize,
   onHide,
   onFocus,
+  onResize,
 }: WidgetProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+
+  // Pointer-based resize from the bottom-right corner. We report the live pixel
+  // size to the canvas, which snaps it to whole grid cells.
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = rect.width;
+    const startH = rect.height;
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      onResize(id, startW + (ev.clientX - startX), startH + (ev.clientY - startY));
+    };
+    const onUp = (ev: PointerEvent) => {
+      target.releasePointerCapture(ev.pointerId);
+      target.removeEventListener("pointermove", onMove);
+      target.removeEventListener("pointerup", onUp);
+    };
+    target.addEventListener("pointermove", onMove);
+    target.addEventListener("pointerup", onUp);
+  };
 
   const style: React.CSSProperties = {
     position: "absolute",
@@ -91,6 +117,18 @@ export function Widget({
         </button>
       </div>
       {!minimized && <div className="flex-1 min-h-0 overflow-auto">{children}</div>}
+      {!minimized && (
+        <div
+          onPointerDown={onResizeStart}
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize text-primary/50 hover:text-primary"
+          title="Resize"
+          data-testid={`widget-resize-${id}`}
+          style={{
+            background:
+              "linear-gradient(135deg, transparent 0 50%, currentColor 50% 60%, transparent 60% 70%, currentColor 70% 80%, transparent 80%)",
+          }}
+        />
+      )}
     </div>
   );
 }

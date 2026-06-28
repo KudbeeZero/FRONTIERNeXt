@@ -24,7 +24,7 @@ import { PredictionMarketsPanel } from "./PredictionMarkets";
 import { DashboardCanvas } from "./dashboard/DashboardCanvas";
 import { useWidgetLayout } from "./dashboard/useWidgetLayout";
 import { DEFAULT_DASHBOARD } from "./dashboard/defaults";
-import { isDashboardEnabled } from "@/lib/dashboard/flag";
+import { isDashboardEnabled, setDashboardEnabled } from "@/lib/dashboard/flag";
 import { useWorldEvents } from "@/hooks/useWorldEvents";
 import { WalletConnect } from "./WalletConnect";
 import { OrbitalEventToast } from "./OrbitalEventToast";
@@ -115,9 +115,17 @@ export function GameLayout() {
   const [watchingBattleId, setWatchingBattleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>("map");
   const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "armory" | "rankings" | "trade" | "factions" | "markets" | "commander" | "university">("warroom");
-  // Draggable snap-grid dashboard (default OFF behind a flag; ?dashboard=1 to try).
-  // When on, the fixed desktop rails are replaced by a movable widget canvas.
-  const dashboardOn = useMemo(() => isDashboardEnabled(), []);
+  // Draggable snap-grid dashboard. Lives in state so the TopBar toggle can flip
+  // it live; seeded from the flag (?dashboard=1 / persisted). When on, the fixed
+  // desktop rails are replaced by a movable widget canvas.
+  const [dashboardOn, setDashboardOn] = useState(() => isDashboardEnabled());
+  const toggleDashboard = useCallback(() => {
+    setDashboardOn((on) => {
+      const next = !on;
+      setDashboardEnabled(next);
+      return next;
+    });
+  }, []);
   const dashboard = useWidgetLayout(DEFAULT_DASHBOARD);
   const [showGamerTag, setShowGamerTag] = useState(false);
   const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
@@ -896,6 +904,8 @@ export function GameLayout() {
           isConnected={isConnected}
           mobileMenuContent={mobileMenuContent}
           playerFactionId={player?.playerFactionId ?? null}
+          dashboardOn={dashboardOn}
+          onToggleDashboard={toggleDashboard}
         />
         {/* Season countdown badge — shown when a season is active */}
         {seasonCountdown && (

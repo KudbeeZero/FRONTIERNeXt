@@ -1,4 +1,4 @@
-import { Sun, Moon, HelpCircle, Menu, FlaskConical, Pickaxe, Fuel, Gem, Zap, Flag } from "lucide-react";
+import { Sun, Moon, HelpCircle, Menu, FlaskConical, Pickaxe, Fuel, Gem, Zap, Flag, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -27,9 +27,12 @@ interface TopBarProps {
     crystal: number;
     ascend: number;
   } | null;
+  /** Desktop dashboard toggle — when provided, shows a grid button in the bar. */
+  dashboardOn?: boolean;
+  onToggleDashboard?: () => void;
 }
 
-export function TopBar({ isConnected, className, mobileMenuContent, mobileResources, playerFactionId }: TopBarProps) {
+export function TopBar({ isConnected, className, mobileMenuContent, mobileResources, playerFactionId, dashboardOn, onToggleDashboard }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -116,6 +119,20 @@ export function TopBar({ isConnected, className, mobileMenuContent, mobileResour
         >
           {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </Button>
+
+        {onToggleDashboard && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleDashboard}
+            className={cn("hidden md:flex", dashboardOn && "text-primary bg-primary/15")}
+            title={dashboardOn ? "Switch to classic layout" : "Switch to widget dashboard"}
+            aria-pressed={dashboardOn}
+            data-testid="button-dashboard-toggle"
+          >
+            <LayoutGrid className="w-5 h-5" />
+          </Button>
+        )}
 
         <Link href="/testnet">
           <div

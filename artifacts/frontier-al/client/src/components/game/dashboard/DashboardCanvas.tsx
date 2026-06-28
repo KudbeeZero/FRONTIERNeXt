@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import { restrictToParentElement } from "@dnd-kit/modifiers";
 import { RotateCcw } from "lucide-react";
-import { cellToPixels, pixelToCell, type GridConfig } from "@/lib/dashboard/layout";
+import { cellToPixels, pixelToCell, pixelToSize, type GridConfig } from "@/lib/dashboard/layout";
 import type { UseWidgetLayout } from "./useWidgetLayout";
 import { Widget } from "./Widget";
 
@@ -33,7 +33,7 @@ function measureWidth(el: HTMLElement | null): number {
 }
 
 export function DashboardCanvas({ controller, widgets, className }: DashboardCanvasProps) {
-  const { layout, grid, move, setMinimized, setHidden, focus, reset } = controller;
+  const { layout, grid, move, resize, setMinimized, setHidden, focus, reset } = controller;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -81,6 +81,10 @@ export function DashboardCanvas({ controller, widgets, className }: DashboardCan
                 onMinimize={setMinimized}
                 onHide={(id) => setHidden(id, true)}
                 onFocus={focus}
+                onResize={(id, pxW, pxH) => {
+                  const size = pixelToSize(pxW, pxH, grid as GridConfig, width);
+                  resize(id, size.w, size.h);
+                }}
               >
                 {widgets[w.id].content}
               </Widget>
