@@ -118,6 +118,26 @@ export const CONNECT_TIMEOUT_MESSAGE = "CONNECT_TIMEOUT";
 export const CONNECT_TIMEOUT_MS = 90_000;
 
 /**
+ * Extension wallets (Lute, Kibisis) surface their approval popup *instantly* —
+ * there's no phone-grab / QR-scan latency to wait out. So a 90s budget here just
+ * means a wedged extension handshake reads as "spins forever" to the player.
+ * Bound it tighter so a connect that never completes becomes a fast, recoverable
+ * "try again" with extension-specific guidance instead of an endless spinner.
+ */
+export const EXTENSION_CONNECT_TIMEOUT_MS = 30_000;
+
+/**
+ * Pick the connect timeout for a wallet. Mobile/QR wallets (Pera, Defly) keep the
+ * generous {@link CONNECT_TIMEOUT_MS}; browser-extension wallets get the tighter
+ * {@link EXTENSION_CONNECT_TIMEOUT_MS}.
+ */
+export function connectTimeoutFor(walletId: string): number {
+  return walletId === "lute" || walletId === "kibisis"
+    ? EXTENSION_CONNECT_TIMEOUT_MS
+    : CONNECT_TIMEOUT_MS;
+}
+
+/**
  * Race a promise against a timeout. Rejects with {@link CONNECT_TIMEOUT_MESSAGE}
  * if `p` has not settled within `ms`. The timer is always cleared so it can't
  * leak or fire after the promise settles.
@@ -176,8 +196,11 @@ function isUserCancellation(msg: string, data?: { type?: string }): boolean {
 }
 
 // Map raw SDK errors to user-friendly messages.
-function friendlyErrorMessage(walletId: string, msg: string): string {
+export function friendlyErrorMessage(walletId: string, msg: string): string {
   if (msg === CONNECT_TIMEOUT_MESSAGE) {
+    if (walletId === "lute" || walletId === "kibisis") {
+      return "The wallet extension didn't respond. Make sure it's unlocked and the approval popup isn't blocked, then try again.";
+    }
     return walletId === "pera" || walletId === "defly"
       ? "The wallet didn't respond. Make sure the QR / wallet popup opened, then try again."
       : "The wallet didn't respond — please try again.";
@@ -363,7 +386,8 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     const attemptConnect = async () => {
       if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
       // Bound the connect so a modal that never surfaces can't spin forever.
-      await promiseWithTimeout(wallet.connect(), CONNECT_TIMEOUT_MS);
+      // Extension wallets get a tighter budget than QR/mobile wallets.
+      await promiseWithTimeout(wallet.connect(), connectTimeoutFor(walletId));
     };
 
     try {
