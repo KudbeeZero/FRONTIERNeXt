@@ -10,23 +10,23 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_AUDIT · PR **#166** · branch `claude/wallet-dashboard-redesign-b78nwa` · `main` @ `0f8c9ba`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#167** · branch `claude/wallet-dashboard-redesign-b78nwa` · `main` @ `b2da3b5`
 
-**This chat (unit 1 of a wallet + dashboard push):** **wallet connect reliability + version 2.0.1.**
-Client-only; no funds/ASA/server change. See
-[`session-notes/2026-06-28-wallet-connect-reliability.md`](../artifacts/frontier-al/session-notes/2026-06-28-wallet-connect-reliability.md).
-- **Lute `siteName="FRONTIER"`** (`walletManager.ts`) — v4 passes it to `new LuteConnect()`; bare id left it blank.
-- **`connectTimeoutFor(walletId)`** (`WalletContext.tsx`) — extension wallets (Lute/Kibisis) **30s**, QR/mobile **90s**.
-  A Lute popup is instant, so the old shared 90s budget *was* the "spins forever." Extension-specific timeout copy too.
-- **Single-source version** (`version.ts`) → badge "TESTNET V2.0.1"; `package.json` 2.0.0 → 2.0.1 (badge no longer hard-codes V1.1).
-- Tests: `client/tests/walletConnect.spec.ts` (6). Green on head: tsc · client **195** · server **411**/14-skip · build OK.
+**This chat (unit 2):** **real wallet wins over dev/test auto-login.** Client-only; no funds/ASA/server change. See
+[`session-notes/2026-06-28-real-wallet-wins-over-dev-login.md`](../artifacts/frontier-al/session-notes/2026-06-28-real-wallet-wins-over-dev-login.md).
+- **Bug (owner screenshots):** Lute connected on landing (`NRJQZM…JGTQ`, 14.866 ALGO) but in-game TopBar showed
+  **DEV-TEST-COMMANDER · 0 ALGO** — the dev auto-login shadowed the real wallet.
+- **Fix:** `useWallet()` dev fallback now gates on `walletStatus === "disconnected"` via new pure `shouldUseDevIdentity()`
+  (not bare `!isConnected`), so it can't shadow a wallet that's **restoring** (the /game resume gap) or **connected**.
+  Plus: clear the dev session (`endDevSession()`) the moment a real `activeAddress` lands. Tests:
+  `client/tests/devIdentityPrecedence.spec.ts` (5). Green: tsc · client **200** · server **411**/14-skip · build OK.
 
-**For the auditor (claims → check):** `git diff --stat main...HEAD` = 5 client files + `package.json` + 1 session note.
-**Honest gap:** the live Lute handshake hang **was not reproducible on-device** (proxy blocks a real browser) — this
-fixes the *symptom* (infinite spin → fast recoverable error) + config hygiene, NOT confirmed to complete a wedged
-handshake. Owner smoke-test: Connect → Lute on `frontiernext.fly.dev`.
+**For the auditor (claims → check):** `git diff --stat main...HEAD` = `WalletContext.tsx` + 1 new test + 1 session note.
+**Honest gap:** not browser-verified on-device (sandbox can't drive the Lute extension) — logic + unit tests + build only.
+Owner smoke-test: connect Lute → ENTER GAME → TopBar should show the Lute address + real balance, not DEV-TEST-COMMANDER.
 
-**Prior:** **#165 merged** (wallet-prompt diagnosis docs), **#164 merged** (`LOCAL_DEV.md`), **#163 closed** (Unreal dropped).
+**Prior:** **#166 merged** (Lute connect timeout + siteName + version 2.0.1), **#165 merged** (wallet-prompt diagnosis),
+**#164 merged** (`LOCAL_DEV.md`), **#163 closed** (Unreal dropped).
 
 ### ➡️ NEXT UNITS (this push, owner-confirmed plan)
 1. **Branded-domain wallet prompt** — redirect `frontierprotocol.app` → `frontiernext.fly.dev` (option A, code-only,
