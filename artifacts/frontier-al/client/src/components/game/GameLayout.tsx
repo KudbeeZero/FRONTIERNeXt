@@ -21,6 +21,10 @@ import { UniversityPanel } from "./university/UniversityPanel";
 import { WorldIntelPanel } from "./WorldIntelPanel";
 import { FactionPanel } from "./FactionPanel";
 import { PredictionMarketsPanel } from "./PredictionMarkets";
+import { DashboardCanvas } from "./dashboard/DashboardCanvas";
+import { useWidgetLayout } from "./dashboard/useWidgetLayout";
+import { DEFAULT_DASHBOARD } from "./dashboard/defaults";
+import { isDashboardEnabled } from "@/lib/dashboard/flag";
 import { useWorldEvents } from "@/hooks/useWorldEvents";
 import { WalletConnect } from "./WalletConnect";
 import { OrbitalEventToast } from "./OrbitalEventToast";
@@ -111,6 +115,10 @@ export function GameLayout() {
   const [watchingBattleId, setWatchingBattleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>("map");
   const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "armory" | "rankings" | "trade" | "factions" | "markets" | "commander" | "university">("warroom");
+  // Draggable snap-grid dashboard (default OFF behind a flag; ?dashboard=1 to try).
+  // When on, the fixed desktop rails are replaced by a movable widget canvas.
+  const dashboardOn = useMemo(() => isDashboardEnabled(), []);
+  const dashboard = useWidgetLayout(DEFAULT_DASHBOARD);
   const [showGamerTag, setShowGamerTag] = useState(false);
   const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -972,6 +980,7 @@ export function GameLayout() {
       )}
 
 
+      {!dashboardOn && (
       <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 left-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-r border-border overflow-hidden">
         {isLoading ? (
           <div className="p-4 space-y-3">
@@ -983,8 +992,10 @@ export function GameLayout() {
           <CommandCenterPanel {...commandCenterProps} className="h-full" />
         )}
       </aside>
+      )}
 
-      <aside 
+      {!dashboardOn && (
+      <aside
         className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
         style={{ "--right-menu-width": "18rem" } as React.CSSProperties}
       >
@@ -1094,6 +1105,110 @@ export function GameLayout() {
           )
         ) : null}
       </aside>
+      )}
+
+      {/* Draggable snap-grid dashboard — desktop, flag-gated. Hosts the same
+          panels as the rails, but movable. Default off → rails render as before. */}
+      {dashboardOn && !isLoading && (
+        <div className="hidden md:block absolute top-16 left-0 right-0 bottom-0 z-30" data-testid="dashboard-canvas-region">
+          <DashboardCanvas
+            controller={dashboard}
+            className="relative w-full h-full"
+            widgets={{
+              commandcenter: {
+                title: "Command Center",
+                content: <CommandCenterPanel {...commandCenterProps} className="h-full" />,
+              },
+              warroom: {
+                title: "War Room",
+                content: gameState ? (
+                  <WarRoomPanel
+                    battles={gameState.battles}
+                    events={gameState.events}
+                    players={gameState.players}
+                    onWatchBattle={setWatchingBattleId}
+                    onViewOnGlobe={handleViewOnGlobe}
+                    onPlotSelect={setSelectedParcelId}
+                    className="h-full border-0 rounded-none overflow-auto"
+                  />
+                ) : null,
+              },
+              rankings: {
+                title: "Rankings",
+                content: gameState ? (
+                  <LeaderboardPanel
+                    entries={gameState.leaderboard}
+                    currentPlayerId={player?.id || null}
+                    className="h-full border-0 rounded-none overflow-auto"
+                  />
+                ) : null,
+              },
+              armory: {
+                title: "Armory",
+                content: player ? (
+                  <ArmoryPanel playerId={player.id} />
+                ) : (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    Connect your wallet to access the Armory.
+                  </div>
+                ),
+              },
+              university: {
+                title: "Academy",
+                content: <UniversityPanel playerId={player?.id} />,
+              },
+              commander: {
+                title: "Commander",
+                content: (
+                  <CommanderPanel
+                    player={player}
+                    onMintAvatar={handleMintAvatar}
+                    onDeployDrone={handleDeployDrone}
+                    onDeploySatellite={handleDeploySatellite}
+                    onSwitchCommander={handleSwitchCommander}
+                    onClaimCommanderNft={handleClaimCommanderNft}
+                    onAttack={handleAttackConfirm}
+                    isMinting={mintAvatarMutation.isPending}
+                    isDeployingDrone={deployDroneMutation.isPending}
+                    isDeployingSatellite={deploySatelliteMutation.isPending}
+                    isClaimingCommanderNft={isClaimingCommanderNft}
+                    isAttacking={attackMutation.isPending}
+                    openBattlefrontSignal={attackIntent}
+                    selectedParcel={selectedParcel}
+                    ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
+                    wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
+                    className="h-full border-0 rounded-none overflow-auto"
+                  />
+                ),
+              },
+              trade: {
+                title: "Trade",
+                content: (
+                  <TradeStationPanel
+                    currentPlayerId={player?.id ?? ""}
+                    currentPlayerName={player?.name ?? ""}
+                    className="h-full border-0 rounded-none overflow-hidden"
+                  />
+                ),
+              },
+              factions: {
+                title: "Factions",
+                content: <FactionPanel player={player} className="h-full border-0 rounded-none overflow-hidden" />,
+              },
+              markets: {
+                title: "Markets",
+                content: (
+                  <PredictionMarketsPanel
+                    currentPlayerId={player?.id ?? ""}
+                    currentPlayerAscend={player?.ascend ?? 0}
+                    className="h-full border-0 rounded-none overflow-hidden"
+                  />
+                ),
+              },
+            }}
+          />
+        </div>
+      )}
 
       {showFullscreenPanel && (
         <div className="md:hidden absolute inset-0 z-30 bg-background pt-16 pb-16 overflow-hidden" data-testid="fullscreen-panel">
