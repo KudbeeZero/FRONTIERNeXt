@@ -10,28 +10,30 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_AUDIT · PR **#164** open · branch `claude/local-dev-quickstart` · `main` @ `fd6276e`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#165** (closeout docs) · branch `claude/closeout-wallet-diagnosis` · `main` @ `02863e8`
 
-**This chat — make the repo desktop-ready (docs only):**
-- **`LOCAL_DEV.md`** (new, repo root) + a README link — fresh-clone quickstart: prerequisites
-  (Node 22+, pnpm 10.33.0, Postgres 16), `pnpm install`, local Postgres + `db:push`, minimal
-  `.env` (incl. no-wallet dev-play toggles), two-process run (`dev:server` :5000 / `dev:client`
-  :3000), verify. Reuses `.env.example` + `ENV_VARS.md`; flags the fatal `DATABASE_URL`
-  requirement, the pnpm-only guard, and the template's `PORT=3000`↔client `:3000` collision.
+**This chat (docs/baton only):** captured the **wallet-prompt diagnosis** + refreshed this baton.
+No app code changed. See [`session-notes/2026-06-27-wallet-prompt-diagnosis.md`](../artifacts/frontier-al/session-notes/2026-06-27-wallet-prompt-diagnosis.md).
 
-**For the auditor (claims → check):**
-- Docs only: `git diff --stat main...HEAD` = `LOCAL_DEV.md` (new) + `README.md` (+1) + this baton.
-- Numbers backed on head: tsc green · server **411**/14-skip · client **189**.
-- Honest gap: Postgres-dependent steps (`db:push`, server boot) NOT executed here (no local DB) —
-  documented path, not run-verified.
+**🐛 Diagnosed (NOT yet fixed) — wallet prompt on the branded domain:** the game ships as **two
+separate builds**. `frontiernext.fly.dev` has the no-wallet flags baked + a working
+`POST /api/dev/quick-auth` (**200**). `frontierprotocol.app` (Cloudflare Pages) is built **without**
+the Vite dev flags (its bundle has the dev code DCE'd out) **and** 405s on `/api/dev/quick-auth`.
+So playing via the **branded link → wallet prompt**; via **`frontiernext.fly.dev` directly → works**.
+Evidence-backed (live curl + bundle grep); **not** browser-verified (proxy blocks headless→Fly).
 
-**Also dropped this chat (no code on `main`):** the **Unreal Engine** direction — investigated,
-deemed not worth it (Pixel Streaming / desktop client both multi-month), **PR #163 closed unmerged**
-on owner's call. The flag-gated `globe/v2` fidelity wiring lives on that closed branch, revivable.
+**Also this session:** **PR #164 merged** (`LOCAL_DEV.md` quickstart on `main`). **PR #163 closed
+unmerged** — Unreal Engine direction dropped (owner's call; `globe/v2` flag-gate revivable on that branch).
 
-> Prior: **no-wallet playtest entry fixed (PRs #159–#162, all merged)** — landing auto-login,
-> faction-gate quick-auth, wallet-gate bypass + Cloudflare→Fly routing.
-> Before that: **AI Battle Test onboarding (7 units #151–#157, all merged green)**.
+> Prior: **no-wallet playtest entry fixed (PRs #159–#162, all merged)**; **AI Battle Test onboarding
+> (#151–#157, merged green)**.
+
+### ➡️ TOP NEXT UNIT — fix the branded-domain wallet prompt (option A)
+Make `frontierprotocol.app` **redirect to `frontiernext.fly.dev`** (single origin where the dev
+flags + backend co-exist). Code-only, `DEV_MODE`-gated/reversible; likely `client/src/lib/gameUrl.ts`
++ landing entry. **Rejected option B** (set `VITE_DEV_*` in the Cloudflare build): the branded origin
+still 405s on `/api/dev/quick-auth`, so auto-login can't complete there. Owner workaround meanwhile:
+play on `https://frontiernext.fly.dev/` directly.
 
 - **The 7 merged AI Battle Test units:**
   - **#151** zero-click TestNet dev login (`VITE_DEV_AUTOLOGIN`, triple-gated, fail-closed).
