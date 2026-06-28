@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from 
 import { WalletConnect } from "./WalletConnect";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { APP_VERSION, NETWORK_LABEL } from "@/lib/version";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Link } from "wouter";
 
@@ -75,9 +76,9 @@ export function TopBar({ isConnected, className, mobileMenuContent, mobileResour
             <h1 className="font-display text-xl font-bold uppercase tracking-wider bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">FRONTIER</h1>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[10px] py-0 px-1 font-mono border-blue-400/40 text-blue-300/80">
-                TESTNET
+                {NETWORK_LABEL}
               </Badge>
-              <span className="text-[10px] text-blue-400/60 uppercase tracking-wide">V1.1</span>
+              <span className="text-[10px] text-blue-400/60 uppercase tracking-wide">V{APP_VERSION}</span>
             </div>
           </div>
         </div>

@@ -10,30 +10,30 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_AUDIT · PR **#165** (closeout docs) · branch `claude/closeout-wallet-diagnosis` · `main` @ `02863e8`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#166** · branch `claude/wallet-dashboard-redesign-b78nwa` · `main` @ `0f8c9ba`
 
-**This chat (docs/baton only):** captured the **wallet-prompt diagnosis** + refreshed this baton.
-No app code changed. See [`session-notes/2026-06-27-wallet-prompt-diagnosis.md`](../artifacts/frontier-al/session-notes/2026-06-27-wallet-prompt-diagnosis.md).
+**This chat (unit 1 of a wallet + dashboard push):** **wallet connect reliability + version 2.0.1.**
+Client-only; no funds/ASA/server change. See
+[`session-notes/2026-06-28-wallet-connect-reliability.md`](../artifacts/frontier-al/session-notes/2026-06-28-wallet-connect-reliability.md).
+- **Lute `siteName="FRONTIER"`** (`walletManager.ts`) — v4 passes it to `new LuteConnect()`; bare id left it blank.
+- **`connectTimeoutFor(walletId)`** (`WalletContext.tsx`) — extension wallets (Lute/Kibisis) **30s**, QR/mobile **90s**.
+  A Lute popup is instant, so the old shared 90s budget *was* the "spins forever." Extension-specific timeout copy too.
+- **Single-source version** (`version.ts`) → badge "TESTNET V2.0.1"; `package.json` 2.0.0 → 2.0.1 (badge no longer hard-codes V1.1).
+- Tests: `client/tests/walletConnect.spec.ts` (6). Green on head: tsc · client **195** · server **411**/14-skip · build OK.
 
-**🐛 Diagnosed (NOT yet fixed) — wallet prompt on the branded domain:** the game ships as **two
-separate builds**. `frontiernext.fly.dev` has the no-wallet flags baked + a working
-`POST /api/dev/quick-auth` (**200**). `frontierprotocol.app` (Cloudflare Pages) is built **without**
-the Vite dev flags (its bundle has the dev code DCE'd out) **and** 405s on `/api/dev/quick-auth`.
-So playing via the **branded link → wallet prompt**; via **`frontiernext.fly.dev` directly → works**.
-Evidence-backed (live curl + bundle grep); **not** browser-verified (proxy blocks headless→Fly).
+**For the auditor (claims → check):** `git diff --stat main...HEAD` = 5 client files + `package.json` + 1 session note.
+**Honest gap:** the live Lute handshake hang **was not reproducible on-device** (proxy blocks a real browser) — this
+fixes the *symptom* (infinite spin → fast recoverable error) + config hygiene, NOT confirmed to complete a wedged
+handshake. Owner smoke-test: Connect → Lute on `frontiernext.fly.dev`.
 
-**Also this session:** **PR #164 merged** (`LOCAL_DEV.md` quickstart on `main`). **PR #163 closed
-unmerged** — Unreal Engine direction dropped (owner's call; `globe/v2` flag-gate revivable on that branch).
+**Prior:** **#165 merged** (wallet-prompt diagnosis docs), **#164 merged** (`LOCAL_DEV.md`), **#163 closed** (Unreal dropped).
 
-> Prior: **no-wallet playtest entry fixed (PRs #159–#162, all merged)**; **AI Battle Test onboarding
-> (#151–#157, merged green)**.
-
-### ➡️ TOP NEXT UNIT — fix the branded-domain wallet prompt (option A)
-Make `frontierprotocol.app` **redirect to `frontiernext.fly.dev`** (single origin where the dev
-flags + backend co-exist). Code-only, `DEV_MODE`-gated/reversible; likely `client/src/lib/gameUrl.ts`
-+ landing entry. **Rejected option B** (set `VITE_DEV_*` in the Cloudflare build): the branded origin
-still 405s on `/api/dev/quick-auth`, so auto-login can't complete there. Owner workaround meanwhile:
-play on `https://frontiernext.fly.dev/` directly.
+### ➡️ NEXT UNITS (this push, owner-confirmed plan)
+1. **Branded-domain wallet prompt** — redirect `frontierprotocol.app` → `frontiernext.fly.dev` (option A, code-only,
+   `DEV_MODE`-gated). Rejected option B (Cloudflare `VITE_DEV_*`): branded origin still 405s on `/api/dev/quick-auth`.
+   Owner workaround meanwhile: play on `https://frontiernext.fly.dev/` directly.
+2. **Desktop dashboard widget system** — custom **dnd-kit** draggable snap-grid replacing the bunched fixed rails/corners
+   in `GameLayout.tsx` (foundation + store first, then migrate ~17 panels). Desktop-focused; mobile keeps current tabs.
 
 - **The 7 merged AI Battle Test units:**
   - **#151** zero-click TestNet dev login (`VITE_DEV_AUTOLOGIN`, triple-gated, fail-closed).

@@ -9,6 +9,11 @@ export const walletManager = new WalletManager({
  // desktop browser EXTENSION (the owner's funded wallet) and is NOT available
  // on mobile Safari. Offer both so phone testers use Pera and desktop uses
  // Lute. (Dropped Defly + Kibisis to keep the picker minimal.)
- wallets: [WalletId.PERA, WalletId.LUTE],
+ //
+ // Lute MUST be registered with `options.siteName` — use-wallet v4 passes it to
+ // `new LuteConnect(siteName)` and it labels the extension's connect popup. A
+ // bare `WalletId.LUTE` left the popup unnamed; brand it so the approval prompt
+ // reads "FRONTIER" instead of a blank site.
+ wallets: [WalletId.PERA, { id: WalletId.LUTE, options: { siteName: "FRONTIER" } }],
  defaultNetwork: network,
 });
