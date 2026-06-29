@@ -452,6 +452,23 @@ function EarlyAdopterSection({ onEnter }: { onEnter: () => void }) {
 
 // ─── Main Landing Page ────────────────────────────────────────────────────────
 export default function LandingPage() {
+  // Subtle film-grain overlay opacity for the hero backdrop. Kept faint so it
+  // tints the scene without muddying the foreground content.
+  const GRAIN_OVERLAY_OPACITY = 0.045;
+  // Respect the OS "reduce motion" setting: freeze the grain when requested.
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  // Scroll-driven hero blur: ramps 0 → SCROLL_BLUR_MAX_PX as the user scrolls
+  // toward SCROLL_BLUR_THRESHOLD_PX, then clamps. Capped so it never goes opaque.
+  const SCROLL_BLUR_MAX_PX = 8;
+  const SCROLL_BLUR_THRESHOLD_PX = 300;
+  // Live blur (px) applied to the hero section; driven by the rAF-throttled
+  // scroll listener below. rAF id is parked in a ref so cleanup can cancel it.
+  const [heroBlur, setHeroBlur] = useState(0);
+  const scrollRafRef = useRef<number | null>(null);
+
   // Go straight to the game — no artificial countdown. The browser's page load
   // and the game's own 3D loader cover the transition.
   const handleEnter = () => { goToGame(); };
@@ -504,6 +521,29 @@ export default function LandingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Scroll-driven hero blur — rAF-throttled (one frame per scroll burst). Skip
+  // entirely under reduced motion. Cleans up the listener + any pending rAF.
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const onScroll = () => {
+      if (scrollRafRef.current !== null) return;
+      scrollRafRef.current = requestAnimationFrame(() => {
+        scrollRafRef.current = null;
+        const blurPx = Math.min(
+          (window.scrollY / SCROLL_BLUR_THRESHOLD_PX) * SCROLL_BLUR_MAX_PX,
+          SCROLL_BLUR_MAX_PX,
+        );
+        setHeroBlur(blurPx);
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div style={{
       position: "relative", minHeight: "100vh", width: "100%",
@@ -515,6 +555,17 @@ export default function LandingPage() {
       <div style={{
         position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1,
         background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.025) 2px, rgba(0,0,0,0.025) 4px)",
+      }} />
+
+      {/* Film-grain overlay — animated SVG turbulence noise, one layer above the
+          scan-line. pointerEvents:none so it never blocks the UI; opacity kept
+          faint via GRAIN_OVERLAY_OPACITY. Honors prefers-reduced-motion. */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+        pointerEvents: "none", zIndex: 2, opacity: GRAIN_OVERLAY_OPACITY,
+        backgroundImage:
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='grainFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23grainFilter)'/%3E%3C/svg%3E\")",
+        animation: prefersReducedMotion ? "none" : "grain-shift 0.15s steps(10) infinite",
       }} />
 
 
@@ -530,6 +581,7 @@ export default function LandingPage() {
           width: "100%", maxWidth: 1100,
           display: "flex", alignItems: "center", justifyContent: "center",
           gap: 60, marginBottom: 70, flexWrap: "wrap",
+          filter: prefersReducedMotion ? "none" : `blur(${heroBlur}px)`,
         }}>
           {/* Left: Text */}
           <div style={{ flex: "1 1 360px", minWidth: 0, maxWidth: 560, animation: "fadeInLeft 0.9s ease-out forwards" }}>
@@ -550,7 +602,7 @@ export default function LandingPage() {
               A massive-scale strategy game on Algorand. Claim 21,000 hex parcels, build your empire, crush AI factions — all on-chain.
             </p>
             <div className="hero-cta" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={handleEnter} style={{
+              <button onClick={handleEnter} className="hero-btn-ripple" style={{
                 background: "rgba(60,100,255,0.3)", border: "1px solid rgba(100,160,255,0.55)",
                 borderRadius: 8, padding: "13px 28px", color: "rgba(180,220,255,0.95)",
                 fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",
@@ -558,7 +610,7 @@ export default function LandingPage() {
                 boxShadow: "0 0 24px rgba(60,100,255,0.2)",
               }}>▶ Enter Game</button>
               {DEV_MODE && (
-                <button onClick={handleDevMode} disabled={devBusy} title="Enter as a test player — no wallet needed (TestNet dev tool)" style={{
+                <button onClick={handleDevMode} disabled={devBusy} title="Enter as a test player — no wallet needed (TestNet dev tool)" className="hero-btn-ripple" style={{
                   background: "rgba(255,176,32,0.16)", border: "1px solid rgba(255,176,32,0.55)",
                   borderRadius: 8, padding: "13px 24px", color: "rgba(255,210,120,0.95)",
                   fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",
