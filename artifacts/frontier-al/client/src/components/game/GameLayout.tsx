@@ -1383,6 +1383,13 @@ export function GameLayout() {
                 ) ?? null)
               : null
           }
+          sourceParcel={
+            watchingBattleId && gameState
+              ? (gameState.parcels.find(
+                  (p) => p.id === gameState.battles.find((b) => b.id === watchingBattleId)?.sourceParcelId
+                ) ?? null)
+              : null
+          }
         />
       </ErrorBoundary>
 
