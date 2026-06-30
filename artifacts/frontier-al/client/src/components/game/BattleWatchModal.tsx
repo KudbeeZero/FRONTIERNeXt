@@ -236,30 +236,23 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
       .finally(() => setReplayLoading(false));
   }, [open, battle?.id, battle?.status]);
 
-  if (!battle) return null;
-
-  const attacker = players.find((p) => p.id === battle.attackerId);
-  const defender = players.find((p) => p.id === battle.defenderId);
-  const attackerName = attacker?.name ?? "Attacker";
-  const defenderName = defender?.name ?? "Defender";
-
-  // Find which commander was used
-  const usedCommander: CommanderAvatar | undefined = battle.commanderId
-    ? attacker?.commanders?.find((c) => c.id === battle.commanderId)
-    : undefined;
-  const commanderTier = usedCommander?.tier;
-
-  const isResolved = battle.status === "resolved";
+  // Null-safe resolved flag — declared before the `!battle` guard so the hooks
+  // below always run (Rules of Hooks: hook count must be stable across renders;
+  // a hook after an early return crashes the tree → black screen).
+  const isResolved = battle?.status === "resolved";
 
   // Resolved battles play the REAL deterministic sequence (engine-derived).
   // Memoised so the 1s `now` tick doesn't reset the timeline's playhead.
+  // Hoisted ABOVE the `!battle` guard; bails internally when data is absent.
   const sequence = useMemo(() => {
-    if (!isResolved || !replay) return null;
+    if (!battle || !isResolved || !replay) return null;
+    const atkName = players.find((p) => p.id === battle.attackerId)?.name ?? "Attacker";
+    const defName = players.find((p) => p.id === battle.defenderId)?.name ?? "Defender";
     return buildSequenceFromReplay(
       {
         battleId: battle.id,
-        attackerName: replay.attackerName ?? attackerName,
-        defenderName: replay.defenderName ?? defenderName,
+        attackerName: replay.attackerName ?? atkName,
+        defenderName: replay.defenderName ?? defName,
         attackerPower: replay.attackerPower,
         defenderPower: replay.defenderPower,
         randFactor: replay.randFactor,
@@ -277,11 +270,24 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isResolved, replay, battle.id]);
+  }, [isResolved, replay, battle?.id]);
 
   // Respect the cinematics toggle + OS reduced-motion: animate the timeline only
   // when allowed; otherwise show the beats as a static list (no playhead motion).
   const cinematicsOn = shouldPlayBattleCinematics(useVisualPrefs().battleCinematics, usePrefersReducedMotion());
+
+  if (!battle) return null;
+
+  const attacker = players.find((p) => p.id === battle.attackerId);
+  const defender = players.find((p) => p.id === battle.defenderId);
+  const attackerName = attacker?.name ?? "Attacker";
+  const defenderName = defender?.name ?? "Defender";
+
+  // Find which commander was used
+  const usedCommander: CommanderAvatar | undefined = battle.commanderId
+    ? attacker?.commanders?.find((c) => c.id === battle.commanderId)
+    : undefined;
+  const commanderTier = usedCommander?.tier;
 
   // Mock narrative feed — only for LIVE battles (no real outcome yet to play).
   const events = isResolved

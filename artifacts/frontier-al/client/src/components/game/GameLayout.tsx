@@ -3,6 +3,7 @@ import { TopBar } from "./TopBar";
 import PlanetGlobe from "./PlanetGlobe";
 import type { LivePulse } from "@/components/game/PlanetGlobe";
 import { BattleWatchModal } from "./BattleWatchModal";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CommTerminal } from "./CommTerminal";
 import { type NavTab } from "./BottomNav";
 import { HudShell } from "./hud/HudShell";
@@ -1369,19 +1370,21 @@ export function GameLayout() {
 
       <HudShell activeTab={activeTab} onTabChange={handleTabChange} battleCount={activeBattleCount} />
 
-      <BattleWatchModal
-        open={!!watchingBattleId}
-        onOpenChange={(o) => { if (!o) setWatchingBattleId(null); }}
-        battle={watchingBattleId ? (gameState?.battles.find((b) => b.id === watchingBattleId) ?? null) : null}
-        players={gameState?.players ?? []}
-        targetParcel={
-          watchingBattleId && gameState
-            ? (gameState.parcels.find(
-                (p) => p.id === gameState.battles.find((b) => b.id === watchingBattleId)?.targetParcelId
-              ) ?? null)
-            : null
-        }
-      />
+      <ErrorBoundary>
+        <BattleWatchModal
+          open={!!watchingBattleId}
+          onOpenChange={(o) => { if (!o) setWatchingBattleId(null); }}
+          battle={watchingBattleId ? (gameState?.battles.find((b) => b.id === watchingBattleId) ?? null) : null}
+          players={gameState?.players ?? []}
+          targetParcel={
+            watchingBattleId && gameState
+              ? (gameState.parcels.find(
+                  (p) => p.id === gameState.battles.find((b) => b.id === watchingBattleId)?.targetParcelId
+                ) ?? null)
+              : null
+          }
+        />
+      </ErrorBoundary>
 
       {/* Comm Terminal — purchasable whisper widget; self-hides for non-owners */}
       <CommTerminal playerId={player?.id} />
