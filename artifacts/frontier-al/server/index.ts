@@ -311,7 +311,9 @@ app.use((req, res, next) => {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
+      // SO_REUSEPORT is unsupported on Windows (listen ENOTSUP). Keep it on
+      // Linux (CI/Fly multi-instance), drop it locally on win32.
+      reusePort: process.platform !== "win32",
     },
     () => {
       log(`serving on port ${port}`);
