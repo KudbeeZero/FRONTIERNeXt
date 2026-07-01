@@ -65,6 +65,8 @@ export interface LaunchParams {
   targetParcelId: string;
   /** Defaults to Date.now(); injectable for deterministic tests. */
   now?: number;
+  /** Fired weapon's upgrade tier (0 = base). Scales impact damage. */
+  upgradeTier?: number;
 }
 
 /** How long a resolved engagement stays queryable (for fade-out FX). */
@@ -72,6 +74,9 @@ export const ENGAGEMENT_FADE_MS = 8_000;
 
 /** Max simultaneous defensive batteries one player may have deployed. */
 export const MAX_BATTERIES_PER_PLAYER = 12;
+
+/** Each Armory upgrade tier adds this fraction to a weapon's impact damage. */
+export const WEAPON_UPGRADE_DAMAGE_PER_TIER = 0.15;
 
 function hashSeed(s: string): number {
   let h = 2166136261;
@@ -146,7 +151,9 @@ export class EngagementStore {
       tof,
       impactTs: now + tof,
       status: "in_flight",
-      damage: spec.damage,
+      // Upgrade tier scales impact damage so Armory weapon upgrades actually
+      // matter in combat (tier 0 = base, unchanged).
+      damage: Math.round(spec.damage * (1 + (params.upgradeTier ?? 0) * WEAPON_UPGRADE_DAMAGE_PER_TIER)),
     };
 
     this.resolveInterception(engagement, spec.id);

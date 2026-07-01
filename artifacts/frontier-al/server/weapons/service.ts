@@ -163,9 +163,12 @@ export async function fireWeapon(
   if (isDefenseSpec(spec)) throw new Error(`${spec.name} is a defensive system — deploy it instead.`);
 
   const profile = await storage.getWeaponProfile(playerId);
-  if (!profile.ownedWeapons.some((w) => w.specId === specId)) {
+  const ownedOfSpec = profile.ownedWeapons.filter((w) => w.specId === specId);
+  if (ownedOfSpec.length === 0) {
     throw new Error(`${spec.name} is not in your armory.`);
   }
+  // Fire the best (highest-tier) copy the player owns; its tier scales damage.
+  const upgradeTier = Math.max(0, ...ownedOfSpec.map((w) => w.upgradeTier ?? 0));
 
   const [{ parcel: source, geo: from }, { geo: to }] = await Promise.all([
     parcelGeo(storage, sourceParcelId),
@@ -185,6 +188,7 @@ export async function fireWeapon(
     to,
     sourceParcelId,
     targetParcelId,
+    upgradeTier,
   });
 
   // Update combat stats (drives badge progression). Best-effort.
