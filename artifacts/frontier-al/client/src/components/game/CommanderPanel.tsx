@@ -290,11 +290,21 @@ function AvatarCard({ cmd, isActive, onDeploy, onClaim, isClaiming, walletConnec
             <span className="text-[9px] text-white/30">·</span>
             <span className="text-[9px] text-white/50 truncate">{COMMANDER_INFO[cmd.tier as CommanderTier]?.specialAbility ?? "operative"}</span>
           </div>
-          <div className="flex gap-2 text-[8px] font-mono mt-0.5 text-white/40">
-            <span>ATK +{cmd.attackBonus}</span>
-            <span>DEF +{cmd.defenseBonus}</span>
-            <span>☠ {cmd.totalKills}</span>
+          {/* Combat impact — makes the tier's effect on battle explicit (was a
+              near-invisible micro-row); the attackBonus is added to attacker power. */}
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            <div className="rounded bg-red-500/10 border border-red-500/25 px-1.5 py-1 text-center">
+              <div className="text-[7px] uppercase tracking-wide text-white/40">Attack</div>
+              <div className="text-xs font-mono font-bold text-red-300 leading-none">+{cmd.attackBonus}</div>
+            </div>
+            <div className="rounded bg-blue-500/10 border border-blue-500/25 px-1.5 py-1 text-center">
+              <div className="text-[7px] uppercase tracking-wide text-white/40">Defense</div>
+              <div className="text-xs font-mono font-bold text-blue-300 leading-none">+{cmd.defenseBonus}</div>
+            </div>
           </div>
+          <p className="text-[8px] text-white/50 leading-snug mt-0.5">
+            Adds <span className="text-red-300 font-semibold">+{cmd.attackBonus} attack power</span> to every battle you launch · ☠ {cmd.totalKills} kills
+          </p>
         </div>
 
         {/* NFT status */}
