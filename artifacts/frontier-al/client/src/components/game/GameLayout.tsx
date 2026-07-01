@@ -1132,6 +1132,7 @@ export function GameLayout() {
               onWatchBattle={setWatchingBattleId}
               onViewOnGlobe={handleViewOnGlobe}
               onPlotSelect={setSelectedParcelId}
+              onAttackTarget={handleRequestAttack}
               className="flex-1 border-0 rounded-none overflow-auto"
             />
           ) : (
@@ -1167,6 +1168,7 @@ export function GameLayout() {
                     onWatchBattle={setWatchingBattleId}
                     onViewOnGlobe={handleViewOnGlobe}
                     onPlotSelect={setSelectedParcelId}
+                    onAttackTarget={handleRequestAttack}
                     className="h-full border-0 rounded-none overflow-auto"
                   />
                 ) : null,
