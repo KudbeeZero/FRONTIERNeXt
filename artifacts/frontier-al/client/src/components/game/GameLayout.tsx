@@ -476,6 +476,30 @@ export function GameLayout() {
     });
   };
 
+  // Total unclaimed ASCEND accumulated across the player's owned land — drives the
+  // always-visible TopBar "Claim ASCEND" button.
+  const totalClaimableAscend = Math.floor(
+    (gameState?.parcels ?? [])
+      .filter((p) => p.ownerId === player?.id)
+      .reduce((sum, p) => sum + (p.ascendAccumulated ?? 0), 0),
+  );
+
+  // Claim accumulated ASCEND from owned land (server-authoritative, idempotent).
+  const handleClaimAscend = () => {
+    if (!isConnected) {
+      toast({ title: "Authorization Required", description: "Connect your wallet to claim ASCEND.", variant: "destructive" });
+      return;
+    }
+    if (!player) return;
+    claimAscendMutation.mutate(player.id, {
+      onSuccess: (data: any) => {
+        const amt = typeof data?.claimed === "number" ? data.claimed : totalClaimableAscend;
+        toast({ title: "ASCEND Claimed", description: `+${Math.floor(amt)} ASCEND added to your balance.` });
+      },
+      onError: (error) => toast({ title: "Claim Failed", description: (error as Error).message, variant: "destructive" }),
+    });
+  };
+
   const [isClaimingCommanderNft, setIsClaimingCommanderNft] = useState(false);
   const [isRetryingCommanderMintId, setIsRetryingCommanderMintId] = useState<string | null>(null);
 
@@ -907,6 +931,9 @@ export function GameLayout() {
           playerFactionId={player?.playerFactionId ?? null}
           dashboardOn={dashboardOn}
           onToggleDashboard={toggleDashboard}
+          claimableAscend={totalClaimableAscend}
+          onClaimAscend={handleClaimAscend}
+          isClaimingAscend={claimAscendMutation.isPending}
         />
         {/* Season countdown badge — shown when a season is active */}
         {seasonCountdown && (

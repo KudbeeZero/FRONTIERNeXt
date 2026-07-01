@@ -30,9 +30,13 @@ interface TopBarProps {
   /** Desktop dashboard toggle — when provided, shows a grid button in the bar. */
   dashboardOn?: boolean;
   onToggleDashboard?: () => void;
+  /** Total unclaimed ASCEND across owned land; when > 0 a Claim button appears. */
+  claimableAscend?: number;
+  onClaimAscend?: () => void;
+  isClaimingAscend?: boolean;
 }
 
-export function TopBar({ isConnected, className, mobileMenuContent, mobileResources, playerFactionId, dashboardOn, onToggleDashboard }: TopBarProps) {
+export function TopBar({ isConnected, className, mobileMenuContent, mobileResources, playerFactionId, dashboardOn, onToggleDashboard, claimableAscend, onClaimAscend, isClaimingAscend }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -110,6 +114,20 @@ export function TopBar({ isConnected, className, mobileMenuContent, mobileResour
       )}
 
       <div className="flex items-center gap-1 sm:gap-2">
+        {onClaimAscend && (claimableAscend ?? 0) > 0 && (
+          <Button
+            onClick={onClaimAscend}
+            disabled={isClaimingAscend}
+            size="sm"
+            className="h-8 gap-1 bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary font-mono text-xs font-semibold shadow shadow-primary/20 animate-pulse"
+            title="Claim accumulated ASCEND from your land"
+            data-testid="button-claim-ascend"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            {isClaimingAscend ? "Claiming…" : `Claim ${claimableAscend} ASCEND`}
+          </Button>
+        )}
+
         <Button
           variant="ghost"
           size="icon"
