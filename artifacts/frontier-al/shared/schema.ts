@@ -525,6 +525,8 @@ export const attackActionSchema = z.object({
   crystalBurned: z.number().min(0).optional(),
   commanderId: z.string().optional(),
   sourceParcelId: z.string().optional(),
+  /** Optional idempotency nonce — dedups double-submit/replay of an attack. */
+  idempotencyKey: z.string().optional(),
 });
 
 export const buildActionSchema = z.object({
