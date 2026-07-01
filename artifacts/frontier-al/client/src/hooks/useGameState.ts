@@ -114,7 +114,12 @@ export function useUpgrade() {
 export function useAttack() {
   return useMutation({
     mutationFn: async (action: AttackAction) => {
-      const response = await apiRequest("POST", "/api/actions/attack", action);
+      // Idempotency nonce — dedups a double-submit/replay of the same attack on
+      // the server (nonce-optional guard); a fresh key per logical attack.
+      const response = await apiRequest("POST", "/api/actions/attack", {
+        ...action,
+        idempotencyKey: action.idempotencyKey ?? safeUuid(),
+      });
       return response.json();
     },
     onSuccess: () => {

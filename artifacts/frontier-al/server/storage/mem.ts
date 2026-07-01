@@ -826,6 +826,15 @@ export class MemStorage implements IStorage {
     if (targetParcel.ownerId === attacker.id) throw new Error("Cannot attack your own territory");
     if (targetParcel.activeBattleId) throw new Error("Territory is already under attack");
 
+    // ── Attack cooldown (post-loss) ───────────────────────────────────────
+    // A player who recently lost a defense is on an attack cooldown; the AI loop
+    // already honors attackCooldownUntil — enforce it for humans here too, before
+    // any resource spend or battle creation.
+    if (!attacker.isAI && attacker.attackCooldownUntil && Date.now() < attacker.attackCooldownUntil) {
+      const secs = Math.ceil((attacker.attackCooldownUntil - Date.now()) / 1000);
+      throw new Error(`On attack cooldown — wait ${secs}s before attacking again.`);
+    }
+
     // ── Commander gate ────────────────────────────────────────────────────
     if (!attacker.isAI && attacker.commanders.length === 0) {
       throw new Error("A Commander is required to launch an attack. Mint one from the Commander panel.");

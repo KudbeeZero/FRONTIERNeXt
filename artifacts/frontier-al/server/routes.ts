@@ -1792,7 +1792,23 @@ export async function registerRoutes(
       const verifiedId = await assertPlayerOwnership(req, res, req.body?.attackerId);
       if (!verifiedId) return;
       const action = attackActionSchema.parse(req.body);
-      const battle = await storage.deployAttack(action);
+      // Idempotency (nonce-optional): when the client sends an idempotencyKey,
+      // dedup double-submit/replay (replay → original 200, in-flight → 409). An
+      // absent nonce falls back to the atomic activeBattleId claim in deployAttack,
+      // so nonce-less callers are never broken (fail-open on missing nonce here,
+      // unlike the other mutations which require one).
+      const scope = { playerId: action.attackerId, action: "attack", target: encodeURIComponent(action.targetParcelId) };
+      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      if (nonce && (await guardClaimOrRespond(res, scope, nonce))) return;
+
+      let battle;
+      try {
+        battle = await storage.deployAttack(action);
+      } catch (mutErr) {
+        if (nonce) await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+        throw mutErr;
+      }
+      if (nonce) await actionIdempotencyGuard.record(scope, nonce, JSON.stringify({ success: true, battle }));
       if (action.crystalBurned && action.crystalBurned > 0) {
         const attackPlayer = await storage.getPlayer(action.attackerId);
         if (attackPlayer) fireBurn(attackPlayer.address, action.crystalBurned, `Crystal burn battleId=${battle.id}`);

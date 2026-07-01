@@ -1408,6 +1408,15 @@ export class DbStorage implements IStorage {
       if (target.ownerId === attacker.id) throw new Error("Cannot attack your own territory");
       if (target.activeBattleId) throw new Error("Territory is already under attack");
 
+      // ── Attack cooldown (post-loss) ───────────────────────────────────────
+      // Mirror the mem/AI paths: a player who recently lost a defense is on an
+      // attack cooldown. Read from the row — rowToPlayer does not map this column.
+      const attackCooldownUntil = attackerRow.attackCooldownUntil ?? 0;
+      if (!attackerRow.isAi && attackCooldownUntil > 0 && Date.now() < attackCooldownUntil) {
+        const secs = Math.ceil((attackCooldownUntil - Date.now()) / 1000);
+        throw new Error(`On attack cooldown — wait ${secs}s before attacking again.`);
+      }
+
       // ── Commander gate ────────────────────────────────────────────────────
       const attackerCommanders = (attackerRow.commanders ?? []) as CommanderAvatar[];
       if (!attackerRow.isAi && attackerCommanders.length === 0) {
