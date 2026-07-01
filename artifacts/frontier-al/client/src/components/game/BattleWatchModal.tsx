@@ -208,9 +208,10 @@ interface BattleWatchModalProps {
   battle: Battle | null;
   players: Player[];
   targetParcel?: LandParcel | null;
+  sourceParcel?: LandParcel | null;
 }
 
-export function BattleWatchModal({ open, onOpenChange, battle, players, targetParcel }: BattleWatchModalProps) {
+export function BattleWatchModal({ open, onOpenChange, battle, players, targetParcel, sourceParcel }: BattleWatchModalProps) {
   const [now, setNow] = useState(() => Date.now());
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -267,10 +268,16 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
         troopsCommitted: battle.troopsCommitted,
         hasCommander: !!battle.commanderId,
         improvements: targetParcel?.improvements,
+        source: sourceParcel
+          ? { lat: sourceParcel.lat, lng: sourceParcel.lng }
+          : undefined,
+        target: targetParcel
+          ? { lat: targetParcel.lat, lng: targetParcel.lng }
+          : undefined,
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isResolved, replay, battle?.id]);
+  }, [isResolved, replay, battle?.id, sourceParcel, targetParcel]);
 
   // Respect the cinematics toggle + OS reduced-motion: animate the timeline only
   // when allowed; otherwise show the beats as a static list (no playhead motion).
