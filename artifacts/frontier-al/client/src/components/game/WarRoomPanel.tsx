@@ -17,6 +17,8 @@ interface WarRoomPanelProps {
   onWatchBattle?: (battleId: string) => void;
   onViewOnGlobe?: (parcelId: string) => void;
   onPlotSelect?: (parcelId: string) => void;
+  /** Start an attack on a target: selects it AND opens the Commander Battlefront. */
+  onAttackTarget?: (parcelId: string) => void;
   className?: string;
 }
 
@@ -222,7 +224,7 @@ const BIOMES = [
   "water", "tundra", "volcanic", "swamp",
 ];
 
-export function WarRoomPanel({ battles, events, players, onWatchBattle, onViewOnGlobe, onPlotSelect, className }: WarRoomPanelProps) {
+export function WarRoomPanel({ battles, events, players, onWatchBattle, onViewOnGlobe, onPlotSelect, onAttackTarget, className }: WarRoomPanelProps) {
   const activeBattles = battles.filter((b) => b.status === "pending");
   const recentBattles = battles.filter((b) => b.status === "resolved").slice(0, 5);
   const recentEvents = events.slice(0, 15);
@@ -420,12 +422,12 @@ export function WarRoomPanel({ battles, events, players, onWatchBattle, onViewOn
                             <Globe className="h-3 w-3" />
                           </Button>
                         )}
-                        {onPlotSelect && (
+                        {(onAttackTarget || onPlotSelect) && (
                           <Button
                             size="sm"
                             variant="destructive"
                             className="h-6 px-2 text-[10px]"
-                            onClick={() => onPlotSelect(parcel.id)}
+                            onClick={() => (onAttackTarget ?? onPlotSelect)!(parcel.id)}
                           >
                             <Swords className="h-3 w-3 mr-1" />
                             Attack
