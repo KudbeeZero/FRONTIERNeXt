@@ -1019,7 +1019,7 @@ export function GameLayout() {
 
 
       {!dashboardOn && (
-      <aside className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 left-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-r border-border overflow-hidden">
+      <aside className="hidden md:flex flex-col w-60 lg:w-72 xl:w-80 absolute top-16 left-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-r border-border overflow-hidden">
         {isLoading ? (
           <div className="p-4 space-y-3">
             <Skeleton className="h-24 w-full" />
@@ -1034,10 +1034,10 @@ export function GameLayout() {
 
       {!dashboardOn && (
       <aside
-        className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
-        style={{ "--right-menu-width": "18rem" } as React.CSSProperties}
+        className="hidden md:flex flex-col w-60 lg:w-72 xl:w-80 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
+        style={{ "--right-menu-width": "20rem" } as React.CSSProperties}
       >
-        <div className="flex border-b border-border shrink-0">
+        <div className="grid grid-cols-4 border-b border-border shrink-0">
           {(
             [
               { id: "warroom",   icon: Swords,          label: "War"      },
@@ -1056,14 +1056,14 @@ export function GameLayout() {
               title={label}
               aria-label={label}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors border-b-2",
+                "flex flex-col items-center justify-center gap-1 py-2.5 transition-colors border-b-2",
                 desktopRightTab === id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-primary text-primary bg-primary/10"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
               )}
             >
               <Icon className="w-4 h-4" />
-              <span className="text-[9px] font-display uppercase tracking-wide leading-none">{label}</span>
+              <span className="text-[10px] font-display uppercase tracking-wide leading-none">{label}</span>
             </button>
           ))}
         </div>
