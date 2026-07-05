@@ -1,7 +1,6 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import { registerRoutes, pruneActionNonces, ACTION_NONCE_PRUNE_INTERVAL_MS } from "./routes";
 import { initSeasonManager } from "./engine/season/manager";
 import { hydrateWorldEventsFromRedis } from "./worldEventStore";
@@ -16,7 +15,7 @@ import { createServer } from "http";
 import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
-import { apiReadLimiter } from "./security";
+import { apiReadLimiter, actionsLimiter } from "./security";
 import { isRedisEnabled } from "./services/redis";
 
 const app = express();
@@ -134,17 +133,8 @@ app.use((req, res, next) => {
 });
 
 // ── Rate limiting on game action routes ──────────────────────────────────────
-// Per-IP fixed window over /api/actions/* (mine, attack, purchase, build, …).
-// Read-only routes are unaffected; server-internal AI/scheduler paths do not hit
-// /api/actions. DB-level cooldowns/constraints remain the primary guard — this
-// adds a cheap spam / treasury-drain ceiling. Tune via env if needed.
-const actionsLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: Math.max(1, Number(process.env.ACTIONS_RATE_LIMIT) || 60),
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: { error: "Too many actions — slow down and try again shortly." },
-});
+// Per-IP fixed window over /api/actions/* (actionsLimiter, defined in
+// security.ts alongside the other limiters).
 
 // Coarse per-IP ceiling across the ENTIRE /api surface (read + write). This is
 // the backstop against bulk scraping of off-chain game-economy data — e.g. a

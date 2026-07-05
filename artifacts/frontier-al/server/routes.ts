@@ -10,26 +10,6 @@ import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
 import { eq, sql, desc, lt } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
-import rateLimit from "express-rate-limit";
-
-// Per-IP limiter for the terraform advice endpoint — bounds cost when the LLM
-// advisor path (ANTHROPIC_API_KEY) is enabled. The heuristic path is cheap.
-const adviceLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: Math.max(1, Number(process.env.ADVICE_RATE_LIMIT) || 30),
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: { error: "Too many advice requests — try again shortly." },
-});
-
-// Per-IP limiter for the optional waitlist signup on the faction-select gate.
-const waitlistLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: Math.max(1, Number(process.env.WAITLIST_RATE_LIMIT) || 12),
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: { error: "Too many signups — try again shortly." },
-});
 import { broadcastGameState, broadcastRaw, markDirty, wsClientCount } from "./wsServer";
 import { clampIntervalMs } from "./util/intervals";
 import * as weaponService from "./weapons/service";
@@ -88,10 +68,21 @@ import {
   FREE_PURCHASES,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { requireAdminKey, enumerationLimiter, authLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, type PaymentRedemption } from "./security";
+import { requireAdminKey, isAdminRequest, enumerationLimiter, authLimiter, adviceLimiter, waitlistLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, isRealWallet, isRealVerifiedWallet, type PaymentRedemption } from "./security";
 import { redeemedPayments as redeemedPaymentsTable, actionNonces as actionNoncesTable } from "./db-schema";
 import { evaluateOwnership } from "./routeOwnership";
 import { createActionIdempotencyGuard } from "./idempotencyGuard";
+
+// Shared error responder for action routes: zod validation failures map to a
+// generic 400, everything else surfaces the error message (or the per-route
+// fallback) with the same 400 status.
+function sendActionError(res: Response, error: unknown, fallback: string): void {
+  if (error instanceof z.ZodError) {
+    res.status(400).json({ error: "Invalid request data" });
+    return;
+  }
+  res.status(400).json({ error: error instanceof Error ? error.message : fallback });
+}
 
 // One ALGO payment txid buys exactly one thing. Backed by the
 // redeemed_payments table (tx_id PRIMARY KEY) so the first claim wins
@@ -224,6 +215,49 @@ async function guardClaimOrRespond(
   }
   return false;
 }
+
+// Nonce for the action idempotency guard: body field first, header fallback.
+function actionNonce(req: Request, action: { idempotencyKey?: string }): unknown {
+  return action.idempotencyKey ?? req.header("x-idempotency-key");
+}
+
+// Outcome of a nonce-guarded mutation. `ok: true` → the success body is
+// recorded for replay and sent; `ok: false` → the claim is released (so a
+// later valid retry isn't blocked) and `respond` writes the failure response.
+type IdempotentOutcome =
+  | { ok: true; body: unknown }
+  | { ok: false; respond: () => void };
+
+// Shared claim → mutate → record-on-success / release-on-failure dance for the
+// nonce-guarded action routes. Exact ordering preserved from the previous
+// inline sites: claim (replay/reject short-circuits), run `mutate`, then on
+// success record + res.json(body) + markDirty(); on a non-ok outcome release +
+// custom response; on throw release and rethrow (caller's catch responds).
+async function withIdempotency(
+  res: Response,
+  scope: { playerId: string; action: string; target?: string },
+  nonce: unknown,
+  mutate: () => Promise<IdempotentOutcome>,
+): Promise<void> {
+  if (await guardClaimOrRespond(res, scope, nonce)) return;
+
+  try {
+    const outcome = await mutate();
+    if (!outcome.ok) {
+      // Not a successful mutation — release the claim so a later valid retry
+      // isn't permanently blocked, then surface the reason.
+      await actionIdempotencyGuard.release(scope, nonce);
+      outcome.respond();
+      return;
+    }
+    await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(outcome.body));
+    res.json(outcome.body);
+    markDirty();
+  } catch (mutErr) {
+    await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+    throw mutErr;
+  }
+}
 import {
   getAuth,
   isWalletAuthRequired,
@@ -316,13 +350,7 @@ const indexerClient  = getIndexerClient();
  */
 function fireBurn(walletAddress: string, amount: number, note: string): void {
   const asaId = getAscendAsaId();
-  const isRealWallet =
-    walletAddress &&
-    walletAddress !== 'PLAYER_WALLET' &&
-    !walletAddress.startsWith('AI_') &&
-    algosdk.isValidAddress(walletAddress);
-
-  if (!asaId || !isRealWallet || amount <= 0) return;
+  if (!asaId || !isRealVerifiedWallet(walletAddress) || amount <= 0) return;
 
   clawbackAscendAsa(walletAddress, amount, note)
     .then(txId => { if (txId) console.log(`[burn] ${amount} FRONTIER from ${walletAddress} txId=${txId}`); })
@@ -613,13 +641,10 @@ export async function registerRoutes(
       // They are queryable on-chain, but we do not hand them to anonymous API
       // callers — surface them only to an authenticated admin (no 403 written
       // here; this is an additive field on an otherwise-public endpoint).
-      if (process.env.ADMIN_KEY) {
-        const headerKey = req.headers["x-admin-key"];
-        if (typeof headerKey === "string" && headerKey === process.env.ADMIN_KEY) {
-          const balance = await getAdminBalance();
-          body.adminAlgoBalance = balance.algo;
-          body.adminAscendBalance = balance.ascendAsa;
-        }
+      if (isAdminRequest(req)) {
+        const balance = await getAdminBalance();
+        body.adminAlgoBalance = balance.algo;
+        body.adminAscendBalance = balance.ascendAsa;
       }
 
       res.json(body);
@@ -1717,8 +1742,7 @@ export async function registerRoutes(
         }
       } catch { /* non-critical */ }
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Mining failed" });
+      sendActionError(res, error, "Mining failed");
     }
   });
 
@@ -1733,22 +1757,12 @@ export async function registerRoutes(
       // plot + upgrade type (parcelId escaped to avoid delimiter ambiguity).
       // playerId is auth-verified by the global mutation middleware.
       const scope = { playerId: action.playerId, action: "upgrade", target: `${encodeURIComponent(action.parcelId)}:${action.upgradeType}` };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async () => {
         const parcel = await storage.upgradeBase(action);
-        const body = { success: true, parcel };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, parcel } };
+      });
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Upgrade failed" });
+      sendActionError(res, error, "Upgrade failed");
     }
   });
 
@@ -1761,29 +1775,18 @@ export async function registerRoutes(
     try {
       const action = openLootBoxActionSchema.parse(req.body);
       const scope = { playerId: action.playerId, action: "open-loot-box", target: encodeURIComponent(action.lootBoxId) };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async () => {
         const result = await storage.openLootBox(action.playerId, action.lootBoxId);
         if (!result.ok) {
-          // Not a successful mutation — release the claim so a later valid retry
-          // (or a different box) isn't permanently blocked, then surface the reason.
-          await actionIdempotencyGuard.release(scope, nonce);
+          // Surface the reason (release handled by withIdempotency so a later
+          // valid retry — or a different box — isn't permanently blocked).
           const status = result.reason === "not_found" ? 404 : 409;
-          return res.status(status).json({ error: result.reason });
+          return { ok: false, respond: () => { res.status(status).json({ error: result.reason }); } };
         }
-        const body = { success: true, reward: result.reward, vaults: result.vaults };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, reward: result.reward, vaults: result.vaults } };
+      });
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Open failed" });
+      sendActionError(res, error, "Open failed");
     }
   });
 
@@ -1798,7 +1801,7 @@ export async function registerRoutes(
       // so nonce-less callers are never broken (fail-open on missing nonce here,
       // unlike the other mutations which require one).
       const scope = { playerId: action.attackerId, action: "attack", target: encodeURIComponent(action.targetParcelId) };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      const nonce = actionNonce(req, action);
       if (nonce && (await guardClaimOrRespond(res, scope, nonce))) return;
 
       let battle;
@@ -1842,8 +1845,7 @@ export async function registerRoutes(
         }
       } catch { /* non-critical */ }
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Attack failed" });
+      sendActionError(res, error, "Attack failed");
     }
   });
 
@@ -1860,10 +1862,7 @@ export async function registerRoutes(
       // Target = plot + improvement type (parcelId escaped to avoid delimiter
       // ambiguity). playerId is auth-verified (assertPlayerOwnership + global mw).
       const scope = { playerId: action.playerId, action: "build", target: `${encodeURIComponent(action.parcelId)}:${action.improvementType}` };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async () => {
         const parcel = await storage.buildImprovement(action);
         const buildPlayer = await storage.getPlayer(action.playerId);
         if (buildPlayer) {
@@ -1874,17 +1873,10 @@ export async function registerRoutes(
           const cost = info?.costAscend?.[level - 1] ?? 0;
           if (cost > 0) fireBurn(buildPlayer.address, cost, `Build improvement plotId=${parcel.plotId}`);
         }
-        const body = { success: true, parcel };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, parcel } };
+      });
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Build failed" });
+      sendActionError(res, error, "Build failed");
     }
   });
 
@@ -1897,12 +1889,7 @@ export async function registerRoutes(
       if (!player) return res.status(404).json({ error: "Player not found" });
 
       // All purchases require a connected Algorand wallet.
-      if (
-        !player.address ||
-        player.address === "PLAYER_WALLET" ||
-        player.address.startsWith("AI_") ||
-        !algosdk.isValidAddress(player.address)
-      ) {
+      if (!isRealVerifiedWallet(player.address)) {
         return res.status(403).json({ error: "A connected Algorand wallet is required to purchase territory." });
       }
 
@@ -2006,11 +1993,7 @@ export async function registerRoutes(
       // Mint a Plot NFT (Algorand ASA) for human players with connected wallets.
       // First-plot free claims may not have a valid wallet yet — skip NFT for those.
       let nftAssetId: number | null = null;
-      const isHumanBuyer =
-        buyerAddress &&
-        !buyerAddress.startsWith("AI_") &&
-        buyerAddress !== "PLAYER_WALLET" &&
-        algosdk.isValidAddress(buyerAddress);
+      const isHumanBuyer = isRealVerifiedWallet(buyerAddress);
 
       if (isHumanBuyer && db) {
         // ── Idempotency guard ────────────────────────────────────────────────
@@ -2118,8 +2101,7 @@ export async function registerRoutes(
       });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Purchase failed" });
+      sendActionError(res, error, "Purchase failed");
     }
   });
 
@@ -2132,8 +2114,7 @@ export async function registerRoutes(
       res.json({ success: true, collected: result });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Collection failed" });
+      sendActionError(res, error, "Collection failed");
     }
   });
 
@@ -2149,32 +2130,26 @@ export async function registerRoutes(
       // credit is recorded for replay — every no-credit path releases the nonce so
       // it stays retryable.
       const scope = { playerId: action.playerId, action: "claim-frontier" };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async (): Promise<IdempotentOutcome> => {
         const player = await storage.getPlayer(action.playerId);
         if (!player) {
-          await actionIdempotencyGuard.release(scope, nonce);
-          return res.status(404).json({ error: "Player not found" });
+          return { ok: false, respond: () => { res.status(404).json({ error: "Player not found" }); } };
         }
 
         const walletAddress = player.address;
-        const isRealWallet =
-          walletAddress &&
-          walletAddress !== "PLAYER_WALLET" &&
-          !walletAddress.startsWith("AI_");
+        // Deliberately NOT isRealVerifiedWallet: this claim path only gates on
+        // placeholder identities; address validity is enforced downstream.
+        const walletIsReal = isRealWallet(walletAddress);
 
         // Step 1: Check opt-in BEFORE crediting the DB balance.
         // We only gate on opt-in when the ASA ID is known; if it's null (race condition
         // on startup / re-mint), we proceed and let the queue handle it (SEV2 #6 fix).
         const asaId = getAscendAsaId();
-        if (asaId && isRealWallet) {
+        if (asaId && walletIsReal) {
           const optedIn = await isAddressOptedIn(walletAddress);
           if (!optedIn) {
-            // No credit happened — release so the player can retry after opting in.
-            await actionIdempotencyGuard.release(scope, nonce);
-            return res.json({ success: false, reason: "wallet_not_opted_in" });
+            // No credit happened — the released claim lets the player retry after opting in.
+            return { ok: false, respond: () => { res.json({ success: false, reason: "wallet_not_opted_in" }); } };
           }
         }
 
@@ -2183,7 +2158,7 @@ export async function registerRoutes(
 
         // Step 3: Enqueue on-chain transfer (SEV2 #6 fix: no asaId guard — worker resolves
         // the id lazily at drain time so a null asaId at request time is not a silent drop).
-        if (result.amount > 0 && isRealWallet) {
+        if (result.amount > 0 && walletIsReal) {
           enqueueAscendTransfer({
             recipientAddress:  walletAddress,
             recipientPlayerId: action.playerId,
@@ -2194,17 +2169,10 @@ export async function registerRoutes(
           );
         }
 
-        const body = { success: true, claimed: result, asaId };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, claimed: result, asaId } };
+      });
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Claim failed" });
+      sendActionError(res, error, "Claim failed");
     }
   });
 
@@ -2217,11 +2185,7 @@ export async function registerRoutes(
       const mintPlayer = await storage.getPlayer(action.playerId);
       if (!mintPlayer) return res.status(404).json({ error: "Player not found" });
 
-      const isHumanPlayer =
-        mintPlayer.address &&
-        !mintPlayer.address.startsWith("AI_") &&
-        mintPlayer.address !== "PLAYER_WALLET" &&
-        algosdk.isValidAddress(mintPlayer.address);
+      const isHumanPlayer = isRealVerifiedWallet(mintPlayer.address);
 
       // ── ALGO payment verification (universal pattern) ──────────────────────
       // Human players must send ALGO to the admin wallet before commander minting.
@@ -2432,8 +2396,7 @@ export async function registerRoutes(
       } catch { /* non-critical */ }
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Mint failed" });
+      sendActionError(res, error, "Mint failed");
     }
   });
 
@@ -2481,8 +2444,7 @@ export async function registerRoutes(
         }
       } catch { /* non-critical */ }
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Special attack failed" });
+      sendActionError(res, error, "Special attack failed");
     }
   });
 
@@ -2550,8 +2512,7 @@ export async function registerRoutes(
       res.json({ success: true, profile });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Build failed" });
+      sendActionError(res, error, "Build failed");
     }
   });
 
@@ -2565,8 +2526,7 @@ export async function registerRoutes(
       res.json({ success: true, profile });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Unlock failed" });
+      sendActionError(res, error, "Unlock failed");
     }
   });
 
@@ -2580,8 +2540,7 @@ export async function registerRoutes(
       res.json({ success: true, profile });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Loadout failed" });
+      sendActionError(res, error, "Loadout failed");
     }
   });
 
@@ -2606,8 +2565,7 @@ export async function registerRoutes(
         markDirty();
       } catch { /* broadcast best-effort */ }
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Fire failed" });
+      sendActionError(res, error, "Fire failed");
     }
   });
 
@@ -2629,8 +2587,7 @@ export async function registerRoutes(
       res.json({ success: true, battery });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Deploy failed" });
+      sendActionError(res, error, "Deploy failed");
     }
   });
 
@@ -2644,8 +2601,7 @@ export async function registerRoutes(
       res.json({ success: true, profile });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Upgrade failed" });
+      sendActionError(res, error, "Upgrade failed");
     }
   });
 
@@ -2684,8 +2640,7 @@ export async function registerRoutes(
         weaponMintInFlight.delete(owned.id);
       }
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Mint failed" });
+      sendActionError(res, error, "Mint failed");
     }
   });
 
@@ -2767,8 +2722,7 @@ export async function registerRoutes(
       res.json({ success: true, drone });
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Drone deployment failed" });
+      sendActionError(res, error, "Drone deployment failed");
     }
   });
 
@@ -2800,8 +2754,7 @@ export async function registerRoutes(
       } catch { /* non-critical */ }
       markDirty();
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request data" });
-      res.status(400).json({ error: error instanceof Error ? error.message : "Satellite deployment failed" });
+      sendActionError(res, error, "Satellite deployment failed");
     }
   });
 

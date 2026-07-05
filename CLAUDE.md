@@ -199,5 +199,4 @@ These belong to the game and are enforced by gates; see
 - Document changes in the same commit: env (`ENV_VARS.md` /
   `docs/DEPLOYMENT_ENV_CHECKLIST.md`), audit reports under `docs/audit/`, and a dated
   `session-notes/` file.
-- Treat **`docs/HANDOFF.md` as the authoritative baton** (a stale root `HANDOFF.md`
-  still exists and should be cleaned up — don't trust it).
+- Treat **`docs/HANDOFF.md` as the authoritative baton.**
