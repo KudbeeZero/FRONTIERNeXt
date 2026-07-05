@@ -215,6 +215,49 @@ async function guardClaimOrRespond(
   }
   return false;
 }
+
+// Nonce for the action idempotency guard: body field first, header fallback.
+function actionNonce(req: Request, action: { idempotencyKey?: string }): unknown {
+  return action.idempotencyKey ?? req.header("x-idempotency-key");
+}
+
+// Outcome of a nonce-guarded mutation. `ok: true` → the success body is
+// recorded for replay and sent; `ok: false` → the claim is released (so a
+// later valid retry isn't blocked) and `respond` writes the failure response.
+type IdempotentOutcome =
+  | { ok: true; body: unknown }
+  | { ok: false; respond: () => void };
+
+// Shared claim → mutate → record-on-success / release-on-failure dance for the
+// nonce-guarded action routes. Exact ordering preserved from the previous
+// inline sites: claim (replay/reject short-circuits), run `mutate`, then on
+// success record + res.json(body) + markDirty(); on a non-ok outcome release +
+// custom response; on throw release and rethrow (caller's catch responds).
+async function withIdempotency(
+  res: Response,
+  scope: { playerId: string; action: string; target?: string },
+  nonce: unknown,
+  mutate: () => Promise<IdempotentOutcome>,
+): Promise<void> {
+  if (await guardClaimOrRespond(res, scope, nonce)) return;
+
+  try {
+    const outcome = await mutate();
+    if (!outcome.ok) {
+      // Not a successful mutation — release the claim so a later valid retry
+      // isn't permanently blocked, then surface the reason.
+      await actionIdempotencyGuard.release(scope, nonce);
+      outcome.respond();
+      return;
+    }
+    await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(outcome.body));
+    res.json(outcome.body);
+    markDirty();
+  } catch (mutErr) {
+    await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
+    throw mutErr;
+  }
+}
 import {
   getAuth,
   isWalletAuthRequired,
@@ -1714,19 +1757,10 @@ export async function registerRoutes(
       // plot + upgrade type (parcelId escaped to avoid delimiter ambiguity).
       // playerId is auth-verified by the global mutation middleware.
       const scope = { playerId: action.playerId, action: "upgrade", target: `${encodeURIComponent(action.parcelId)}:${action.upgradeType}` };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async () => {
         const parcel = await storage.upgradeBase(action);
-        const body = { success: true, parcel };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, parcel } };
+      });
     } catch (error) {
       sendActionError(res, error, "Upgrade failed");
     }
@@ -1741,26 +1775,16 @@ export async function registerRoutes(
     try {
       const action = openLootBoxActionSchema.parse(req.body);
       const scope = { playerId: action.playerId, action: "open-loot-box", target: encodeURIComponent(action.lootBoxId) };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async () => {
         const result = await storage.openLootBox(action.playerId, action.lootBoxId);
         if (!result.ok) {
-          // Not a successful mutation — release the claim so a later valid retry
-          // (or a different box) isn't permanently blocked, then surface the reason.
-          await actionIdempotencyGuard.release(scope, nonce);
+          // Surface the reason (release handled by withIdempotency so a later
+          // valid retry — or a different box — isn't permanently blocked).
           const status = result.reason === "not_found" ? 404 : 409;
-          return res.status(status).json({ error: result.reason });
+          return { ok: false, respond: () => { res.status(status).json({ error: result.reason }); } };
         }
-        const body = { success: true, reward: result.reward, vaults: result.vaults };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, reward: result.reward, vaults: result.vaults } };
+      });
     } catch (error) {
       sendActionError(res, error, "Open failed");
     }
@@ -1777,7 +1801,7 @@ export async function registerRoutes(
       // so nonce-less callers are never broken (fail-open on missing nonce here,
       // unlike the other mutations which require one).
       const scope = { playerId: action.attackerId, action: "attack", target: encodeURIComponent(action.targetParcelId) };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
+      const nonce = actionNonce(req, action);
       if (nonce && (await guardClaimOrRespond(res, scope, nonce))) return;
 
       let battle;
@@ -1838,10 +1862,7 @@ export async function registerRoutes(
       // Target = plot + improvement type (parcelId escaped to avoid delimiter
       // ambiguity). playerId is auth-verified (assertPlayerOwnership + global mw).
       const scope = { playerId: action.playerId, action: "build", target: `${encodeURIComponent(action.parcelId)}:${action.improvementType}` };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async () => {
         const parcel = await storage.buildImprovement(action);
         const buildPlayer = await storage.getPlayer(action.playerId);
         if (buildPlayer) {
@@ -1852,14 +1873,8 @@ export async function registerRoutes(
           const cost = info?.costAscend?.[level - 1] ?? 0;
           if (cost > 0) fireBurn(buildPlayer.address, cost, `Build improvement plotId=${parcel.plotId}`);
         }
-        const body = { success: true, parcel };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, parcel } };
+      });
     } catch (error) {
       sendActionError(res, error, "Build failed");
     }
@@ -2115,14 +2130,10 @@ export async function registerRoutes(
       // credit is recorded for replay — every no-credit path releases the nonce so
       // it stays retryable.
       const scope = { playerId: action.playerId, action: "claim-frontier" };
-      const nonce = action.idempotencyKey ?? req.header("x-idempotency-key");
-      if (await guardClaimOrRespond(res, scope, nonce)) return;
-
-      try {
+      await withIdempotency(res, scope, actionNonce(req, action), async (): Promise<IdempotentOutcome> => {
         const player = await storage.getPlayer(action.playerId);
         if (!player) {
-          await actionIdempotencyGuard.release(scope, nonce);
-          return res.status(404).json({ error: "Player not found" });
+          return { ok: false, respond: () => { res.status(404).json({ error: "Player not found" }); } };
         }
 
         const walletAddress = player.address;
@@ -2137,9 +2148,8 @@ export async function registerRoutes(
         if (asaId && walletIsReal) {
           const optedIn = await isAddressOptedIn(walletAddress);
           if (!optedIn) {
-            // No credit happened — release so the player can retry after opting in.
-            await actionIdempotencyGuard.release(scope, nonce);
-            return res.json({ success: false, reason: "wallet_not_opted_in" });
+            // No credit happened — the released claim lets the player retry after opting in.
+            return { ok: false, respond: () => { res.json({ success: false, reason: "wallet_not_opted_in" }); } };
           }
         }
 
@@ -2159,14 +2169,8 @@ export async function registerRoutes(
           );
         }
 
-        const body = { success: true, claimed: result, asaId };
-        await actionIdempotencyGuard.record(scope, nonce, JSON.stringify(body));
-        res.json(body);
-        markDirty();
-      } catch (mutErr) {
-        await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
-        throw mutErr;
-      }
+        return { ok: true, body: { success: true, claimed: result, asaId } };
+      });
     } catch (error) {
       sendActionError(res, error, "Claim failed");
     }
