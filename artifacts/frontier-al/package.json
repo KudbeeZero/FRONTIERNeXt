@@ -11,6 +11,7 @@
     "coverage:server": "vitest run --config vitest.server.config.ts --coverage",
     "coverage:server:full": "vitest run --config vitest.server.config.ts --coverage --coverage.include='server/**' --coverage.include='shared/**' --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0",
     "sim": "tsx server/engine/battle/sim.ts",
+    "smoke:testnet": "tsx script/testnet-nft-smoke.ts",
     "veritas": "tsx server/veritas/run.ts",
     "dev": "NODE_ENV=development tsx server/index.ts",
     "dev:server": "lsof -ti :5000 | xargs -r kill -9; NODE_ENV=development tsx server/index.ts",

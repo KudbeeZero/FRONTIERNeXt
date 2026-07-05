@@ -11,7 +11,7 @@
 
 import algosdk from "algosdk";
 import { getAlgodClient, getAdminAccount, getNetwork } from "./client";
-import { isAddressOptedIn } from "./asa";
+import { attemptNftDelivery } from "./delivery";
 import type { AssetId, MintResult } from "./types";
 import { getWeapon } from "@shared/weapons";
 
@@ -123,13 +123,8 @@ export async function attemptWeaponDelivery(
   toAddress: string,
   ownedWeaponId: string,
 ): Promise<{ delivered: boolean; reason?: string }> {
-  try {
-    const optedIn = await isAddressOptedIn(toAddress, assetId);
-    if (!optedIn) return { delivered: false, reason: "not_opted_in" };
-    await transferWeaponNft({ assetId, toAddress, note: `FRONTIER Weapon NFT ${ownedWeaponId} delivery` });
-    return { delivered: true };
-  } catch (err) {
-    console.error(`[chain/weapon] attemptWeaponDelivery failed ownedWeaponId=${ownedWeaponId}:`, err);
-    return { delivered: false, reason: "transfer_failed" };
-  }
+  return attemptNftDelivery(assetId, toAddress, {
+    transfer: () => transferWeaponNft({ assetId, toAddress, note: `FRONTIER Weapon NFT ${ownedWeaponId} delivery` }),
+    label: `[chain/weapon] attemptWeaponDelivery failed ownedWeaponId=${ownedWeaponId}`,
+  });
 }

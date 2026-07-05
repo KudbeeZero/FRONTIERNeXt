@@ -18,6 +18,7 @@
 import rateLimit from "express-rate-limit";
 import { timingSafeEqual } from "crypto";
 import type { Request, Response } from "express";
+import algosdk from "algosdk";
 import { RedisStore } from "./rateLimitStore";
 
 const isProd = (): boolean => process.env.NODE_ENV === "production";
@@ -77,6 +78,20 @@ export function requireAdminKey(req: Request, res: Response): boolean {
 }
 
 /**
+ * SOFT admin check: true when ADMIN_KEY is configured AND the caller presented
+ * the correct x-admin-key header. Unlike requireAdminKey it never writes a
+ * 403/503 — use it to additively unlock admin-only fields on otherwise-public
+ * endpoints. Header-only (no dev query fallback) and constant-time, using the
+ * same comparison as requireAdminKey.
+ */
+export function isAdminRequest(req: Request): boolean {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) return false;
+  const headerKey = req.headers["x-admin-key"];
+  return typeof headerKey === "string" && safeEqual(headerKey, adminKey);
+}
+
+/**
  * Coarse per-IP ceiling applied across the entire /api surface. This is a
  * blunt anti-DoS / anti-bulk-scrape backstop, deliberately generous so it
  * never interferes with a single legitimate player session. Tune via
@@ -125,6 +140,71 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Per-IP fixed window over /api/actions/* (mine, attack, purchase, build, …).
+ * Read-only routes are unaffected; server-internal AI/scheduler paths do not hit
+ * /api/actions. DB-level cooldowns/constraints remain the primary guard — this
+ * adds a cheap spam / treasury-drain ceiling. Tune via ACTIONS_RATE_LIMIT.
+ */
+export const actionsLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Math.max(1, Number(process.env.ACTIONS_RATE_LIMIT) || 60),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many actions — slow down and try again shortly." },
+});
+
+/**
+ * Per-IP limiter for the terraform advice endpoint — bounds cost when the LLM
+ * advisor path (ANTHROPIC_API_KEY) is enabled. The heuristic path is cheap.
+ * Tune via ADVICE_RATE_LIMIT.
+ */
+export const adviceLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Math.max(1, Number(process.env.ADVICE_RATE_LIMIT) || 30),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many advice requests — try again shortly." },
+});
+
+/**
+ * Per-IP limiter for the optional waitlist signup on the faction-select gate.
+ * Tune via WAITLIST_RATE_LIMIT.
+ */
+export const waitlistLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: Math.max(1, Number(process.env.WAITLIST_RATE_LIMIT) || 12),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many signups — try again shortly." },
+});
+
+// ── "Real human wallet" predicates ───────────────────────────────────────────
+//
+// The game uses placeholder identities alongside real Algorand addresses:
+// "PLAYER_WALLET" (unconnected default) and "AI_*" (faction bots). Many code
+// paths must distinguish a real, player-connected wallet from these
+// placeholders. Two variants exist because some call sites additionally
+// require the address to be a syntactically valid Algorand address (before an
+// on-chain interaction) while others deliberately do not.
+
+/**
+ * True when `addr` is present and is neither the "PLAYER_WALLET" placeholder
+ * nor an AI faction identity ("AI_*"). Does NOT check Algorand address
+ * validity — use isRealVerifiedWallet for that.
+ */
+export function isRealWallet(addr: string | null | undefined): addr is string {
+  return !!addr && addr !== "PLAYER_WALLET" && !addr.startsWith("AI_");
+}
+
+/**
+ * isRealWallet + syntactic Algorand address validity. Use before any on-chain
+ * interaction with the address.
+ */
+export function isRealVerifiedWallet(addr: string | null | undefined): addr is string {
+  return isRealWallet(addr) && algosdk.isValidAddress(addr);
+}
+
+/**
  * Decide whether a caller-supplied delivery address is entitled to receive a
  * custody-held NFT.
  *
@@ -151,11 +231,7 @@ export function evaluateNftDeliveryClaim(params: {
 }): { allow: true } | { allow: false; reason: "no_registered_owner" | "not_owner" } {
   const { ownerAddress, requestedAddress } = params;
 
-  if (
-    !ownerAddress ||
-    ownerAddress === "PLAYER_WALLET" ||
-    ownerAddress.startsWith("AI_")
-  ) {
+  if (!isRealWallet(ownerAddress)) {
     return { allow: false, reason: "no_registered_owner" };
   }
   if (!safeEqual(requestedAddress, ownerAddress)) {

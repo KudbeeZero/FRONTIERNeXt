@@ -14,7 +14,7 @@
 
 import algosdk from "algosdk";
 import { getAlgodClient, getAdminAccount, getNetwork, getIndexerClient } from "./client";
-import { isAddressOptedIn } from "./asa";
+import { attemptNftDelivery } from "./delivery";
 import type { AssetId, MintResult } from "./types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -178,15 +178,10 @@ export async function attemptCommanderDelivery(
   toAddress: string,
   commanderId: string
 ): Promise<{ delivered: boolean; reason?: string }> {
-  try {
-    const optedIn = await isAddressOptedIn(toAddress, assetId);
-    if (!optedIn) return { delivered: false, reason: "not_opted_in" };
-    await transferCommanderNft({ assetId, toAddress, note: `FRONTIER Commander NFT ${commanderId} delivery` });
-    return { delivered: true };
-  } catch (err) {
-    console.error(`[chain/commander] attemptCommanderDelivery failed commanderId=${commanderId}:`, err);
-    return { delivered: false, reason: "transfer_failed" };
-  }
+  return attemptNftDelivery(assetId, toAddress, {
+    transfer: () => transferCommanderNft({ assetId, toAddress, note: `FRONTIER Commander NFT ${commanderId} delivery` }),
+    label: `[chain/commander] attemptCommanderDelivery failed commanderId=${commanderId}`,
+  });
 }
 
 // ── Payment Verification ──────────────────────────────────────────────────────

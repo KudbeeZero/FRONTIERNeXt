@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Shield, Swords, Zap, Target, Radio, Crosshair, Skull, Radar, Clock,
-  Satellite, Gift, Loader2, Lock, ChevronDown, ChevronUp, Pickaxe, Fuel,
-  AlertTriangle, MapPin, CheckCircle2, XCircle, ChevronsRight, PackageCheck, ExternalLink,
-  ChevronLeft, ChevronRight, Crosshair as AimIcon, Activity, Star,
+  Shield, Swords, Zap, Target, Radio, Radar, Clock,
+  Satellite, Gift, Loader2, ChevronDown, ChevronUp, Pickaxe, Fuel,
+  AlertTriangle, MapPin, CheckCircle2, ChevronsRight, PackageCheck, ExternalLink,
+  ChevronLeft, ChevronRight, Activity, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,398 +12,36 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { ATTACK_ICONS } from "@/lib/attackIcons";
 import { serverNow } from "@/lib/serverClock";
 import { devSessionActive, effectiveInCustody } from "@/lib/devSession";
 import { CommanderCombatRecord } from "./CommanderCombatRecord";
+import { SatelliteCard } from "./commander/SatelliteCard";
+import { DroneCard } from "./commander/DroneCard";
+import { AvatarCard } from "./commander/AvatarCard";
+import { SubParcelGridPicker } from "./commander/SubParcelGridPicker";
+import { BattleResultCard, type BattleResult } from "./commander/BattleResultCard";
+import { COMPANION, COMMANDER_IMAGES, TIER_COLORS, formatCountdown } from "./commander/shared";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
 import {
   COMMANDER_INFO, SPECIAL_ATTACK_INFO, DRONE_MINT_COST_ASCEND, MAX_DRONES,
   DRONE_SCOUT_DURATION_MS, SATELLITE_DEPLOY_COST_ASCEND, MAX_SATELLITES,
-  SATELLITE_ORBIT_DURATION_MS, SATELLITE_YIELD_BONUS, ATTACK_BASE_COST, biomeBonuses,
+  SATELLITE_YIELD_BONUS, ATTACK_BASE_COST, biomeBonuses,
   BATTLE_DURATION_MS,
 } from "@shared/schema";
 import type { SubParcel } from "@shared/schema";
-import sentinelImg from "@assets/image_1771570491560.png";
-import phantomImg from "@assets/image_1771570495782.png";
-import reaperImg from "@assets/image_1771570500912.png";
 import droneImg from "@assets/image_1771570514563.png";
 
-// ── Companion animal config per tier ─────────────────────────────────────────
-const COMPANION: Record<CommanderTier, { emoji: string; name: string; flavor: string; winMsg: string; loseMsg: string }> = {
-  sentinel: {
-    emoji: "🐺",
-    name: "Iron Wolf",
-    flavor: "Mechanical legs, energy jaw, tactical suppression",
-    winMsg: "Iron Wolf seized the sub-parcel.",
-    loseMsg: "Iron Wolf retreated — defenses held.",
-  },
-  phantom: {
-    emoji: "🦊",
-    name: "Shadow Fox",
-    flavor: "Cloaked chassis, EMP tail, stealth recon plating",
-    winMsg: "Shadow Fox slipped through the defenses.",
-    loseMsg: "Shadow Fox vanished — target too fortified.",
-  },
-  reaper: {
-    emoji: "🦅",
-    name: "Apex Raptor",
-    flavor: "Biomechanical wings, siege talons, orbital targeting",
-    winMsg: "Apex Raptor tore through the fortification.",
-    loseMsg: "Apex Raptor pulled back — no breach achieved.",
-  },
-};
-
-const COMMANDER_IMAGES: Record<CommanderTier, string> = { sentinel: sentinelImg, phantom: phantomImg, reaper: reaperImg };
-const TIER_COLORS: Record<CommanderTier, string> = { sentinel: "#3b82f6", phantom: "#a855f7", reaper: "#f97316" };
 const TIER_BORDER: Record<CommanderTier, string> = {
   sentinel: "border-blue-500/60 bg-blue-500/5",
   phantom:  "border-purple-500/60 bg-purple-500/5",
   reaper:   "border-orange-500/60 bg-orange-500/5",
 };
-const ATTACK_ICONS: Record<SpecialAttackType, React.ElementType> = {
-  orbital_strike: Target, emp_blast: Zap, siege_barrage: Crosshair, sabotage: Skull,
-};
-
 function hexToRgb(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `${r},${g},${b}`;
-}
-
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return "Ready";
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function SatelliteCard({ satellite, index }: { satellite: Player["satellites"][0]; index: number }) {
-  const now = serverNow();
-  const remaining = Math.max(0, satellite.expiresAt - now);
-  const elapsed = now - satellite.deployedAt;
-  const progressPct = satellite.status === "active" ? Math.min(100, (elapsed / SATELLITE_ORBIT_DURATION_MS) * 100) : 100;
-  const isExpired = satellite.status === "expired" || remaining === 0;
-  const [, tick] = useState(0);
-  useEffect(() => {
-    if (isExpired) return;
-    const t = setInterval(() => tick(n => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [isExpired]);
-
-  return (
-    <Card className={cn("p-2 border text-xs", isExpired ? "border-muted opacity-60" : "border-yellow-500/50 bg-yellow-500/5")}>
-      <div className="flex items-center justify-between mb-1">
-        <span className="font-display uppercase tracking-wide text-[10px]">SAT-{String(index + 1).padStart(2, "0")}</span>
-        <Badge variant={isExpired ? "secondary" : "default"} className="text-[9px] px-1 py-0">{isExpired ? "expired" : "orbiting"}</Badge>
-      </div>
-      {!isExpired && (
-        <>
-          <div className="w-full bg-muted rounded-full h-1 mb-1">
-            <div className="h-1 rounded-full bg-yellow-500 transition-all" style={{ width: `${progressPct}%` }} />
-          </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Clock className="w-2.5 h-2.5" /><span>{formatCountdown(remaining)} remaining</span>
-          </div>
-        </>
-      )}
-    </Card>
-  );
-}
-
-function DroneCard({ drone, index }: { drone: Player["drones"][0]; index: number }) {
-  const elapsed = serverNow() - drone.deployedAt;
-  const remaining = Math.max(0, DRONE_SCOUT_DURATION_MS - elapsed);
-  const isExpired = remaining === 0 && drone.status === "scouting";
-  const progressPct = drone.status === "scouting" ? Math.min(100, (elapsed / DRONE_SCOUT_DURATION_MS) * 100) : 0;
-  const [, tick] = useState(0);
-  useEffect(() => {
-    if (isExpired || drone.status !== "scouting") return;
-    const t = setInterval(() => tick(n => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [isExpired, drone.status]);
-
-  const m = Math.floor(remaining / 60000);
-  const s = Math.floor((remaining % 60000) / 1000);
-  return (
-    <div className="p-2.5 border border-border rounded-md">
-      <div className="flex items-center gap-2 mb-1.5">
-        <img src={droneImg} alt="Recon Drone" className="w-8 h-8 rounded-md object-cover" />
-        <div className="flex-1 min-w-0">
-          <span className="text-[11px] font-display uppercase tracking-wide block">Drone #{index + 1}</span>
-          <Badge variant={isExpired || drone.status === "returned" ? "secondary" : "outline"} className="text-[9px]">
-            {isExpired ? "Report Ready" : drone.status === "scouting" ? `Scouting ${m}:${String(s).padStart(2, "0")}` : drone.status}
-          </Badge>
-        </div>
-      </div>
-      {(isExpired || drone.scoutReportReady) && drone.discoveredResources && (
-        <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-          <span>+{drone.discoveredResources.iron}I</span>
-          <span>+{drone.discoveredResources.fuel}F</span>
-          <span>+{drone.discoveredResources.crystal}C</span>
-        </div>
-      )}
-      {drone.status === "scouting" && !isExpired && (
-        <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CommanderNftStatus({ commanderId, onClaim, isClaiming, walletConnected }: {
-  commanderId: string; onClaim?: (id: string) => void; isClaiming?: boolean; walletConnected?: boolean;
-}) {
-  const { data, isLoading } = useQuery<{ exists: boolean; status?: string; assetId?: number | null }>({
-    queryKey: ["/api/nft/commander", commanderId],
-    queryFn: async () => {
-      const res = await fetch(`/api/nft/commander/${commanderId}`);
-      if (!res.ok) return { exists: false };
-      return res.json();
-    },
-    staleTime: 5_000,
-    retry: false,
-    // Poll every 4s while minting is in-flight or NFT not yet found; stop once confirmed
-    refetchInterval: (query) => {
-      const d = query.state.data;
-      if (!d?.exists || d?.status === "minting") return 4_000;
-      return false;
-    },
-  });
-  if (isLoading) return <div className="flex items-center gap-1 text-[9px] text-muted-foreground mt-1"><Loader2 className="w-2.5 h-2.5 animate-spin" /><span>NFT…</span></div>;
-  if (!data?.exists) return null;
-  const isMinting  = data.status === "minting";
-  const delivered  = data.status === "delivered";
-  const inCustody  = data.status === "minted";
-  return (
-    <div className="mt-1 flex flex-col gap-1">
-      {isMinting ? (
-        <Badge variant="outline" className="text-[8px] text-blue-400 border-blue-500/30 gap-1 w-fit"><Loader2 className="w-2 h-2 animate-spin" />Minting NFT…</Badge>
-      ) : delivered ? (
-        <Badge className="text-[8px] bg-green-500/20 text-green-400 border-green-500/30 gap-1 w-fit"><Gift className="w-2 h-2" />NFT in Wallet</Badge>
-      ) : inCustody ? (
-        <>
-          <Badge variant="outline" className="text-[8px] text-yellow-400 border-yellow-500/30 gap-1 w-fit"><Gift className="w-2 h-2" />NFT Ready · ASA {data.assetId}</Badge>
-          {walletConnected && onClaim ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-[9px] h-6 px-2 border-yellow-500/60 text-yellow-300 bg-yellow-500/10 hover:bg-yellow-500/20 w-full font-semibold"
-              onClick={() => onClaim(commanderId)}
-              disabled={isClaiming}
-            >
-              {isClaiming ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Gift className="w-3 h-3 mr-1" />}
-              {isClaiming ? "Claiming…" : "Claim NFT to Wallet"}
-            </Button>
-          ) : !walletConnected ? (
-            <p className="text-[8px] text-yellow-400/70">Connect wallet to claim</p>
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-// ── Avatar Card (2-column gallery style) ─────────────────────────────────────
-
-function AvatarCard({ cmd, isActive, onDeploy, onClaim, isClaiming, walletConnected }: {
-  cmd: Player["commanders"][0]; isActive: boolean;
-  onDeploy: () => void; onClaim?: (id: string) => void; isClaiming?: boolean; walletConnected?: boolean;
-}) {
-  const [countdown, setCountdown] = useState(0);
-  const companion = COMPANION[cmd.tier as CommanderTier];
-
-  useEffect(() => {
-    const update = () => {
-      const rem = cmd.lockedUntil ? Math.max(0, cmd.lockedUntil - serverNow()) : 0;
-      setCountdown(rem);
-    };
-    update();
-    const t = setInterval(update, 1000);
-    return () => clearInterval(t);
-  }, [cmd.lockedUntil]);
-
-  const isLocked = countdown > 0;
-  const tierColor = TIER_COLORS[cmd.tier as CommanderTier];
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl flex flex-col overflow-hidden transition-all cursor-pointer select-none",
-        isLocked && "opacity-60"
-      )}
-      style={{
-        background: isActive
-          ? "linear-gradient(160deg, rgba(6,2,20,0.97) 0%, rgba(20,4,8,0.97) 100%)"
-          : "linear-gradient(160deg, rgba(4,2,16,0.95) 0%, rgba(8,4,20,0.95) 100%)",
-        border: isActive
-          ? "1px solid rgba(239,68,68,0.6)"
-          : "1px solid rgba(60,80,180,0.2)",
-        boxShadow: isActive
-          ? "0 0 15px rgba(239,68,68,0.15), inset 0 0 20px rgba(239,68,68,0.04)"
-          : "0 0 8px rgba(0,0,60,0.4)",
-      }}
-    >
-      {/* Active top stripe */}
-      {isActive && (
-        <div
-          className="h-0.5 w-full shrink-0"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(239,68,68,0.9), transparent)" }}
-        />
-      )}
-
-      {/* Image area */}
-      <div className="relative aspect-square w-full overflow-hidden">
-        <img
-          src={COMMANDER_IMAGES[cmd.tier as CommanderTier]}
-          alt={cmd.name}
-          className="w-full h-full object-cover"
-        />
-        {/* Online dot */}
-        <span
-          className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full border border-black"
-          style={{ background: isActive ? "#22c55e" : "#6b7280" }}
-        />
-        {/* Lock overlay */}
-        {isLocked && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
-            <Lock className="w-5 h-5 text-white/80" />
-            <span className="text-[9px] font-mono text-white/80 mt-1">{formatCountdown(countdown)}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Info + button */}
-      <div className="px-2.5 py-2 flex flex-col gap-1.5">
-        <div>
-          <p className="text-[11px] font-display font-bold uppercase tracking-wide text-white leading-tight truncate">
-            {cmd.name}
-          </p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[9px] capitalize" style={{ color: tierColor }}>{cmd.tier}</span>
-            <span className="text-[9px] text-white/30">·</span>
-            <span className="text-[9px] text-white/50 truncate">{COMMANDER_INFO[cmd.tier as CommanderTier]?.specialAbility ?? "operative"}</span>
-          </div>
-          {/* Combat impact — makes the tier's effect on battle explicit (was a
-              near-invisible micro-row); the attackBonus is added to attacker power. */}
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            <div className="rounded bg-red-500/10 border border-red-500/25 px-1.5 py-1 text-center">
-              <div className="text-[7px] uppercase tracking-wide text-white/40">Attack</div>
-              <div className="text-xs font-mono font-bold text-red-300 leading-none">+{cmd.attackBonus}</div>
-            </div>
-            <div className="rounded bg-blue-500/10 border border-blue-500/25 px-1.5 py-1 text-center">
-              <div className="text-[7px] uppercase tracking-wide text-white/40">Defense</div>
-              <div className="text-xs font-mono font-bold text-blue-300 leading-none">+{cmd.defenseBonus}</div>
-            </div>
-          </div>
-          <p className="text-[8px] text-white/50 leading-snug mt-0.5">
-            Adds <span className="text-red-300 font-semibold">+{cmd.attackBonus} attack power</span> to every battle you launch · ☠ {cmd.totalKills} kills
-          </p>
-        </div>
-
-        {/* NFT status */}
-        <CommanderNftStatus commanderId={cmd.id} onClaim={onClaim} isClaiming={isClaiming} walletConnected={walletConnected} />
-
-        {/* Deploy button */}
-        {!isLocked && (
-          <button
-            onClick={onDeploy}
-            className={cn(
-              "w-full py-1.5 rounded-md text-[10px] font-display font-bold uppercase tracking-wider transition-colors",
-              isActive
-                ? "commander-selected-btn bg-red-600 text-white border border-red-500/80"
-                : "bg-transparent text-red-400 border border-red-500/40 hover:bg-red-500/10 hover:border-red-500/70"
-            )}
-          >
-            {isActive ? "SELECTED" : "SELECT TO PLAY"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Sub-Parcel Grid Picker ────────────────────────────────────────────────────
-
-function SubParcelGridPicker({ subParcels, selectedIdx, onSelect, currentPlayerId }: {
-  subParcels: SubParcel[]; selectedIdx: number | null;
-  onSelect: (idx: number, spId: string) => void; currentPlayerId: string;
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-1">
-      {Array.from({ length: 9 }, (_, i) => {
-        const sp = subParcels.find(s => s.subIndex === i);
-        const isOwn = sp?.ownerId === currentPlayerId;
-        const isOther = sp?.ownerId && sp.ownerId !== currentPlayerId;
-        const isSelected = selectedIdx === i;
-        return (
-          <button
-            key={i}
-            onClick={() => sp && isOther && onSelect(i, sp.id)}
-            disabled={!sp || !isOther}
-            className={cn(
-              "h-9 rounded border text-[9px] font-mono flex flex-col items-center justify-center transition-colors",
-              isSelected ? "border-destructive bg-destructive/20 text-destructive" :
-              isOther ? "border-yellow-500/50 bg-yellow-500/10 text-yellow-400 hover:border-destructive hover:bg-destructive/10 cursor-pointer" :
-              isOwn ? "border-green-500/30 bg-green-500/5 text-green-400 cursor-not-allowed" :
-              "border-border/40 bg-muted/5 text-muted-foreground cursor-not-allowed"
-            )}
-          >
-            <span>{i + 1}</span>
-            {sp?.ownerId ? (
-              <span className="text-[7px] truncate max-w-full px-0.5">{isOwn ? "yours" : "enemy"}</span>
-            ) : (
-              <span className="text-[7px] opacity-50">empty</span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Battle Result Display ─────────────────────────────────────────────────────
-
-interface BattleResult {
-  outcome: "attacker_wins" | "defender_wins";
-  attackerPower: number;
-  defenderPower: number;
-  log: { phase: string; message: string }[];
-  commanderTier?: CommanderTier;
-}
-
-function BattleResultCard({ result }: { result: BattleResult }) {
-  const won = result.outcome === "attacker_wins";
-  const companion = result.commanderTier ? COMPANION[result.commanderTier] : null;
-  return (
-    <div className={cn("rounded-md border p-3 text-xs", won ? "border-green-500/40 bg-green-500/5" : "border-destructive/40 bg-destructive/5")}>
-      <div className="flex items-center gap-2 mb-2">
-        {won ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <XCircle className="w-4 h-4 text-destructive" />}
-        <span className="font-display uppercase tracking-wide font-bold">{won ? "Victory" : "Repelled"}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-2 mb-2">
-        <div>
-          <p className="text-[9px] text-muted-foreground uppercase">Your Power</p>
-          <p className="font-mono font-bold text-primary">{Math.round(result.attackerPower)}</p>
-        </div>
-        <div>
-          <p className="text-[9px] text-muted-foreground uppercase">Defender</p>
-          <p className="font-mono font-bold text-destructive">{Math.round(result.defenderPower)}</p>
-        </div>
-      </div>
-      {companion && (
-        <p className="text-[9px] text-muted-foreground italic border-t border-border/30 pt-1.5">
-          {companion.emoji} {won ? companion.winMsg : companion.loseMsg}
-        </p>
-      )}
-    </div>
-  );
 }
 
 // ── Main CommanderPanel ───────────────────────────────────────────────────────

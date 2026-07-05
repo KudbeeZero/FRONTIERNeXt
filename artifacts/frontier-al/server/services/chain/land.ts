@@ -18,7 +18,7 @@
 
 import algosdk from "algosdk";
 import { getAlgodClient, getAdminAccount, getNetwork } from "./client";
-import { isAddressOptedIn } from "./asa";
+import { attemptNftDelivery } from "./delivery";
 import type { MintLandParams, TransferLandParams, MintResult, AssetId } from "./types";
 
 // ── Mint ──────────────────────────────────────────────────────────────────────
@@ -135,13 +135,8 @@ export async function attemptDelivery(
   toAddress: string,
   plotId: number
 ): Promise<{ delivered: boolean; reason?: string }> {
-  try {
-    const optedIn = await isAddressOptedIn(toAddress, assetId);
-    if (!optedIn) return { delivered: false, reason: "not_opted_in" };
-    await transferLandNft({ assetId, toAddress, note: `FRONTIER Plot #${plotId} delivery` });
-    return { delivered: true };
-  } catch (err) {
-    console.error(`[chain/land] attemptDelivery failed plotId=${plotId}:`, err);
-    return { delivered: false, reason: "transfer_failed" };
-  }
+  return attemptNftDelivery(assetId, toAddress, {
+    transfer: () => transferLandNft({ assetId, toAddress, note: `FRONTIER Plot #${plotId} delivery` }),
+    label: `[chain/land] attemptDelivery failed plotId=${plotId}`,
+  });
 }
