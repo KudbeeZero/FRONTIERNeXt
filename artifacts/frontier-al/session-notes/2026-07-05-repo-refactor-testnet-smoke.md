@@ -44,3 +44,11 @@ dead-v2-only tests) · production build OK.
 - `docs/audit/chain-services-audit.md` claims `recordUpgradeOnChain` breaks under algosdk v3
   (Address object vs string) — code inspection suggests v3 accepts Address; smoke test will
   settle it live.
+
+## Addendum (same session, unit 2)
+- **#172 merged** (`ad4578a`) — owner authorized merge-on-green in-session; CI green on head
+  (`Typecheck & server tests` ✅).
+- **Unit 2:** wrote [`docs/NEXT_LEVEL_PLAYBOOK.md`](../docs/NEXT_LEVEL_PLAYBOOK.md) — owner-requested,
+  Fable-5-authored architecture & development playbook for Sonnet-class agents: phases A–D
+  (onboarding, world liveness, on-chain depth incl. ARC-19 evolution path, marketplace/scale),
+  the gated mainnet sequence, and a per-unit PR template. Docs-only PR (#173).

@@ -10,9 +10,17 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_AUDIT · PR **#172** · branch `claude/algo-codebase-refactor-test-mp28xc` · `main` @ `903e164`
+## Current baton — ⏳ AWAITING_AUDIT · PR **#173** (Next-Level Playbook) · branch `claude/algo-codebase-refactor-test-mp28xc` · `main` @ `ad4578a`
 
-**This chat: repo-wide behavior-preserving refactor + TestNet NFT smoke harness.** See
+**This chat, unit 2: [`NEXT_LEVEL_PLAYBOOK.md`](../artifacts/frontier-al/docs/NEXT_LEVEL_PLAYBOOK.md)** —
+owner-requested architecture & development playbook (authored by Fable 5 for Sonnet-class execution):
+as-is architecture map, four "next level" phases (onboarding · world liveness · on-chain depth ·
+economy/scale), ~20 one-chat units with Goal/Files/Done-when/Risk, the gated mainnet path, and the
+PR unit template. Docs-only — zero code changes. **Future sessions: pick units from the playbook;
+this baton names the active one.**
+
+**This chat, unit 1: repo-wide behavior-preserving refactor + TestNet NFT smoke harness — #172 MERGED
+(owner-authorized, CI green on head).** See
 [`session-notes/2026-07-05-repo-refactor-testnet-smoke.md`](../artifacts/frontier-al/session-notes/2026-07-05-repo-refactor-testnet-smoke.md).
 - Dead code deleted (globe/v2 + its spec, MissionLoadingScreen, chain/treasury.ts, attached_assets).
 - Client: CommanderPanel → `commander/*`, LandSheet → `land/*`, testnet page data → `lib/testnetMissions`,
