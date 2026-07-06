@@ -10,11 +10,20 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ✅ CLEAR · PR **#173** (Next-Level Playbook) merged-on-green (owner-authorized in-session) · branch `claude/algo-codebase-refactor-test-mp28xc`
+## Current baton — ⏳ AWAITING_OWNER_REVIEW · PR **#174** (FRONTIER docs suite) · branch `feat/frontier-architecture-agent-roadmap` · `main` @ `eab3eef`
 
-**Next session: audit nothing (both #172 and #173 merged green under the owner's in-session
-directive) — start the next unit directly. Owner priority: playbook unit C1 (run `smoke:testnet`
-once the session wallet is funded), then pick from the playbook.**
+**This chat (unit 3, owner's new plan): six FRONTIER docs from a fresh read-only repo audit —
+[`FRONTIER_ARCHITECTURE_TRUTH`](./FRONTIER_ARCHITECTURE_TRUTH.md) ·
+[`FRONTIER_AGENT_REGISTRY`](./FRONTIER_AGENT_REGISTRY.md) ·
+[`FRONTIER_MASTER_ROADMAP`](./FRONTIER_MASTER_ROADMAP.md) (25 phases) ·
+[`FRONTIER_AGENT_DASHBOARD_SPEC`](./FRONTIER_AGENT_DASHBOARD_SPEC.md) ·
+[`FRONTIER_FIRST_10_PRS`](./FRONTIER_FIRST_10_PRS.md) ·
+[`FRONTIER_BRANCH_MACHINE`](./FRONTIER_BRANCH_MACHINE.md). Docs-only.
+🛑 Owner instructed: DO NOT auto-merge #174 — owner reviews it.**
+
+**Next after #174:** FIRST_10_PRS in order (registry JSON → kill switches → Mission Control shell…);
+`smoke:testnet` once the owner funds session wallet `JD7CFMNMX4PO2HSJNRYBXUWR3W7YYLC5M3GMK4MEOCEWHZLAU2IKT7IKZA`.
+Prior units this push: #172 (repo refactor + smoke harness) and #173 (Next-Level Playbook) merged green.
 
 **This chat, unit 2: [`NEXT_LEVEL_PLAYBOOK.md`](../artifacts/frontier-al/docs/NEXT_LEVEL_PLAYBOOK.md)** —
 owner-requested architecture & development playbook (authored by Fable 5 for Sonnet-class execution):
