@@ -10,35 +10,39 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: fix fillTradeOrder double-spend · main green at `aff8298`
+## Current baton — 🔎 AWAITING_AUDIT: fix claimWinnings double-payout · main green at `5862881`
 
-**Owner /goal (2026-07-06): "nothing gets lost or repeats itself."** The DB-health
-research agent found real concurrent double-spends; **this unit fixes the first
-(CRITICAL): `fillTradeOrder`** (`db.ts:2281`) — two concurrent fills of the same
-open order both passed the `status==='open'` check (no `FOR UPDATE`, mark-filled
-keyed only on `id`) and both transferred resources. Fixed with the in-repo
-`openLootBox` pattern: `FOR UPDATE` on the order SELECT + a conditional
-`UPDATE … WHERE status='open'` (rowCount bail) claim BEFORE the transfers; also
-narrowed the player `SELECT *` to the 6 columns read. New gated
-`tradefill.db.spec.ts` (real-Postgres concurrency test) — **fail-before/pass-after
-proven against a throwaway Postgres**, added to `test:server:db`. tsc clean ·
-server 446/16 skipped (+2 gated) · build green. Detail:
-[`session-notes/2026-07-06-fix-trade-fill-double-spend.md`](../artifacts/frontier-al/session-notes/2026-07-06-fix-trade-fill-double-spend.md).
+**Owner /goal (2026-07-06): "nothing gets lost or repeats itself."** Fixing the
+DB-health audit's concurrent double-spends one unit at a time. **This unit fixes
+#2 (the worst — no transaction at all): `claimWinnings`** (`db.ts:3294`) — bare
+statements, unlocked positions read, mark-claimed keyed only on `id`, read-then-
+write credit → concurrent double-claim pays winnings twice. Fixed with the proven
+pattern: wrapped in a txn + `FOR UPDATE` on the positions + conditional
+`UPDATE … WHERE claimed=false` (rowCount bail) before crediting + relative credit;
+narrowed the market/positions `SELECT *`s. New gated `claimwinnings.db.spec.ts` —
+**deterministic** fail-before/pass-after (a raw-connection `FOR UPDATE` lock forces
+the overlap; a naive `Promise.all` race is timing-dependent and can mask the bug —
+lesson learned this unit). **Proven against throwaway Postgres.** Also this session:
+`ci: --no-file-parallelism` on `test:server:db` (the DB specs share the `players`
+table and vitest parallel workers clobbered it — surfaced as a real CI failure on
+#204, now fixed). tsc clean · server 446/18 skipped (+2 gated) · build green.
+Detail: [`session-notes/2026-07-06-fix-claim-winnings-double-payout.md`](../artifacts/frontier-al/session-notes/2026-07-06-fix-claim-winnings-double-payout.md).
 
-Prior this session: faction single-source-of-truth (#203, `aff8298`) — the gate +
-objective HUD read a divergent localStorage key; now localStorage is a faithful
-cache of the wallet-keyed server record (gate rehydrates from `/api/auth/me`).
+Prior this session: #203 faction single-source-of-truth; #204 fillTradeOrder
+double-spend (same pattern, gated real-Postgres test).
 
-### 🔴 HIGH-PRIORITY QUEUE from this session's 5 research agents (do next, in order)
+### 🔴 HIGH-PRIORITY QUEUE from this session's 5 research agents
 
-**A. Concurrent double-spend bugs (DB-health audit) — ✅ #1 done above; remaining:**
-2. `claimWinnings` (`db.ts:3278`) — not in a txn; double-claim pays out twice. **CRITICAL — NEXT.**
+**A. Concurrent double-spend bugs (DB-health audit) — ✅ #1 (#204) + #2 done; remaining:**
 3. `grantWelcomeBonus`+login (`routes.ts:444`) — concurrent logins double-enqueue the
-   on-chain 500-ASCEND transfer (real funds). **BUG.**
+   on-chain 500-ASCEND transfer (real funds). **BUG — NEXT.** Crosses into the route
+   layer (enqueue is in the login handler); fix = atomic
+   `UPDATE … WHERE welcomeBonusReceived=false RETURNING` gating the enqueue on rowCount.
 4. `placeBet` (`db.ts:3216`) — non-atomic double-credit. **BUG.**
-   Fix pattern (proven on #1): `openLootBox`'s txn + `FOR UPDATE` + conditional
+   Fix pattern (proven on #1/#2): `openLootBox`'s txn + `FOR UPDATE` + conditional
    `UPDATE … WHERE <not-done> RETURNING` + rowCount bail; each needs a gated
-   real-Postgres fail-before/pass-after test like `tradefill.db.spec.ts`.
+   real-Postgres fail-before/pass-after test (use a raw-connection lock to make the
+   concurrency test deterministic, not a flaky `Promise.all`).
 **B. Quick DB/gate wins:** `players.address`/`player_faction_id` indexes (migration
 0013); extend the strict action rate-limiter to `/api/trade|markets|weapons|
 sub-parcels|factions`; a middleware-binding coverage test.
