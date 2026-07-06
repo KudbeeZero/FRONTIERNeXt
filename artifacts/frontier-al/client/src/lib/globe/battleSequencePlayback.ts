@@ -127,3 +127,66 @@ export function playbackAt(seq: BattleSequence, elapsedMs: number): GlobePlaybac
     settled,
   };
 }
+
+// ── Brace-beat shield dome ───────────────────────────────────────────────────
+// A separate, independent channel — NOT part of GlobePlaybackState — so it can
+// be consumed by its own sibling renderer (GlobeShieldDome) without touching
+// GlobeBattleSequence or any of its existing readers.
+
+export interface BraceDomeState {
+  /** 0…1 overall dome opacity: rises over "brace", holds through "impact", then resolves per outcome. */
+  opacity: number;
+  /** 0…1 dome scale/brightness — the brace beat's real intensity (defender power + fortification). Constant per sequence. */
+  strength: number;
+  /** 0…1 crack/shatter progress after impact — only when the attacker wins (captured). */
+  shatterProgress: number;
+  /** 0…1 victory-flare pulse right after impact — only when the defense holds. */
+  flareIntensity: number;
+}
+
+/** Symmetric 0→1→0 pulse over the first `frac` fraction of a 0…1 input; 0 outside that window. */
+function flarePulse(x: number, frac: number): number {
+  if (x <= 0 || x >= frac || frac <= 0) return 0;
+  return Math.sin(Math.PI * (x / frac));
+}
+
+/** Compute the brace-beat shield-dome render state for a sequence at `elapsedMs`. */
+export function braceDomeAt(seq: BattleSequence, elapsedMs: number): BraceDomeState {
+  const t = Number.isFinite(elapsedMs) ? elapsedMs : 0;
+  const strength = clamp01(intensityOf(seq, "brace"));
+
+  const braceStart = beatStart(seq, "brace");
+  const braceEnd = beatEnd(seq, "brace");
+  const impactEnd = beatEnd(seq, "impact");
+
+  let opacity = 0;
+  let shatterProgress = 0;
+  let flareIntensity = 0;
+
+  if (t < braceStart) {
+    opacity = 0;
+  } else if (t < braceEnd) {
+    opacity = (t - braceStart) / Math.max(1, braceEnd - braceStart);
+  } else if (t < impactEnd) {
+    opacity = 1;
+  } else {
+    // Post-impact: the dome cracks apart on a capture, or flares solid on a
+    // held defense — the clash/swing/resolve/aftermath beats play out here.
+    const postSpan = Math.max(1, seq.durationMs - impactEnd);
+    const postT = clamp01((t - impactEnd) / postSpan);
+    if (seq.captured) {
+      shatterProgress = postT;
+      opacity = clamp01(1 - postT);
+    } else {
+      flareIntensity = flarePulse(postT, 0.3);
+      opacity = 1;
+    }
+  }
+
+  return {
+    opacity: clamp01(opacity),
+    strength,
+    shatterProgress: clamp01(shatterProgress),
+    flareIntensity: clamp01(flareIntensity),
+  };
+}

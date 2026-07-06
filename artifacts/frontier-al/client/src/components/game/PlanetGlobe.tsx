@@ -22,6 +22,7 @@ import { BattleArcs, MiningPulseLayer, OrbitalZoneLayer, SatelliteOrbitLayer } f
 import { LiveWeaponLayer } from "./globe/LiveWeaponLayer";
 import { GlobeLiveEvents } from "./globe/GlobeLiveEvents";
 import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
+import { GlobeShieldDome } from "./globe/GlobeShieldDome";
 import { BattleCalloutHUD } from "./globe/BattleCalloutHUD";
 import { GlobeIncomingTelegraph } from "./globe/GlobeIncomingTelegraph";
 import { GlobeMusterLayer } from "./globe/GlobeMusterLayer";
@@ -128,6 +129,7 @@ function Scene({
       <SatelliteOrbitLayer players={players} />
       <LiveWeaponLayer />
       <GlobeBattleSequence battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
+      <GlobeShieldDome />
       <GlobeCinematicCamera controlsRef={controlsRef} />
       <GlobeLiveEvents />
       <OrbitControls
