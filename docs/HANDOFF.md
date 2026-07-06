@@ -10,17 +10,28 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ PR **#175** (branded-domain wallet/login fix) · branch `claude/wallet-domain-login-fix` · merge-on-green per standing directive
+## Current baton — nothing open, nothing stale. Next session: pick a unit from
+[`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md) or the on-chain-testing queue below.
 
-**This chat (unit 4, owner /goal): fix the month-old frontierprotocol.app login mess** — root cause:
+### ✅ #175 (branded-domain wallet/login fix) — MERGED + DEPLOYED, main@`7cde4a4c`
+
+**Unit 4, owner /goal: fix the month-old frontierprotocol.app login mess** — root cause:
 branded host is static Cloudflare (no API → 405s) + the #162 fly.dev hop drops localStorage →
 re-connect + stale WalletConnect pairings = ~12-popup storm. Fix: runtime backend resolution
-(`lib/backendOrigin.ts`, API+WS → Fly on backend-less hosts), 52 raw fetches through
-`resolveApiUrl`, `/game` stays on the current origin, pre-connect stale-pairing purge, CORS
-allow-headers += x-admin-key. See
+(`lib/backendOrigin.ts`, API+WS → Fly on backend-less hosts), 54 raw fetches through
+`resolveApiUrl`, `/game` stays on the current origin, pre-connect stale-pairing purge +
+connect() reentrancy guard, CORS allow-headers += x-admin-key. See
 [`session-notes/2026-07-06-branded-domain-wallet-fix.md`](../artifacts/frontier-al/session-notes/2026-07-06-branded-domain-wallet-fix.md).
-**Owner smoke-test after both deploys: connect wallet on frontierprotocol.app → Enter Game →
-stays on frontierprotocol.app/game, ONE wallet prompt.**
+**Two independent review passes (code review + adversarial "disruptor" pass) ran before merge and
+both independently caught the same two gaps** the scripted rewrite missed — `WarRoomPanel.tsx` and
+`admin.tsx` still used raw same-origin `fetch()` — plus a real double-connect race in
+`WalletContext.connect()`. All three fixed, tsc/tests re-verified green, pushed as a follow-up
+commit on the same PR before merging.
+**CI + Fly deploy both confirmed green on merge commit `7cde4a4c`** (CI run 28763239508, Fly
+deploy run 28763239489, Deploy step completed 02:09:25 UTC). Cloudflare Pages redeploys the
+client from `main` independently (own GitHub integration, not a gated workflow).
+**Owner: do the live smoke test now** — connect wallet on frontierprotocol.app → Enter Game →
+should stay on frontierprotocol.app/game with exactly ONE wallet prompt, no popup storm.
 
 ### Earlier this push — ✅ #174 (FRONTIER docs suite) merged-on-green after independent Sonnet review
 
