@@ -1146,7 +1146,10 @@ export function GameLayout() {
         className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
         style={{ "--right-menu-width": "18rem" } as React.CSSProperties}
       >
-        <div className="flex border-b border-border shrink-0 flex-wrap">
+        <div
+          className="grid border-b border-border shrink-0"
+          style={{ gridTemplateColumns: "repeat(5, 1fr)", gap: 1 }}
+        >
           {(
             [
               { id: "battles",     icon: Swords,          label: "War"      },
@@ -1167,14 +1170,14 @@ export function GameLayout() {
               title={label}
               aria-label={label}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors border-b-2",
+                "flex flex-col items-center justify-center gap-0.5 py-2 px-0.5 min-w-0 transition-colors border-b-2",
                 desktopRightTab === id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-primary text-primary bg-primary/5"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-white/[0.03]"
               )}
             >
-              <Icon className="w-4 h-4" />
-              <span className="text-[9px] font-display uppercase tracking-wide leading-none">{label}</span>
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="text-[8px] font-display uppercase tracking-wide leading-none truncate max-w-full">{label}</span>
             </button>
           ))}
         </div>

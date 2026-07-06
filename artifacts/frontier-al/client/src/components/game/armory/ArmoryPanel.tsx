@@ -13,6 +13,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ARCHETYPE_IMAGES } from "./archetypeImages";
 import {
   ATTRIBUTE_KEYS,
   ATTRIBUTE_BUDGET,
@@ -155,9 +156,18 @@ function ArmoryInner({
 
       {/* Archetype + badges */}
       <section className="mt-3 rounded-lg border border-slate-700/60 bg-slate-900/50 p-3">
-        <div className="text-sm text-slate-300">
-          Archetype: <span className="font-semibold text-cyan-300">{archetype?.name ?? "—"}</span>
-          {archetype && <span className="ml-2 text-xs text-slate-500">{archetype.description}</span>}
+        <div className="flex gap-3">
+          {archetype && (
+            <img
+              src={ARCHETYPE_IMAGES[archetype.id]}
+              alt={archetype.name}
+              className="h-20 w-20 shrink-0 rounded-md border border-cyan-500/30 object-cover"
+            />
+          )}
+          <div className="text-sm text-slate-300">
+            Archetype: <span className="font-semibold text-cyan-300">{archetype?.name ?? "—"}</span>
+            {archetype && <div className="mt-1 text-xs text-slate-500">{archetype.description}</div>}
+          </div>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           {BADGE_KEYS.map((k: BadgeKey) => (
