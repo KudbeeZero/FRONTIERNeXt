@@ -12,7 +12,7 @@
  * globe/combat canvas. Shows once (remembered in localStorage); pick a faction to
  * dismiss it.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mail, Wallet, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { PLAYER_FACTIONS, chosenFaction, chooseFaction, nextFactionSync } from "@/lib/factions";
@@ -23,6 +23,7 @@ import { goToGame } from "@/lib/gameUrl";
 import { validateWaitlistSignup, type PlayerFactionId } from "@shared/waitlist";
 import { missionBriefing } from "@shared/battleObjective";
 import { Starfield } from "@/pages/landing-shared";
+import { startAmbientHum, stopAmbientHum, playHoverBeep } from "@/lib/factionGateSound";
 
 /** Small glowing tick mark in each corner of the HUD frame — pure decoration. */
 function CornerTick({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
@@ -43,6 +44,18 @@ export function FactionSelectGate() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+
+  // Ambient hum starts on the first user gesture (browsers gate audio until
+  // then) and fades out when the gate is dismissed/unmounted.
+  useEffect(() => {
+    if (!visible) return;
+    const start = () => startAmbientHum();
+    window.addEventListener("pointerdown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      stopAmbientHum();
+    };
+  }, [visible]);
 
   if (!visible) return null;
 
@@ -193,14 +206,22 @@ export function FactionSelectGate() {
             0%, 100% { filter: brightness(1); }
             50% { filter: brightness(1.12); }
           }
+          .faction-card {
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, background 0.15s ease, border-color 0.15s ease;
+          }
+          .faction-card:hover {
+            transform: translateY(-8px) scale(1.04);
+          }
         `}</style>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 22, justifyContent: "center", maxWidth: 1240 }}>
-          {PLAYER_FACTIONS.map((f) => {
+          {PLAYER_FACTIONS.map((f, i) => {
             const active = selected === f.id;
             return (
               <button
                 key={f.id}
+                className="faction-card"
                 onClick={() => setSelected(f.id)}
+                onMouseEnter={() => playHoverBeep(950 + i * 140)}
                 style={{
                   position: "relative", width: 260, textAlign: "left", cursor: "pointer",
                   background: active
@@ -211,7 +232,7 @@ export function FactionSelectGate() {
                   boxShadow: active
                     ? `0 0 50px ${f.color}70, 0 0 110px ${f.color}30, inset 0 0 28px ${f.color}22`
                     : `0 0 24px ${f.color}40, 0 0 60px ${f.color}18`,
-                  color: "inherit", fontFamily: "inherit", transition: "all 0.15s ease",
+                  color: "inherit", fontFamily: "inherit",
                   animation: "faction-card-pulse 3.2s ease-in-out infinite",
                 }}
               >
