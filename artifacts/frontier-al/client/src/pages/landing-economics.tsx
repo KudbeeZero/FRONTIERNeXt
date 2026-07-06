@@ -1,8 +1,13 @@
 import { resolveApiUrl } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, LabelList,
+} from "recharts";
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
+import { buildFactionControlRows, type FactionTerritory } from "@/lib/economics/factionControl";
+import { bucketBattlePulse, type BattlePulseInput } from "@/lib/economics/battlePulse";
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -17,9 +22,21 @@ const CARD: React.CSSProperties = {
 
 const PIE_COLORS = ["#10b981", "#ef4444", "#eab308", "#374151"];
 
+// Battle Pulse diverging pair — reuses the game's own established victory/
+// defense semantic colors (GlobeBattleSequence's VICTORY_COLOR/DEFENSE_COLOR)
+// rather than inventing new hues, so this chart reads consistently with the
+// in-game battle cinematic. CVD separation is wide (ΔE 42+, well past the
+// ≥12 target per the dataviz skill's validator); both hues sit lighter than
+// the skill's generic lightness band since they're the app's own established
+// brand semantics — mitigated here with direct labels + a legend + tooltip,
+// not a repaint.
+const ATTACKER_COLOR = "#22d3ee";
+const DEFENSE_COLOR = "#f87171";
+const NEUTRAL_MIDLINE = "rgba(150,190,255,0.35)";
+
 export default function LandingEconomics() {
   const [, setLocation] = useLocation();
-  const { data } = useQuery<{ totalSupply: number; inGameCirculating: number; totalBurned: number; treasury: number; asaId: number | null; unitName: string; network: string }>({
+  const { data } = useQuery<{ totalSupply: number; inGameCirculating: number; totalBurned: number; treasury: number; asaId: number | null; unitName: string; network: string; ownedParcelCount: number }>({
     queryKey: ["/api/economics"],
     queryFn: () => fetch(resolveApiUrl("/api/economics")).then(r => r.json()),
     staleTime: 30_000,
@@ -31,6 +48,27 @@ export default function LandingEconomics() {
     { name: "Treasury",       value: Math.round(data.treasury) },
     { name: "Unallocated",    value: Math.max(0, Math.round(data.totalSupply - data.inGameCirculating - data.totalBurned - data.treasury)) },
   ] : [];
+
+  const { data: factionsData } = useQuery<{ factions: FactionTerritory[] }>({
+    queryKey: ["/api/factions"],
+    queryFn: () => fetch(resolveApiUrl("/api/factions")).then(r => r.json()),
+    staleTime: 30_000,
+  });
+  const factionRows = factionsData
+    ? buildFactionControlRows(factionsData.factions, data?.ownedParcelCount ?? 0)
+    : [];
+
+  const { data: battlesData } = useQuery<{ battles: BattlePulseInput[] }>({
+    queryKey: ["/api/battles/history", "battle-pulse"],
+    queryFn: () => fetch(resolveApiUrl("/api/battles/history?limit=100")).then(r => r.json()),
+    staleTime: 60_000,
+  });
+  const pulseDays = battlesData
+    ? bucketBattlePulse(battlesData.battles, Date.now()).map((d) => ({
+        ...d,
+        defensesHeldNeg: -d.defensesHeld,
+      }))
+    : [];
 
   return (
     <div style={{ position: "relative", minHeight: "100vh", width: "100%", overflow: "hidden", fontFamily: "'Courier New', 'SF Mono', monospace", color: "#e0eaff" }}>
@@ -91,6 +129,73 @@ export default function LandingEconomics() {
               </div>
             </div>
           </div>
+
+          {factionRows.length > 0 && (
+            <div style={{ ...CARD, animation: "fadeInUp 0.7s ease-out 0.25s both" }}>
+              <div style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(100,140,200,0.7)", marginBottom: 16 }}>Faction Control</div>
+              <div style={{ height: Math.max(160, factionRows.length * 34) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={factionRows} layout="vertical" margin={{ top: 4, right: 36, left: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(60,90,180,0.1)" horizontal={false} />
+                    <XAxis type="number" tick={{ fill: "rgba(150,190,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmt} />
+                    <YAxis type="category" dataKey="name" width={90} tick={{ fill: "rgba(200,220,255,0.85)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#0a0b14", border: "1px solid #1f2937", borderRadius: 6, fontSize: 10 }}
+                      formatter={(v: number) => [`${fmt(v)} parcels`, "Territory"]}
+                    />
+                    <Bar dataKey="territoryCount" radius={[0, 4, 4, 0]}>
+                      {factionRows.map((r) => <Cell key={r.name} fill={r.color} />)}
+                      <LabelList dataKey="territoryCount" position="right" formatter={fmt} fill="rgba(200,220,255,0.7)" fontSize={10} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p style={{ fontSize: 10, color: "rgba(120,150,200,0.5)", margin: "10px 0 0" }}>
+                Live territory held by each AI faction, plus unclaimed land — from the same faction roster you align with on entry.
+              </p>
+            </div>
+          )}
+
+          {pulseDays.length > 0 && (
+            <div style={{ ...CARD, animation: "fadeInUp 0.7s ease-out 0.3s both" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(100,140,200,0.7)" }}>Battle Pulse — Last 14 Days</div>
+                <div style={{ display: "flex", gap: 14, fontSize: 10 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(200,220,255,0.75)" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: ATTACKER_COLOR, display: "inline-block" }} /> Attacker Victories
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(200,220,255,0.75)" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: DEFENSE_COLOR, display: "inline-block" }} /> Defenses Held
+                  </span>
+                </div>
+              </div>
+              <div style={{ height: 200 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={pulseDays} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(60,90,180,0.1)" />
+                    <XAxis
+                      dataKey="dateKey"
+                      tick={{ fill: "rgba(150,190,255,0.5)", fontSize: 9 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(d: string) => d.slice(5)}
+                    />
+                    <YAxis tick={{ fill: "rgba(150,190,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} width={30} />
+                    <ReferenceLine y={0} stroke={NEUTRAL_MIDLINE} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#0a0b14", border: "1px solid #1f2937", borderRadius: 6, fontSize: 10 }}
+                      formatter={(v: number, name: string) => [Math.abs(v), name === "attackerWins" ? "Attacker Victories" : "Defenses Held"]}
+                    />
+                    <Bar dataKey="attackerWins" fill={ATTACKER_COLOR} radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="defensesHeldNeg" name="defensesHeld" fill={DEFENSE_COLOR} radius={[0, 0, 3, 3]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p style={{ fontSize: 10, color: "rgba(120,150,200,0.5)", margin: "10px 0 0" }}>
+                Every resolved battle, bucketed by day — captures above the line, held defenses below.
+              </p>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, animation: "fadeInUp 0.7s ease-out 0.4s both" }}>
             {[

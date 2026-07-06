@@ -10,37 +10,39 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: Unit B3 Battle Scars · main green at `4a245c3`
+## Current baton — 🔎 AWAITING_AUDIT: Unit D2 quick-win charts · main green at `6a8b25d`
 
 **Owner /goal (2026-07-06):** three new battle-engine features for map/cinematic
 visuals + a dataviz pass over the tokenomics/landing/economics pages. Plan:
 [`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
-(merged as #195). **All three battle features now done:** D1 truth pass (#196),
-B1 War Council Muster (#197), B2 Shield Wall (#198), and **this unit — B3 Battle
-Scars** completes the before→during→after arc. A battle's cinematic used to fade
-12s after resolution and the map forgot it happened; now a scorch ring (capture,
-victor's color) or shield glint (defense held) persists for 4 hours, sized by the
-real power differential, fading with age — seeded on load from the existing
-`GET /api/battles/history` and appended live off the existing `battle:resolved`
-WS event. New pure `battleScars.ts` (dedupe/decay/cap) + `GlobeBattleScars.tsx`.
-**Architectural note:** the history fetch runs in the outer `PlanetGlobe`
-component (above `<Canvas>`) and flows in as a prop — react-query context isn't
-guaranteed to bridge into `@react-three/fiber`'s reconciler, and no existing
-globe layer calls `useQuery` from inside the Canvas tree. Zero new server
-endpoints. New `battle-scars.spec.ts` (12 tests). tsc clean · server 439/14
-skipped · client 265 (253+12 new) · production build green. Full detail:
-[`session-notes/2026-07-06-battle-scars.md`](../artifacts/frontier-al/session-notes/2026-07-06-battle-scars.md).
+(merged as #195). **All three battle features shipped** (D1 #196, B1 #197, B2
+#198, B3 #199). **This unit (D2, first dataviz chart unit) is done:** two new
+charts on `/info/economics` — **Faction Control** (horizontal bar, live
+territory per AI faction + Unclaimed, colors matching the faction-select gate)
+and **Battle Pulse** (diverging daily bars, attacker victories vs. defenses
+held, reusing the game's own victory/defense semantic colors). Both from
+existing endpoints (`/api/factions`, `/api/battles/history`) — zero new server
+endpoints; recharts was already a dependency. Followed the `/dataviz` skill's
+method throughout — palette validated with the skill's script (CVD separation
+passes cleanly on both palettes; lightness-band checks fail because these are
+the game's own established brand/semantic colors, mitigated with direct labels
++ legend, disclosed as a deliberate choice in the session note). New
+`factionControl.ts`/`battlePulse.ts` pure modules (13 tests total). tsc clean ·
+server 439/14 skipped · client 278 (265+13 new) · production build green. Full
+detail: [`session-notes/2026-07-06-quick-win-charts.md`](../artifacts/frontier-al/session-notes/2026-07-06-quick-win-charts.md).
 
-**Honest gap:** same as B1/B2 — R3F renderer is typecheck/build-verified only
-(matches every other globe battle layer in this codebase; the sandbox's
-documented external-host proxy trap makes a live screenshot impractical here).
-Owner should eyeball the globe some hours after a few battles resolve.
+**Honest gap:** chart JSX (recharts `ResponsiveContainer`) is typecheck/build-
+verified only, same as this page's pre-existing pie chart — the client test
+harness has no jsdom/real layout for recharts to measure into. The pure
+data-shaping logic that determines correctness is fully unit-tested. Owner
+should eyeball `/info/economics` once deployed.
 
-**Next session:** audit + merge this PR, then **Unit D2** (quick-win charts —
-faction control + battle pulse) → **D3** (real supply history).
+**Next session:** audit + merge this PR, then **Unit D3** (real supply-flow
+history — needs a new `economics_snapshots` table + sampler). This is the last
+queued unit from the plan.
 
 Earlier: retroactive audit of #193 PASSED (#194); research + plan merged (#195);
-D1 (#196), B1 (#197), B2 (#198) merged, main at `4a245c3` — see
+D1 (#196), B1 (#197), B2 (#198), B3 (#199) merged, main at `6a8b25d` — see
 [`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
 
 **Owner smoke test outstanding (the real verification of #193):** on
