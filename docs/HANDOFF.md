@@ -10,11 +10,24 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ✅ CLEAR · PR **#173** (Next-Level Playbook) merged-on-green (owner-authorized in-session) · branch `claude/algo-codebase-refactor-test-mp28xc`
+## Current baton — ✅ CLEAR · PR **#174** (FRONTIER docs suite) merged-on-green after independent Sonnet review (owner-directed via /goal) · no open PRs
 
-**Next session: audit nothing (both #172 and #173 merged green under the owner's in-session
-directive) — start the next unit directly. Owner priority: playbook unit C1 (run `smoke:testnet`
-once the session wallet is funded), then pick from the playbook.**
+**Next session: nothing to audit — start the next unit directly. Queue:
+[`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md) in order (PR 1 `chore/state-registry-json` →
+PR 2 kill switches → PR 3 Mission Control shell…). Sonnet review notes:
+[`docs/audits/feat-frontier-architecture-agent-roadmap.md`](./audits/feat-frontier-architecture-agent-roadmap.md).
+Owner actions outstanding: fund session wallet `JD7CFMNMX4PO...T7IKZA` for `smoke:testnet` ·
+decide api-server/lib island · prune ~140 dead remote branches (needs delete-scoped token).**
+
+**This chat (unit 3, owner's new plan): six FRONTIER docs from a fresh read-only repo audit —
+[`FRONTIER_ARCHITECTURE_TRUTH`](./FRONTIER_ARCHITECTURE_TRUTH.md) ·
+[`FRONTIER_AGENT_REGISTRY`](./FRONTIER_AGENT_REGISTRY.md) ·
+[`FRONTIER_MASTER_ROADMAP`](./FRONTIER_MASTER_ROADMAP.md) (25 phases) ·
+[`FRONTIER_AGENT_DASHBOARD_SPEC`](./FRONTIER_AGENT_DASHBOARD_SPEC.md) ·
+[`FRONTIER_FIRST_10_PRS`](./FRONTIER_FIRST_10_PRS.md) ·
+[`FRONTIER_BRANCH_MACHINE`](./FRONTIER_BRANCH_MACHINE.md). Docs-only.
+Merged after CI green + an independent Sonnet review pass (owner lifted the hold via /goal).
+Prior units this push: #172 (repo refactor + smoke harness) and #173 (Next-Level Playbook) merged green.
 
 **This chat, unit 2: [`NEXT_LEVEL_PLAYBOOK.md`](../artifacts/frontier-al/docs/NEXT_LEVEL_PLAYBOOK.md)** —
 owner-requested architecture & development playbook (authored by Fable 5 for Sonnet-class execution):
