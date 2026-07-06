@@ -24,6 +24,7 @@ import { GlobeLiveEvents } from "./globe/GlobeLiveEvents";
 import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
 import { BattleCalloutHUD } from "./globe/BattleCalloutHUD";
 import { GlobeIncomingTelegraph } from "./globe/GlobeIncomingTelegraph";
+import { GlobeMusterLayer } from "./globe/GlobeMusterLayer";
 import { GlobeCinematicCamera } from "./globe/GlobeCinematicCamera";
 import { BattleSoundLayer } from "./globe/BattleSoundLayer";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
@@ -121,6 +122,7 @@ function Scene({
       </group>
       <BattleArcs battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
       <GlobeIncomingTelegraph battles={battles} parcels={parcels} />
+      <GlobeMusterLayer battles={battles} parcels={parcels} players={players} />
       <MiningPulseLayer pulses={livePulses} />
       <OrbitalZoneLayer events={orbitalEvents} />
       <SatelliteOrbitLayer players={players} />
