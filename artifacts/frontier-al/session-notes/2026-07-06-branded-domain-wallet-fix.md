@@ -45,3 +45,27 @@ frontiernext.fly.dev instead of frontierprotocol.app/game.
   header). Both trigger from main.
 - Third-party-cookie auth cross-origin remains browser-dependent; Bearer token (primary
   mechanism) is unaffected and now survives since there's no origin hop.
+
+## Merge + deploy outcome
+
+**Merged to main as `7cde4a4c` (PR #175, squash).** Before merge, two independent review passes
+(a code review + an adversarial "disruptor" pass, run in parallel, each blind to the other) both
+caught the same two real gaps the 52-site scripted rewrite missed:
+- `client/src/components/game/WarRoomPanel.tsx:254` — raw `fetch(url)` for `/api/parcels/attackable`
+  (War Room targeting), never routed through `resolveApiUrl`.
+- `client/src/pages/admin.tsx` — `adminFetch()` used a raw same-origin `fetch()`; this is also why
+  the CORS `x-admin-key` allow-header change in this PR was, until this fix, dead code.
+
+The disruptor pass additionally found a real (if narrow) race: `WalletContext.connect()` had no
+reentrancy guard, so a second `connect()` call fired while the first was still in flight (e.g. a
+fast double-tap re-opening the wallet picker inside the 250ms deferred-open window) would purge
+the pairing the first attempt had just opened. Fixed with a `connectInFlight` ref guard.
+
+All three fixed in a follow-up commit on the same branch/PR (`d6fc175` → `7cde4a4c`), re-verified:
+tsc clean, client 221/221, server 415/14 skipped. **CI (run 28762805358) and Fly deploy (run
+28763239489) both confirmed `completed`/`success` on the merge commit** — Fly's Deploy step
+finished 2026-07-06T02:09:25Z. Cloudflare Pages redeploys the client from `main` on its own
+GitHub integration (not a gated CI check).
+
+**Still not browser-verified** — the owner needs to do the real smoke test on
+frontierprotocol.app now that both deploys have landed.
