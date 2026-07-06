@@ -180,17 +180,41 @@ still pass, confirming the component mounts without a runtime error post-refacto
 partial assurance; they don't simulate a click, so "does clicking a tab show the right panel"
 is still not directly asserted by an automated test. That gap is honestly still open.
 
-### Phase B — Consolidate the battle-watching UI (Task #3)
-**Goal:** One `battle-theater/` (or similar) module owning "render a battle in progress /
-just resolved," replacing the ad hoc spread across `BattleWatchModal`, `BattleSequenceTimeline`,
-the four globe battle layers, and `BattlesPanel`'s history rendering — without changing what
-data drives any of it (still reads from the same `resolveBattle` output / battle records).
-**Files:** the eleven files listed in §1's "client sprawl" section.
-**Done when:** tsc clean, tests green, no visual/behavioral regression (this is the one place
-where "don't change combat/canvas behavior outside a scoped, audited unit" applies most directly
-— the *math* doesn't move, only how the same data is organized into components).
-**Risk:** medium — canvas/cinematic code is explicitly HARD-RULE-gated; this phase needs extra
-care and should ship as its own small, reviewable diff, not a rewrite-everything commit.
+### Phase B — Consolidate the battle-watching UI (Task #3) — INVESTIGATED, NOT NEEDED
+
+**Verdict (2026-07-06): the "11-file sprawl" premise from the original recon doesn't hold up
+under a real read. Closing this phase without forcing a refactor.**
+
+The original recon (an Explore subagent's fast pass) characterized `BattleWatchModal`,
+`BattleSequenceTimeline`, the four globe battle layers, `BattlesPanel`, `CommanderCombatRecord`,
+and `TopCommandersLeaderboard` as "organically grown... no single module boundary." A closer
+read of each file found the opposite — this is already a properly composed, appropriately
+separated architecture, not duplicated sprawl:
+
+- `BattleWatchModal.tsx` already imports and composes `BattleSequenceTimeline` as its child —
+  a real parent/child relationship, not two independent copies of the same thing.
+- The four globe layers (`GlobeBattleSequence`, `BattleCalloutHUD`, `LiveWeaponLayer`,
+  `BattleSoundLayer`) are composed together by `PlanetGlobe.tsx` as deliberately separate
+  concern-based modules (visual sequence, HUD callout, weapon projectiles, audio) — exactly how
+  a layered 3D scene should be structured, not ad hoc duplication. They're synchronized through
+  a small, well-documented pub/sub, `client/src/lib/battle/cinematicBus.ts`, whose own header
+  comment explains it exists specifically **to avoid duplicating the sequence-assembly logic**
+  between the globe layer and the HUD layer — i.e. the anti-duplication mechanism this phase
+  was proposing to build already exists and is already doing its job.
+- `CommanderCombatRecord.tsx` and `TopCommandersLeaderboard.tsx` are two small, genuinely
+  different views (per-player combat record vs. a global top-10 board) that already share their
+  formatting logic through a tested pure helper, `formatCommanderRecord()` in
+  `client/src/lib/battle/combatRecordFormat.ts` — again, the duplication risk was already
+  extracted before this unit ever started looking.
+- `BattlesPanel.tsx` is a self-contained battle-history list with its own clearly-scoped
+  `BattleCard`/`EventItem` subcomponents — not overlapping with the modal/globe rendering path.
+
+**Nothing was refactored here.** Forcing a consolidation onto code that's already well-factored
+would be manufacturing risk on HARD-RULE-gated cinematic/canvas code for no real benefit —
+exactly the "don't add abstractions beyond what the task requires" trap. The honest finding is
+that this phase, as originally scoped from a fast recon pass, was based on an inaccurate premise;
+the real architectural problem in this codebase was `GameLayout.tsx`'s nav/panel duplication
+(Phases A, done), not this.
 
 ### Phase C — Broaden battle-engine test coverage (Task #4)
 **Goal:** the concrete "make sure battles are working" deliverable. Add `replayLog.ts`,

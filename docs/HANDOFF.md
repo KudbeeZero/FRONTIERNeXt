@@ -10,42 +10,56 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ PR (battle/commander/menu refactor, unit 2) · branch `feat/unify-menu-nav-state` · merge-on-green
+## Current baton — battle/commander/menu refactor push COMPLETE (as scoped). Nothing open.
 
 **Owner `/goal` (2026-07-06): refactor the battle/commander architecture and the whole menu
 system, keep the NFTs, and make sure battles are actually working.** Plan doc —
 [`artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md).
+Three units, two merged as real shipped code, one closed with an honest "not needed" finding:
 
-**✅ Unit 1 (PR #177) MERGED:** dashboard-widget panel registry, CI coverage gate broadened
-(`replayLog`/`verify`/`tuning`/`random` now enforced), and `server/engine/ai/reconquest.ts` (AI
-faction attacks) went from **zero tests** to 19 real unit tests + gated (94.54%/82.17%
-lines/branches aggregate).
+- **✅ #177 MERGED:** plan doc + dashboard-widget panel registry (killed a third hand-rolled
+  copy of every panel's props) + CI coverage gate broadened (`replayLog`/`verify`/`tuning`/
+  `random` now enforced) + `server/engine/ai/reconquest.ts` (AI faction attacks) went from
+  **zero tests** to 19 real unit tests, now gated (94.54%/82.17% lines/branches aggregate).
+- **✅ #178 MERGED: the actual mobile/desktop nav unification.** `GameLayout.tsx` ran
+  `activeTab` (mobile) and `desktopRightTab` (desktop rail) as two fully independent `useState`
+  hooks that never interacted (mobile dock is CSS-hidden on desktop and vice versa) — every
+  handler needing "the current panel" had to set both. Now `activeTab` is the only state;
+  `desktopRightTab` is derived via a new pure `client/src/lib/panelNav.ts`
+  (`isRailTab`/`resolveRailTab`, 5 tests, no jsdom needed). Resolved the tab-vocabulary mismatch
+  additively — desktop gained `economics`/`intel`, mobile gained `university`/Academy, **nothing
+  removed from either platform**. Found `BottomNav.tsx`'s component is dead code (`HudShell.tsx`
+  replaced it already) — left removal as a separate tiny cleanup. tsc / **226 client tests**
+  (221+5 new) / build all green.
+  **Honest gap:** `GameLayout.tsx` still has no *interactive* click-simulation tests (existing
+  tests are static SSR renders) — **owner should smoke-test tab-switching on both a phone and a
+  desktop browser** after this deploys; that's the one piece genuinely unverifiable from this
+  sandbox.
+- **Phase B (battle-watching UI "sprawl") — investigated, closed, NOT refactored.** The original
+  recon's "11-file sprawl, no module boundary" framing didn't hold up under a real read:
+  `BattleWatchModal` already composes `BattleSequenceTimeline` as a child; the four globe battle
+  layers are properly separated by concern and synced through an existing, well-documented
+  pub/sub (`cinematicBus.ts`) built specifically to prevent the duplication this phase was
+  proposing to fix; `CommanderCombatRecord`/`TopCommandersLeaderboard` already share a tested
+  formatter. Forcing a consolidation onto already-well-factored, HARD-RULE-gated cinematic code
+  would have been pure risk for no benefit — closed with that finding instead of manufacturing
+  a rewrite. See the plan doc's Phase B section for the full per-file evidence.
 
-**This unit: the actual mobile/desktop nav unification, done.** `activeTab` (mobile's state) is
-now the single source of truth; `desktopRightTab` is a **derived** value via a new pure
-`client/src/lib/panelNav.ts` (`isRailTab`/`resolveRailTab`, 5 unit tests, no jsdom needed) instead
-of a second `useState`. Resolved the two blockers found in unit 1 with a safe additive default —
-desktop rail gained `economics`/`intel` tabs it never had, mobile gained `university`/Academy it
-never had, **nothing removed from either platform**. Also found `BottomNav.tsx`'s actual
-component is dead code — `HudShell.tsx` fully replaced it in the live render tree back in a prior
-session, only `BottomNav`'s `NavTab` type is still imported; left the dead body alone as its own
-tiny separate cleanup rather than bundling it here. `handleRequestAttack` simplified from a
-dual-set + `isMobile` branch to one `setActiveTab()` call — a direct, measurable benefit of the
-unification. tsc / **226 client tests** (221 + 5 new) / production build all green; existing SSR
-shell tests confirm the shell still mounts cleanly.
-**Honest gap, unchanged from unit 1:** `GameLayout.tsx` still has zero *interactive*
-click-simulation test coverage (existing tests are static SSR renders) — the pure derivation
-logic is now tested, but "does clicking a tab actually show the right panel" is still not
-directly asserted by an automated test. Owner should smoke-test tab-switching on both a phone
-and a desktop browser after this deploys.
-**Still open:** Phase B (consolidate the ~11-file battle-watching UI sprawl into a coherent
-module — hasn't started).
-NFT mint/transfer code and combat math are explicit non-goals — see the plan doc's §0/§3.
-**Also this session: fixed a real, month-old production bug** — wallet login on
-frontierprotocol.app spawned ~12 popups and redirected to fly.dev (see #175/#176 below, both
-merged+deployed). Owner confirmed the popup storm is gone; the "developer account with no ALGO"
-report that followed is very likely just an unfunded real TestNet wallet (confirmed `VITE_DEV_MODE`
-is off in the live bundle) — owner needs to fund the connected wallet via a TestNet faucet.
+NFT mint/transfer code and combat math were explicit non-goals throughout — untouched.
+
+**Also this session: fixed a real, month-old production bug** (separate from the /goal above) —
+wallet login on frontierprotocol.app spawned ~12 popups and redirected to fly.dev (#175/#176,
+merged+deployed). Owner confirmed live: **the popup storm is gone.** The "developer account
+with no ALGO" report that followed is very likely just an unfunded real TestNet wallet (confirmed
+`VITE_DEV_MODE` is off in the live bundle) — owner needs to fund the connected wallet via a
+TestNet faucet.
+
+### ➡️ Next session
+Nothing open, nothing stale. Pick a unit from
+[`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md), or continue the on-chain-testing queue
+(fund the session wallet for `smoke:testnet`, still outstanding). Owner smoke-tests outstanding:
+(1) wallet login on frontierprotocol.app — already confirmed fixed; (2) tab-switching on mobile
++ desktop after the nav-unification deploy — not yet confirmed.
 
 ### ✅ #175 (branded-domain wallet/login fix) — MERGED + DEPLOYED, main@`7cde4a4c`
 
