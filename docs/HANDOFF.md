@@ -10,29 +10,36 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ PR **#177** (battle/commander/menu refactor) · branch `feat/battle-menu-architecture-refactor` · merge-on-green
+## Current baton — ⏳ PR (battle/commander/menu refactor, unit 2) · branch `feat/unify-menu-nav-state` · merge-on-green
 
 **Owner `/goal` (2026-07-06): refactor the battle/commander architecture and the whole menu
 system, keep the NFTs, and make sure battles are actually working.** Plan doc —
-[`artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md) —
-from a fresh read-only audit. Key finding: server battle math (`resolve.ts`) is already clean and
-well-tested — leave it alone. The real target is `GameLayout.tsx`'s **three parallel rendering
-paths** for the same panel set (mobile fullscreen `activeTab`, desktop rail `desktopRightTab`,
-and a flag-gated dashboard-canvas widget map — not just two as first thought).
-**Shipped in this PR so far:**
-- **Phase A step 1 (code):** the off-by-default dashboard-canvas widgets now derive from one
-  `dashboardPanelRegistry` array instead of a third hand-rolled copy of every panel's props.
-  Desktop rail + mobile fullscreen deliberately untouched — real per-context differences found
-  (sizing classes, wrapper divs for Armory/University) mean a naive shared-registry reuse would
-  break desktop layout; that migration needs a render-factory registry shape and is its own
-  careful follow-up unit (documented in the plan doc), not rushed alongside this lower-risk step.
-- **Phase C (code):** broadened the CI coverage gate — `replayLog.ts`/`verify.ts`/`tuning.ts`/
-  `random.ts` had spec files but weren't enforced; now they are (94.02% lines/79.9% branches,
-  still clear of 80/70). **Found `server/engine/ai/reconquest.ts` (AI faction attacks) has ZERO
-  test coverage** — did not add it to the gate (would falsely dilute-pass); documented as an
-  honest gap in `COVERAGE_GATE.md` needing its own test-writing unit.
-- **Still open:** Phase B (consolidate the ~11-file battle-watching UI sprawl), the desktop-rail/
-  mobile registry migration, and writing tests for `reconquest.ts`.
+[`artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md).
+
+**✅ Unit 1 (PR #177) MERGED:** dashboard-widget panel registry, CI coverage gate broadened
+(`replayLog`/`verify`/`tuning`/`random` now enforced), and `server/engine/ai/reconquest.ts` (AI
+faction attacks) went from **zero tests** to 19 real unit tests + gated (94.54%/82.17%
+lines/branches aggregate).
+
+**This unit: the actual mobile/desktop nav unification, done.** `activeTab` (mobile's state) is
+now the single source of truth; `desktopRightTab` is a **derived** value via a new pure
+`client/src/lib/panelNav.ts` (`isRailTab`/`resolveRailTab`, 5 unit tests, no jsdom needed) instead
+of a second `useState`. Resolved the two blockers found in unit 1 with a safe additive default —
+desktop rail gained `economics`/`intel` tabs it never had, mobile gained `university`/Academy it
+never had, **nothing removed from either platform**. Also found `BottomNav.tsx`'s actual
+component is dead code — `HudShell.tsx` fully replaced it in the live render tree back in a prior
+session, only `BottomNav`'s `NavTab` type is still imported; left the dead body alone as its own
+tiny separate cleanup rather than bundling it here. `handleRequestAttack` simplified from a
+dual-set + `isMobile` branch to one `setActiveTab()` call — a direct, measurable benefit of the
+unification. tsc / **226 client tests** (221 + 5 new) / production build all green; existing SSR
+shell tests confirm the shell still mounts cleanly.
+**Honest gap, unchanged from unit 1:** `GameLayout.tsx` still has zero *interactive*
+click-simulation test coverage (existing tests are static SSR renders) — the pure derivation
+logic is now tested, but "does clicking a tab actually show the right panel" is still not
+directly asserted by an automated test. Owner should smoke-test tab-switching on both a phone
+and a desktop browser after this deploys.
+**Still open:** Phase B (consolidate the ~11-file battle-watching UI sprawl into a coherent
+module — hasn't started).
 NFT mint/transfer code and combat math are explicit non-goals — see the plan doc's §0/§3.
 **Also this session: fixed a real, month-old production bug** — wallet login on
 frontierprotocol.app spawned ~12 popups and redirected to fly.dev (see #175/#176 below, both

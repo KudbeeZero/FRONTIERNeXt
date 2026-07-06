@@ -163,6 +163,23 @@ Given both of these, the rail/mobile migration is scoped as a **dedicated future
 starts with (a) an owner decision on cross-platform tab parity and (b) a test-harness
 investment — not a continuation of this PR's lower-risk steps.
 
+**Update (2026-07-06, same day): shipped.** Resolved (a) with a safe, additive default —
+union, not intersection: the desktop rail gained `"economics"`/`"intel"` tabs it never had,
+mobile gained the `"university"`/Academy tab it never had, nothing removed from either
+platform. Resolved (b) partially: `GameLayout.tsx` still has no *interactive* click-simulation
+tests (that gap is real and stands), but the actual risk in this migration was the "map has no
+rail equivalent" derivation — pulled that into a small pure module,
+`client/src/lib/panelNav.ts` (`isRailTab`/`resolveRailTab`), unit-tested directly with plain
+vitest (5 tests, no jsdom needed since it's pure logic, not a DOM interaction). `activeTab` is
+now the single state; `desktopRightTab` is a derived value, not a second `useState`. Also found
+and fixed a live redundancy this enabled: `handleRequestAttack` was manually setting both
+`desktopRightTab` unconditionally and `activeTab` behind an `isMobile` check — now one line,
+`setActiveTab("commander")`. tsc / all 226 client tests (221 + 5 new) / production build all
+green. The existing SSR shell tests (`gamelayout-connected-shell.spec.tsx`, `hud-shell.spec.tsx`)
+still pass, confirming the component mounts without a runtime error post-refactor — real but
+partial assurance; they don't simulate a click, so "does clicking a tab show the right panel"
+is still not directly asserted by an automated test. That gap is honestly still open.
+
 ### Phase B — Consolidate the battle-watching UI (Task #3)
 **Goal:** One `battle-theater/` (or similar) module owning "render a battle in progress /
 just resolved," replacing the ad hoc spread across `BattleWatchModal`, `BattleSequenceTimeline`,

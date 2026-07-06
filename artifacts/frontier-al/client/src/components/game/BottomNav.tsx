@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
-export type NavTab = "map" | "inventory" | "battles" | "armory" | "leaderboard" | "commander" | "economics" | "intel" | "trade" | "factions" | "markets";
+export type NavTab = "map" | "inventory" | "battles" | "armory" | "leaderboard" | "commander" | "economics" | "intel" | "trade" | "factions" | "markets" | "university";
 
 interface BottomNavProps {
   activeTab: NavTab;

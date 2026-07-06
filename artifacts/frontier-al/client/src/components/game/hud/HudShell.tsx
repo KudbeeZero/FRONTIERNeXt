@@ -13,6 +13,7 @@ import {
   Flag,
   TrendingUp,
   Crosshair,
+  GraduationCap,
 } from "lucide-react";
 import type { NavTab } from "../BottomNav";
 import { Dock, type DockItem } from "./Dock";
@@ -39,6 +40,7 @@ const OVERFLOW_TABS: { id: NavTab; label: string; icon: ElementType }[] = [
   { id: "economics", label: "ECONOMICS", icon: BarChart3 },
   { id: "trade", label: "TRADE", icon: ArrowLeftRight },
   { id: "markets", label: "MARKETS", icon: TrendingUp },
+  { id: "university", label: "ACADEMY", icon: GraduationCap },
 ];
 
 /**
