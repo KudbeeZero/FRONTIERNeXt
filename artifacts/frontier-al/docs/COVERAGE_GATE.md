@@ -16,10 +16,17 @@ suite actually exercises:
 - `shared/economy-config.ts` — economy math
 - `shared/weapon-economy.ts` — weapon pricing/economy
 - `server/engine/battle/resolve.ts` — battle resolution
+- `server/engine/battle/replayLog.ts` — battle replay log construction (2026-07-06: had a spec,
+  wasn't gated)
+- `server/engine/battle/verify.ts` — battle proof/audit hash (2026-07-06: had a spec, wasn't gated)
+- `server/engine/battle/tuning.ts` — balance constants (2026-07-06: had a spec, wasn't gated)
+- `server/engine/battle/random.ts` — seeded RNG (2026-07-06: had a spec, wasn't gated)
+- `server/engine/ai/reconquest.ts` — AI faction reconquest/raid decisions (2026-07-06: had
+  **zero** tests; `reconquest.spec.ts` added same day, now gated)
 - `server/engine/markets/resolve.ts` — market resolution
 
 **Thresholds:** `lines 80 / statements 80 / functions 80 / branches 70`.
-**Current (measured):** lines **93%**, statements 91%, functions 90%, branches 78% — all clear.
+**Current (measured):** lines **94.5%**, statements 93%, functions 92%, branches 82% — all clear.
 
 Run locally:
 

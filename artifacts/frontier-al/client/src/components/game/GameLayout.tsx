@@ -882,6 +882,107 @@ export function GameLayout() {
 
   const showFullscreenPanel = activeTab !== "map";
 
+  // ── Panel registry ──────────────────────────────────────────────────────────
+  // Single source of truth for "what panels exist and what they render." Only
+  // the flag-gated (off-by-default) dashboard-canvas widget map is built from
+  // this today — the desktop rail and mobile fullscreen panel below still have
+  // their own hand-written blocks. Migrating those is tracked as a follow-up;
+  // this proves the registry shape before touching the two live-by-default
+  // rendering paths every player actually uses.
+  const dashboardPanelRegistry: { id: string; title: string; content: React.ReactNode }[] = [
+    { id: "commandcenter", title: "Command Center", content: <CommandCenterPanel {...commandCenterProps} className="h-full" /> },
+    {
+      id: "warroom",
+      title: "War Room",
+      content: gameState ? (
+        <WarRoomPanel
+          battles={gameState.battles}
+          events={gameState.events}
+          players={gameState.players}
+          onWatchBattle={setWatchingBattleId}
+          onViewOnGlobe={handleViewOnGlobe}
+          onPlotSelect={setSelectedParcelId}
+          onAttackTarget={handleRequestAttack}
+          className="h-full border-0 rounded-none overflow-auto"
+        />
+      ) : null,
+    },
+    {
+      id: "rankings",
+      title: "Rankings",
+      content: gameState ? (
+        <LeaderboardPanel
+          entries={gameState.leaderboard}
+          currentPlayerId={player?.id || null}
+          className="h-full border-0 rounded-none overflow-auto"
+        />
+      ) : null,
+    },
+    {
+      id: "armory",
+      title: "Armory",
+      content: player ? (
+        <ArmoryPanel playerId={player.id} />
+      ) : (
+        <div className="p-6 text-center text-sm text-muted-foreground">
+          Connect your wallet to access the Armory.
+        </div>
+      ),
+    },
+    { id: "university", title: "Academy", content: <UniversityPanel playerId={player?.id} /> },
+    {
+      id: "commander",
+      title: "Commander",
+      content: (
+        <CommanderPanel
+          player={player}
+          onMintAvatar={handleMintAvatar}
+          onDeployDrone={handleDeployDrone}
+          onDeploySatellite={handleDeploySatellite}
+          onSwitchCommander={handleSwitchCommander}
+          onClaimCommanderNft={handleClaimCommanderNft}
+          onAttack={handleAttackConfirm}
+          isMinting={mintAvatarMutation.isPending}
+          isDeployingDrone={deployDroneMutation.isPending}
+          isDeployingSatellite={deploySatelliteMutation.isPending}
+          isClaimingCommanderNft={isClaimingCommanderNft}
+          isAttacking={attackMutation.isPending}
+          openBattlefrontSignal={attackIntent}
+          selectedParcel={selectedParcel}
+          ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
+          wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
+          className="h-full border-0 rounded-none overflow-auto"
+        />
+      ),
+    },
+    {
+      id: "trade",
+      title: "Trade",
+      content: (
+        <TradeStationPanel
+          currentPlayerId={player?.id ?? ""}
+          currentPlayerName={player?.name ?? ""}
+          className="h-full border-0 rounded-none overflow-hidden"
+        />
+      ),
+    },
+    { id: "factions", title: "Factions", content: <FactionPanel player={player} className="h-full border-0 rounded-none overflow-hidden" /> },
+    {
+      id: "markets",
+      title: "Markets",
+      content: (
+        <PredictionMarketsPanel
+          currentPlayerId={player?.id ?? ""}
+          currentPlayerAscend={player?.ascend ?? 0}
+          className="h-full border-0 rounded-none overflow-hidden"
+        />
+      ),
+    },
+  ];
+  const dashboardWidgets = Object.fromEntries(
+    dashboardPanelRegistry.map(({ id, title, content }) => [id, { title, content }])
+  );
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black" data-testid="game-layout">
       {gameState ? (
@@ -1153,99 +1254,7 @@ export function GameLayout() {
           <DashboardCanvas
             controller={dashboard}
             className="relative w-full h-full"
-            widgets={{
-              commandcenter: {
-                title: "Command Center",
-                content: <CommandCenterPanel {...commandCenterProps} className="h-full" />,
-              },
-              warroom: {
-                title: "War Room",
-                content: gameState ? (
-                  <WarRoomPanel
-                    battles={gameState.battles}
-                    events={gameState.events}
-                    players={gameState.players}
-                    onWatchBattle={setWatchingBattleId}
-                    onViewOnGlobe={handleViewOnGlobe}
-                    onPlotSelect={setSelectedParcelId}
-                    onAttackTarget={handleRequestAttack}
-                    className="h-full border-0 rounded-none overflow-auto"
-                  />
-                ) : null,
-              },
-              rankings: {
-                title: "Rankings",
-                content: gameState ? (
-                  <LeaderboardPanel
-                    entries={gameState.leaderboard}
-                    currentPlayerId={player?.id || null}
-                    className="h-full border-0 rounded-none overflow-auto"
-                  />
-                ) : null,
-              },
-              armory: {
-                title: "Armory",
-                content: player ? (
-                  <ArmoryPanel playerId={player.id} />
-                ) : (
-                  <div className="p-6 text-center text-sm text-muted-foreground">
-                    Connect your wallet to access the Armory.
-                  </div>
-                ),
-              },
-              university: {
-                title: "Academy",
-                content: <UniversityPanel playerId={player?.id} />,
-              },
-              commander: {
-                title: "Commander",
-                content: (
-                  <CommanderPanel
-                    player={player}
-                    onMintAvatar={handleMintAvatar}
-                    onDeployDrone={handleDeployDrone}
-                    onDeploySatellite={handleDeploySatellite}
-                    onSwitchCommander={handleSwitchCommander}
-                    onClaimCommanderNft={handleClaimCommanderNft}
-                    onAttack={handleAttackConfirm}
-                    isMinting={mintAvatarMutation.isPending}
-                    isDeployingDrone={deployDroneMutation.isPending}
-                    isDeployingSatellite={deploySatelliteMutation.isPending}
-                    isClaimingCommanderNft={isClaimingCommanderNft}
-                    isAttacking={attackMutation.isPending}
-                    openBattlefrontSignal={attackIntent}
-                    selectedParcel={selectedParcel}
-                    ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
-                    wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
-                    className="h-full border-0 rounded-none overflow-auto"
-                  />
-                ),
-              },
-              trade: {
-                title: "Trade",
-                content: (
-                  <TradeStationPanel
-                    currentPlayerId={player?.id ?? ""}
-                    currentPlayerName={player?.name ?? ""}
-                    className="h-full border-0 rounded-none overflow-hidden"
-                  />
-                ),
-              },
-              factions: {
-                title: "Factions",
-                content: <FactionPanel player={player} className="h-full border-0 rounded-none overflow-hidden" />,
-              },
-              markets: {
-                title: "Markets",
-                content: (
-                  <PredictionMarketsPanel
-                    currentPlayerId={player?.id ?? ""}
-                    currentPlayerAscend={player?.ascend ?? 0}
-                    className="h-full border-0 rounded-none overflow-hidden"
-                  />
-                ),
-              },
-            }}
+            widgets={dashboardWidgets}
           />
         </div>
       )}
