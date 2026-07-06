@@ -91,7 +91,7 @@ import {
   MIN_INFLUENCE_DAMAGE,
   INFLUENCE_YIELD_THRESHOLD,
 } from "../engine/battle/tuning.js";
-import { eq, and, or, desc, lt, gt, sql, sum, isNull } from "drizzle-orm";
+import { eq, and, or, desc, lt, gt, sql, sum, isNull, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   gameMeta,
@@ -3294,74 +3294,95 @@ export class DbStorage implements IStorage {
   async claimWinnings(marketId: string, playerId: string): Promise<{ payout: number } | { error: string }> {
     await this.initialize();
 
-    const [marketRow] = await this.db
-      .select()
-      .from(predictionMarketsTable)
-      .where(eq(predictionMarketsTable.id, marketId));
-    if (!marketRow) return { error: "Market not found" };
-    if (marketRow.status !== "resolved") return { error: "Market not yet resolved" };
-    if (!marketRow.winningOutcome) return { error: "No winning outcome set" };
+    // Everything runs in ONE transaction. Previously this method ran bare
+    // statements with no txn: the unclaimed-positions read had no lock, the
+    // mark-claimed UPDATE keyed only on id (no `claimed=false`, no rowCount),
+    // and the credit was a read-then-write — so two concurrent claims both
+    // saw the positions unclaimed and both paid out (double payout / lost
+    // update). Mirrors the openLootBox + fillTradeOrder guard.
+    let result: { payout: number } | { error: string } = { error: "No unclaimed winning positions" };
+    await this.db.transaction(async (tx) => {
+      const [marketRow] = await tx
+        .select({
+          status: predictionMarketsTable.status,
+          winningOutcome: predictionMarketsTable.winningOutcome,
+          tokenPoolA: predictionMarketsTable.tokenPoolA,
+          tokenPoolB: predictionMarketsTable.tokenPoolB,
+        })
+        .from(predictionMarketsTable)
+        .where(eq(predictionMarketsTable.id, marketId));
+      if (!marketRow) { result = { error: "Market not found" }; return; }
+      if (marketRow.status !== "resolved") { result = { error: "Market not yet resolved" }; return; }
+      if (!marketRow.winningOutcome) { result = { error: "No winning outcome set" }; return; }
 
-    // Get player's unclaimed winning positions
-    const positions = await this.db
-      .select()
-      .from(marketPositionsTable)
-      .where(
-        and(
-          eq(marketPositionsTable.marketId, marketId),
-          eq(marketPositionsTable.playerId, playerId),
-          eq(marketPositionsTable.outcome, marketRow.winningOutcome),
-          eq(marketPositionsTable.claimed, false),
+      // Lock the player's unclaimed winning positions. FOR UPDATE serializes
+      // concurrent claims: a second claim blocks here, then re-reads 0 unclaimed
+      // rows after the first commits and bails — so the payout credits once.
+      const positions = await tx
+        .select({ id: marketPositionsTable.id, amountWagered: marketPositionsTable.amountWagered })
+        .from(marketPositionsTable)
+        .where(
+          and(
+            eq(marketPositionsTable.marketId, marketId),
+            eq(marketPositionsTable.playerId, playerId),
+            eq(marketPositionsTable.outcome, marketRow.winningOutcome),
+            eq(marketPositionsTable.claimed, false),
+          )
         )
-      );
-    if (positions.length === 0) return { error: "No unclaimed winning positions" };
+        .for("update");
+      if (positions.length === 0) { result = { error: "No unclaimed winning positions" }; return; }
 
-    // Sum of player's winning wagers
-    const playerWagered = positions.reduce((s, p) => s + p.amountWagered, 0);
+      // Sum of player's winning wagers
+      const playerWagered = positions.reduce((s, p) => s + p.amountWagered, 0);
 
-    // Total winning side pool
-    const totalWinningPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolA : marketRow.tokenPoolB;
-    const totalLosingPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolB : marketRow.tokenPoolA;
+      // Total winning side pool
+      const totalWinningPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolA : marketRow.tokenPoolB;
+      const totalLosingPool = marketRow.winningOutcome === "a" ? marketRow.tokenPoolB : marketRow.tokenPoolA;
 
-    if (totalWinningPool === 0) return { error: "Winning pool is empty" };
+      if (totalWinningPool === 0) { result = { error: "Winning pool is empty" }; return; }
 
-    const totalPool = totalWinningPool + totalLosingPool;
-    const feeAmount = totalPool * MARKET_FEE_RATE;
-    const distributablePool = totalPool - feeAmount;
+      const totalPool = totalWinningPool + totalLosingPool;
+      const feeAmount = totalPool * MARKET_FEE_RATE;
+      const distributablePool = totalPool - feeAmount;
 
-    const payout = Math.floor((playerWagered / totalWinningPool) * distributablePool);
+      const payout = Math.floor((playerWagered / totalWinningPool) * distributablePool);
 
-    // Mark positions claimed
-    for (const pos of positions) {
-      await this.db
+      // Claim the positions with a conditional UPDATE (belt to the FOR UPDATE
+      // lock): only rows still `claimed=false` flip. If a concurrent claim
+      // already took any, the count won't match and we bail BEFORE crediting —
+      // so a payout is impossible on a double-claim.
+      const posIds = positions.map((p) => p.id);
+      const marked = await tx
         .update(marketPositionsTable)
         .set({ claimed: true })
-        .where(eq(marketPositionsTable.id, pos.id));
-    }
+        .where(and(inArray(marketPositionsTable.id, posIds), eq(marketPositionsTable.claimed, false)))
+        .returning();
+      if (marked.length !== positions.length) { result = { error: "Positions already claimed" }; return; }
 
-    // Credit player
-    const [playerRow] = await this.db.select().from(playersTable).where(eq(playersTable.id, playerId));
-    if (playerRow) {
-      await this.db
+      // Credit player with a RELATIVE update (not read-then-write, so
+      // concurrent credits can't lose an update).
+      await tx
         .update(playersTable)
-        .set({ ascend: playerRow.ascend + payout })
+        .set({ ascend: sql`${playersTable.ascend} + ${payout}` })
         .where(eq(playersTable.id, playerId));
-    }
 
-    // Record fee to treasury
-    if (feeAmount > 0 && positions.length > 0) {
-      const playerShare = (playerWagered / totalWinningPool) * feeAmount;
-      await this.db.insert(treasuryLedgerTable).values({
-        id: randomUUID(),
-        eventType: "prediction_market_fee",
-        amountMicro: Math.floor(playerShare * 1_000_000),
-        fromPlayerId: playerId,
-        settled: false,
-        createdAt: Date.now(),
-      });
-    }
+      // Record fee to treasury
+      if (feeAmount > 0) {
+        const playerShare = (playerWagered / totalWinningPool) * feeAmount;
+        await tx.insert(treasuryLedgerTable).values({
+          id: randomUUID(),
+          eventType: "prediction_market_fee",
+          amountMicro: Math.floor(playerShare * 1_000_000),
+          fromPlayerId: playerId,
+          settled: false,
+          createdAt: Date.now(),
+        });
+      }
 
-    return { payout };
+      result = { payout };
+    });
+
+    return result;
   }
 
   // ── Provably-fair resolution ────────────────────────────────────────────────
