@@ -10,31 +10,36 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: Unit D1 token-data truth pass · main green at `e99b6d0`
+## Current baton — 🔎 AWAITING_AUDIT: Unit B1 War Council Muster · main green at `bde4c96`
 
 **Owner /goal (2026-07-06):** three new battle-engine features for map/cinematic
 visuals + a dataviz pass over the tokenomics/landing/economics pages. Plan:
 [`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
-(merged as #195). **This unit (D1, first in the plan's order) is done:** killed
-fake/stale token data on live public surfaces — the landing page claimed a **10B
-total supply (real ASA is 1B)**, the tokenomics page's "Circulating Supply Trend"
-chart was **literally synthetic sine-wave data** (removed outright), a frozen
-"4,218 parcels claimed" ticker/footer, and a per-hour emission-rate typo (real
-rate is per-day). All five pages now read live from `/api/economics`. New test
-`landing-token-data.spec.tsx` (6 tests) pins the removed literals never return.
-tsc clean · server 439/14 skipped · client 236 (230+6 new). Full detail:
-[`session-notes/2026-07-06-token-data-truth-pass.md`](../artifacts/frontier-al/session-notes/2026-07-06-token-data-truth-pass.md).
+(merged as #195). Progress: **D1 truth pass merged (#196)** — landing/tokenomics
+pages no longer show a wrong 10B supply or a fabricated sine-wave chart, now read
+live from `/api/economics`. **This unit (B1, first battle feature) is done:** the
+defender of a pending battle gets a converging warning reticle
+(`GlobeIncomingTelegraph`); the attacker's launch plot showed nothing. New
+`GlobeMusterLayer` adds a pulsing staging glow + energy core on the source plot for
+the whole pending window, scaled by real `troopsCommitted`, plus a spark creeping
+along the existing arc toward the target. Zero server changes; troop-scaling curve
+matches the resolution cinematic's own `muster` beat
+(`TROOP_INTENSITY_K`) so build-up and payoff feel like one fight. New
+`muster-state.spec.ts` (9 tests). tsc clean · server 439/14 skipped · client 245
+(236+9 new) · production build green. Full detail:
+[`session-notes/2026-07-06-muster-layer.md`](../artifacts/frontier-al/session-notes/2026-07-06-muster-layer.md).
 
-**Honest gap:** not manually screenshot-verified in a browser (public landing SPA,
-not the 3D globe canvas; `/api/economics` needs blockchain env this sandbox lacks) —
-SSR smoke + suites are the evidence. Owner should eyeball the deployed pages once live.
+**Honest gap:** R3F renderer is typecheck/build-verified only (matches every other
+globe battle layer in this codebase — none have live-browser tests). A headless
+screenshot attempt against the D1 Cloudflare preview hit the sandbox's documented
+proxy trap (browser TLS reset on external hosts, curl succeeds) — noted, not
+chased further. Owner should eyeball a real pending attack on the globe post-deploy.
 
-**Next session:** audit + merge this PR, then **Unit B1 War Council Muster**
-(attacker-side pending-battle build-up) per the plan's execution order — B1 → B2
-Shield Wall → B3 Battle Scars → D2 quick-win charts → D3 supply history.
+**Next session:** audit + merge this PR, then **Unit B2 Shield Wall** (brace-beat
+fortification dome) → B3 Battle Scars → D2 quick-win charts → D3 supply history.
 
-Earlier this session: retroactive audit of #193 PASSED, merged as #194; the
-research + plan PR merged as #195 (`e99b6d0`) — see
+Earlier: retroactive audit of #193 PASSED (#194); research + plan merged (#195);
+D1 truth pass merged (#196, `bde4c96`) — see
 [`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
 
 **Owner smoke test outstanding (the real verification of #193):** on
