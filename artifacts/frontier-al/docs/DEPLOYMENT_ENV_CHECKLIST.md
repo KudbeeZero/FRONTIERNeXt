@@ -59,7 +59,8 @@ Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical 
 | `FORCE_NEW_ASA` / `FORCE_NEW_FRONTIER_ASA` (`false`) | Leave `false` in prod (would mint a new token). |
 | `ALGOD_URL` / `INDEXER_URL` | Custom node URLs (default: algonode for the chosen network). |
 | `ALGOD_TOKEN` / `INDEXER_TOKEN` | Tokens for custom nodes. |
-| `ANTHROPIC_API_KEY` | Enables the LLM advisor feature; heuristic fallback if unset. |
+| `ANTHROPIC_API_KEY` | Enables the LLM paths of the terraform advisor **and** the plot-select Tactical AI Terminal; both fall back to deterministic heuristics if unset. On Fly.io: `fly secrets set ANTHROPIC_API_KEY=...` |
+| `ADVISOR_MODEL` / `PLOT_TERMINAL_MODEL` | Optional model overrides for the two LLM features (default `claude-haiku-4-5-20251001`). |
 
 ---
 
