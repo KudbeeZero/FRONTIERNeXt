@@ -47,8 +47,9 @@
 
 | Variable | Purpose | Must be prefixed VITE_ |
 |----------|---------|------------------------|
-| VITE_WS_URL | WebSocket endpoint base URL | `wss://api.ascendancyalgo.xyz` |
-| VITE_GAME_URL | Where the landing's "Enter Game" CTA navigates. Defaults to `/game` (same-origin — correct on the backend host). On a static homepage host (Cloudflare Pages) set this to the backend that serves the live game. | `https://frontiernext.fly.dev/game` |
+| VITE_API_URL | Backend REST origin. **Optional since 2026-07-06**: when unset, resolved at runtime (`lib/backendOrigin.ts`) — same-origin on localhost/`*.fly.dev`, Fly backend (`https://frontiernext.fly.dev`) on any backend-less host (frontierprotocol.app, Pages previews). | `https://frontiernext.fly.dev` |
+| VITE_WS_URL | WebSocket endpoint base URL. **Optional since 2026-07-06**: same runtime fallback as VITE_API_URL (Fly `wss://` on backend-less hosts). | `wss://frontiernext.fly.dev` |
+| VITE_GAME_URL | Where the landing's "Enter Game" CTA navigates. Defaults to `/game` on the **current origin** (since 2026-07-06 the game runs on the branded host too — API/WS reach Fly cross-origin). Set only to force another destination. | unset |
 | VITE_ALGOD_URL | Algorand node URL override (optional, defaults to testnet algonode) | `https://mainnet-api.algonode.cloud` |
 | VITE_INDEXER_URL | Algorand indexer URL override (optional, defaults to testnet algonode) | `https://mainnet-idx.algonode.cloud` |
 | VITE_DEV_MODE | **TestNet dev tool.** `true` shows the amber **"⚙ Dev / Test Mode"** button on the landing page, which enters the game as a test player with no wallet (calls `DEV_LOGIN_ENABLED`-gated `/api/dev/quick-auth`). Unset on mainnet. | `true` (testnet) / unset (prod) |
@@ -56,12 +57,13 @@
 
 ## Flags
 
-- **CLIENT_ORIGIN**: Not currently set — must be configured for cross-origin deployment
-- **VITE_WS_URL**: New — required for cross-domain WebSocket from Vercel → Railway
-- **VITE_GAME_URL**: Set on the **static homepage host** (Cloudflare Pages) to
-  `https://frontiernext.fly.dev/game` so the landing's "Enter Game" leaves the
-  static site and opens the live, same-origin game served by the Fly backend.
-  Leave unset on the backend host (defaults to `/game`).
+- **CLIENT_ORIGIN**: comma-separated allowed origins for CORS on the Fly backend. Verified live
+  2026-07-06: `https://frontierprotocol.app` is allowed (probe returned the correct
+  `Access-Control-Allow-*` headers). Must also include any Pages preview origins you test from.
+- **VITE_WS_URL / VITE_API_URL**: optional — runtime fallback covers the branded host (above).
+- **VITE_GAME_URL**: leave unset everywhere; the game stays on the origin the player is on.
+  (The pre-2026-07-06 cross-origin jump to fly.dev dropped localStorage — auth token + wallet
+  pairings — causing forced re-connects and the multi-popup WalletConnect storm.)
 - **VITE_ALGOD_URL / VITE_INDEXER_URL**: Currently default to testnet URLs; must be overridden for mainnet
 - **SESSION_SECRET**: Listed as required in chain config validation but session middleware is not currently initialized — verify if sessions are needed before go-live
 - **AI_ENABLED**: Should be `false` for initial multiplayer launch

@@ -13,6 +13,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { queryClient } from "@/lib/queryClient";
 import { getAuthToken, clearAuthToken } from "@/lib/authToken";
+import { resolveBackendWsBase } from "@/lib/backendOrigin";
 import { setServerTime } from "@/lib/serverClock";
 import type { GameState } from "@shared/schema";
 import type { WorldEvent } from "@shared/worldEvents";
@@ -215,12 +216,15 @@ export function useGameSocket(authTrigger?: unknown, onAuthReject?: () => void) 
       const token = getAuthToken();
       if (!authTrigger || !token) return;
 
-      // WebSocket URL driven by VITE_WS_URL; token passed as a query param
-      // (browsers can't set WS headers) so the server can authenticate.
-      const wsBase = import.meta.env.VITE_WS_URL;
-      const base = wsBase
-        ? `${wsBase}/ws`
-        : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+      // WebSocket URL: VITE_WS_URL wins; otherwise resolved at runtime — the
+      // branded Cloudflare host has no backend, so fall back to the Fly WS.
+      // Token as a query param (browsers can't set WS headers).
+      const sameOrigin = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
+      const base = `${resolveBackendWsBase(
+        import.meta.env.VITE_WS_URL as string | undefined,
+        window.location.hostname,
+        sameOrigin,
+      )}/ws`;
       const ws = new WebSocket(`${base}?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
 

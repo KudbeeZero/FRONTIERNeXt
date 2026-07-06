@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp,
@@ -123,7 +124,7 @@ interface EconomicsPanelProps {
 export function EconomicsPanel({ className }: EconomicsPanelProps) {
   const { data, isLoading, error, refetch, isFetching } = useQuery<EconomicsData>({
     queryKey: ["/api/economics"],
-    queryFn: () => fetch("/api/economics").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/economics")).then(r => r.json()),
     refetchInterval: 30_000,
   });
 

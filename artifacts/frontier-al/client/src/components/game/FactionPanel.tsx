@@ -5,6 +5,7 @@
  * and allows the current player to join/switch faction alignment.
  */
 
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Map, Zap, Hammer, TrendingUp, Shield, Swords, DollarSign, CheckCircle2, LogOut } from "lucide-react";
@@ -250,7 +251,7 @@ export function FactionPanel({ player, className }: FactionPanelProps) {
 
   const joinMutation = useMutation({
     mutationFn: async (factionName: string) => {
-      const res = await fetch(`/api/factions/${encodeURIComponent(factionName)}/join`, {
+      const res = await fetch(resolveApiUrl(`/api/factions/${encodeURIComponent(factionName)}/join`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: player?.id }),
@@ -277,7 +278,7 @@ export function FactionPanel({ player, className }: FactionPanelProps) {
 
   const leaveMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/factions/leave", {
+      const res = await fetch(resolveApiUrl("/api/factions/leave"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: player?.id }),

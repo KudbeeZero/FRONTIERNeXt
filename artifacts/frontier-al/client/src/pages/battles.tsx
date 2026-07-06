@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState, useEffect, useCallback } from "react";
 import {
   Swords, Shield, TrendingUp, Clock, ChevronRight,
@@ -112,7 +113,7 @@ export default function BattlesPage() {
       });
       if (outcomeFilter !== "all") params.set("outcome", outcomeFilter);
       if (search.trim()) params.set("player", search.trim());
-      const res = await fetch(`/api/battles/history?${params}`);
+      const res = await fetch(resolveApiUrl(`/api/battles/history?${params}`));
       if (!res.ok) throw new Error("non-200");
       const data: HistoryResponse = await res.json();
       setBattles(data.battles);
@@ -123,14 +124,14 @@ export default function BattlesPage() {
 
   const fetchLive = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/battles-live");
+      const res = await fetch(resolveApiUrl("/api/admin/battles-live"));
       if (res.ok) setLive(await res.json());
     } catch { /* silent */ }
   }, []);
 
   const fetchLeaders = useCallback(async () => {
     try {
-      const res = await fetch("/api/leaderboard");
+      const res = await fetch(resolveApiUrl("/api/leaderboard"));
       if (res.ok) {
         const data = await res.json();
         setLeaders((data.players ?? []).slice(0, 10));

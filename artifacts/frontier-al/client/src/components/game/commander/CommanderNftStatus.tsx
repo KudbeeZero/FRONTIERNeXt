@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Gift, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ export function CommanderNftStatus({ commanderId, onClaim, isClaiming, walletCon
   const { data, isLoading } = useQuery<{ exists: boolean; status?: string; assetId?: number | null }>({
     queryKey: ["/api/nft/commander", commanderId],
     queryFn: async () => {
-      const res = await fetch(`/api/nft/commander/${commanderId}`);
+      const res = await fetch(resolveApiUrl(`/api/nft/commander/${commanderId}`));
       if (!res.ok) return { exists: false };
       return res.json();
     },

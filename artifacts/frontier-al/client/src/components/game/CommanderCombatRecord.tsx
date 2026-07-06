@@ -6,6 +6,7 @@
  * a commander with a fought battle, and joins commanderId → name from the roster
  * passed in. Pure formatting lives in `combatRecordFormat` (tested).
  */
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Swords } from "lucide-react";
 import { formatCommanderRecord, type CommanderRecord } from "@/lib/battle/combatRecordFormat";
@@ -20,7 +21,7 @@ export function CommanderCombatRecord({
   const { data } = useQuery<CommanderRecord[]>({
     queryKey: ["/api/players", playerId, "commander-stats"],
     queryFn: async () => {
-      const r = await fetch(`/api/players/${playerId}/commander-stats`);
+      const r = await fetch(resolveApiUrl(`/api/players/${playerId}/commander-stats`));
       if (!r.ok) return [];
       return r.json();
     },

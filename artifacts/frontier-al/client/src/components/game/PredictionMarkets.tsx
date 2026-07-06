@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, Clock, CheckCircle, XCircle, RefreshCw } from "lucide-react";
@@ -69,7 +70,7 @@ function VerifyProof({ marketId }: { marketId: string }) {
   const [open, setOpen] = useState(false);
   const { data, isFetching } = useQuery({
     queryKey: ["/api/markets", marketId, "proof"],
-    queryFn: () => fetch(`/api/markets/${marketId}/proof`).then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl(`/api/markets/${marketId}/proof`)).then(r => r.json()),
     enabled: open,
   });
 
@@ -109,7 +110,7 @@ function MarketCard({
 
   const betMutation = useMutation({
     mutationFn: ({ outcome, amount }: { outcome: "a" | "b"; amount: number }) =>
-      fetch(`/api/markets/${market.id}/bet`, {
+      fetch(resolveApiUrl(`/api/markets/${market.id}/bet`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: currentPlayerId, outcome, amount }),
@@ -129,7 +130,7 @@ function MarketCard({
 
   const claimMutation = useMutation({
     mutationFn: () =>
-      fetch(`/api/markets/${market.id}/claim`, {
+      fetch(resolveApiUrl(`/api/markets/${market.id}/claim`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: currentPlayerId }),
@@ -297,7 +298,7 @@ function MarketsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId:
   const queryClient = useQueryClient();
   const { data: markets = [], isFetching, refetch } = useQuery<PredictionMarket[]>({
     queryKey: ["/api/markets"],
-    queryFn: () => fetch("/api/markets").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/markets")).then(r => r.json()),
     refetchInterval: 15_000,
   });
 
@@ -344,7 +345,7 @@ function MyBetsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: 
   const queryClient = useQueryClient();
   const { data: positions = [], isFetching } = useQuery<(MarketPosition & { market: PredictionMarket })[]>({
     queryKey: ["/api/markets/player", currentPlayerId],
-    queryFn: () => fetch(`/api/markets/player/${currentPlayerId}`).then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl(`/api/markets/player/${currentPlayerId}`)).then(r => r.json()),
     refetchInterval: 15_000,
   });
 
@@ -401,7 +402,7 @@ function MyBetsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: 
 function HistoryTab() {
   const { data: markets = [], isFetching } = useQuery<PredictionMarket[]>({
     queryKey: ["/api/markets/history"],
-    queryFn: () => fetch("/api/markets/history").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/markets/history")).then(r => r.json()),
     refetchInterval: 30_000,
   });
 

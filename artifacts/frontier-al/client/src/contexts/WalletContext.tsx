@@ -390,6 +390,12 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
 
     const attemptConnect = async () => {
       if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
+      // A previous session can leave half-open WalletConnect pairings behind
+      // (abandoned tab, crashed connect, the old cross-origin fly.dev hop).
+      // Pera resurfaces EVERY leftover pairing as its own popup on the next
+      // connect — the "12 windows" storm. Purge before dialing, but only when
+      // this wallet isn't currently connected (never drop a live session).
+      if (!wallet.isConnected) await purgeStaleSession(wallet);
       // Bound the connect so a modal that never surfaces can't spin forever.
       // Extension wallets get a tighter budget than QR/mobile wallets.
       await promiseWithTimeout(wallet.connect(), connectTimeoutFor(walletId));

@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useEffect, useRef, useState } from "react";
 import { Radio, X, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ export function CommTerminal({ playerId }: { playerId?: string | null }) {
         // Pass the last whisper id so the server only sends (and synthesizes) a new
         // one when the window actually flips — no redundant audio/credits per poll.
         const since = seenRef.current.size ? `&since=${encodeURIComponent(lastIdRef.current)}` : "";
-        const r = await fetch(`/api/comm-terminal/whispers?playerId=${encodeURIComponent(playerId)}${since}`);
+        const r = await fetch(resolveApiUrl(`/api/comm-terminal/whispers?playerId=${encodeURIComponent(playerId)}${since}`));
         if (!r.ok || cancelled) return;
         const data: CommResponse = await r.json();
         if (cancelled) return;

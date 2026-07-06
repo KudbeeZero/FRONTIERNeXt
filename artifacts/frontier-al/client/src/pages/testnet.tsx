@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState, useEffect, useCallback } from "react";
 import {
   CheckCircle2,
@@ -47,7 +48,7 @@ export default function TestnetPage() {
     if (!address) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/testnet/progress/${encodeURIComponent(address)}`);
+      const res = await fetch(resolveApiUrl(`/api/testnet/progress/${encodeURIComponent(address)}`));
       if (res.ok) {
         const data = await res.json();
         setManualCompleted(new Set(data.completedMissions || []));
@@ -79,7 +80,7 @@ export default function TestnetPage() {
     if (!address) return;
     setSyncing(true);
     try {
-      await fetch("/api/testnet/progress", {
+      await fetch(resolveApiUrl("/api/testnet/progress"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address, completedMissions: Array.from(newManual) }),

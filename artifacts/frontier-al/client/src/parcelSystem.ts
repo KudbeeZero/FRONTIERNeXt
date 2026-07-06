@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { applyTerraform, Biome, TerraformState } from './terraforming'
 
 export type Player = {
@@ -143,7 +144,7 @@ export async function terraformPlot(
   action: ApiTerraformAction
 ): Promise<ApiTerraformResult> {
   try {
-    const res = await fetch(`/api/plots/${plotId}/terraform`, {
+    const res = await fetch(resolveApiUrl(`/api/plots/${plotId}/terraform`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerId, action })

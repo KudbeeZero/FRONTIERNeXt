@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useEffect, useState, useCallback } from "react";
 import { Bot, Activity, Clock, Pickaxe, Swords, TrendingUp, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,7 @@ export function AiFactionLog() {
 
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/ai-activity");
+      const res = await fetch(resolveApiUrl("/api/admin/ai-activity"));
       if (!res.ok) throw new Error("non-200");
       setData(await res.json());
       setError(false);

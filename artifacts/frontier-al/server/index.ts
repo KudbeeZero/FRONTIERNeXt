@@ -124,7 +124,8 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", effectiveOrigin);
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    // x-admin-key: the /admin page sends it cross-origin from the branded host.
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-key");
     if (req.method === "OPTIONS") {
       return res.sendStatus(204);
     }

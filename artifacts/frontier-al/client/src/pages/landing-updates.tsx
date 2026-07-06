@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -98,13 +99,13 @@ export default function LandingUpdates() {
 
   const { data: worldData } = useQuery<{ playerCount?: number; parcelCount?: number; totalBurned?: number; inGameCirculating?: number }>({
     queryKey: ["/api/economics"],
-    queryFn: () => fetch("/api/economics").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/economics")).then(r => r.json()),
     staleTime: 30_000, refetchInterval: 30_000,
   });
 
   const { data: leaderboard } = useQuery<{ name: string; territories: number; totalAscendEarned: number }[]>({
     queryKey: ["/api/game/leaderboard"],
-    queryFn: () => fetch("/api/game/leaderboard").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/game/leaderboard")).then(r => r.json()),
     staleTime: 60_000,
   });
 

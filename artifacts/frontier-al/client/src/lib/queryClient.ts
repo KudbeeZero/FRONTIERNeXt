@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getAuthToken } from "./authToken";
+import { BACKEND_ORIGIN } from "./backendOrigin";
 
 /** Attach the wallet session token (if any) as a Bearer header. */
 function withAuthHeaders(base: Record<string, string> = {}): Record<string, string> {
@@ -8,12 +9,11 @@ function withAuthHeaders(base: Record<string, string> = {}): Record<string, stri
 }
 
 // ── API base URL ──────────────────────────────────────────────────────────────
-// In production (split-host: Vercel SPA + separate Node backend) set
-// VITE_API_URL to the backend origin, e.g. https://frontier-api.onrender.com
-// In local dev this is empty — the Vite dev-server proxy handles /api/* → :5000
-const _API_BASE: string =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ??
-  "";
+// VITE_API_URL (build-time) wins; otherwise resolved at runtime so the branded
+// Cloudflare host (frontierprotocol.app) talks to the Fly backend cross-origin
+// instead of dead-ending on static files. Same-origin ("") on localhost /
+// *.fly.dev, where the Vite dev proxy or the Fly server handles /api/*.
+const _API_BASE: string = BACKEND_ORIGIN;
 
 /** Resolve a relative /api (or /nft, /faction) path to an absolute URL. */
 export function resolveApiUrl(path: string): string {

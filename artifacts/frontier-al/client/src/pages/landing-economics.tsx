@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -20,7 +21,7 @@ export default function LandingEconomics() {
   const [, setLocation] = useLocation();
   const { data } = useQuery<{ totalSupply: number; inGameCirculating: number; totalBurned: number; treasury: number; asaId: number | null; unitName: string; network: string }>({
     queryKey: ["/api/economics"],
-    queryFn: () => fetch("/api/economics").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/economics")).then(r => r.json()),
     staleTime: 30_000,
   });
 

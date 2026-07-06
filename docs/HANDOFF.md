@@ -10,7 +10,19 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ✅ CLEAR · PR **#174** (FRONTIER docs suite) merged-on-green after independent Sonnet review (owner-directed via /goal) · no open PRs
+## Current baton — ⏳ PR **#175** (branded-domain wallet/login fix) · branch `claude/wallet-domain-login-fix` · merge-on-green per standing directive
+
+**This chat (unit 4, owner /goal): fix the month-old frontierprotocol.app login mess** — root cause:
+branded host is static Cloudflare (no API → 405s) + the #162 fly.dev hop drops localStorage →
+re-connect + stale WalletConnect pairings = ~12-popup storm. Fix: runtime backend resolution
+(`lib/backendOrigin.ts`, API+WS → Fly on backend-less hosts), 52 raw fetches through
+`resolveApiUrl`, `/game` stays on the current origin, pre-connect stale-pairing purge, CORS
+allow-headers += x-admin-key. See
+[`session-notes/2026-07-06-branded-domain-wallet-fix.md`](../artifacts/frontier-al/session-notes/2026-07-06-branded-domain-wallet-fix.md).
+**Owner smoke-test after both deploys: connect wallet on frontierprotocol.app → Enter Game →
+stays on frontierprotocol.app/game, ONE wallet prompt.**
+
+### Earlier this push — ✅ #174 (FRONTIER docs suite) merged-on-green after independent Sonnet review
 
 **Next session: nothing to audit — start the next unit directly. Queue:
 [`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md) in order (PR 1 `chore/state-registry-json` →
