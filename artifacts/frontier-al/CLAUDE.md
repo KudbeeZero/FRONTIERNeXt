@@ -167,6 +167,25 @@ This system should:
 
 ---
 
+# Headless visual testing — YOU CAN SEE THE GAME
+
+**Claude CAN render and screenshot the real 3D globe (and any game UI) headlessly in the
+sandbox** — no display, no GPU, no external environment. Proven 2026-07-06. Do NOT claim
+"not browser-verifiable" for UI work before trying this.
+
+**The strict recipe: [`docs/HEADLESS_VISUAL_TESTING.md`](docs/HEADLESS_VISUAL_TESTING.md).**
+Short version: throwaway local Postgres (as `nobody`, initdb refuses root) → `drizzle-kit push`
+→ server with `DEV_LOGIN_ENABLED=true PUBLIC_BASE_URL=http://localhost:5000` → vite with
+`VITE_DEV_MODE=true` → `pnpm run smoke:visual` (headless Chromium + SwiftShader software WebGL,
+dev quick-auth, programmatic faction-gate clear, generous ~30s settle waits).
+
+Key traps the doc covers: never screenshot production through the sandbox proxy (browser TLS
+gets reset even though curl works — run locally instead); localhost curls need `--noproxy '*'`;
+Playwright trusted clicks are intercepted on the faction gate (use DOM `el.click()` via
+`page.evaluate`). Use this for visual battle testing and before/after screenshots on UI PRs.
+
+---
+
 # Session close-out workflow (security / feature passes)
 
 How to wrap up and merge a unit of work. Established across the 2026-06-07

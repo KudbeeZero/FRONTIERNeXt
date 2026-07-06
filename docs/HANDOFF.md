@@ -10,7 +10,21 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — battle/commander/menu refactor push COMPLETE (as scoped). Nothing open.
+## Current baton — ⏳ headless visual-testing harness · branch `feat/headless-visual-testing` · merge-on-green
+
+**BREAKTHROUGH (owner-confirmed "this is awesome"): Claude can render + screenshot the real 3D
+globe headlessly in the sandbox.** Throwaway local Postgres + real server + real client +
+headless Chromium with SwiftShader software WebGL. Captured the live 21k-plot globe, the
+faction gate, and the `?dashboard=1` widget canvas; images delivered to the owner. This unit
+checks in the harness so every future session can do visual battle testing:
+`docs/HEADLESS_VISUAL_TESTING.md` (strict recipe + traps) · `script/visual-smoke.cjs`
+(verified end-to-end) · `pnpm run smoke:visual` · CLAUDE.md memory entry ("do NOT claim
+not-browser-verifiable before trying this").
+**Owner's standing UI vision (stated 2026-07-06):** the `?dashboard=1` snap-grid widget
+dashboard IS the goal — make it the flagship experience: smooth/polished animation, toggleable
+color/info layers on the globe, widget grid snapping. Next major unit(s) after this merges.
+
+### Prior push — battle/commander/menu refactor COMPLETE (as scoped).
 
 **Owner `/goal` (2026-07-06): refactor the battle/commander architecture and the whole menu
 system, keep the NFTs, and make sure battles are actually working.** Plan doc —
