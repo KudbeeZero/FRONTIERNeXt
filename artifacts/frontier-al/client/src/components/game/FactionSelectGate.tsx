@@ -135,21 +135,29 @@ export function FactionSelectGate() {
         overflowY: "auto", color: "#e0eaff",
       }}
     >
-      <Starfield />
-      {/* Two soft planet silhouettes, bottom corners — pure CSS, no image assets. */}
+      {/* Starfield + dark scrim, masked with a hole bottom-right so the REAL 3D globe
+          already rendering behind this gate (in <GameLayout>, mounted as a sibling —
+          see the file header) shows through instead of a fake CSS planet. This never
+          touches the globe/canvas itself, only how much of it this overlay covers. */}
+      <div
+        style={{
+          position: "fixed", inset: 0,
+          WebkitMaskImage: "radial-gradient(circle 460px at calc(100% - 40px) calc(100% - 40px), transparent 0%, transparent 58%, black 82%)",
+          maskImage: "radial-gradient(circle 460px at calc(100% - 40px) calc(100% - 40px), transparent 0%, transparent 58%, black 82%)",
+        }}
+      >
+        <Starfield />
+        <div style={{
+          position: "fixed", inset: 0,
+          background: "radial-gradient(ellipse at 35% 45%, rgba(0,4,16,0.45) 0%, rgba(0,2,10,0.85) 75%)",
+          pointerEvents: "none",
+        }} />
+      </div>
+      {/* Soft ring around the globe window so the cutout reads as deliberate framing,
+          not a clipping artifact. */}
       <div style={{
-        position: "fixed", left: -180, bottom: -220, width: 480, height: 480, borderRadius: "50%",
-        background: "radial-gradient(circle at 35% 30%, rgba(90,120,190,0.35), rgba(10,15,35,0.6) 55%, transparent 72%)",
-        pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "fixed", right: -140, top: -160, width: 340, height: 340, borderRadius: "50%",
-        background: "radial-gradient(circle at 65% 65%, rgba(120,90,190,0.25), rgba(10,10,30,0.5) 55%, transparent 72%)",
-        pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "fixed", inset: 0,
-        background: "radial-gradient(ellipse at center, rgba(0,4,16,0.55) 0%, rgba(0,2,10,0.82) 100%)",
+        position: "fixed", right: -60, bottom: -60, width: 360, height: 360, borderRadius: "50%",
+        border: "1px solid rgba(120,180,255,0.25)", boxShadow: "0 0 60px 10px rgba(60,120,255,0.12) inset",
         pointerEvents: "none",
       }} />
 
@@ -184,8 +192,17 @@ export function FactionSelectGate() {
           </p>
         </div>
 
-        {/* Faction cards */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", maxWidth: 920 }}>
+        {/* Faction cards — sized to fill most of the page width, with a persistent
+            (not just on-select) glow so they pop against the starfield. The pulse
+            keyframe is defined once below and applied via className since inline
+            styles can't express @keyframes. */}
+        <style>{`
+          @keyframes faction-card-pulse {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.12); }
+          }
+        `}</style>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 22, justifyContent: "center", maxWidth: 1240 }}>
           {PLAYER_FACTIONS.map((f) => {
             const active = selected === f.id;
             const Icon = FACTION_ICON[f.id];
@@ -194,27 +211,30 @@ export function FactionSelectGate() {
                 key={f.id}
                 onClick={() => setSelected(f.id)}
                 style={{
-                  position: "relative", width: 210, textAlign: "left", cursor: "pointer",
+                  position: "relative", width: 260, textAlign: "left", cursor: "pointer",
                   background: active
-                    ? `linear-gradient(160deg, ${f.color}26 0%, rgba(8,12,32,0.85) 70%)`
-                    : `linear-gradient(160deg, ${f.color}10 0%, rgba(8,12,32,0.75) 70%)`,
-                  border: `1px solid ${active ? f.color : `${f.color}55`}`,
-                  borderRadius: 10, padding: "20px 18px 16px",
-                  boxShadow: active ? `0 0 30px ${f.color}45, inset 0 0 20px ${f.color}18` : `0 0 10px ${f.color}15`,
+                    ? `linear-gradient(160deg, ${f.color}30 0%, rgba(8,12,32,0.88) 70%)`
+                    : `linear-gradient(160deg, ${f.color}18 0%, rgba(8,12,32,0.8) 70%)`,
+                  border: `1.5px solid ${active ? f.color : `${f.color}70`}`,
+                  borderRadius: 12, padding: "26px 22px 20px",
+                  boxShadow: active
+                    ? `0 0 50px ${f.color}70, 0 0 110px ${f.color}30, inset 0 0 28px ${f.color}22`
+                    : `0 0 24px ${f.color}40, 0 0 60px ${f.color}18`,
                   color: "inherit", fontFamily: "inherit", transition: "all 0.15s ease",
+                  animation: "faction-card-pulse 3.2s ease-in-out infinite",
                 }}
               >
-                <Icon size={30} color={f.color} strokeWidth={1.5} style={{ marginBottom: 10, filter: `drop-shadow(0 0 6px ${f.color}88)` }} />
-                <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: f.color, letterSpacing: "0.03em" }}>{f.name}</div>
-                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(150,180,255,0.55)", margin: "3px 0 10px" }}>
+                <Icon size={38} color={f.color} strokeWidth={1.5} style={{ marginBottom: 14, filter: `drop-shadow(0 0 10px ${f.color})` }} />
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: f.color, letterSpacing: "0.03em", textShadow: `0 0 18px ${f.color}90` }}>{f.name}</div>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(150,180,255,0.6)", margin: "4px 0 14px" }}>
                   {f.behavior}
                 </div>
-                <div style={{ width: "100%", height: 1, background: `linear-gradient(90deg, ${f.color}80, transparent)`, marginBottom: 10 }} />
-                <div style={{ fontSize: 11.5, color: "rgba(200,220,255,0.8)", lineHeight: 1.5 }}>“{f.tagline}” {f.blurb}</div>
+                <div style={{ width: "100%", height: 1, background: `linear-gradient(90deg, ${f.color}90, transparent)`, marginBottom: 12 }} />
+                <div style={{ fontSize: 13, color: "rgba(200,220,255,0.85)", lineHeight: 1.55 }}>“{f.tagline}” {f.blurb}</div>
                 {/* Bottom tick pattern + accent bar, matching the faction's color. */}
-                <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 9, letterSpacing: "0.2em", color: `${f.color}88`, fontFamily: "var(--font-mono)" }}>×××</span>
-                  <span style={{ width: 28, height: 3, borderRadius: 2, background: f.color, opacity: active ? 0.9 : 0.4 }} />
+                  <span style={{ width: 32, height: 3, borderRadius: 2, background: f.color, opacity: active ? 1 : 0.55, boxShadow: `0 0 8px ${f.color}` }} />
                 </div>
               </button>
             );
