@@ -42,6 +42,7 @@ export default defineConfig({
         "server/engine/battle/verify.ts",
         "server/engine/battle/tuning.ts",
         "server/engine/battle/random.ts",
+        "server/engine/ai/reconquest.ts",
         "server/engine/markets/resolve.ts",
       ],
       exclude: ["**/*.{test,spec}.ts", "**/*.d.ts"],
