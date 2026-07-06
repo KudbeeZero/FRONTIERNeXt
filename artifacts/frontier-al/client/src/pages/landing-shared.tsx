@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { WalletConnect } from "@/components/game/WalletConnect";
 import { goToGame } from "@/lib/gameUrl";
+import { resolveApiUrl } from "@/lib/queryClient";
 
 // ─── Social / external links ──────────────────────────────────────────────────
 // Only entries with a non-empty url render. Add Discord/Telegram invite URLs
@@ -238,6 +240,14 @@ export function CookieConsentBanner() {
 
 // ─── Shared Footer ────────────────────────────────────────────────────────────
 export function LandingFooter() {
+  // Same queryKey as landing.tsx/landing-economics.tsx — react-query dedupes
+  // the request when a page also fetches /api/economics itself.
+  const { data } = useQuery<{ ownedParcelCount: number }>({
+    queryKey: ["/api/economics"],
+    queryFn: () => fetch(resolveApiUrl("/api/economics")).then((r) => r.json()),
+    staleTime: 30_000,
+  });
+  const parcelsReserved = data ? `${data.ownedParcelCount.toLocaleString()} / 21,000` : "… / 21,000";
   return (
     <footer style={{
       width: "100%", maxWidth: 1100,
@@ -275,7 +285,7 @@ export function LandingFooter() {
       }}>
         {[
           { label: "Network",          value: "Algorand TestNet" },
-          { label: "Parcels Reserved", value: "4,218 / 21,000" },
+          { label: "Parcels Reserved", value: parcelsReserved },
           { label: "Status",           value: "TestNet Alpha" },
         ].map(({ label, value }) => (
           <div key={label} style={{ textAlign: "center" }}>

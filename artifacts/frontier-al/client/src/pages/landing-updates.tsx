@@ -97,7 +97,7 @@ function StatusBadge({ status }: { status: "in_progress" | "complete" | "planned
 export default function LandingUpdates() {
   const [, setLocation] = useLocation();
 
-  const { data: worldData } = useQuery<{ playerCount?: number; parcelCount?: number; totalBurned?: number; inGameCirculating?: number }>({
+  const { data: worldData } = useQuery<{ ownedParcelCount?: number; totalBurned?: number; inGameCirculating?: number }>({
     queryKey: ["/api/economics"],
     queryFn: () => fetch(resolveApiUrl("/api/economics")).then(r => r.json()),
     staleTime: 30_000, refetchInterval: 30_000,
@@ -133,7 +133,7 @@ export default function LandingUpdates() {
             { label: "ASCEND Circulating", value: worldData?.inGameCirculating != null ? Math.round(worldData.inGameCirculating).toLocaleString() : "—" },
             { label: "ASCEND Burned",      value: worldData?.totalBurned        != null ? Math.round(worldData.totalBurned).toLocaleString()        : "—" },
             { label: "Top Commander",     value: topPlayer?.name ?? "—" },
-            { label: "Build Date",        value: "March 2026" },
+            { label: "Parcels Claimed",   value: worldData?.ownedParcelCount   != null ? worldData.ownedParcelCount.toLocaleString()                 : "—" },
           ].map(({ label, value }) => (
             <div key={label} className="border-glow" style={{ ...CARD, textAlign: "center" }}>
               <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "rgba(100,150,255,0.5)", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>

@@ -1,10 +1,30 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
 import heroPlanetImg from "@assets/landing-hero-planet.jpg";
 import { GAME_URL, goToGame } from "@/lib/gameUrl";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, resolveApiUrl } from "@/lib/queryClient";
 import { setAuthToken } from "@/lib/authToken";
 import { DEV_MODE, DEV_AUTOLOGIN, startDevSession, devSessionActive, shouldDevAutoLogin } from "@/lib/devSession";
+
+// Live token/world snapshot shared by HypeTicker + TokenSection — same
+// queryKey as landing-economics.tsx, so react-query dedupes the request.
+type EconomicsSnapshot = {
+  totalSupply: number;
+  inGameCirculating: number;
+  totalBurned: number;
+  treasury: number;
+  ownedParcelCount: number;
+  asaId: number | null;
+  network: string;
+};
+function useEconomicsSnapshot() {
+  return useQuery<EconomicsSnapshot>({
+    queryKey: ["/api/economics"],
+    queryFn: () => fetch(resolveApiUrl("/api/economics")).then((r) => r.json()),
+    staleTime: 30_000,
+  });
+}
 
 // ─── Animated Rocket ──────────────────────────────────────────────────────────
 function Rocket() {
@@ -141,12 +161,16 @@ function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc:
 }
 
 // ─── Hype Ticker ──────────────────────────────────────────────────────────────
-function HypeTicker() {
+// Exported (alongside TokenSection below) so the token-data truth-pass test
+// can render them directly without mounting the whole landing page.
+export function HypeTicker() {
+  const { data } = useEconomicsSnapshot();
+  const parcelsClaimed = data ? data.ownedParcelCount.toLocaleString() : "…";
   const items = [
-    "🔥 4,218 parcels claimed",
+    `🔥 ${parcelsClaimed} parcels claimed`,
     "⚡ AI factions are mobilising",
     "🌐 Algorand TestNet LIVE",
-    "🪙 $ASCEND token launching soon",
+    "🪙 $ASCEND token LIVE on TestNet",
     "🛡 Early adopters get permanent on-chain bonuses",
     "🤖 Four rival factions compete for the planet",
     "⬡ 21,000 hex parcels — claim yours now",
@@ -169,7 +193,15 @@ function HypeTicker() {
 }
 
 // ─── Token Section ─────────────────────────────────────────────────────────────
-function TokenSection() {
+function fmtSupply(n: number): string {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+  if (n >= 1_000_000)     return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1_000)         return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  return n.toLocaleString();
+}
+
+export function TokenSection() {
+  const { data } = useEconomicsSnapshot();
   const steps = [
     { num: "01", icon: "📱", title: "Install a Wallet",   desc: "Connect with Pera, Defly, Kibisis, or LUTE — any Algorand wallet with ASA & NFT support works on TestNet.", action: "Get Pera Wallet →", href: "https://perawallet.app", color: "#4fc3f7" },
     { num: "02", icon: "🎁", title: "Claim Your Bonus",   desc: "Connect to the game and receive a one-time 500 $ASCEND welcome bonus to kickstart your conquest.", action: "Enter Game →", href: GAME_URL, color: "#81c784" },
@@ -196,9 +228,9 @@ function TokenSection() {
         {[
           { label: "Token",        value: "$ASCEND" },
           { label: "Chain",        value: "Algorand" },
-          { label: "Total Supply", value: "10,000,000,000" },
+          { label: "Total Supply", value: data ? fmtSupply(data.totalSupply) : "…" },
           { label: "Asset Type",   value: "ASA" },
-          { label: "Status",       value: "Pre-Launch" },
+          { label: "Status",       value: "Live · TestNet" },
         ].map(({ label, value }) => (
           <div key={label} className="border-glow" style={{
             background: "rgba(5,10,30,0.6)", border: "1px solid rgba(60,90,180,0.2)",
@@ -210,23 +242,24 @@ function TokenSection() {
         ))}
       </div>
 
-      {/* Supply allocation — 10B total, split 5B liquidity-backed / 5B land-minted */}
+      {/* Live supply breakdown — sourced from /api/economics (matches the
+          Token Economics page), not a fabricated allocation split. */}
       <div style={{
         display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center",
         marginBottom: 40,
       }}>
         {[
-          { pct: "50%", amount: "5,000,000,000", label: "Liquidity-Backed", desc: "Minted at launch and backed with liquidity", color: "#4fc3f7" },
-          { pct: "50%", amount: "5,000,000,000", label: "Land-Minted", desc: "Mintable only by claiming & holding land", color: "#81c784" },
-        ].map(({ pct, amount, label, desc, color }) => (
+          { amount: data ? fmtSupply(data.inGameCirculating) : "…", label: "In Circulation", desc: "Held by players, earned through land ownership and trade", color: "#81c784" },
+          { amount: data ? fmtSupply(data.treasury)          : "…", label: "Treasury",        desc: "Reserve held by the protocol admin account", color: "#4fc3f7" },
+          { amount: data ? fmtSupply(data.totalBurned)       : "…", label: "Burned",          desc: "Permanently removed by minting, upgrades, and special attacks", color: "#ef4444" },
+        ].map(({ amount, label, desc, color }) => (
           <div key={label} style={{
-            flex: "1 1 240px", maxWidth: 360,
+            flex: "1 1 200px", maxWidth: 300,
             background: "rgba(5,10,30,0.6)", border: `1px solid ${color}33`,
             borderRadius: 10, padding: "16px 18px", backdropFilter: "blur(8px)",
           }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ marginBottom: 4 }}>
               <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color, textTransform: "uppercase" }}>{label}</span>
-              <span style={{ fontSize: 11, color, fontWeight: 700 }}>{pct}</span>
             </div>
             <div style={{ fontSize: 15, color: "rgba(200,225,255,0.9)", fontWeight: 700, fontFamily: "monospace", marginBottom: 6 }}>{amount}</div>
             <div style={{ fontSize: 11, color: "rgba(160,190,240,0.65)", lineHeight: 1.5 }}>{desc}</div>
