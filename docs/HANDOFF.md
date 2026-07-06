@@ -10,21 +10,61 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ headless visual-testing harness · branch `feat/headless-visual-testing` · merge-on-green
+## Current baton — ✅ nothing open · main green at `7391a40` · session ending for the night
+
+**Eight units this push, all merged on green (#184–#191).** Full detail:
+[`session-notes/2026-07-06-art-audio-terminal-heroku.md`](../artifacts/frontier-al/session-notes/2026-07-06-art-audio-terminal-heroku.md).
+Short version:
+- **#184** real faction-emblem/badge/hero art (owner-supplied images) wired into the faction
+  gate, Armory badges, and landing hero.
+- **#185** menu design system — `docs/design/MENU_DESIGN_RULES.md` spacing/radius/typography
+  tokens applied across Armory/University/Leaderboard/Commander/WorldIntel/TradeStation;
+  Orbitron adopted as `--font-display`.
+- **#186** faction-gate ambient hum + hover beep + card-lift animation (WebAudio synthesis,
+  no assets, untested by design — matches `battleSoundPlayer.ts` precedent).
+- **#187** plot-select **Tactical AI Terminal** — cloned the existing `advisor.ts`
+  Claude-Haiku pattern into `plotTerminal.ts` + a rate-limited terminal-brief endpoint +
+  typewriter readout; deterministic heuristic fallback if `ANTHROPIC_API_KEY` isn't set.
+- **#188** fixed a real duplicate-Claim/Attack-card bug (dead second render block).
+- **#189 + #191** Heroku deploy support (owner testing a second host in parallel with Fly) —
+  `engines.node` pinned, `heroku.yml` container-stack path added, then the semver range fixed
+  from `">=22 <23"` (Heroku flagged the bare operators as "dangerous") to `"22.x"`. Both fields
+  are inert for Fly's Docker build.
+- **#190** plot-select panel redesign — draggable + pop-out-minimize chip, owner asked for
+  "at least a 9.5/10," replacing the old fixed cheesy card.
+
+**Owner action items outstanding (not this session's to close):**
+1. Retry `git push heroku main` (or `heroku stack:set container` first) and report whether
+   #191 actually gets a Heroku build through — untested until the owner runs it.
+2. `fly secrets set ANTHROPIC_API_KEY=...` to light up the plot terminal's real LLM path
+   (heuristic fallback works today without it).
+3. Smoke-test #186/#190 (gate audio, draggable panel) on a real device — sandbox-verified via
+   headless screenshots only.
+
+**Not started, flagged for scoping:** Armory tactical map/radar overlay (owner wants it more
+"tactical" — needs a conversation: Google Maps API cost/ToS vs. a radar built from existing
+game data). Running `server/veritas/` continuously as the on-chain watchdog the owner asked
+for via `/agents` (candidate: Lightning AI + Discord webhook) — the module already exists,
+built and tested, just never run anywhere. `/admin` dashboard is built but unlinked.
+`MENU_DESIGN_RULES.md` follow-ups: `slate-*` palette migration in Armory/University, a few
+remaining sub-10px captions in Commander/WorldIntel panels.
+
+### Prior push — headless visual-testing harness + battle/commander/menu refactor — MERGED
 
 **BREAKTHROUGH (owner-confirmed "this is awesome"): Claude can render + screenshot the real 3D
 globe headlessly in the sandbox.** Throwaway local Postgres + real server + real client +
 headless Chromium with SwiftShader software WebGL. Captured the live 21k-plot globe, the
-faction gate, and the `?dashboard=1` widget canvas; images delivered to the owner. This unit
-checks in the harness so every future session can do visual battle testing:
-`docs/HEADLESS_VISUAL_TESTING.md` (strict recipe + traps) · `script/visual-smoke.cjs`
-(verified end-to-end) · `pnpm run smoke:visual` · CLAUDE.md memory entry ("do NOT claim
-not-browser-verifiable before trying this").
+faction gate, and the `?dashboard=1` widget canvas; images delivered to the owner. Checked in
+so every future session can do visual testing: `docs/HEADLESS_VISUAL_TESTING.md` (strict
+recipe + traps, now also documenting the Google-Fonts-never-render-in-sandbox trap and the
+stale-tsx-server dual-:5000-listener trap) · `script/visual-smoke.cjs` · `pnpm run
+smoke:visual` · CLAUDE.md memory entry ("do NOT claim not-browser-verifiable before trying
+this"). Merged as #180.
 **Owner's standing UI vision (stated 2026-07-06):** the `?dashboard=1` snap-grid widget
 dashboard IS the goal — make it the flagship experience: smooth/polished animation, toggleable
-color/info layers on the globe, widget grid snapping. Next major unit(s) after this merges.
+color/info layers on the globe, widget grid snapping. Still queued, not started.
 
-### Prior push — battle/commander/menu refactor COMPLETE (as scoped).
+### Battle/commander/menu refactor — COMPLETE (as scoped).
 
 **Owner `/goal` (2026-07-06): refactor the battle/commander architecture and the whole menu
 system, keep the NFTs, and make sure battles are actually working.** Plan doc —
@@ -69,11 +109,14 @@ with no ALGO" report that followed is very likely just an unfunded real TestNet 
 TestNet faucet.
 
 ### ➡️ Next session
-Nothing open, nothing stale. Pick a unit from
-[`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md), or continue the on-chain-testing queue
-(fund the session wallet for `smoke:testnet`, still outstanding). Owner smoke-tests outstanding:
-(1) wallet login on frontierprotocol.app — already confirmed fixed; (2) tab-switching on mobile
-+ desktop after the nav-unification deploy — not yet confirmed.
+Nothing open, nothing stale — `main` is green at `7391a40`. First check whether the owner's
+Heroku push (item 1 above) succeeded or errored again before starting new work. Otherwise pick
+from: the Armory tactical-map/radar scoping conversation, wiring up `server/veritas/` as a
+continuously-running watchdog, the `?dashboard=1` flagship-dashboard vision (still queued from
+the prior push, below), or [`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md). Owner
+smoke-tests still outstanding: (1) wallet login on frontierprotocol.app — already confirmed
+fixed; (2) tab-switching on mobile + desktop after the nav-unification deploy — not yet
+confirmed; (3) gate audio + draggable plot panel on a real device — not yet confirmed.
 
 ### ✅ #175 (branded-domain wallet/login fix) — MERGED + DEPLOYED, main@`7cde4a4c`
 
