@@ -10,23 +10,53 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: deploy cleanup (Heroku/Railway removed) · main green at `e477a4b`
+## Current baton — 🔎 AWAITING_AUDIT: faction single-source-of-truth · main green at `936a4ce`
 
-**Owner follow-up (2026-07-06, same day):** after the battle-visuals/dataviz plan
-shipped, the owner asked for four more things in one message: (1) delete Heroku
-+ Railway config from the repo, stick with Fly.io + Cloudflare Pages only —
-**this unit, done** (see
-[`session-notes/2026-07-06-deploy-cleanup-heroku-railway.md`](../artifacts/frontier-al/session-notes/2026-07-06-deploy-cleanup-heroku-railway.md));
-(2) deploy agents to playtest the game, purchase a commander, and design a
-"commander garrison" feature (assign a commander to a plot for a bonus);
-(3) send a specialized agent through the right-side in-game menu system to find
-bugs and scope a full Armory visual rework; (4) scope a "2.5D Google-Earth-style
-plot image + cinematic globe layers for factions/economy/nature" vision, building
-on today's battle cinematic work. Research for (2)-(4) is running in parallel —
-see the next session note(s) for findings once synthesized into a plan.
+**Owner /goal (2026-07-06):** the faction claim/button/menu "don't link together"
+and a claimed faction "doesn't stay globally with the user — needs to stay in
+their ALGO account." **This unit, done:** a research agent confirmed the faction
+DOES persist durably (wallet-keyed `players.playerFactionId`) and the badge+panel
+read it right, but the **entry gate + objective HUD read a divergent localStorage
+key** and never reconcile — so a new device re-prompted an already-claimed player,
+and panel switch/leave left the cache stale (`clearFaction` was dead code). Fix
+makes localStorage a faithful cache of the authoritative server record: gate
+rehydrates from `/api/auth/me` on mount, panel join/leave keeps the cache in sync.
+New pure helpers `resolveEffectiveFaction`/`shouldShowFactionGate`/`asPlayerFactionId`
+(8 new tests). tsc clean · client 285 · build green. Detail:
+[`session-notes/2026-07-06-faction-single-source-of-truth.md`](../artifacts/frontier-al/session-notes/2026-07-06-faction-single-source-of-truth.md).
 
-**Prior — ALL SIX battle-visuals/dataviz units shipped this session
-(#194–#201).** Plan:
+### 🔴 HIGH-PRIORITY QUEUE from this session's 5 research agents (do next, in order)
+
+**A. Concurrent double-spend bugs (DB-health audit) — jump the queue, these are real:**
+1. `fillTradeOrder` (`db.ts:2281`) — double-fill transfers resources twice (no
+   `FOR UPDATE`, mark-filled keys only on `id`). **CRITICAL.**
+2. `claimWinnings` (`db.ts:3278`) — not in a txn; double-claim pays out twice. **CRITICAL.**
+3. `grantWelcomeBonus`+login (`routes.ts:444`) — concurrent logins double-enqueue the
+   on-chain 500-ASCEND transfer (real funds). **BUG.**
+4. `placeBet` (`db.ts:3216`) — non-atomic double-credit. **BUG.**
+   Fix pattern already in-repo: `openLootBox`'s txn + `FOR UPDATE` + conditional
+   `UPDATE … WHERE <not-done> RETURNING` + rowCount bail; each needs a
+   fail-before/pass-after concurrency test like `lootbox.db.spec.ts`.
+**B. Quick DB/gate wins:** `players.address`/`player_faction_id` indexes (migration
+0013); extend the strict action rate-limiter to `/api/trade|markets|weapons|
+sub-parcels|factions`; a middleware-binding coverage test.
+**C. Menu/Armory (menu-audit agent):** quick fixes — Armory currency mislabeled
+"FR"→"ASCEND" (`ArmoryPanel.tsx:253`), hidden upgrade price, inverted radius; the
+Armory desktop-rail grid squeeze (`sm:grid-cols-2` in a 256px rail) is the real
+"confusing" cause; mobile/desktop battles panel drift (`BattlesPanel` uses
+`Date.now()`, `WarRoomPanel` uses `serverNow()`); delete dead `BottomNav.tsx`.
+Full Armory rework brief in the agent report.
+**D. Features (playtest + cinematic agents):** "Commander Garrison" (S — activate
+the dead `defenseBonus` field: garrison a commander on a plot → adds to that plot's
+defender power; reuse `lockedUntil` exclusivity; touches `resolve.ts` combat math,
+NOT `battle-sequence.ts`/NFT code); "Plot Satellite View" (M — reuse the unused
+`/nft/biomes/*.png` art for a 2.5D plot card); globe color layers L1 Faction Heat
+(S) / L2 Conflict Heat (M) — pure visualizations of existing data. **Needs owner
+conversation before code:** alliances/diplomacy (no mechanic exists) and "mother
+nature" environmental events (no simulation exists) — don't invent these off-hand.
+
+**Prior — ALL SIX battle-visuals/dataviz units (#194–#201) + deploy cleanup (#202)
+shipped this session.** Plan:
 [`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
 (merged as #195) — D1 truth pass (#196), B1 Muster (#197), B2 Shield Wall
 (#198), B3 Battle Scars (#199), D2 quick-win charts (#200), and **this unit,
