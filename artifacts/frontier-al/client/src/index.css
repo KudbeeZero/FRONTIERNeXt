@@ -43,10 +43,14 @@
   --chart-3: 38 92% 50%;
   --chart-4: 280 70% 55%;
   --chart-5: 142 70% 40%;
-  --font-sans: 'Raleway', sans-serif;
-  --font-serif: 'Source Serif Pro', serif;
-  --font-mono: 'IBM Plex Mono', monospace;
-  --font-display: 'Rajdhani', sans-serif;
+  /* Fonts actually loaded in index.html — keep these three in sync with the
+     Google Fonts <link> there. (Raleway/Source Serif/IBM Plex were declared
+     here for months but never loaded, so body text silently rendered in the
+     browser's fallback font.) */
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Space Grotesk', sans-serif;
   --radius: .375rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(220 20% 10% / 0.02);
   --shadow-xs: 0px 2px 0px 0px hsl(220 20% 10% / 0.03);
