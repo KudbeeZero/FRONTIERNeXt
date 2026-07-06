@@ -62,13 +62,15 @@ real lose-detection, cinematic taste pass. **Exists/Missing/Accept** → playboo
 ## Phase 6 — Algorand Wallet / Transaction Safety
 **Purpose** close the SEV1s and put every txn behind visible safety. **Exists** custody model,
 idempotency guards, `verifyAlgoPayment` (commander path), chain event log, `chain-services-audit.md`.
-**Missing** payment verification on the plot purchase route (SEV1), claim no-op surfacing (SEV2),
-`smoke:testnet` live run (settles SEV2 upgrade-note question). **Files** `server/routes.ts`
-purchase/claim blocks, `services/chain/*` (+ specs). **Agents** Transaction Watcher panel (Phase 3)
-must land first or together. **⛓ funds** — full gates: TestNet click-test + txn watcher capture +
-`/security-pass` + owner approval. **Tests** fails-before/passes-after spec per fix. **Branch**
-`fix/purchase-payment-verification`. **PR** "fix: verify ALGO payment on plot purchase (SEV1)".
-**Accept** unverified purchase rejected on TestNet with FREE_PURCHASES=false; audit doc updated.
+**Missing** — corrected 2026-07-06: payment verification already EXISTS on the purchase route
+(`routes.ts:1930`, gated on `FREE_PURCHASES=false`); what remains is a TestNet click-test proving
+it end-to-end, removing/wiring dead `forwardLiquiditySplit`, claim no-op surfacing (SEV2), and the
+`smoke:testnet` live run. **Files** `server/routes.ts` purchase/claim blocks, `services/chain/*`
+(+ specs). **Agents** Transaction Watcher panel (Phase 3) first or together. **⛓ funds** — full
+gates: TestNet click-test + txn watcher capture + `/security-pass` + owner approval. **Tests**
+fails-before/passes-after for any code change. **Branch** `fix/purchase-payment-clicktest`.
+**PR** "test: prove paid purchase path on TestNet + retire stale SEV1". **Accept** paid purchase
+verified on TestNet with FREE_PURCHASES=false; `chain-services-audit.md` updated to current truth.
 **🚫** mainnet config; ASA params of the live token.
 
 ## Phase 7 — ASCEND / Claim / Armory Safety Review
@@ -118,7 +120,9 @@ new write powers via the router in v1.
 **Purpose** durable machine-readable state: registry JSON, baton stays authoritative, retire the
 stale ASCENDANCY `PROJECT MEMORY.md` layer (mark superseded). **Exists** baton, 75 session notes,
 audits. **Missing** `docs/state/registry.json` (+ generator), supersession notices. **⛓** none.
-**Branch** `chore/state-registry-json`. **Accept** dashboard reads registry from one JSON source.
+**Branch** `chore/state-registry-json` (same unit as FIRST_10 PR 1 — this phase's remainder rides
+follow-up branches `chore/state-supersession-notices`). **Accept** dashboard reads registry from
+one JSON source.
 **🚫** deleting historical notes.
 
 ## Phase 14 — Agent Security Model

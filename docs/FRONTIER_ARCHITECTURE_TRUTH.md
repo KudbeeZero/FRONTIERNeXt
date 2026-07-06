@@ -96,12 +96,14 @@ Protected paths (per `FRONTIER_BRANCH_MACHINE.md` gate matrix — owner approval
 - `apps/aether-journey/src/lib/chain/*` (note-only, still chain-touching)
 - `ops/kestra/**` (must never point at mainnet) · branch `wip/atomic-purchase` (never merge)
 
-### Known chain defects (from `artifacts/frontier-al/docs/audit/chain-services-audit.md`)
-- **SEV1 — plot purchase is gratis**: the purchase route does not call `verifyAlgoPayment`
-  (testnet currently also runs `FREE_PURCHASES=true` intentionally; the missing verification is
-  the mainnet-blocking defect). FIX = owner-gated funds-path PR.
+### Known chain defects (vs `artifacts/frontier-al/docs/audit/chain-services-audit.md` — re-verified 2026-07-06)
+- ~~SEV1 plot purchase gratis~~ **STALE**: the purchase route DOES call `verifyAlgoPayment` + a
+  replay guard when `FREE_PURCHASES` is off (`routes.ts:1930`; independent Sonnet review
+  2026-07-06). Remaining gap: a TestNet click-test with `FREE_PURCHASES=false` to prove the path
+  end-to-end, and `forwardLiquiditySplit` is genuinely dead code (imported, never called).
 - **SEV1 — burn/clawback silently fails**: live ASA `755818217` was created without a clawback
-  address (immutable). Mainnet ASA must be created clawback-correct from genesis.
+  address (immutable). New-asset code already sets clawback correctly; the fix is "create the
+  mainnet ASA clawback-correct from genesis," not a code change.
 - SEV2 — claim-frontier silent no-op when ASA unset; SEV2 — `recordUpgradeOnChain` algosdk-v3
   Address-vs-string question (code inspection suggests v3 accepts `Address`; the
   `smoke:testnet` script settles it live once the session wallet is funded).

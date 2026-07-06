@@ -55,17 +55,18 @@
 - **Accept** panel live on TestNet data; zero write paths added.
 - **Owner action** confirm address display OK. **Rollback** revert.
 
-## PR 6 — fix: verify ALGO payment on plot purchase (SEV1) 🛑 FUNDS-GATED
-- **Branch** `fix/purchase-payment-verification` · **Gate** FULL: TestNet click-test + txn
-  watcher capture (PR 4 panel) + `/security-pass` + explicit owner approval. **No auto-merge.**
-- **Files** `server/routes.ts` purchase block (~1883) — require `verifyAlgoPayment` (already
-  proven on the commander path) when `FREE_PURCHASES` is off; `services/chain/` spec.
-- **Tests** fails-before/passes-after: unpaid purchase rejected; paid (mocked/indexer) accepted;
-  FREE_PURCHASES=true path unchanged; idempotency preserved.
-- **Accept** SEV1 in `chain-services-audit.md` marked FIXED with evidence; TestNet click-test
-  captured in the PR.
-- **Owner action** approve before merge; fund click-test wallet. **Rollback** revert restores
-  current (testnet-tolerable) behavior — never ship to mainnet without this PR.
+## PR 6 — test: prove paid purchase path + retire stale SEV1 🛑 FUNDS-GATED
+- **Corrected 2026-07-06 (Sonnet review):** the purchase route ALREADY calls `verifyAlgoPayment`
+  + replay guard when `FREE_PURCHASES` is off (`routes.ts:1930`) — do **not** re-implement it.
+- **Branch** `fix/purchase-payment-clicktest` · **Gate** FULL: TestNet click-test + txn watcher
+  capture (PR 4 panel) + `/security-pass` + explicit owner approval. **No auto-merge.**
+- **Files** spec exercising the paid path (unpaid rejected / paid accepted / FREE_PURCHASES=true
+  unchanged); remove or wire dead `forwardLiquiditySplit`; update
+  `artifacts/frontier-al/docs/audit/chain-services-audit.md` to current truth.
+- **Accept** TestNet click-test with `FREE_PURCHASES=false` captured in the PR; stale SEV1
+  retired with evidence; dead-code decision recorded.
+- **Owner action** approve before merge; fund click-test wallet. **Rollback** revert — never
+  ship to mainnet without this proof.
 
 ## PR 7 — feat: Aether companion report panel
 - **Branch** `feat/aether-companion-panel` · **Gate** merge-on-green (UI + pure composer)

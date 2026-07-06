@@ -16,9 +16,17 @@ no auto-merge per owner instruction).
 - No HERMES/Mission-Control/factory agents exist in code — those docs are PLANNED blueprints.
 - 12 live `setInterval` workers incl. the funds-touching ASCEND transfer worker (kill-switch
   priority #1); AI faction engine is double-gated on `AI_ENABLED`.
-- SEV1s from `chain-services-audit.md` surfaced into the roadmap: purchase route lacks
-  `verifyAlgoPayment` (→ FIRST_10 PR 6, fully gated); live ASA has no clawback (mainnet ASA must
-  be clawback-correct at genesis).
+- Chain defects re-verified: the audit doc's "purchase lacks `verifyAlgoPayment`" claim is STALE
+  (route verifies at `routes.ts:1930` when FREE_PURCHASES off — caught by the independent Sonnet
+  review, corrected in all three docs; FIRST_10 PR 6 reframed as click-test + dead-code cleanup).
+  Still real: live ASA has no clawback (mainnet ASA must be clawback-correct at genesis);
+  `forwardLiquiditySplit` is dead code.
+
+## Final Sonnet review (pre-merge, owner-directed)
+Verdict **CONCERNS → resolved**: 11 spot-checks, 10 ✅ exact; 1 ⚠ (the stale SEV1 above) fixed
+before merge. Notes: `docs/audits/feat-frontier-architecture-agent-roadmap.md`. Reviewer confirmed
+understanding of the system (workers map, no-HERMES reality, transfer-worker kill-switch priority,
+genuine open SEV1s, one-PR discipline).
 - Kestra deployment state unknown; fly.toml ships dev flags (testnet-correct, mainnet-blocking).
 - Stale marked: `ROADMAP.md` (March 2026), `PROJECT MEMORY.md` layer, root `replit.md`, root
   `night-reports/`.
