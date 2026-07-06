@@ -585,25 +585,6 @@ export function CommandCenterPanel({
           </div>
         )}
 
-        {/* Show selected enemy / unclaimed parcel when no owned plots match */}
-        {selectedParcel &&
-          player &&
-          selectedParcel.ownerId !== player.id &&
-          !filteredParcels.find((p) => p.id === selectedParcel.id) && (
-            <div className="mt-3">
-              <SelectedParcelActions
-                parcel={selectedParcel}
-                player={player}
-                onMine={onMine}
-                onUpgrade={onUpgrade}
-                onAttack={onAttack}
-                isMiningThisParcel={
-                  isMiningParcel ? isMiningParcel(selectedParcel.id) : isMining
-                }
-                isUpgrading={isUpgrading}
-              />
-            </div>
-          )}
       </ScrollArea>
     </div>
   );
