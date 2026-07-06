@@ -116,8 +116,13 @@ Server: `AI_ENABLED` (master AI switch, double-checked at 11+ sites) · `FREE_PU
 Client: `VITE_DEV_MODE`, `VITE_DEV_AUTOLOGIN`, `VITE_TEST_GLOBE` (must read false pre-deploy),
 `VITE_DEBUG`, `VITE_ALGORAND_NETWORK`, `VITE_{ALGOD,INDEXER,API,WS,GAME}_URL`.
 Non-env: dashboard v2 flag (`?dashboard=1` + localStorage).
-⚠ `fly.toml` currently ships `VITE_DEV_MODE=true`, `VITE_DEV_AUTOLOGIN=true`,
-`FREE_PURCHASES=true` — correct for the TestNet playtest, **must be removed before mainnet**.
+`fly.toml` ships `VITE_DEV_MODE=true`, `FREE_PURCHASES=true` for the TestNet playtest — **must
+be removed before mainnet**. `VITE_DEV_AUTOLOGIN` was ALSO `true` here until 2026-07-06: it
+zero-click-hijacked every visitor (real wallet or not) into the shared dev/test identity on page
+load, and `WalletContext.disconnect()` never cleared that dev session, so "Disconnect" silently
+did nothing — a real production bug
+(`artifacts/frontier-al/session-notes/2026-07-06-fix-dev-autologin-wallet-hijack.md`). Removed
+from `fly.toml`; `disconnect()` now also ends any dev session as defense in depth.
 
 ## 8. Tests / CI / deploy (real)
 

@@ -15,11 +15,13 @@ primary_region = 'ord'
   # build. Remove these args (and DEV_LOGIN_ENABLED) to require real wallets again.
   [build.args]
     VITE_DEV_MODE = 'true'
-    # Zero-click: auto-sign-in as the shared test player on page load, so a
-    # no-wallet visitor lands straight in the game (no faction-gate dependency,
-    # works for returning visitors too). TestNet playtest only; pair with
-    # DEV_LOGIN_ENABLED. Disables real-wallet login while on — remove to restore.
-    VITE_DEV_AUTOLOGIN = 'true'
+    # VITE_DEV_AUTOLOGIN was 'true' here — zero-click sign-in as the shared
+    # test player on EVERY page load, for EVERY visitor, real wallet or not.
+    # Removed 2026-07-06: it was silently hijacking real players into the
+    # non-spendable dev/test identity (can't sign out, can't purchase land —
+    # see session-notes/2026-07-06-fix-dev-autologin-wallet-hijack.md).
+    # The manual "⚙ Dev / Test Mode" button (VITE_DEV_MODE above) still works
+    # for opt-in no-wallet playtesting; it just no longer fires automatically.
 
 [env]
   ALGORAND_NETWORK = 'testnet'
