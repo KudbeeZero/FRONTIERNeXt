@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
+import heroPlanetImg from "@assets/landing-hero-planet.jpg";
 import { GAME_URL, goToGame } from "@/lib/gameUrl";
 import { apiRequest } from "@/lib/queryClient";
 import { setAuthToken } from "@/lib/authToken";
@@ -550,6 +551,22 @@ export default function LandingPage() {
       overflow: "hidden", fontFamily: "'Courier New', 'SF Mono', monospace", color: "#e0eaff",
     }}>
       <Starfield />
+
+      {/* Hero background art — the hex-grid planet + fleet render, sitting behind the
+          animated Planet/Rocket components (untouched) purely as atmospheric depth.
+          Masked to fade out toward the page content below so it never competes with
+          the hero text/buttons. */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
+          backgroundImage: `url(${heroPlanetImg})`,
+          backgroundSize: "cover", backgroundPosition: "center 30%", backgroundRepeat: "no-repeat",
+          opacity: 0.7,
+          WebkitMaskImage: "linear-gradient(180deg, black 0%, black 35%, transparent 75%)",
+          maskImage: "linear-gradient(180deg, black 0%, black 35%, transparent 75%)",
+        }}
+      />
 
       {/* Scan-line overlay */}
       <div style={{
