@@ -13,24 +13,16 @@
  * dismiss it.
  */
 import { useState } from "react";
-import { Cpu, Castle, Swords, Compass, Mail, Wallet, ChevronsRight, ChevronsLeft } from "lucide-react";
+import { Mail, Wallet, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { PLAYER_FACTIONS, chosenFaction, chooseFaction, nextFactionSync } from "@/lib/factions";
+import { FACTION_EMBLEMS } from "@/lib/factionEmblems";
 import { DEV_MODE, startDevSession } from "@/lib/devSession";
 import { getAuthToken, setAuthToken } from "@/lib/authToken";
 import { goToGame } from "@/lib/gameUrl";
 import { validateWaitlistSignup, type PlayerFactionId } from "@shared/waitlist";
 import { missionBriefing } from "@shared/battleObjective";
 import { Starfield } from "@/pages/landing-shared";
-
-/** One glyph per faction, matched by hand to its playstyle — not data-driven since
- *  it's purely decorative and PLAYER_FACTIONS has no icon field. */
-const FACTION_ICON: Record<PlayerFactionId, typeof Cpu> = {
-  "NEXUS-7": Cpu,
-  KRONOS: Castle,
-  VANGUARD: Swords,
-  SPECTRE: Compass,
-};
 
 /** Small glowing tick mark in each corner of the HUD frame — pure decoration. */
 function CornerTick({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
@@ -205,7 +197,6 @@ export function FactionSelectGate() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 22, justifyContent: "center", maxWidth: 1240 }}>
           {PLAYER_FACTIONS.map((f) => {
             const active = selected === f.id;
-            const Icon = FACTION_ICON[f.id];
             return (
               <button
                 key={f.id}
@@ -224,7 +215,11 @@ export function FactionSelectGate() {
                   animation: "faction-card-pulse 3.2s ease-in-out infinite",
                 }}
               >
-                <Icon size={38} color={f.color} strokeWidth={1.5} style={{ marginBottom: 14, filter: `drop-shadow(0 0 10px ${f.color})` }} />
+                <img
+                  src={FACTION_EMBLEMS[f.id]}
+                  alt={`${f.name} emblem`}
+                  style={{ width: 56, height: 56, marginBottom: 14, filter: `drop-shadow(0 0 10px ${f.color})` }}
+                />
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: f.color, letterSpacing: "0.03em", textShadow: `0 0 18px ${f.color}90` }}>{f.name}</div>
                 <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(150,180,255,0.6)", margin: "4px 0 14px" }}>
                   {f.behavior}

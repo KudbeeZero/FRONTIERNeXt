@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ARCHETYPE_IMAGES } from "./archetypeImages";
+import { BADGE_TIER_IMAGES } from "./badgeImages";
 import {
   ATTRIBUTE_KEYS,
   ATTRIBUTE_BUDGET,
@@ -170,12 +171,17 @@ function ArmoryInner({
           </div>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
-          {BADGE_KEYS.map((k: BadgeKey) => (
-            <span key={k} className="rounded px-2 py-1 text-xs font-semibold"
-              style={{ background: "#11182b", color: TIER_COLOR[profile.badges[k] ?? "none"], border: `1px solid ${TIER_COLOR[profile.badges[k] ?? "none"]}55` }}>
-              {BADGE_DEFS[k].name}: {(profile.badges[k] ?? "none").replace("_", " ")}
-            </span>
-          ))}
+          {BADGE_KEYS.map((k: BadgeKey) => {
+            const tier = profile.badges[k] ?? "none";
+            const medallion = BADGE_TIER_IMAGES[tier];
+            return (
+              <span key={k} className="flex items-center gap-1.5 rounded px-2 py-1 text-xs font-semibold"
+                style={{ background: "#11182b", color: TIER_COLOR[tier], border: `1px solid ${TIER_COLOR[tier]}55` }}>
+                {medallion && <img src={medallion} alt={tier} className="h-4 w-4 rounded-full object-cover" />}
+                {BADGE_DEFS[k].name}: {tier.replace("_", " ")}
+              </span>
+            );
+          })}
         </div>
       </section>
 
