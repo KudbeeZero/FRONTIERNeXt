@@ -9,9 +9,10 @@
  * claim, manage, future attack/defend/commander assignment.
  */
 
-import { X, MapPin, Shield, Trees, Mountain, Flame, Droplets, Snowflake, Zap } from "lucide-react";
+import { useState } from "react";
+import { X, MapPin, Shield, Trees, Mountain, Flame, Droplets, Snowflake, Zap, GripHorizontal, Minus } from "lucide-react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,22 @@ function DesktopPlotPanel({
   // Use default top-right position when no hint
   const cssPosition = DEFAULT_DESKTOP_POSITION;
 
+  // Minimized state — collapses the card to a small glowing chip that pops
+  // back out on click, instead of the card being a stationary fixture. Resets
+  // whenever a *different* plot is selected so re-selecting always shows the
+  // full card first.
+  const [minimized, setMinimized] = useState(false);
+  const [lastPlotId, setLastPlotId] = useState(parcel.id);
+  if (parcel.id !== lastPlotId) {
+    setLastPlotId(parcel.id);
+    setMinimized(false);
+  }
+
+  // Drag is scoped to the header handle only (dragListener={false} +
+  // dragControls), so the scrollable body and buttons stay fully clickable —
+  // only grabbing the header moves the card.
+  const dragControls = useDragControls();
+
   let ownershipBadge: { label: string; className: string };
   if (isOwnedByPlayer) {
     ownershipBadge = { label: "Owned by You", className: "bg-green-500/20 text-green-400 border-green-500/30" };
@@ -119,36 +136,68 @@ function DesktopPlotPanel({
   // trapped behind an ancestor's transform/blur or the right tab rail.
   return createPortal(
     <AnimatePresence>
-      {isOpen && (
+      {isOpen && minimized && (
+        <motion.button
+          key={`chip-${parcel.id}`}
+          onClick={() => setMinimized(false)}
+          className={cn("hidden md:flex fixed items-center justify-center rounded-full", ZClass.selectedPlotPanel)}
+          style={{
+            ...cssPosition,
+            width: 52, height: 52,
+            background: `radial-gradient(circle, ${biomeColor}40 0%, rgba(8,12,20,0.9) 75%)`,
+            border: `1.5px solid ${biomeColor}`,
+            boxShadow: `0 0 18px ${biomeColor}80, 0 0 36px ${biomeColor}30`,
+          }}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.4 }}
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.94 }}
+          transition={{ type: "spring", stiffness: 500, damping: 28 }}
+          aria-label={`Reopen ${biomeLabel} plot ${parcel.plotId} panel`}
+          data-testid="selected-plot-panel-chip"
+        >
+          <BiomeIcon className="w-5 h-5" style={{ color: biomeColor }} />
+        </motion.button>
+      )}
+
+      {isOpen && !minimized && (
         <motion.div
-          key="desktop-panel"
+          key={`panel-${parcel.id}`}
+          drag
+          dragControls={dragControls}
+          dragListener={false}
+          dragMomentum={false}
+          dragElastic={0.08}
           className={cn(
             "hidden md:flex fixed flex-col w-80",
             ZClass.selectedPlotPanel,
-            "bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-2xl",
-            "overflow-hidden max-h-[calc(100vh-120px)]"
+            "bg-card/95 backdrop-blur-md border rounded-2xl overflow-hidden max-h-[calc(100vh-120px)]"
           )}
-          style={cssPosition}
+          style={{ ...cssPosition, borderColor: `${biomeColor}55`, boxShadow: `0 0 30px ${biomeColor}25, 0 12px 40px rgba(0,0,0,0.5)` }}
           initial={{ opacity: 0, scale: 0.95, y: -8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -8 }}
+          whileHover={{ scale: 1.008 }}
           transition={{ type: "spring", stiffness: 400, damping: 35 }}
           data-testid="selected-plot-panel-desktop"
         >
-          {/* Header */}
+          {/* Header — grab anywhere here to drag the card around the screen */}
           <div
-            className="flex items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0"
+            onPointerDown={(e) => dragControls.start(e)}
+            className="flex items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0 cursor-grab active:cursor-grabbing select-none"
             style={{ borderLeftColor: biomeColor, borderLeftWidth: 3 }}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <GripHorizontal className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                 style={{ backgroundColor: `${biomeColor}33` }}
               >
                 <BiomeIcon className="w-4.5 h-4.5" style={{ color: biomeColor }} />
               </div>
-              <div>
-                <p className="font-display uppercase tracking-wider text-sm font-semibold text-foreground">
+              <div className="min-w-0">
+                <p className="font-display uppercase tracking-wider text-sm font-semibold text-foreground truncate">
                   {biomeLabel} Plot #{parcel.plotId}
                 </p>
                 <p className="text-[10px] text-muted-foreground font-mono">
@@ -156,13 +205,25 @@ function DesktopPlotPanel({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              aria-label="Close panel"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setMinimized(true)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                aria-label="Minimize panel"
+                data-testid="button-minimize-plot-panel"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={onClose}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                aria-label="Close panel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Body */}
