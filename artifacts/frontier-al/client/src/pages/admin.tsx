@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { resolveApiUrl } from "@/lib/queryClient";
 
 const statusVariant = (s: string): "secondary" | "destructive" | "outline" =>
   s === "complete" ? "secondary" : s === "failed" || s === "timeout" ? "destructive" : "outline";
@@ -38,7 +39,7 @@ function useAdminKey() {
 }
 
 function adminFetch(path: string, key: string, init?: RequestInit) {
-  return fetch(path, {
+  return fetch(resolveApiUrl(path), {
     ...init,
     headers: { ...(init?.headers ?? {}), "x-admin-key": key, "content-type": "application/json" },
   });

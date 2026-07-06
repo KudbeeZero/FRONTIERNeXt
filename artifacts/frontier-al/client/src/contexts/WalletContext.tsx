@@ -251,6 +251,11 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const [authVersion, setAuthVersion] = useState(0);
   const authAttemptedFor = useRef<string | null>(null);
   const isReconnecting = useRef(false);
+  // Guards against a second connect() firing while one is already in flight
+  // (e.g. a double-tap re-opening the picker inside the 250ms deferred-open
+  // window) — a re-entrant call would purge the pairing the first attempt
+  // just opened, turning a good connect into a guaranteed failure.
+  const connectInFlight = useRef(false);
 
   // Did THIS browser have a wallet connected last load? If so we expect an async
   // resume to land shortly, so we hold the "restoring" spinner across the
@@ -383,6 +388,8 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const clearError = useCallback(() => setError(null), []);
 
   const connect = useCallback(async (walletId: string) => {
+    if (connectInFlight.current) return;
+    connectInFlight.current = true;
     setIsConnecting(true);
     setError(null);
 
@@ -434,6 +441,7 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
       }
     } finally {
       setIsConnecting(false);
+      connectInFlight.current = false;
     }
   }, [wallets]);
 
