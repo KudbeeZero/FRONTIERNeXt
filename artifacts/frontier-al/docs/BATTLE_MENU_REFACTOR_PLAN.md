@@ -109,6 +109,29 @@ regression in "which tab am I on" or a dropped prop during the registry extracti
 by migrating the flag-gated (off-by-default) dashboard path first, and by keeping panel
 components themselves untouched.
 
+**Progress (2026-07-06):** step 1 shipped — the dashboard-canvas widget map now derives from a
+`dashboardPanelRegistry` array instead of a hand-rolled object literal (merged in
+`feat/battle-menu-architecture-refactor`). **Migrating the desktop rail is NOT a drop-in reuse
+of that same registry** — a closer read of the rail's ternary chain found real per-context
+differences the dashboard-widget registry doesn't capture:
+- Sizing: dashboard widgets use `h-full` (their `DashboardCanvas` frame gives an explicit height);
+  the rail is a `flex flex-col` container and needs `flex-1` on the same panels, not `h-full`.
+- Wrapping: `ArmoryPanel` and `UniversityPanel` get external wrapper `<div className="...">`s in
+  the rail (`<div className="flex-1 overflow-y-auto"><ArmoryPanel .../></div>`) but a bare
+  `className` prop (or no wrapper) in the dashboard-widget version.
+- The rail's ternary chain also has the `"rankings"` fallthrough bug noted above (no explicit
+  branch — it's the final `else`), which the dashboard registry doesn't reproduce since it uses
+  an explicit `rankings` key.
+
+Reusing the dashboard registry's `content: ReactNode` as-is for the rail would silently break
+desktop layout (wrong sizing class, missing wrapper divs) on the path every desktop player hits
+by default — unlike the flag-gated dashboard canvas. The registry needs to change from a static
+`content: ReactNode` to a `render: (ctx) => ReactNode` factory so each consumer (dashboard, rail,
+eventually mobile) supplies its own sizing/wrapper, before the rail migration is safe to attempt.
+**This is its own follow-up unit**, not a continuation of the same commit — it touches the
+default-visible desktop path and deserves its own focused review rather than being rushed
+alongside the low-risk dashboard step.
+
 ### Phase B — Consolidate the battle-watching UI (Task #3)
 **Goal:** One `battle-theater/` (or similar) module owning "render a battle in progress /
 just resolved," replacing the ad hoc spread across `BattleWatchModal`, `BattleSequenceTimeline`,
