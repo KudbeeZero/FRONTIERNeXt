@@ -10,7 +10,14 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ AWAITING_OWNER_REVIEW · PR **#174** (FRONTIER docs suite) · branch `feat/frontier-architecture-agent-roadmap` · `main` @ `eab3eef`
+## Current baton — ✅ CLEAR · PR **#174** (FRONTIER docs suite) merged-on-green after independent Sonnet review (owner-directed via /goal) · no open PRs
+
+**Next session: nothing to audit — start the next unit directly. Queue:
+[`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md) in order (PR 1 `chore/state-registry-json` →
+PR 2 kill switches → PR 3 Mission Control shell…). Sonnet review notes:
+[`docs/audits/feat-frontier-architecture-agent-roadmap.md`](./audits/feat-frontier-architecture-agent-roadmap.md).
+Owner actions outstanding: fund session wallet `JD7CFMNMX4PO...T7IKZA` for `smoke:testnet` ·
+decide api-server/lib island · prune ~140 dead remote branches (needs delete-scoped token).**
 
 **This chat (unit 3, owner's new plan): six FRONTIER docs from a fresh read-only repo audit —
 [`FRONTIER_ARCHITECTURE_TRUTH`](./FRONTIER_ARCHITECTURE_TRUTH.md) ·
@@ -19,10 +26,7 @@
 [`FRONTIER_AGENT_DASHBOARD_SPEC`](./FRONTIER_AGENT_DASHBOARD_SPEC.md) ·
 [`FRONTIER_FIRST_10_PRS`](./FRONTIER_FIRST_10_PRS.md) ·
 [`FRONTIER_BRANCH_MACHINE`](./FRONTIER_BRANCH_MACHINE.md). Docs-only.
-🛑 Owner instructed: DO NOT auto-merge #174 — owner reviews it.**
-
-**Next after #174:** FIRST_10_PRS in order (registry JSON → kill switches → Mission Control shell…);
-`smoke:testnet` once the owner funds session wallet `JD7CFMNMX4PO2HSJNRYBXUWR3W7YYLC5M3GMK4MEOCEWHZLAU2IKT7IKZA`.
+Merged after CI green + an independent Sonnet review pass (owner lifted the hold via /goal).
 Prior units this push: #172 (repo refactor + smoke harness) and #173 (Next-Level Playbook) merged green.
 
 **This chat, unit 2: [`NEXT_LEVEL_PLAYBOOK.md`](../artifacts/frontier-al/docs/NEXT_LEVEL_PLAYBOOK.md)** —
