@@ -353,7 +353,7 @@ function RankingsTab() {
   return (
     <div className="flex-1 overflow-y-auto px-3 pb-3 pt-2">
       {/* Header row */}
-      <div className="grid grid-cols-[2rem_1fr_3rem_3rem_3rem] gap-1 px-2 py-1 text-[10px] text-muted-foreground uppercase tracking-wide font-display mb-1">
+      <div className="grid grid-cols-[2rem_1fr_3rem_3rem_3rem] gap-1 px-3 py-2 text-[10px] text-muted-foreground uppercase tracking-wide font-display mb-1">
         <span>#</span>
         <span>Commander</span>
         <span className="text-right">Filled</span>

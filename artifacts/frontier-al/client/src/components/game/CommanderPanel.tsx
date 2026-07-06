@@ -271,20 +271,19 @@ export function CommanderPanel({
 
         {/* HUD label */}
         <p
-          className="text-[8px] font-mono mb-1.5"
-          style={{ color: "rgba(0,229,255,0.4)", letterSpacing: "0.3em" }}
+          className="text-[10px] font-mono mb-1.5 tracking-[0.2em]"
+          style={{ color: "rgba(0,229,255,0.4)" }}
         >
           ◈ FRONTIER AL · COMMANDER HUD
         </p>
 
         {/* Title */}
         <h2
-          className="font-display text-sm font-bold uppercase mb-3"
+          className="font-display text-sm font-bold uppercase tracking-wide mb-3"
           style={{
             background: "linear-gradient(135deg, #60a5fa 0%, #a78bfa 60%, #f472b6 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
-            letterSpacing: "0.15em",
           }}
         >
           COMMANDERS
@@ -302,7 +301,7 @@ export function CommanderPanel({
           ].map(({ icon, value, label, color }) => (
             <div key={label} className="flex items-center gap-2">
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
                 style={{
                   background: `rgba(${hexToRgb(color)},0.08)`,
                   border: `1px solid rgba(${hexToRgb(color)},0.25)`,
@@ -313,7 +312,7 @@ export function CommanderPanel({
               </div>
               <div>
                 <p className="text-xs font-bold leading-none" style={{ color: "rgba(255,255,255,0.9)" }}>{value}</p>
-                <p className="text-[9px] mt-0.5" style={{ color: "rgba(100,160,255,0.5)" }}>{label}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: "rgba(100,160,255,0.5)" }}>{label}</p>
               </div>
             </div>
           ))}
@@ -446,7 +445,7 @@ export function CommanderPanel({
                 })}
                 {/* Empty filler card so last row is always even */}
                 {rosterSlice.length % 2 === 1 && (
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] aspect-square flex items-center justify-center">
+                  <div className="rounded-md border border-white/5 bg-white/[0.02] aspect-square flex items-center justify-center">
                     <span className="text-[10px] text-white/20 font-display uppercase">Empty</span>
                   </div>
                 )}
@@ -587,7 +586,7 @@ export function CommanderPanel({
                       value={attackMode === "plot" ? targetParcelId : targetPlotId}
                       onChange={e => attackMode === "plot" ? setTargetParcelId(e.target.value) : setTargetPlotId(e.target.value)}
                       placeholder={attackMode === "plot" ? "Parcel ID…" : "Plot #…"}
-                      className="flex-1 bg-muted/30 border border-border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-primary"
+                      className="flex-1 bg-muted/30 border border-border rounded-md px-2 py-1 text-xs font-mono focus:outline-none focus:border-primary"
                     />
                     {selectedParcel && (
                       <Button size="sm" variant="outline" className="h-7 px-2 text-[9px]" onClick={() => { setTargetParcelId(selectedParcel.id); setTargetPlotId(String(selectedParcel.plotId)); }}>

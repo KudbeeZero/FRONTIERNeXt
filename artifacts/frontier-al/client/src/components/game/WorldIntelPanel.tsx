@@ -345,10 +345,10 @@ export function WorldIntelPanel({ className, onReplayStateChange, activeBattleCo
     <div className={cn("flex flex-col h-full bg-background text-foreground", className)}>
 
       {/* ── HEADER ── */}
-      <div className="px-3 pt-3 pb-2 border-b border-border shrink-0">
+      <div className="px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h2 className="font-mono text-xs font-bold uppercase tracking-[0.25em] text-primary">
+            <h2 className="font-display text-sm font-bold uppercase tracking-wide text-primary">
               WORLD INTEL
             </h2>
             {isLive && (

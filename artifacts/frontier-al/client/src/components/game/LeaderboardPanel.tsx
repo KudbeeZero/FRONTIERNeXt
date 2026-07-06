@@ -17,7 +17,7 @@ function LeaderboardRow({ entry, rank, isSelf }: { entry: LeaderboardEntry; rank
   return (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 border-b border-border/30 last:border-0",
+        "flex items-center gap-3 p-4 border-b border-border/30 last:border-0",
         isSelf && "bg-primary/5"
       )}
       data-testid={`leaderboard-row-${entry.playerId}`}
