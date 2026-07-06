@@ -463,6 +463,12 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     } catch {
       /* best-effort */
     }
+    // A lingering dev/test session (e.g. from VITE_DEV_AUTOLOGIN) must be
+    // cleared here too — otherwise `shouldUseDevIdentity` immediately
+    // re-shadows the now-genuinely-disconnected wallet with the dev identity
+    // on the very next render, and "Disconnect" silently does nothing from
+    // the player's point of view.
+    if (shouldEndDevSessionOnDisconnect(DEV_MODE, devSessionActive())) endDevSession();
     void logoutWallet();
   }, [wallets]);
 
@@ -552,6 +558,20 @@ export function shouldUseDevIdentity(
   devActive: boolean,
 ): boolean {
   return devMode && devActive && walletStatus === "disconnected";
+}
+
+/**
+ * Whether an explicit user disconnect should also end an active dev/test
+ * session. Without this, a lingering dev session (started by
+ * `VITE_DEV_AUTOLOGIN` or the manual Dev/Test button) survives "Disconnect" —
+ * so {@link shouldUseDevIdentity} fires again on the next render and the dev
+ * identity re-shadows the wallet the player just tried to leave.
+ */
+export function shouldEndDevSessionOnDisconnect(
+  devMode: boolean,
+  devActive: boolean,
+): boolean {
+  return devMode && devActive;
 }
 
 export function useWallet() {
