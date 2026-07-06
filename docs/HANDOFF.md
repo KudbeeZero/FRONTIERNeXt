@@ -10,27 +10,35 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: PR for `claude/session-failure-review-rwsbol` (handoff repair) · main green + deployed at `c0850c0`
+## Current baton — 🔎 AWAITING_AUDIT: battle-visuals + dataviz PLAN (docs-only PR) · main green at `6689373`
 
-**What happened:** the previous session (`claude/session-ncb8qx`) shipped **PR #193** —
-the critical `VITE_DEV_AUTOLOGIN` production wallet-hijack fix + a battle-cinematic
-playtest verification — merged to `main` as `c0850c0`, **then the session died before
-`/closeout`**, leaving this baton stale. This session ran the retroactive audit:
-**PASS** — CI green on head and merge commit, Fly deploy succeeded (the fix is LIVE),
-tests re-run locally and match (tsc clean · server 439/14 skipped · client 230).
-Full evidence + findings: [`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
+**Owner /goal (2026-07-06):** three new battle-engine features for map/cinematic
+visuals + a dataviz pass over the tokenomics/landing/economics pages. Two research
+agents mapped the battle/cinematic architecture and the economic surfaces; the
+synthesized draft plan is
+[`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
+— **docs-only, no code changes**. Selected features: **B1 War Council Muster**
+(attacker build-up) · **B2 Shield Wall** (brace-beat dome) · **B3 Battle Scars**
+(persistent aftermath decals) — all real-data-driven, zero server changes, additive
+globe layers. Dataviz: **D1 truth pass first** — the research found the public
+landing page claims a **10B total supply (real ASA is 1B)** and the tokenomics
+page's "Circulating Supply Trend" chart is **synthetic sine-wave data** (HARD-RULE
+violation on a live surface); then D2 quick-win charts (faction control + battle
+pulse from existing endpoints), D3 real supply-history (needs a snapshot table).
+
+**Next session:** audit + merge the plan PR, then start **Unit D1** (truth pass) per
+the plan's execution order. Earlier this session: retroactive audit of #193 PASSED
+and merged as #194 (`6689373`) — see
+[`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
 
 **Owner smoke test outstanding (the real verification of #193):** on
 frontierprotocol.app — (1) landing no longer auto-enters the game, (2) a real wallet
 stays connected in `/game`, (3) Disconnect actually reaches the connect-gate,
 (4) a land purchase with the real wallet succeeds.
 
-**Standing mainnet-gate item (deliberate for TestNet, flagged in the audit):**
-`VITE_DEV_MODE` + `DEV_LOGIN_ENABLED` still ship `'true'` in production fly.toml —
-the manual Dev/Test button remains open to any visitor. Must be removed before mainnet.
-
-**Next session:** audit + merge this handoff-repair PR (docs-only), then pick up the
-queue below — nothing else is open.
+**Standing mainnet-gate item:** `VITE_DEV_MODE` + `DEV_LOGIN_ENABLED` still ship
+`'true'` in production fly.toml — deliberate for TestNet; must be removed before
+mainnet.
 
 ### Prior push — eight units, all merged on green (#184–#191) + closeout #192
 
