@@ -10,32 +10,35 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: fix claimWinnings double-payout · main green at `5862881`
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `69c9ea9`
 
 **Owner /goal (2026-07-06): "nothing gets lost or repeats itself."** Fixing the
-DB-health audit's concurrent double-spends one unit at a time. **This unit fixes
-#2 (the worst — no transaction at all): `claimWinnings`** (`db.ts:3294`) — bare
-statements, unlocked positions read, mark-claimed keyed only on `id`, read-then-
-write credit → concurrent double-claim pays winnings twice. Fixed with the proven
-pattern: wrapped in a txn + `FOR UPDATE` on the positions + conditional
-`UPDATE … WHERE claimed=false` (rowCount bail) before crediting + relative credit;
-narrowed the market/positions `SELECT *`s. New gated `claimwinnings.db.spec.ts` —
-**deterministic** fail-before/pass-after (a raw-connection `FOR UPDATE` lock forces
-the overlap; a naive `Promise.all` race is timing-dependent and can mask the bug —
-lesson learned this unit). **Proven against throwaway Postgres.** Also this session:
-`ci: --no-file-parallelism` on `test:server:db` (the DB specs share the `players`
-table and vitest parallel workers clobbered it — surfaced as a real CI failure on
-#204, now fixed). tsc clean · server 446/18 skipped (+2 gated) · build green.
+DB-health audit's concurrent double-spends one unit at a time. **#205 (claimWinnings)
+is merged** — was the worst finding (no transaction at all): bare statements,
+unlocked positions read, mark-claimed keyed only on `id`, read-then-write credit →
+concurrent double-claim paid winnings twice. Fixed with the proven pattern: wrapped
+in a txn + `FOR UPDATE` on the positions + conditional `UPDATE … WHERE claimed=false`
+(rowCount bail) before crediting + relative credit; narrowed the market/positions
+`SELECT *`s. New gated `claimwinnings.db.spec.ts` — **deterministic** fail-before/
+pass-after (a raw-connection `FOR UPDATE` lock forces the overlap; a naive
+`Promise.all` race is timing-dependent and can mask the bug — lesson learned this
+unit). **Proven against throwaway Postgres.** Also this session: `ci:
+--no-file-parallelism` on `test:server:db` (the DB specs share the `players` table
+and vitest parallel workers clobbered it — surfaced as a real CI failure on #204,
+now fixed). tsc clean · server 446/18 skipped (+2 gated) · build green.
 Detail: [`session-notes/2026-07-06-fix-claim-winnings-double-payout.md`](../artifacts/frontier-al/session-notes/2026-07-06-fix-claim-winnings-double-payout.md).
 
-Prior this session: #203 faction single-source-of-truth; #204 fillTradeOrder
-double-spend (same pattern, gated real-Postgres test).
+This session, in order, all merged on green: #202 (Heroku/Railway deleted, Fly.io +
+Cloudflare Pages standardized), #203 (faction single-source-of-truth), #204
+(fillTradeOrder double-spend), #205 (claimWinnings double-payout). **Working branch
+has been reset to a clean `origin/main` (`69c9ea9`) — no uncommitted changes, no
+open PR.** Next session starts fresh from here; no audit needed first.
 
 ### 🔴 HIGH-PRIORITY QUEUE from this session's 5 research agents
 
-**A. Concurrent double-spend bugs (DB-health audit) — ✅ #1 (#204) + #2 done; remaining:**
+**A. Concurrent double-spend bugs (DB-health audit) — ✅ #1 (#204) + #2 (#205) done; remaining:**
 3. `grantWelcomeBonus`+login (`routes.ts:444`) — concurrent logins double-enqueue the
-   on-chain 500-ASCEND transfer (real funds). **BUG — NEXT.** Crosses into the route
+   on-chain 500-ASCEND transfer (real funds). **BUG — NEXT UP.** Crosses into the route
    layer (enqueue is in the login handler); fix = atomic
    `UPDATE … WHERE welcomeBonusReceived=false RETURNING` gating the enqueue on rowCount.
 4. `placeBet` (`db.ts:3216`) — non-atomic double-credit. **BUG.**
