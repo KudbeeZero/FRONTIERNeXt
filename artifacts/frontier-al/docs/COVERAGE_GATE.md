@@ -16,10 +16,15 @@ suite actually exercises:
 - `shared/economy-config.ts` — economy math
 - `shared/weapon-economy.ts` — weapon pricing/economy
 - `server/engine/battle/resolve.ts` — battle resolution
+- `server/engine/battle/replayLog.ts` — battle replay log construction (2026-07-06: had a spec,
+  wasn't gated)
+- `server/engine/battle/verify.ts` — battle proof/audit hash (2026-07-06: had a spec, wasn't gated)
+- `server/engine/battle/tuning.ts` — balance constants (2026-07-06: had a spec, wasn't gated)
+- `server/engine/battle/random.ts` — seeded RNG (2026-07-06: had a spec, wasn't gated)
 - `server/engine/markets/resolve.ts` — market resolution
 
 **Thresholds:** `lines 80 / statements 80 / functions 80 / branches 70`.
-**Current (measured):** lines **93%**, statements 91%, functions 90%, branches 78% — all clear.
+**Current (measured):** lines **94%**, statements 92%, functions 91%, branches 80% — all clear.
 
 Run locally:
 
@@ -41,6 +46,12 @@ wallet — these are the **"blocked" rows** in the `/test-matrix` framework:
 - `server/routes.ts`, `server/index.ts` — HTTP/WS wiring
 - `server/engine/season`, `server/engine/narrative` — stateful managers / flavor
 - `server/veritas/**`, `server/engine/battle/{sim,smoke}.ts` — dev/grind tooling
+- **`server/engine/ai/reconquest.ts`** — AI faction reconquest/attack logic. **Honest gap, not an
+  oversight**: as of 2026-07-06 this file has **no spec file at all** (0% coverage, confirmed by
+  temporarily adding it to the gate's `include` and observing `reconquest.ts | 0 | 0 | 0 | 0`).
+  It was left out of this gate rather than added, because a 0%-covered module diluted into a
+  multi-file global-aggregate gate would still show "80%+ — passing" while hiding a completely
+  untested AI attack path. Needs its own test-writing unit before it's safe to gate.
 
 These are deliberately **out of the gate, not number-gamed out of it.** Excluding them
 keeps the gate honest: it protects deterministic logic at a real 80%+ rather than
