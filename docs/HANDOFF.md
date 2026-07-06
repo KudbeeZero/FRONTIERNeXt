@@ -10,8 +10,25 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — nothing open, nothing stale. Next session: pick a unit from
-[`FRONTIER_FIRST_10_PRS.md`](./FRONTIER_FIRST_10_PRS.md) or the on-chain-testing queue below.
+## Current baton — ⏳ battle/commander/menu refactor · branch `feat/battle-menu-architecture-refactor` · plan doc phase
+
+**Owner `/goal` (2026-07-06): refactor the battle/commander architecture and the whole menu
+system, keep the NFTs, and make sure battles are actually working.** First unit is a docs-only
+scoping plan — [`artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md) —
+from a fresh read-only audit of the current battle engine, client battle/commander UI, and
+menu/nav code. Key finding: the server battle math (`resolve.ts`) is already clean and
+well-tested — leave it alone. The real target is `GameLayout.tsx`'s **two parallel nav state
+machines** (mobile `activeTab` vs desktop `desktopRightTab`, both routing into the same panels)
+and the ~11-file sprawl of battle-watching UI. Phased plan: A) unify menu/nav, B) consolidate
+battle-watch UI, C) broaden battle-engine test coverage (the "make sure battles are working"
+deliverable — extend the coverage gate past `resolve.ts` to `replayLog`/`verify`/`tuning`/AI
+reconquest, add one full attack→resolve→record→replay integration test). NFT mint/transfer code
+and combat math are explicit non-goals — see the doc's §0/§3.
+**Also this session: fixed a real, month-old production bug** — wallet login on
+frontierprotocol.app spawned ~12 popups and redirected to fly.dev (see #175/#176 below, both
+merged+deployed). Owner confirmed the popup storm is gone; the "developer account with no ALGO"
+report that followed is very likely just an unfunded real TestNet wallet (confirmed `VITE_DEV_MODE`
+is off in the live bundle) — owner needs to fund the connected wallet via a TestNet faucet.
 
 ### ✅ #175 (branded-domain wallet/login fix) — MERGED + DEPLOYED, main@`7cde4a4c`
 
