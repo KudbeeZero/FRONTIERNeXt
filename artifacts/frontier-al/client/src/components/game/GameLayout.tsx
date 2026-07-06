@@ -41,7 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, resolveApiUrl } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair, GraduationCap } from "lucide-react";
+import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair, GraduationCap, BarChart3, Radar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { safeUuid } from "@/lib/safeUuid";
 import { serverNow } from "@/lib/serverClock";
@@ -53,6 +53,7 @@ import { sendPaymentTransaction } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
 import { DEV_MODE, devSessionActive } from "@/lib/devSession";
+import { isRailTab, resolveRailTab, type RailTab } from "@/lib/panelNav";
 
 export function GameLayout() {
   const wallet = useWallet();
@@ -115,7 +116,15 @@ export function GameLayout() {
   const [attackIntent, setAttackIntent] = useState(0);
   const [watchingBattleId, setWatchingBattleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>("map");
-  const [desktopRightTab, setDesktopRightTab] = useState<"warroom" | "armory" | "rankings" | "trade" | "factions" | "markets" | "commander" | "university">("warroom");
+  // Single source of truth for "what panel is showing" — shared by mobile's
+  // fullscreen panel and the desktop rail. The rail has no "map" equivalent
+  // (it's always visible), so it derives its own tab via resolveRailTab()
+  // below instead of keeping a second, independent piece of state.
+  const lastRailTabRef = useRef<RailTab>("battles");
+  useEffect(() => {
+    if (isRailTab(activeTab)) lastRailTabRef.current = activeTab;
+  }, [activeTab]);
+  const desktopRightTab = resolveRailTab(activeTab, lastRailTabRef.current);
   // Draggable snap-grid dashboard. Lives in state so the TopBar toggle can flip
   // it live; seeded from the flag (?dashboard=1 / persisted). When on, the fixed
   // desktop rails are replaced by a movable widget canvas.
@@ -373,8 +382,7 @@ export function GameLayout() {
    */
   const handleRequestAttack = (parcelId?: string) => {
     if (parcelId) setSelectedParcelId(parcelId);
-    setDesktopRightTab("commander");
-    if (isMobile) setActiveTab("commander");
+    setActiveTab("commander");
     setAttackIntent((n) => n + 1);
   };
 
@@ -1138,22 +1146,24 @@ export function GameLayout() {
         className="hidden md:flex flex-col w-60 lg:w-72 absolute top-16 right-0 bottom-0 z-30 backdrop-blur-md bg-background/70 border-l border-border overflow-hidden"
         style={{ "--right-menu-width": "18rem" } as React.CSSProperties}
       >
-        <div className="flex border-b border-border shrink-0">
+        <div className="flex border-b border-border shrink-0 flex-wrap">
           {(
             [
-              { id: "warroom",   icon: Swords,          label: "War"      },
-              { id: "armory",    icon: Crosshair,       label: "Armory"   },
-              { id: "university",icon: GraduationCap,   label: "Academy"  },
-              { id: "commander", icon: Shield,          label: "Commander"},
-              { id: "rankings",  icon: Trophy,          label: "Rankings" },
-              { id: "trade",     icon: ArrowLeftRight,  label: "Trade"    },
-              { id: "factions",  icon: Flag,            label: "Factions" },
-              { id: "markets",   icon: Coins,           label: "Markets"  },
-            ] as const
+              { id: "battles",     icon: Swords,          label: "War"      },
+              { id: "armory",      icon: Crosshair,       label: "Armory"   },
+              { id: "university",  icon: GraduationCap,   label: "Academy"  },
+              { id: "commander",   icon: Shield,          label: "Commander"},
+              { id: "leaderboard", icon: Trophy,          label: "Rankings" },
+              { id: "trade",       icon: ArrowLeftRight,  label: "Trade"    },
+              { id: "factions",    icon: Flag,            label: "Factions" },
+              { id: "markets",     icon: Coins,           label: "Markets"  },
+              { id: "economics",   icon: BarChart3,       label: "Economy" },
+              { id: "intel",       icon: Radar,            label: "Intel"    },
+            ] as const satisfies readonly { id: RailTab; icon: React.ElementType; label: string }[]
           ).map(({ id, icon: Icon, label }) => (
             <button
               key={id}
-              onClick={() => setDesktopRightTab(id)}
+              onClick={() => setActiveTab(id)}
               title={label}
               aria-label={label}
               className={cn(
@@ -1224,8 +1234,14 @@ export function GameLayout() {
             wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
             className="flex-1 border-0 rounded-none overflow-auto"
           />
+        ) : desktopRightTab === "economics" ? (
+          <EconomicsPanel className="flex-1 border-0 rounded-none overflow-auto" />
+        ) : desktopRightTab === "intel" ? (
+          <div className="flex-1 overflow-y-auto">
+            <WorldIntelPanel className="h-full" onReplayStateChange={handleReplayStateChange} />
+          </div>
         ) : gameState ? (
-          desktopRightTab === "warroom" ? (
+          desktopRightTab === "battles" ? (
             <WarRoomPanel
               battles={gameState.battles}
               events={gameState.events}
@@ -1319,6 +1335,11 @@ export function GameLayout() {
               entries={gameState.leaderboard}
               currentPlayerId={player?.id || null}
             />
+          )}
+          {activeTab === "university" && (
+            <div className="h-full overflow-y-auto">
+              <UniversityPanel playerId={player?.id} />
+            </div>
           )}
           {activeTab === "economics" && (
             <EconomicsPanel className="h-full" />
