@@ -549,6 +549,33 @@ export const treasuryLedger = pgTable(
 export type TreasuryLedgerRow    = typeof treasuryLedger.$inferSelect;
 export type InsertTreasuryLedger = typeof treasuryLedger.$inferInsert;
 
+// ─── economics_snapshots ──────────────────────────────────────────────────────
+// Hourly samples of the /api/economics computation, so the tokenomics page can
+// chart a real supply-flow history instead of the fake sine-wave trend it used
+// to ship (see D1/D3 in docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md). Purely
+// additive telemetry — no economic behavior depends on this table; a missing
+// table or failed sample must never affect gameplay or the live /api/economics
+// endpoint (see server/services/economicsSnapshotSampler.ts).
+
+export const economicsSnapshots = pgTable(
+  "economics_snapshots",
+  {
+    id:                 varchar("id", { length: 36 }).primaryKey(),
+    capturedAt:         bigint("captured_at", { mode: "number" }).notNull(),
+    totalSupply:        real("total_supply").notNull(),
+    inGameCirculating:  real("in_game_circulating").notNull(),
+    totalBurned:        real("total_burned").notNull(),
+    treasury:           real("treasury").notNull(),
+    protocolTreasuryTotal: real("protocol_treasury_total").notNull(),
+  },
+  (t) => ({
+    capturedIdx: index("economics_snapshots_captured_idx").on(t.capturedAt),
+  })
+);
+
+export type EconomicsSnapshotRow    = typeof economicsSnapshots.$inferSelect;
+export type InsertEconomicsSnapshot = typeof economicsSnapshots.$inferInsert;
+
 // ─── prediction_markets ───────────────────────────────────────────────────────
 // Binary outcome prediction markets where players wager ASCEND tokens.
 // Status lifecycle: open → closed → resolved | cancelled

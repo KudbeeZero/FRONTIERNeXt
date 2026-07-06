@@ -10,39 +10,46 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: Unit D2 quick-win charts · main green at `6a8b25d`
+## Current baton — 🔎 AWAITING_AUDIT: Unit D3 real supply-flow history · main green at `5f42ab5`
 
-**Owner /goal (2026-07-06):** three new battle-engine features for map/cinematic
-visuals + a dataviz pass over the tokenomics/landing/economics pages. Plan:
+**Owner /goal (2026-07-06): ALL SIX UNITS SHIPPED.** Plan:
 [`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
-(merged as #195). **All three battle features shipped** (D1 #196, B1 #197, B2
-#198, B3 #199). **This unit (D2, first dataviz chart unit) is done:** two new
-charts on `/info/economics` — **Faction Control** (horizontal bar, live
-territory per AI faction + Unclaimed, colors matching the faction-select gate)
-and **Battle Pulse** (diverging daily bars, attacker victories vs. defenses
-held, reusing the game's own victory/defense semantic colors). Both from
-existing endpoints (`/api/factions`, `/api/battles/history`) — zero new server
-endpoints; recharts was already a dependency. Followed the `/dataviz` skill's
-method throughout — palette validated with the skill's script (CVD separation
-passes cleanly on both palettes; lightness-band checks fail because these are
-the game's own established brand/semantic colors, mitigated with direct labels
-+ legend, disclosed as a deliberate choice in the session note). New
-`factionControl.ts`/`battlePulse.ts` pure modules (13 tests total). tsc clean ·
-server 439/14 skipped · client 278 (265+13 new) · production build green. Full
-detail: [`session-notes/2026-07-06-quick-win-charts.md`](../artifacts/frontier-al/session-notes/2026-07-06-quick-win-charts.md).
+(merged as #195) — D1 truth pass (#196), B1 Muster (#197), B2 Shield Wall
+(#198), B3 Battle Scars (#199), D2 quick-win charts (#200), and **this unit,
+D3 (last queued), is done.**
 
-**Honest gap:** chart JSX (recharts `ResponsiveContainer`) is typecheck/build-
-verified only, same as this page's pre-existing pie chart — the client test
-harness has no jsdom/real layout for recharts to measure into. The pure
-data-shaping logic that determines correctness is fully unit-tested. Owner
-should eyeball `/info/economics` once deployed.
+**D3:** the real chart the fake sine-wave "Circulating Supply Trend" (removed
+in D1) pretended to be. New `economics_snapshots` table (additive-only
+migration `0012`) + an hourly sampler wired into the existing server tick
+(fail-open, same pattern as `pruneActionNonces`) + new
+`GET /api/economics/history` + a real stacked-area "Supply Flow" chart on
+`/info/economics`. **Migration verified live**: stood up a throwaway Postgres,
+ran `drizzle-kit push`, confirmed the table+index, did a real insert/select,
+confirmed the hand-authored SQL is idempotent, tore the cluster down.
+Deliberately **duplicates** (doesn't refactor) `/api/economics`'s computation
+in the sampler — first-migration-unit risk trade, disclosed. Also deviated
+from the plan's "sequential hue" wording: used the dataviz skill's actual
+categorical rule for part-to-whole, reusing this page's existing Distribution-
+pie colors. New `economicsSnapshotShape.spec.ts` (7 tests, split from the
+DB/chain code specifically so it loads without `DATABASE_URL` — mirrors this
+repo's own `lootbox.db.spec.ts` pattern for the same problem). tsc clean ·
+server 446/14 skipped (7 new) · client 278 · production build green. Full
+detail: [`session-notes/2026-07-06-supply-flow-history.md`](../artifacts/frontier-al/session-notes/2026-07-06-supply-flow-history.md).
 
-**Next session:** audit + merge this PR, then **Unit D3** (real supply-flow
-history — needs a new `economics_snapshots` table + sampler). This is the last
-queued unit from the plan.
+**Honest gap:** the DB/chain integration functions are untested (matches this
+codebase's own "blocked" convention for chain/DB code); chart JSX is
+typecheck/build-verified only, same as every other chart on this page. Owner
+should confirm the sampler fires in the real deployed environment and that
+`/info/economics` starts accruing real history.
+
+**Next session:** audit + merge this PR. **Nothing is queued from the owner's
+/goal after this merges** — check with the owner for the next priority, or
+pick from the plan's runners-up (Spoils Convoy, Replay Theater, Front-line
+Heat) or the broader backlog below.
 
 Earlier: retroactive audit of #193 PASSED (#194); research + plan merged (#195);
-D1 (#196), B1 (#197), B2 (#198), B3 (#199) merged, main at `6a8b25d` — see
+D1 (#196), B1 (#197), B2 (#198), B3 (#199), D2 (#200) merged, main at
+`5f42ab5` — see
 [`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
 
 **Owner smoke test outstanding (the real verification of #193):** on
