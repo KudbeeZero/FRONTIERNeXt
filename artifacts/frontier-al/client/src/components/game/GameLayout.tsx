@@ -38,7 +38,7 @@ import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { useGameState, useCurrentPlayer, useMine, useUpgrade, useAttack, useBuild, usePurchase, useCollectAll, useClaimAscend, useMintAvatar, useSwitchCommander, useSpecialAttack, useDeployDrone, useDeploySatellite, useOpenLootBox } from "@/hooks/useGameState";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, resolveApiUrl } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair, GraduationCap } from "lucide-react";
@@ -216,7 +216,7 @@ export function GameLayout() {
 
     initializedAddressRef.current = wallet.address;
 
-    fetch(`/api/game/player-by-address/${encodeURIComponent(wallet.address)}`)
+    fetch(resolveApiUrl(`/api/game/player-by-address/${encodeURIComponent(wallet.address)}`))
       .then((r) => r.json())
       .then((data) => {
         if (data.welcomeBonus) {
@@ -534,7 +534,7 @@ export function GameLayout() {
     // algoNetworkFee (unavoidable Algorand tx fee, ~0.001 ALGO, wallet handles automatically).
     let ascendCost = 0;
     try {
-      const priceRes = await fetch(`/api/nft/commander-price/${tier}`);
+      const priceRes = await fetch(resolveApiUrl(`/api/nft/commander-price/${tier}`));
       if (!priceRes.ok) throw new Error("Could not fetch commander price");
       const priceData: { ascendCost: number; algoNetworkFee: number; note: string; economyMode: string } = await priceRes.json();
       ascendCost = priceData.ascendCost;
@@ -600,7 +600,7 @@ export function GameLayout() {
     setIsClaimingCommanderNft(true);
     try {
       const attemptCommanderDeliver = async (): Promise<boolean> => {
-        const res = await fetch(`/api/nft/deliver-commander/${commanderId}`, {
+        const res = await fetch(resolveApiUrl(`/api/nft/deliver-commander/${commanderId}`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address: wallet.address }),
@@ -628,7 +628,7 @@ export function GameLayout() {
           // to give the opt-in transaction time to be confirmed on-chain
           for (let attempt = 1; attempt <= 3; attempt++) {
             await new Promise(resolve => setTimeout(resolve, 4000));
-            const retryRes = await fetch(`/api/nft/deliver-commander/${commanderId}`, {
+            const retryRes = await fetch(resolveApiUrl(`/api/nft/deliver-commander/${commanderId}`), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ address: wallet.address }),

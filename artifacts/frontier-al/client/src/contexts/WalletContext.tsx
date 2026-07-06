@@ -251,6 +251,11 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const [authVersion, setAuthVersion] = useState(0);
   const authAttemptedFor = useRef<string | null>(null);
   const isReconnecting = useRef(false);
+  // Guards against a second connect() firing while one is already in flight
+  // (e.g. a double-tap re-opening the picker inside the 250ms deferred-open
+  // window) — a re-entrant call would purge the pairing the first attempt
+  // just opened, turning a good connect into a guaranteed failure.
+  const connectInFlight = useRef(false);
 
   // Did THIS browser have a wallet connected last load? If so we expect an async
   // resume to land shortly, so we hold the "restoring" spinner across the
@@ -383,6 +388,8 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const clearError = useCallback(() => setError(null), []);
 
   const connect = useCallback(async (walletId: string) => {
+    if (connectInFlight.current) return;
+    connectInFlight.current = true;
     setIsConnecting(true);
     setError(null);
 
@@ -390,6 +397,12 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
 
     const attemptConnect = async () => {
       if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
+      // A previous session can leave half-open WalletConnect pairings behind
+      // (abandoned tab, crashed connect, the old cross-origin fly.dev hop).
+      // Pera resurfaces EVERY leftover pairing as its own popup on the next
+      // connect — the "12 windows" storm. Purge before dialing, but only when
+      // this wallet isn't currently connected (never drop a live session).
+      if (!wallet.isConnected) await purgeStaleSession(wallet);
       // Bound the connect so a modal that never surfaces can't spin forever.
       // Extension wallets get a tighter budget than QR/mobile wallets.
       await promiseWithTimeout(wallet.connect(), connectTimeoutFor(walletId));
@@ -428,6 +441,7 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
       }
     } finally {
       setIsConnecting(false);
+      connectInFlight.current = false;
     }
   }, [wallets]);
 

@@ -6,6 +6,7 @@
  * with pulsing glow animations matching the Frontier AL / landing page theme.
  */
 
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { Gift, X, ExternalLink, Shield, MapPin, Loader2 } from "lucide-react";
@@ -46,7 +47,7 @@ export function NftClaimNotification({
     queries: commanders.slice(0, 10).map(cmd => ({
       queryKey: ["/api/nft/commander", cmd.id],
       queryFn: async () => {
-        const res = await fetch(`/api/nft/commander/${cmd.id}`);
+        const res = await fetch(resolveApiUrl(`/api/nft/commander/${cmd.id}`));
         if (!res.ok) return null;
         return res.json() as Promise<{ exists: boolean; status?: string; assetId?: number | null }>;
       },
@@ -65,7 +66,7 @@ export function NftClaimNotification({
     queries: ownedParcels.slice(0, 15).map(parcel => ({
       queryKey: ["nft-plot-notification", parcel.plotId],
       queryFn: async () => {
-        const res = await fetch(`/api/nft/plot/${parcel.plotId}`);
+        const res = await fetch(resolveApiUrl(`/api/nft/plot/${parcel.plotId}`));
         if (res.status === 404) return null;
         if (!res.ok) return null;
         return res.json() as Promise<{ plotId: number; assetId: number | null; mintedToAddress: string | null } | null>;

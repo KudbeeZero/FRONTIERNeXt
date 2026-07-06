@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, resolveApiUrl } from "@/lib/queryClient";
 import { X, Shield, Pickaxe, Fuel, Gem, MapPin, Swords, Hammer, ShoppingCart, ChevronUp, Coins, Target, Zap, Crosshair, Skull, PackageCheck, ExternalLink, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +66,7 @@ export function LandSheet({
   }>({
     queryKey: [`/api/plots/${parcel?.plotId}/terraform-advice`, advisorGoal],
     queryFn: async () => {
-      const r = await fetch(`/api/plots/${parcel!.plotId}/terraform-advice?goal=${advisorGoal}`);
+      const r = await fetch(resolveApiUrl(`/api/plots/${parcel!.plotId}/terraform-advice?goal=${advisorGoal}`));
       if (!r.ok) throw new Error("advice unavailable");
       return r.json();
     },

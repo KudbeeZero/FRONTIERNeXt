@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { resolveApiUrl } from "@/lib/queryClient";
 import type { Battle, GameEvent, Player } from "@shared/schema";
 
 interface WarRoomPanelProps {
@@ -251,7 +252,7 @@ export function WarRoomPanel({ battles, events, players, onWatchBattle, onViewOn
         biomeFilter === "all"
           ? "/api/parcels/attackable"
           : `/api/parcels/attackable?biome=${biomeFilter}`;
-      const res = await fetch(url);
+      const res = await fetch(resolveApiUrl(url));
       if (!res.ok) throw new Error("Failed to fetch targets");
       return res.json();
     },

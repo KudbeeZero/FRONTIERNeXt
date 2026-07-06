@@ -8,6 +8,7 @@ const dbg = (...args: unknown[]): void => { if (DEBUG) console.log(...args); };
 
 // Then everywhere you see:  network: "testnet"
 // Replace with:             network: ALGORAND_NETWORK
+import { resolveApiUrl } from "@/lib/queryClient";
 import algosdk from "algosdk";
 
 // Override with VITE_ALGOD_URL / VITE_INDEXER_URL at build time to switch networks.
@@ -311,7 +312,7 @@ export async function optInToASA(
 
 export async function isOptedInToASA(address: string, assetId: number): Promise<boolean> {
   try {
-    const res = await fetch(`/api/blockchain/opt-in-check/${address}?assetId=${assetId}`);
+    const res = await fetch(resolveApiUrl(`/api/blockchain/opt-in-check/${address}?assetId=${assetId}`));
     const data = await res.json();
     return data.optedIn === true;
   } catch {
@@ -360,7 +361,7 @@ export async function fetchBlockchainStatus(): Promise<{
   freePurchases?: boolean;
 }> {
   try {
-    const res = await fetch("/api/blockchain/status");
+    const res = await fetch(resolveApiUrl("/api/blockchain/status"));
     const data = await res.json();
     if (data.adminAddress) _cachedTreasuryAddress = data.adminAddress;
     if (data.ascendAsaId) _cachedAsaId = data.ascendAsaId;

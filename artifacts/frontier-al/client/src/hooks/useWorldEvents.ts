@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import type { WorldEvent, WorldEventFilters } from "@shared/worldEvents";
 
@@ -7,7 +8,7 @@ async function fetchWorldEvents(filters: WorldEventFilters = {}): Promise<WorldE
   if (filters.end)    params.set("end",    String(filters.end));
   if (filters.limit)  params.set("limit",  String(filters.limit));
   if (filters.types?.length) params.set("types", filters.types.join(","));
-  const res = await fetch(`/api/world/events?${params}`);
+  const res = await fetch(resolveApiUrl(`/api/world/events?${params}`));
   if (!res.ok) return [];
   return res.json();
 }
@@ -26,7 +27,7 @@ export function useRecentWorldEvents() {
   return useQuery<WorldEvent[]>({
     queryKey: ["/api/world/events/recent"],
     queryFn: async () => {
-      const res = await fetch("/api/world/events/recent");
+      const res = await fetch(resolveApiUrl("/api/world/events/recent"));
       if (!res.ok) return [];
       return res.json();
     },
@@ -39,7 +40,7 @@ export function useLiveWorldEvents() {
   return useQuery<WorldEvent[]>({
     queryKey: ["/api/world/events/live"],
     queryFn: async () => {
-      const res = await fetch("/api/world/events/recent");
+      const res = await fetch(resolveApiUrl("/api/world/events/recent"));
       if (!res.ok) return [];
       return res.json();
     },

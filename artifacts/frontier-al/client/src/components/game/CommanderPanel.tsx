@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState, useEffect, useRef } from "react";
 import {
   Shield, Swords, Zap, Target, Radio, Radar, Clock,
@@ -125,7 +126,7 @@ export function CommanderPanel({
 
   const { data: selectedTierPrice } = useQuery<{ ascendCost: number; algoNetworkFee: number; adminAddress: string; economyMode: string; currency: string }>({
     queryKey: ["/api/nft/commander-price", selectedTier],
-    queryFn: async () => { const r = await fetch(`/api/nft/commander-price/${selectedTier}`); if (!r.ok) throw new Error(); return r.json(); },
+    queryFn: async () => { const r = await fetch(resolveApiUrl(`/api/nft/commander-price/${selectedTier}`)); if (!r.ok) throw new Error(); return r.json(); },
     staleTime: 60_000, retry: false,
   });
 
@@ -134,7 +135,7 @@ export function CommanderPanel({
     queryKey: ["/api/plots", targetPlotId, "sub-parcels"],
     queryFn: async () => {
       if (!targetPlotId) return { subParcels: [] };
-      const r = await fetch(`/api/plots/${targetPlotId}/sub-parcels`);
+      const r = await fetch(resolveApiUrl(`/api/plots/${targetPlotId}/sub-parcels`));
       if (!r.ok) return { subParcels: [] };
       return r.json();
     },
@@ -147,7 +148,7 @@ export function CommanderPanel({
     queries: ownedParcels.slice(0, 25).map(parcel => ({
       queryKey: ["nft-plot", parcel.plotId],
       queryFn: async () => {
-        const res = await fetch(`/api/nft/plot/${parcel.plotId}`);
+        const res = await fetch(resolveApiUrl(`/api/nft/plot/${parcel.plotId}`));
         if (res.status === 404) return null;
         if (!res.ok) return null;
         return res.json() as Promise<{ plotId: number; assetId: number | null; mintedToAddress: string | null } | null>;
@@ -170,7 +171,7 @@ export function CommanderPanel({
   // Sub-parcel attack mutation
   const subParcelAttackMutation = useMutation({
     mutationFn: async (params: { subParcelId: string; attackerId: string; attackerParcelId: string; commanderId?: string; troops: number; iron: number; fuel: number; crystal: number }) => {
-      const r = await fetch(`/api/sub-parcels/${params.subParcelId}/attack`, {
+      const r = await fetch(resolveApiUrl(`/api/sub-parcels/${params.subParcelId}/attack`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),

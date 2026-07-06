@@ -7,6 +7,7 @@
  * Labels by the public commander NFT id (no global name source); record
  * formatting is the tested pure helper.
  */
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Swords } from "lucide-react";
 import { formatCommanderRecord, shortCommanderId, type CommanderRecord } from "@/lib/battle/combatRecordFormat";
@@ -15,7 +16,7 @@ export function TopCommandersLeaderboard() {
   const { data } = useQuery<CommanderRecord[]>({
     queryKey: ["/api/commanders/leaderboard", 10],
     queryFn: async () => {
-      const r = await fetch("/api/commanders/leaderboard?top=10");
+      const r = await fetch(resolveApiUrl("/api/commanders/leaderboard?top=10"));
       if (!r.ok) return [];
       return r.json();
     },

@@ -10,6 +10,7 @@
  * A fixed, pointer-events:none overlay mounted at the page level — it never
  * intercepts clicks or touches the globe/combat canvas.
  */
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { chosenFaction } from "@/lib/factions";
 import {
@@ -41,7 +42,7 @@ export function ObjectiveHud() {
   const { data } = useQuery<FactionsResponse>({
     queryKey: ["/api/factions"],
     queryFn: async () => {
-      const r = await fetch("/api/factions");
+      const r = await fetch(resolveApiUrl("/api/factions"));
       if (!r.ok) throw new Error("factions fetch failed");
       return r.json();
     },

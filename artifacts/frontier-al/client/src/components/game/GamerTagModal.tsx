@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { User } from "lucide-react";
@@ -29,7 +30,7 @@ export function GamerTagModal({ playerId, walletAddress, onComplete, onSkip }: G
     setError("");
 
     try {
-      const res = await fetch("/api/actions/set-name", {
+      const res = await fetch(resolveApiUrl("/api/actions/set-name"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId, name: trimmed, address: walletAddress }),

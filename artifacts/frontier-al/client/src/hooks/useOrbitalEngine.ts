@@ -8,6 +8,7 @@
  * Returns a merged list of OrbitalEvent objects the UI should render.
  */
 
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState, useEffect, useRef } from "react";
 import type { OrbitalEvent } from "@shared/schema";
 import {
@@ -63,7 +64,7 @@ export function useOrbitalEngine() {
   useEffect(() => {
     async function fetchImpacts() {
       try {
-        const res  = await fetch("/api/orbital/active");
+        const res  = await fetch(resolveApiUrl("/api/orbital/active"));
         if (!res.ok) return;
         const data = await res.json() as { events: OrbitalEvent[] };
         setImpactEvents(data.events ?? []);

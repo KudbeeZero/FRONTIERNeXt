@@ -1,38 +1,25 @@
 // Where the "Enter Game" / "Join" CTAs send players.
 //
-// Two-host architecture:
-//   • The static homepage (landing page) is hosted on Cloudflare Pages. It has
-//     NO backend, so it must never try to run the game itself.
-//   • The full game (client + WebSocket + REST) is served by the backend (Fly,
-//     `frontiernext.fly.dev`) — client and server SAME-ORIGIN, so wallet/WS/CORS
-//     all "just work".
-//
-// So "Enter Game" must jump to the backend that serves the live game.
+// The game runs on WHATEVER origin served this bundle: API + WebSocket resolve
+// to the Fly backend at runtime (`lib/backendOrigin.ts`) when the host has no
+// backend of its own (e.g. frontierprotocol.app on Cloudflare Pages). Staying
+// same-origin keeps localStorage (auth token, wallet pairings) intact — the
+// old cross-origin jump to fly.dev dropped both, forcing a fresh wallet
+// connect and resurfacing stale WalletConnect pairings (the multi-popup storm).
 //
 //   - VITE_GAME_URL (build-time) → explicit override, always wins.
-//   - On localhost / *.fly.dev → use relative `/game` (same-origin backend).
-//   - Any other host (e.g. frontierprotocol.app on Cloudflare) → cross-origin
-//     to the Fly backend so dev/session flags work. No dashboard config required.
-const FLY_GAME_URL = "https://frontiernext.fly.dev/game";
-
+//   - Otherwise → relative `/game` on the current origin.
 function resolveGameUrl(): string {
   const envUrl = (import.meta.env.VITE_GAME_URL as string | undefined)?.trim();
   if (envUrl) return envUrl;
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host !== "localhost" && host !== "127.0.0.1" && !host.endsWith("fly.dev")) {
-      return FLY_GAME_URL;
-    }
-  }
   return "/game";
 }
 
 export const GAME_URL = resolveGameUrl();
 
 /**
- * Navigate to the game. Uses a full-page navigation (not the SPA router) so an
- * absolute cross-origin URL (Cloudflare → Fly) works exactly like a relative
- * same-origin one (`/game`).
+ * Navigate to the game. Full-page navigation (not the SPA router) so an
+ * absolute VITE_GAME_URL override works exactly like the relative `/game`.
  */
 export function goToGame(): void {
   window.location.href = GAME_URL;

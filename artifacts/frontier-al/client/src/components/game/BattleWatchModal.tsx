@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Swords, Shield, Zap, Skull, Crosshair, Target, Clock, Trophy, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -230,7 +231,7 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
       return;
     }
     setReplayLoading(true);
-    fetch(`/api/battle/replay/${battle.id}`)
+    fetch(resolveApiUrl(`/api/battle/replay/${battle.id}`))
       .then((r) => r.ok ? r.json() : null)
       .then((data) => setReplay(data))
       .catch(() => setReplay(null))

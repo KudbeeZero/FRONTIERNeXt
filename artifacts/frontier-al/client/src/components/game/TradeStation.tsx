@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@/lib/queryClient";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Zap, Plus, X, ArrowRight, RefreshCw, ArrowLeftRight, Trophy, MapPin, ShoppingBag } from "lucide-react";
@@ -76,7 +77,7 @@ function OrdersTab({ currentPlayerId }: { currentPlayerId: string }) {
 
   const { data: orders = [], isFetching, refetch } = useQuery<TradeOrder[]>({
     queryKey: ["/api/trade/orders"],
-    queryFn: () => fetch("/api/trade/orders").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/trade/orders")).then(r => r.json()),
     refetchInterval: 10_000,
   });
 
@@ -84,7 +85,7 @@ function OrdersTab({ currentPlayerId }: { currentPlayerId: string }) {
 
   const createMutation = useMutation({
     mutationFn: async (body: object) => {
-      const r = await fetch("/api/trade/orders", {
+      const r = await fetch(resolveApiUrl("/api/trade/orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -105,7 +106,7 @@ function OrdersTab({ currentPlayerId }: { currentPlayerId: string }) {
 
   const cancelMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const r = await fetch(`/api/trade/orders/${orderId}`, {
+      const r = await fetch(resolveApiUrl(`/api/trade/orders/${orderId}`), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: currentPlayerId }),
@@ -120,7 +121,7 @@ function OrdersTab({ currentPlayerId }: { currentPlayerId: string }) {
 
   const fillMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const r = await fetch(`/api/trade/orders/${orderId}/fill`, {
+      const r = await fetch(resolveApiUrl(`/api/trade/orders/${orderId}/fill`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: currentPlayerId }),
@@ -283,7 +284,7 @@ function OrdersTab({ currentPlayerId }: { currentPlayerId: string }) {
 function HistoryTab() {
   const { data: history = [], isFetching } = useQuery<TradeOrder[]>({
     queryKey: ["/api/trade/history"],
-    queryFn: () => fetch("/api/trade/history").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/trade/history")).then(r => r.json()),
     refetchInterval: 15_000,
   });
 
@@ -336,7 +337,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 function RankingsTab() {
   const { data: board = [] } = useQuery<LeaderEntry[]>({
     queryKey: ["/api/trade/leaderboard"],
-    queryFn: () => fetch("/api/trade/leaderboard").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/trade/leaderboard")).then(r => r.json()),
     refetchInterval: 30_000,
   });
 
@@ -386,14 +387,14 @@ function ParcelsTab({ currentPlayerId }: { currentPlayerId: string }) {
 
   const { data: listingsData, isFetching, refetch } = useQuery<{ listings: SubParcelListing[] }>({
     queryKey: ["/api/sub-parcels/listings"],
-    queryFn: () => fetch("/api/sub-parcels/listings").then(r => r.json()),
+    queryFn: () => fetch(resolveApiUrl("/api/sub-parcels/listings")).then(r => r.json()),
     refetchInterval: 15_000,
   });
   const listings = listingsData?.listings ?? [];
 
   const cancelMutation = useMutation({
     mutationFn: async (listingId: string) => {
-      const r = await fetch(`/api/sub-parcels/listings/${listingId}`, {
+      const r = await fetch(resolveApiUrl(`/api/sub-parcels/listings/${listingId}`), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sellerId: currentPlayerId }),
@@ -410,7 +411,7 @@ function ParcelsTab({ currentPlayerId }: { currentPlayerId: string }) {
 
   const buyMutation = useMutation({
     mutationFn: async (listingId: string) => {
-      const r = await fetch(`/api/sub-parcels/listings/${listingId}/buy`, {
+      const r = await fetch(resolveApiUrl(`/api/sub-parcels/listings/${listingId}/buy`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ buyerId: currentPlayerId }),
