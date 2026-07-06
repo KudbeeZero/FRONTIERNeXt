@@ -10,37 +10,37 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: Unit B2 Shield Wall · main green at `fe32818`
+## Current baton — 🔎 AWAITING_AUDIT: Unit B3 Battle Scars · main green at `4a245c3`
 
 **Owner /goal (2026-07-06):** three new battle-engine features for map/cinematic
 visuals + a dataviz pass over the tokenomics/landing/economics pages. Plan:
 [`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
-(merged as #195). Progress: **D1 truth pass (#196)** and **B1 War Council Muster
-(#197)** both merged. **This unit (B2, second battle feature) is done:** during
-the resolution cinematic's `brace` beat, a translucent hex-faceted shield dome
-now rises over the **defender's** plot — size/brightness driven by the beat's real
-intensity (defender power + fortification level, already computed by the shared
-battle engine). At impact the dome either **cracks apart and fades** (capture) or
-**flares once and holds solid** (defense held). New pure channel
-`braceDomeAt()` in `battleSequencePlayback.ts` (separate export — does not touch
-`GlobePlaybackState`/`GlobeBattleSequence.tsx`) + new `GlobeShieldDome.tsx`, an
-independent `cinematicBus` subscriber (same bus `GlobeCinematicCamera`/
-`BattleCalloutHUD` already use). Zero server changes. New
-`brace-dome-playback.spec.ts` (8 tests). tsc clean · server 439/14 skipped ·
-client 253 (245+8 new) · production build green. Full detail:
-[`session-notes/2026-07-06-shield-dome.md`](../artifacts/frontier-al/session-notes/2026-07-06-shield-dome.md).
+(merged as #195). **All three battle features now done:** D1 truth pass (#196),
+B1 War Council Muster (#197), B2 Shield Wall (#198), and **this unit — B3 Battle
+Scars** completes the before→during→after arc. A battle's cinematic used to fade
+12s after resolution and the map forgot it happened; now a scorch ring (capture,
+victor's color) or shield glint (defense held) persists for 4 hours, sized by the
+real power differential, fading with age — seeded on load from the existing
+`GET /api/battles/history` and appended live off the existing `battle:resolved`
+WS event. New pure `battleScars.ts` (dedupe/decay/cap) + `GlobeBattleScars.tsx`.
+**Architectural note:** the history fetch runs in the outer `PlanetGlobe`
+component (above `<Canvas>`) and flows in as a prop — react-query context isn't
+guaranteed to bridge into `@react-three/fiber`'s reconciler, and no existing
+globe layer calls `useQuery` from inside the Canvas tree. Zero new server
+endpoints. New `battle-scars.spec.ts` (12 tests). tsc clean · server 439/14
+skipped · client 265 (253+12 new) · production build green. Full detail:
+[`session-notes/2026-07-06-battle-scars.md`](../artifacts/frontier-al/session-notes/2026-07-06-battle-scars.md).
 
-**Honest gap:** same as B1 — R3F renderer is typecheck/build-verified only
-(matches every other globe battle layer in this codebase — none have
-live-browser tests; the sandbox's documented external-host proxy trap makes a
-live screenshot impractical here). Owner should eyeball a real battle
-resolution on the globe post-deploy.
+**Honest gap:** same as B1/B2 — R3F renderer is typecheck/build-verified only
+(matches every other globe battle layer in this codebase; the sandbox's
+documented external-host proxy trap makes a live screenshot impractical here).
+Owner should eyeball the globe some hours after a few battles resolve.
 
-**Next session:** audit + merge this PR, then **Unit B3 Battle Scars**
-(persistent aftermath decals) → D2 quick-win charts → D3 supply history.
+**Next session:** audit + merge this PR, then **Unit D2** (quick-win charts —
+faction control + battle pulse) → **D3** (real supply history).
 
 Earlier: retroactive audit of #193 PASSED (#194); research + plan merged (#195);
-D1 (#196) and B1 (#197) merged, main at `fe32818` — see
+D1 (#196), B1 (#197), B2 (#198) merged, main at `4a245c3` — see
 [`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
 
 **Owner smoke test outstanding (the real verification of #193):** on

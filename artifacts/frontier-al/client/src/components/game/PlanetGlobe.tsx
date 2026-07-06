@@ -8,11 +8,13 @@ import * as THREE from "three";
 import { useRef, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { useQuery } from "@tanstack/react-query";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { LandParcel, Player, Battle, OrbitalEvent } from "@shared/schema";
 import type { WorldEvent } from "@shared/worldEvents";
 import { GlobeEventOverlays } from "./GlobeEventOverlays";
 import { GLOBE_RADIUS } from "@/lib/globe/globeConstants";
+import { resolveApiUrl } from "@/lib/queryClient";
 import { StarField }           from "./globe/StarField";
 import { GlobeTerrain }        from "./globe/GlobeTerrain";
 import { PlotOverlay, SubParcelOverlay } from "./globe/GlobeParcels";
@@ -23,6 +25,7 @@ import { LiveWeaponLayer } from "./globe/LiveWeaponLayer";
 import { GlobeLiveEvents } from "./globe/GlobeLiveEvents";
 import { GlobeBattleSequence } from "./globe/GlobeBattleSequence";
 import { GlobeShieldDome } from "./globe/GlobeShieldDome";
+import { GlobeBattleScars } from "./globe/GlobeBattleScars";
 import { BattleCalloutHUD } from "./globe/BattleCalloutHUD";
 import { GlobeIncomingTelegraph } from "./globe/GlobeIncomingTelegraph";
 import { GlobeMusterLayer } from "./globe/GlobeMusterLayer";
@@ -31,6 +34,46 @@ import { BattleSoundLayer } from "./globe/BattleSoundLayer";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
+import { factionColor } from "@/lib/battle/factionColor";
+import type { BattleScarRecord } from "@/lib/battle/battleScars";
+
+interface BattleHistoryRecord {
+  id: string;
+  attackerName: string;
+  defenderName: string;
+  plotId: number;
+  outcome: "attacker_wins" | "defender_wins";
+  attackerPower: number;
+  defenderPower: number;
+  resolvedAt: number;
+}
+
+/** Seeds GlobeBattleScars from the existing public battle-history endpoint. */
+function useBattleScarSeed(): BattleScarRecord[] {
+  const { data } = useQuery<{ battles: BattleHistoryRecord[] }>({
+    queryKey: ["/api/battles/history", "scars-seed"],
+    queryFn: () =>
+      fetch(resolveApiUrl("/api/battles/history?limit=50")).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  return useMemo(() => {
+    if (!data?.battles) return [];
+    return data.battles.map((b): BattleScarRecord => {
+      const captured = b.outcome === "attacker_wins";
+      return {
+        battleId: b.id,
+        plotId: b.plotId,
+        outcome: b.outcome,
+        attackerPower: b.attackerPower,
+        defenderPower: b.defenderPower,
+        resolvedAt: b.resolvedAt,
+        color: captured
+          ? factionColor(b.attackerName)
+          : factionColor(b.defenderName === "Unclaimed" ? null : b.defenderName),
+      };
+    });
+  }, [data]);
+}
 
 export type { LivePulse } from "@/lib/globe/globeTypes";
 
@@ -56,6 +99,7 @@ interface SceneProps {
   streamMode?: boolean;
   flyRequestId?: number;
   onObserverOffset?: (ms: number) => void;
+  battleScarSeed: BattleScarRecord[];
 }
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
@@ -64,7 +108,7 @@ function Scene({
   parcels, players, currentPlayerId, selectedPlotId, onPlotSelect,
   controlsRef, targetLat, targetLng, battles, livePulses, orbitalEvents,
   replayEvents, replayTime, replayVisibleTypes, streamMode, flyRequestId,
-  onObserverOffset,
+  onObserverOffset, battleScarSeed,
 }: SceneProps) {
   const prefs = useVisualPrefs();
   const battleHotspots = useMemo(() => {
@@ -124,6 +168,7 @@ function Scene({
       <BattleArcs battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
       <GlobeIncomingTelegraph battles={battles} parcels={parcels} />
       <GlobeMusterLayer battles={battles} parcels={parcels} players={players} />
+      <GlobeBattleScars seedRecords={battleScarSeed} parcels={parcels} />
       <MiningPulseLayer pulses={livePulses} />
       <OrbitalZoneLayer events={orbitalEvents} />
       <SatelliteOrbitLayer players={players} />
@@ -214,6 +259,7 @@ export default function PlanetGlobe({
   const controlsRef = useRef<OrbitControlsImpl>(null!);
   const prefs = useVisualPrefs();
   const [observerOffset, setObserverOffset] = useState(0);
+  const battleScarSeed = useBattleScarSeed();
 
   const playerMap = useMemo(() => {
     const m = new Map<string, Player>();
@@ -251,6 +297,7 @@ export default function PlanetGlobe({
           streamMode={streamMode}
           flyRequestId={flyRequestId}
           onObserverOffset={setObserverOffset}
+          battleScarSeed={battleScarSeed}
         />
       </Canvas>
 
