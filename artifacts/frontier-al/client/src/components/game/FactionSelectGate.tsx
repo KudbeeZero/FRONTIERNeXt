@@ -13,6 +13,7 @@
  * dismiss it.
  */
 import { useState } from "react";
+import { Cpu, Castle, Swords, Compass, Mail, Wallet, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { PLAYER_FACTIONS, chosenFaction, chooseFaction, nextFactionSync } from "@/lib/factions";
 import { DEV_MODE, startDevSession } from "@/lib/devSession";
@@ -20,6 +21,28 @@ import { getAuthToken, setAuthToken } from "@/lib/authToken";
 import { goToGame } from "@/lib/gameUrl";
 import { validateWaitlistSignup, type PlayerFactionId } from "@shared/waitlist";
 import { missionBriefing } from "@shared/battleObjective";
+import { Starfield } from "@/pages/landing-shared";
+
+/** One glyph per faction, matched by hand to its playstyle — not data-driven since
+ *  it's purely decorative and PLAYER_FACTIONS has no icon field. */
+const FACTION_ICON: Record<PlayerFactionId, typeof Cpu> = {
+  "NEXUS-7": Cpu,
+  KRONOS: Castle,
+  VANGUARD: Swords,
+  SPECTRE: Compass,
+};
+
+/** Small glowing tick mark in each corner of the HUD frame — pure decoration. */
+function CornerTick({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
+  const pos: React.CSSProperties = {
+    position: "absolute",
+    ...(corner.includes("t") ? { top: 14 } : { bottom: 14 }),
+    ...(corner.includes("l") ? { left: 14 } : { right: 14 }),
+    fontSize: 13, color: "rgba(120,170,255,0.45)", fontFamily: "var(--font-mono)",
+    lineHeight: 1, userSelect: "none", pointerEvents: "none",
+  };
+  return <div style={pos}>+</div>;
+}
 
 export function FactionSelectGate() {
   const [visible, setVisible] = useState(() => chosenFaction() == null);
@@ -108,110 +131,169 @@ export function FactionSelectGate() {
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 200,
-        background: "linear-gradient(135deg, rgba(0,0,28,0.98) 0%, rgba(10,5,40,0.97) 100%)",
-        backdropFilter: "blur(18px)",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        gap: 26, padding: "32px 20px", overflowY: "auto",
-        fontFamily: "'Courier New', 'SF Mono', monospace", color: "#e0eaff",
+        overflowY: "auto", color: "#e0eaff",
       }}
     >
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.35em", color: "rgba(120,170,255,0.6)", textTransform: "uppercase", marginBottom: 10 }}>
-          ⬡ Frontier — Choose your allegiance
-        </div>
-        <h1 style={{ fontSize: "clamp(26px,5vw,40px)", fontWeight: 800, margin: 0, color: "#fff" }}>
-          Pick your faction
-        </h1>
-        <p style={{ fontSize: 13, color: "rgba(170,200,255,0.7)", marginTop: 8 }}>
-          Align with one of the four powers and drop into the live frontier.
-        </p>
+      <Starfield />
+      {/* Two soft planet silhouettes, bottom corners — pure CSS, no image assets. */}
+      <div style={{
+        position: "fixed", left: -180, bottom: -220, width: 480, height: 480, borderRadius: "50%",
+        background: "radial-gradient(circle at 35% 30%, rgba(90,120,190,0.35), rgba(10,15,35,0.6) 55%, transparent 72%)",
+        pointerEvents: "none",
+      }} />
+      <div style={{
+        position: "fixed", right: -140, top: -160, width: 340, height: 340, borderRadius: "50%",
+        background: "radial-gradient(circle at 65% 65%, rgba(120,90,190,0.25), rgba(10,10,30,0.5) 55%, transparent 72%)",
+        pointerEvents: "none",
+      }} />
+      <div style={{
+        position: "fixed", inset: 0,
+        background: "radial-gradient(ellipse at center, rgba(0,4,16,0.55) 0%, rgba(0,2,10,0.82) 100%)",
+        pointerEvents: "none",
+      }} />
+
+      {/* HUD chrome — corner ticks + status readouts, purely decorative. */}
+      <CornerTick corner="tl" />
+      <CornerTick corner="tr" />
+      <CornerTick corner="bl" />
+      <CornerTick corner="br" />
+      <div style={{ position: "fixed", top: 18, left: 34, display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.15em", color: "rgba(150,220,255,0.75)" }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 6px #34d399", display: "inline-block" }} />
+        SYSTEM ONLINE
+      </div>
+      <div style={{ position: "fixed", top: 18, right: 34, textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em", color: "rgba(150,180,255,0.55)", lineHeight: 1.6 }}>
+        <div>SECTOR: 7X-19</div>
+        <div>FRONTIER · TESTNET</div>
+      </div>
+      <div style={{ position: "fixed", bottom: 16, right: 34, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "rgba(120,170,255,0.4)" }}>
+        LINK STABLE
       </div>
 
-      {/* Faction cards */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", maxWidth: 880 }}>
-        {PLAYER_FACTIONS.map((f) => {
-          const active = selected === f.id;
-          return (
-            <button
-              key={f.id}
-              onClick={() => setSelected(f.id)}
-              style={{
-                width: 200, textAlign: "left", cursor: "pointer",
-                background: active ? `${f.color}22` : "rgba(8,16,44,0.7)",
-                border: `1px solid ${active ? f.color : "rgba(90,120,190,0.35)"}`,
-                borderRadius: 12, padding: "16px 16px",
-                boxShadow: active ? `0 0 26px ${f.color}55` : "none",
-                color: "inherit", fontFamily: "inherit", transition: "all 0.15s ease",
-              }}
-            >
-              <div style={{ fontSize: 15, fontWeight: 800, color: f.color, letterSpacing: "0.05em" }}>{f.name}</div>
-              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(150,180,255,0.6)", margin: "4px 0 8px" }}>
-                {f.behavior}
-              </div>
-              <div style={{ fontSize: 12, fontStyle: "italic", color: "rgba(200,220,255,0.85)", marginBottom: 6 }}>“{f.tagline}”</div>
-              <div style={{ fontSize: 11, color: "rgba(160,190,235,0.7)", lineHeight: 1.5 }}>{f.blurb}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Mission briefing — your rival + objective, the moment you pick a side */}
-      {selected && (() => {
-        const b = missionBriefing(selected);
-        if (!b) return null;
-        return (
-          <div style={{
-            maxWidth: 460, textAlign: "center", padding: "10px 16px",
-            background: "rgba(255,90,90,0.08)", border: "1px solid rgba(255,120,120,0.35)",
-            borderRadius: 10,
-          }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,150,150,0.8)", marginBottom: 4 }}>
-              ⚔ Mission · {b.headline}
-            </div>
-            <div style={{ fontSize: 12, color: "rgba(220,225,255,0.85)" }}>{b.objective}</div>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 26, padding: "48px 20px" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.35em", color: "rgba(120,170,255,0.65)", textTransform: "uppercase", marginBottom: 12, fontFamily: "var(--font-mono)" }}>
+            Frontier — Choose your allegiance
           </div>
-        );
-      })()}
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(30px,5.5vw,46px)", fontWeight: 700, margin: 0, color: "#fff", letterSpacing: "0.01em" }}>
+            Pick Your Faction
+          </h1>
+          <div style={{ width: 64, height: 2, background: "linear-gradient(90deg, transparent, #4fc3f7, transparent)", margin: "14px auto" }} />
+          <p style={{ fontSize: 13, color: "rgba(170,200,255,0.7)", marginTop: 6 }}>
+            Align with one of the four powers and drop into the live frontier.
+          </p>
+        </div>
 
-      {/* Optional waitlist */}
-      <div style={{ width: "100%", maxWidth: 460, textAlign: "center" }}>
-        <div style={{ fontSize: 11, color: "rgba(150,180,255,0.6)", marginBottom: 8 }}>
-          Optional — join early access by playing. The more you commit, the more you’re rewarded in the real game.
+        {/* Faction cards */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", maxWidth: 920 }}>
+          {PLAYER_FACTIONS.map((f) => {
+            const active = selected === f.id;
+            const Icon = FACTION_ICON[f.id];
+            return (
+              <button
+                key={f.id}
+                onClick={() => setSelected(f.id)}
+                style={{
+                  position: "relative", width: 210, textAlign: "left", cursor: "pointer",
+                  background: active
+                    ? `linear-gradient(160deg, ${f.color}26 0%, rgba(8,12,32,0.85) 70%)`
+                    : `linear-gradient(160deg, ${f.color}10 0%, rgba(8,12,32,0.75) 70%)`,
+                  border: `1px solid ${active ? f.color : `${f.color}55`}`,
+                  borderRadius: 10, padding: "20px 18px 16px",
+                  boxShadow: active ? `0 0 30px ${f.color}45, inset 0 0 20px ${f.color}18` : `0 0 10px ${f.color}15`,
+                  color: "inherit", fontFamily: "inherit", transition: "all 0.15s ease",
+                }}
+              >
+                <Icon size={30} color={f.color} strokeWidth={1.5} style={{ marginBottom: 10, filter: `drop-shadow(0 0 6px ${f.color}88)` }} />
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: f.color, letterSpacing: "0.03em" }}>{f.name}</div>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(150,180,255,0.55)", margin: "3px 0 10px" }}>
+                  {f.behavior}
+                </div>
+                <div style={{ width: "100%", height: 1, background: `linear-gradient(90deg, ${f.color}80, transparent)`, marginBottom: 10 }} />
+                <div style={{ fontSize: 11.5, color: "rgba(200,220,255,0.8)", lineHeight: 1.5 }}>“{f.tagline}” {f.blurb}</div>
+                {/* Bottom tick pattern + accent bar, matching the faction's color. */}
+                <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 9, letterSpacing: "0.2em", color: `${f.color}88`, fontFamily: "var(--font-mono)" }}>×××</span>
+                  <span style={{ width: 28, height: 3, borderRadius: 2, background: f.color, opacity: active ? 0.9 : 0.4 }} />
+                </div>
+              </button>
+            );
+          })}
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-          <input
-            value={email} onChange={(e) => setEmail(e.target.value)}
-            placeholder="email (optional)"
-            style={inputStyle}
-          />
-          <input
-            value={address} onChange={(e) => setAddress(e.target.value)}
-            placeholder="wallet address (optional)"
-            style={inputStyle}
-          />
+
+        {/* Mission briefing — your rival + objective, the moment you pick a side */}
+        {selected && (() => {
+          const b = missionBriefing(selected);
+          if (!b) return null;
+          return (
+            <div style={{
+              maxWidth: 460, textAlign: "center", padding: "10px 16px",
+              background: "rgba(255,90,90,0.08)", border: "1px solid rgba(255,120,120,0.35)",
+              borderRadius: 10,
+            }}>
+              <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,150,150,0.8)", marginBottom: 4, fontFamily: "var(--font-mono)" }}>
+                ⚔ Mission · {b.headline}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(220,225,255,0.85)" }}>{b.objective}</div>
+            </div>
+          );
+        })()}
+
+        {/* Optional waitlist */}
+        <div style={{ width: "100%", maxWidth: 480, textAlign: "center" }}>
+          <div style={{ fontSize: 11, color: "rgba(150,180,255,0.6)", marginBottom: 10 }}>
+            ⓘ Optional — join early access by playing. The more you commit, the more you’re rewarded in the real game.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+            <div style={{ ...inputWrapStyle }}>
+              <Mail size={14} color="rgba(150,180,255,0.6)" />
+              <input
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email (optional)"
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ ...inputWrapStyle }}>
+              <Wallet size={14} color="rgba(150,180,255,0.6)" />
+              <input
+                value={address} onChange={(e) => setAddress(e.target.value)}
+                placeholder="Wallet address (optional)"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          {note && <div style={{ fontSize: 11, color: "rgba(255,210,120,0.9)", marginTop: 8 }}>{note}</div>}
         </div>
-        {note && <div style={{ fontSize: 11, color: "rgba(255,210,120,0.9)", marginTop: 8 }}>{note}</div>}
+
+        <button
+          onClick={enter}
+          disabled={!selected || busy}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+            background: selected ? "linear-gradient(90deg, rgba(30,60,160,0.4), rgba(60,110,255,0.32), rgba(30,60,160,0.4))" : "rgba(60,80,140,0.18)",
+            border: `1px solid ${selected ? "rgba(120,170,255,0.75)" : "rgba(100,120,170,0.35)"}`,
+            borderRadius: 8, padding: "15px 40px", color: selected ? "#dCEbff" : "rgba(160,180,220,0.5)",
+            fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 700,
+            cursor: selected && !busy ? "pointer" : "not-allowed", transition: "all 0.15s ease",
+            boxShadow: selected ? "0 0 24px rgba(80,130,255,0.35)" : "none",
+          }}
+        >
+          <ChevronsRight size={16} style={{ opacity: 0.7 }} />
+          {busy ? "Entering…" : selected ? "Enter the Frontier" : "Select Faction"}
+          <ChevronsLeft size={16} style={{ opacity: 0.7 }} />
+        </button>
       </div>
-
-      <button
-        onClick={enter}
-        disabled={!selected || busy}
-        style={{
-          background: selected ? "rgba(60,100,255,0.32)" : "rgba(60,80,140,0.18)",
-          border: `1px solid ${selected ? "rgba(120,170,255,0.7)" : "rgba(100,120,170,0.35)"}`,
-          borderRadius: 9, padding: "14px 36px", color: selected ? "#dCEbff" : "rgba(160,180,220,0.5)",
-          fontSize: 13, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 800,
-          cursor: selected && !busy ? "pointer" : "not-allowed", fontFamily: "inherit",
-        }}
-      >
-        {busy ? "Entering…" : selected ? "Align & Enter ▶" : "Select a faction"}
-      </button>
     </div>
   );
 }
 
+const inputWrapStyle: React.CSSProperties = {
+  flex: "1 1 210px", minWidth: 170, display: "flex", alignItems: "center", gap: 8,
+  background: "rgba(5,12,36,0.8)", border: "1px solid rgba(90,120,190,0.4)",
+  borderRadius: 8, padding: "10px 12px",
+};
+
 const inputStyle: React.CSSProperties = {
-  flex: "1 1 200px", minWidth: 160, background: "rgba(5,12,36,0.8)",
-  border: "1px solid rgba(90,120,190,0.4)", borderRadius: 8, padding: "10px 12px",
+  flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none",
   color: "#e0eaff", fontSize: 12, fontFamily: "inherit",
 };
