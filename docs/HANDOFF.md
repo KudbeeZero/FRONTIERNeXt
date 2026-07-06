@@ -10,9 +10,31 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ✅ nothing open · main green at `7391a40` · session ending for the night
+## Current baton — 🔎 AWAITING_AUDIT: PR for `claude/session-failure-review-rwsbol` (handoff repair) · main green + deployed at `c0850c0`
 
-**Eight units this push, all merged on green (#184–#191).** Full detail:
+**What happened:** the previous session (`claude/session-ncb8qx`) shipped **PR #193** —
+the critical `VITE_DEV_AUTOLOGIN` production wallet-hijack fix + a battle-cinematic
+playtest verification — merged to `main` as `c0850c0`, **then the session died before
+`/closeout`**, leaving this baton stale. This session ran the retroactive audit:
+**PASS** — CI green on head and merge commit, Fly deploy succeeded (the fix is LIVE),
+tests re-run locally and match (tsc clean · server 439/14 skipped · client 230).
+Full evidence + findings: [`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
+
+**Owner smoke test outstanding (the real verification of #193):** on
+frontierprotocol.app — (1) landing no longer auto-enters the game, (2) a real wallet
+stays connected in `/game`, (3) Disconnect actually reaches the connect-gate,
+(4) a land purchase with the real wallet succeeds.
+
+**Standing mainnet-gate item (deliberate for TestNet, flagged in the audit):**
+`VITE_DEV_MODE` + `DEV_LOGIN_ENABLED` still ship `'true'` in production fly.toml —
+the manual Dev/Test button remains open to any visitor. Must be removed before mainnet.
+
+**Next session:** audit + merge this handoff-repair PR (docs-only), then pick up the
+queue below — nothing else is open.
+
+### Prior push — eight units, all merged on green (#184–#191) + closeout #192
+
+Full detail:
 [`session-notes/2026-07-06-art-audio-terminal-heroku.md`](../artifacts/frontier-al/session-notes/2026-07-06-art-audio-terminal-heroku.md).
 Short version:
 - **#184** real faction-emblem/badge/hero art (owner-supplied images) wired into the faction
@@ -108,8 +130,8 @@ with no ALGO" report that followed is very likely just an unfunded real TestNet 
 `VITE_DEV_MODE` is off in the live bundle) — owner needs to fund the connected wallet via a
 TestNet faucet.
 
-### ➡️ Next session
-Nothing open, nothing stale — `main` is green at `7391a40`. First check whether the owner's
+### ➡️ Work queue (carried forward; "Current baton" above supersedes state claims here)
+First check whether the owner's
 Heroku push (item 1 above) succeeded or errored again before starting new work. Otherwise pick
 from: the Armory tactical-map/radar scoping conversation, wiring up `server/veritas/` as a
 continuously-running watchdog, the `?dashboard=1` flagship-dashboard vision (still queued from
