@@ -132,6 +132,37 @@ eventually mobile) supplies its own sizing/wrapper, before the rail migration is
 default-visible desktop path and deserves its own focused review rather than being rushed
 alongside the low-risk dashboard step.
 
+**Two more prerequisites found (2026-07-06), both blocking a safe rail/mobile migration:**
+
+1. **Mobile and desktop aren't just different vocabularies for the same tab set — they expose
+   different features.** `BottomNav.tsx`'s `NavTab` includes `"economics"` and `"intel"`, which
+   the desktop rail's `desktopRightTab` has no equivalent for at all; the rail has
+   `"university"`, which mobile's tab list never surfaces. And mobile's `activeTab === "map"`
+   means "show the globe fullscreen, no panel" — desktop has no equivalent concept; the rail is
+   *always* visible regardless of `desktopRightTab`. A flat single-variable merge would either
+   silently drop the mobile-only or desktop-only tabs, or make the rail disappear whenever the
+   shared value happened to be `"map"`. This is a real product question (should mobile gain
+   University access? should desktop gain Economics/Intel?), not a pure refactor — the safe
+   technical move is one canonical `PanelId` enum + one `activeTab` state, with each platform's
+   chrome (BottomNav vs. rail) choosing its own subset of buttons to render and the rail
+   deriving its shown panel as `isRailPanel(activeTab) ? activeTab : lastRailTab` rather than
+   assuming every value is valid everywhere.
+2. **`GameLayout.tsx` has zero interactive test coverage for tab-switching.** The two existing
+   spec files (`gamelayout-entry.spec.tsx`, `gamelayout-connected-shell.spec.tsx`) both use
+   `react-dom/server`'s `renderToStaticMarkup` — a single static SSR render with no event
+   listeners, deliberately chosen to avoid a jsdom/WebGL-heavy harness. That harness *cannot*
+   simulate a click and assert on the resulting re-render, so there is currently no regression
+   safety net for "clicking a nav tab shows the right panel" at all, on either platform. Before
+   touching the live tab-switching logic, this needs either a jsdom + testing-library harness
+   investment (bigger than a drive-by addition — the component has heavy mocked dependencies
+   already, per the existing specs' docstrings) or an equivalent lower-tech characterization
+   test. Attempting the rail/mobile unification without this would mean shipping a change to
+   every player's primary navigation with no automated way to catch a regression.
+
+Given both of these, the rail/mobile migration is scoped as a **dedicated future unit** that
+starts with (a) an owner decision on cross-platform tab parity and (b) a test-harness
+investment — not a continuation of this PR's lower-risk steps.
+
 ### Phase B — Consolidate the battle-watching UI (Task #3)
 **Goal:** One `battle-theater/` (or similar) module owning "render a battle in progress /
 just resolved," replacing the ad hoc spread across `BattleWatchModal`, `BattleSequenceTimeline`,
