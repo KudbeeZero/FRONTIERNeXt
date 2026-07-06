@@ -49,19 +49,32 @@ None of this is broken. It's just organically grown — nine-plus files for one 
 battle") with no shared module boundary.
 
 ### The menu system — the real architectural smell
-`GameLayout.tsx` (1441 lines) runs **two parallel navigation state machines**:
-- Mobile: `activeTab: "map"|"inventory"|"battles"|"armory"|"leaderboard"|"commander"|"economics"|
-  "intel"|"trade"|"factions"|"markets"` — drives a fullscreen panel swap.
-- Desktop: `desktopRightTab: "warroom"|"armory"|"rankings"|"trade"|"factions"|"markets"|
-  "commander"|"university"` — drives an independent side-panel tab strip.
+`GameLayout.tsx` (1441 lines) runs **three parallel rendering paths for the same set of panels**
+(War Room, Armory, University, Commander, Rankings/Leaderboard, Trade, Factions, Markets):
 
-These two state machines route into the **same underlying panel components** (e.g. mobile
-`"battles"` and desktop `"warroom"` both ultimately show battle-related UI) but use different
-tab keys, different labels, and are maintained independently — a change to one doesn't
-propagate to the other, and it's easy for them to drift (as they already have: "War" vs
-"battles", desktop's `"university"` has no mobile equivalent surfaced in the same list).
+1. **Mobile fullscreen**: `activeTab: "map"|"inventory"|"battles"|"armory"|"leaderboard"|
+   "commander"|"economics"|"intel"|"trade"|"factions"|"markets"` state, rendered as a
+   `showFullscreenPanel` overlay with one `{activeTab === "x" && <Panel .../>}` block per tab.
+2. **Desktop right rail**: `desktopRightTab: "warroom"|"armory"|"rankings"|"trade"|"factions"|
+   "markets"|"commander"|"university"` state, rendered as a ternary chain
+   (`desktopRightTab === "x" ? <Panel .../> : ...`) in a fixed side panel — note `"rankings"`
+   isn't even an explicit branch, it's the ternary's final `else`, so a new tab id added later
+   would silently render the leaderboard instead of failing loudly.
+3. **Dashboard-canvas widgets** (flag-gated by `isDashboardEnabled()`, off by default): a
+   `widgets: { warroom: {...}, rankings: {...}, armory: {...}, ... }` object passed to
+   `DashboardCanvas`, with the **same panels instantiated a third time** with near-identical
+   props (same component, same handlers, different `className`).
 
-This is the concrete, well-scoped target for "refactor the whole menu system."
+Concretely: `WarRoomPanel`, `CommanderPanel`, `ArmoryPanel`, `TradeStationPanel`, `FactionPanel`,
+`PredictionMarketsPanel`, `LeaderboardPanel`, and `UniversityPanel` are each hand-instantiated
+2–3 times in this one file, with the same props copy-pasted per call site. A change to any
+panel's props (e.g. adding a new handler) means finding and updating up to three call sites by
+hand — that's the real cost of "the menu system," not just the tab-key mismatch.
+
+**Refactor target:** one panel registry — `{ id, label, icon, render: (ctx) => ReactNode }[]` —
+built once from shared context (`player`, `gameState`, the handler bundle), consumed identically
+by mobile fullscreen, desktop rail, and the dashboard-canvas widget map. One source of truth for
+"what panels exist and what they render," three thin adapters for "how they're laid out."
 
 ### Test coverage for "make sure battles are working"
 CI's coverage gate (`docs/COVERAGE_GATE.md`) only gates `resolve.ts` + a few `shared/` math
@@ -74,20 +87,27 @@ exist. There's no integration-level test proving the full path (attack action �
 ## 2. Phased plan
 
 ### Phase A — Unify the menu/navigation system (Task #2)
-**Goal:** One navigation state machine, one source of truth for "what panel is showing,"
-used by both mobile and desktop layouts (they can still render differently — a bottom nav vs a
-side rail — but off the same tab enum and the same active-tab state).
-**Files:** `GameLayout.tsx`, `BottomNav.tsx`, and whatever desktop tab-strip component holds
-`desktopRightTab` today.
-**Approach:** Define one canonical tab enum (pick the clearer of the two existing vocabularies,
-e.g. `"warroom"` over `"battles"` if that's what the copy already says, or vice versa — decide
-during implementation, not here), drive both mobile and desktop rendering from one piece of
-state, delete the second state machine.
-**Done when:** tsc clean, existing client tests green, manual nav paths in both mobile and
-desktop layouts reachable from the single state (verified by a smoke render test if one doesn't
-already exist), zero change to what any panel *renders* — only how the player gets to it.
+**Goal:** One panel registry (id, label, icon, render-fn) as the single source of truth for
+"what panels exist and what they render," consumed identically by all three current rendering
+paths (mobile fullscreen, desktop rail, dashboard-canvas widgets) instead of each hand-rolling
+its own copy of every panel's props. One canonical tab-id enum instead of two/three overlapping
+vocabularies (`"battles"` vs `"warroom"`, `"leaderboard"` vs `"rankings"`).
+**Files:** `GameLayout.tsx` (1441 lines — the bulk of the change), `BottomNav.tsx` (`NavTab`
+type), the dashboard widget wiring (`dashboard/DashboardCanvas.tsx`, `dashboard/defaults.ts`).
+**Approach:** extract a `usePanelRegistry()`-style hook or plain array built from the existing
+`player`/`gameState`/handler bundle already in scope in `GameLayout`, keyed by one canonical tab
+id. Each of the three rendering contexts becomes a thin loop/lookup over that registry instead
+of a hand-written block per panel. Migrate one rendering path at a time (e.g. dashboard widgets
+first — it's flag-gated and off by default, so it's the lowest-risk place to prove the registry
+shape works — then desktop rail, then mobile fullscreen last since it's the default/live path
+every player hits).
+**Done when:** tsc clean, existing client tests green, a smoke render test proves all three
+paths render the same panel set from the one registry, zero change to what any panel *renders*
+or what props it receives — only how it's wired up.
 **Risk:** low-medium. Client-only, no server/chain/combat-math changes. The risk is purely
-regression in "which tab am I on" — mitigated by keeping panel components themselves untouched.
+regression in "which tab am I on" or a dropped prop during the registry extraction — mitigated
+by migrating the flag-gated (off-by-default) dashboard path first, and by keeping panel
+components themselves untouched.
 
 ### Phase B — Consolidate the battle-watching UI (Task #3)
 **Goal:** One `battle-theater/` (or similar) module owning "render a battle in progress /
