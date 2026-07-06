@@ -15,7 +15,7 @@
 import { useEffect, useState } from "react";
 import { Mail, Wallet, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { PLAYER_FACTIONS, chosenFaction, chooseFaction, nextFactionSync } from "@/lib/factions";
+import { PLAYER_FACTIONS, chosenFaction, chooseFaction, nextFactionSync, asPlayerFactionId, shouldShowFactionGate } from "@/lib/factions";
 import { FACTION_EMBLEMS } from "@/lib/factionEmblems";
 import { DEV_MODE, startDevSession } from "@/lib/devSession";
 import { getAuthToken, setAuthToken } from "@/lib/authToken";
@@ -44,6 +44,34 @@ export function FactionSelectGate() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+
+  // Rehydrate from the durable, wallet-keyed server record — the account's faction
+  // is authoritative. A returning player on a new device (empty localStorage) must
+  // NOT be re-prompted just because this browser has no memory: their faction lives
+  // in their ALGO-account player record. On mount, best-effort fetch /api/auth/me;
+  // if the authenticated account already has a faction, seed the localStorage cache
+  // and skip the gate. Falls through silently for a not-yet-authenticated visitor
+  // (401), preserving the localStorage-only behaviour for pre-connect players.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiRequest("GET", "/api/auth/me");
+        const me = await res.json().catch(() => ({}));
+        const serverFaction = asPlayerFactionId(me?.player?.playerFactionId);
+        if (cancelled) return;
+        if (serverFaction) {
+          chooseFaction(serverFaction); // keep the localStorage cache faithful to the account
+        }
+        if (!shouldShowFactionGate({ serverFaction: me?.player?.playerFactionId, localFaction: chosenFaction() })) {
+          setVisible(false);
+        }
+      } catch {
+        /* not authenticated yet / offline — keep the localStorage-only gate decision */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Ambient hum starts on the first user gesture (browsers gate audio until
   // then) and fades out when the gate is dismissed/unmounted.

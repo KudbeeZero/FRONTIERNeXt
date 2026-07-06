@@ -86,3 +86,43 @@ export function nextFactionSync(
   if (chosen === currentPlayerFactionId) return { shouldJoin: false, faction: chosen };
   return { shouldJoin: true, faction: chosen };
 }
+
+/**
+ * Coerce a raw stored/fetched value to a known PlayerFactionId, or null. Used to
+ * sanitise the server's `playerFactionId` (an arbitrary string column) the same
+ * way {@link chosenFaction} sanitises localStorage.
+ */
+export function asPlayerFactionId(v: string | null | undefined): PlayerFactionId | null {
+  return v && (PLAYER_FACTION_IDS as readonly string[]).includes(v) ? (v as PlayerFactionId) : null;
+}
+
+/**
+ * The single source of truth for "what faction is this player?" — the durable,
+ * wallet-keyed server record ALWAYS wins over the localStorage cache. localStorage
+ * is only a pre-auth fallback (before a session exists) and a fast paint cache;
+ * once the account's own `playerFactionId` is known it is authoritative, so a
+ * returning wallet on a new device shows the faction stored in their ALGO account,
+ * not whatever this browser happens to remember.
+ */
+export function resolveEffectiveFaction(
+  serverFaction: string | null | undefined,
+  localFaction: PlayerFactionId | null,
+): PlayerFactionId | null {
+  return asPlayerFactionId(serverFaction) ?? localFaction;
+}
+
+/**
+ * Whether the faction-select entry gate should be shown. The account's server
+ * faction is authoritative: if it exists, the player has ALREADY claimed a
+ * faction (durably, on their wallet record) and must never be re-prompted — even
+ * on a brand-new device with empty localStorage. Only when the server has no
+ * faction do we fall back to the localStorage memory (covers the pre-auth /
+ * not-yet-connected visitor).
+ */
+export function shouldShowFactionGate(opts: {
+  serverFaction: string | null | undefined;
+  localFaction: PlayerFactionId | null;
+}): boolean {
+  if (asPlayerFactionId(opts.serverFaction)) return false;
+  return opts.localFaction == null;
+}

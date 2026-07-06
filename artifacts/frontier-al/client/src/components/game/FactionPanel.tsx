@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { chooseFaction, clearFaction, asPlayerFactionId } from "@/lib/factions";
 import type { Player } from "@shared/schema";
 
 interface FactionData {
@@ -259,7 +260,12 @@ export function FactionPanel({ player, className }: FactionPanelProps) {
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to join faction");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, factionName) => {
+      // Keep the localStorage cache faithful to the server record so the entry
+      // gate + objective HUD (which read the cache) never diverge from the
+      // account's true faction after a switch.
+      const id = asPlayerFactionId(factionName);
+      if (id) chooseFaction(id);
       queryClient.invalidateQueries({ queryKey: ["/api/factions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
       setJoiningFaction(null);
@@ -287,6 +293,11 @@ export function FactionPanel({ player, className }: FactionPanelProps) {
       return res.json();
     },
     onSuccess: () => {
+      // Reconcile the localStorage cache down to "unaligned" so the entry gate
+      // doesn't stay dismissed (and the objective HUD doesn't keep showing the old
+      // rival) after leaving. Previously `clearFaction` was never called anywhere,
+      // so leaving in the panel left the cache permanently stale.
+      clearFaction();
       queryClient.invalidateQueries({ queryKey: ["/api/factions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
     },
