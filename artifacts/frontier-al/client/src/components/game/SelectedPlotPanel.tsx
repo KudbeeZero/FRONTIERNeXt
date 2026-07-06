@@ -9,7 +9,7 @@
  * claim, manage, future attack/defend/commander assignment.
  */
 
-import { X, MapPin, Shield, Trees, Mountain, Flame, Droplets, Snowflake, Zap, AlertTriangle } from "lucide-react";
+import { X, MapPin, Shield, Trees, Mountain, Flame, Droplets, Snowflake, Zap } from "lucide-react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobilePlotSheet } from "./MobilePlotSheet";
+import { PlotTerminalReadout } from "./PlotTerminalReadout";
 import { DEFAULT_DESKTOP_POSITION, type PanelPositionHint } from "@/lib/plotPanelPosition";
 import { ZClass } from "@/lib/uiLayers";
 import { biomeColors } from "@shared/schema";
@@ -219,26 +220,9 @@ function DesktopPlotPanel({
               </div>
             )}
 
-            {/* Owned hint */}
-            {isOwnedByPlayer && (
-              <div className="rounded-xl p-3 bg-green-500/10 border border-green-500/25 text-xs text-green-400">
-                <p className="font-display uppercase tracking-wider text-[10px] mb-0.5">Your Territory</p>
-                <p className="text-muted-foreground text-[11px]">Open the full panel to manage this plot.</p>
-              </div>
-            )}
-
-            {/* Enemy warning */}
-            {isEnemyOwned && (
-              <div className="rounded-xl p-3 bg-red-500/10 border border-red-500/25 flex items-start gap-2 text-xs text-red-400">
-                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-display uppercase tracking-wider text-[10px] mb-0.5">
-                    {parcel.ownerType === "ai" ? "AI Faction Territory" : "Hostile Territory"}
-                  </p>
-                  <p className="text-muted-foreground text-[11px]">Battle actions available in a future update.</p>
-                </div>
-              </div>
-            )}
+            {/* Command terminal — live AI briefing, replaces the old static
+                "Your Territory"/"Hostile Territory" hint blocks. */}
+            <PlotTerminalReadout plotId={parcel.plotId} />
           </div>
 
           {/* CTA — always visible at panel bottom */}

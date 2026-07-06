@@ -31,7 +31,10 @@
 | BATTLE_RESOLVE_INTERVAL_MS | How often the battle auto-resolver polls for due battles (`resolveBattles`). **Player-felt:** a battle resolves up to one interval after its countdown reaches 0:00. Lower = snappier resolution but more frequent DB queries. Floor `1000` (1s) to protect the DB. | `5000` (5s default) |
 | ELEVENLABS_API_KEY | **Optional.** ElevenLabs key for Comm Terminal whisper voice (text-to-speech). If unset, the Comm Terminal runs **text-only** — no network call is made. Never commit a real key. | _(unset → text-only)_ |
 | COMM_TERMINAL_VOICE_ID | **Optional.** ElevenLabs voice id used for Comm Terminal whispers. Voice synthesis requires **both** this and `ELEVENLABS_API_KEY`; absent either, the terminal is text-only. | _(unset → text-only)_ |
-| ADVICE_RATE_LIMIT | Per-IP limit (per minute) on the LLM terraform-advice endpoint. | `30` (default) |
+| ADVICE_RATE_LIMIT | Per-IP limit (per minute) on the LLM terraform-advice **and** plot terminal-brief endpoints (they share one limiter). | `30` (default) |
+| ANTHROPIC_API_KEY | **Optional.** Anthropic key enabling the LLM paths of the terraform advisor **and** the plot-select Tactical AI Terminal (`GET /api/plots/:plotId/terminal-brief`). If unset, both fall back to deterministic heuristics — no network call is made. On Fly.io: `fly secrets set ANTHROPIC_API_KEY=...`. Never commit a real key. | _(unset → heuristic)_ |
+| ADVISOR_MODEL | **Optional.** Model override for the terraform advisor. | `claude-haiku-4-5-20251001` (default) |
+| PLOT_TERMINAL_MODEL | **Optional.** Model override for the plot terminal briefing. | `claude-haiku-4-5-20251001` (default) |
 | WAITLIST_RATE_LIMIT | Per-IP limit (per minute) on `POST /api/waitlist/join` (optional faction-select early-access signup). Signups persist to Upstash Redis when configured, else per-instance memory. No funds. | `12` (default) |
 | WALLET_AUTH_REQUIRED | Enforce wallet-signature auth on all mutating game endpoints. **Defaults to ON** (any value except `false`). Set to `false` ONLY during a split-host rollout window where the new client is not yet deployed, then flip back. | `true` (default) |
 | WELCOME_BONUS_SYBIL_CHECK | Gate the 500 FRONTIER welcome bonus behind an on-chain minimum-balance check (anti-Sybil). **Defaults to ON**; set `false` to disable. | `true` (default) |

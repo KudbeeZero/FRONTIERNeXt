@@ -85,12 +85,22 @@ What it does (and why each step exists):
 - **Waits ~30s** after navigation before the first screenshot (software-WebGL build time for
   21k plot meshes), then captures the globe, and `?dashboard=1` for the widget canvas.
 
-### 6. Teardown
+### 6. Teardown / restarting the server after code changes
 ```bash
 kill %1 %2 2>/dev/null   # server + vite (or by pid)
 su -s /bin/bash nobody -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pgfrontier/data stop"
 rm -rf /var/tmp/pgfrontier
 ```
+
+**Trap — killing the `npm exec tsx` wrapper does NOT kill the server.** `ps` shows a chain of
+`npm exec tsx` → `sh -c tsx` → `node …tsx/cli.mjs` → the actual node server process. Killing
+only the first two leaves the real server alive AND a newly started replacement can still bind
+:5000 (one ends up on IPv4, the other on IPv6) — then `localhost` requests **flip-flop between
+the old and new server nondeterministically**. Symptom: an endpoint that alternates between
+correct JSON and the SPA's index.html across identical requests, or a UI that intermittently
+shows its error state for an endpoint curl says is fine. Fix: find and kill the *node*
+processes too (`ps aux | grep -E "tsx|node.*server"`), then confirm the endpoint responds
+consistently several times in a row before trusting any screenshot.
 
 ## What this unlocks
 - **Visual battle testing**: drive an attack via the dev player (the game APIs accept the dev

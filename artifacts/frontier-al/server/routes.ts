@@ -10,6 +10,7 @@ import { db, withDbRetry, getPoolStats } from "./db";
 import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
 import { eq, sql, desc, lt } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
+import { plotTerminalBrief, type PlotOwnership } from "./engine/narrative/plotTerminal";
 import { broadcastGameState, broadcastRaw, markDirty, wsClientCount } from "./wsServer";
 import { clampIntervalMs } from "./util/intervals";
 import * as weaponService from "./weapons/service";
@@ -3487,6 +3488,53 @@ export async function registerRoutes(
       res.json(advice);
     } catch (err) {
       console.error("[terraform-advice] error", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * GET /api/plots/:plotId/terminal-brief
+   * Read-only "command terminal" briefing for the plot-select panel. Uses the
+   * deterministic heuristic by default; upgrades to a Claude briefing when
+   * ANTHROPIC_API_KEY is configured (falls back to the heuristic on any
+   * error). Ownership is resolved server-side from the session, if any —
+   * never trusts a client-supplied player id.
+   */
+  app.get("/api/plots/:plotId/terminal-brief", adviceLimiter, async (req, res) => {
+    const plotId = parseInt(String(req.params.plotId), 10);
+    if (!plotId || isNaN(plotId)) return res.status(400).json({ error: "Invalid plotId" });
+    if (!db) return res.status(503).json({ error: "Database not available" });
+    try {
+      const [parcel] = await db
+        .select({
+          ownerId:      parcelsTable.ownerId,
+          ownerType:    parcelsTable.ownerType,
+          biome:        parcelsTable.biome,
+          richness:     parcelsTable.richness,
+          defenseLevel: parcelsTable.defenseLevel,
+        })
+        .from(parcelsTable)
+        .where(eq(parcelsTable.plotId, plotId))
+        .limit(1);
+      if (!parcel) return res.status(404).json({ error: "Plot not found" });
+
+      const auth = getAuth(req);
+      const ownership: PlotOwnership =
+        !parcel.ownerId ? "unclaimed"
+        : auth && parcel.ownerId === auth.playerId ? "player"
+        : parcel.ownerType === "ai" ? "ai_enemy"
+        : "human_enemy";
+
+      const brief = await plotTerminalBrief({
+        plotId,
+        biome:        parcel.biome as import("@shared/schema").BiomeType,
+        richness:     parcel.richness ?? 0,
+        defenseLevel: parcel.defenseLevel ?? 0,
+        ownership,
+      });
+      res.json(brief);
+    } catch (err) {
+      console.error("[terminal-brief] error", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
