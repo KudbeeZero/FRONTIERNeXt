@@ -153,7 +153,7 @@ function ArmoryInner({
 
   return (
     <Shell>
-      <h1 className="text-xl font-bold tracking-wide text-slate-100">ARMORY</h1>
+      <h1 className="font-display text-sm font-bold uppercase tracking-wide text-slate-100">ARMORY</h1>
 
       {/* Archetype + badges */}
       <section className="mt-3 rounded-lg border border-slate-700/60 bg-slate-900/50 p-3">
@@ -281,8 +281,10 @@ function ArmoryInner({
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-3xl p-4 text-slate-100">
-      {children}
+    <div className="flex h-full flex-col overflow-y-auto backdrop-blur-md bg-card/80 border border-card-border rounded-md">
+      <div className="mx-auto w-full max-w-3xl p-4 text-slate-100">
+        {children}
+      </div>
     </div>
   );
 }

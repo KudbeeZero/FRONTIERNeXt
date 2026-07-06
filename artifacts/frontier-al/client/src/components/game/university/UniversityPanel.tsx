@@ -96,7 +96,7 @@ export function UniversityPanel({ playerId }: { playerId?: string }) {
 function Catalog({ onOpen, passedSet }: { onOpen: (id: string) => void; passedSet: Set<string> }) {
   return (
     <Shell>
-      <h1 className="text-xl font-bold tracking-wide text-slate-100">FRONTIER UNIVERSITY</h1>
+      <h1 className="font-display text-sm font-bold uppercase tracking-wide text-slate-100">FRONTIER UNIVERSITY</h1>
       <p className="mt-1 text-xs text-slate-400">
         Interactive how-to-play courses. Take any of them, any time — repeat as often as you like.
       </p>
@@ -163,7 +163,7 @@ function ModuleView({
       <button onClick={onExit} className="text-xs text-slate-400 hover:text-slate-200">
         ← All courses
       </button>
-      <h1 className="mt-1 text-lg font-bold tracking-wide text-slate-100">{module.title}</h1>
+      <h1 className="mt-1 font-display text-sm font-bold uppercase tracking-wide text-slate-100">{module.title}</h1>
 
       {phase === "walkthrough" && (
         <Walkthrough
@@ -355,5 +355,9 @@ function Result({
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-3xl p-4 text-slate-100">{children}</div>;
+  return (
+    <div className="flex h-full flex-col overflow-y-auto backdrop-blur-md bg-card/80 border border-card-border rounded-md">
+      <div className="mx-auto w-full max-w-3xl p-4 text-slate-100">{children}</div>
+    </div>
+  );
 }

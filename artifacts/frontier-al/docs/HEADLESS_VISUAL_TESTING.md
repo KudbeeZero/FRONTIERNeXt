@@ -107,3 +107,14 @@ rm -rf /var/tmp/pgfrontier
   quick-auth path bypasses wallets entirely. Owner-on-device remains the only true wallet test.
 - The dev player is faction-gated per browser context; the capture script clears the gate
   each run.
+- **Google Fonts (or any external CDN font) will not actually render in a screenshot.** Same
+  root cause as "never screenshot production" above — it's not limited to full-page
+  navigation. Any request the headless browser makes to an external origin (e.g.
+  `fonts.googleapis.com`/`fonts.gstatic.com`) gets `net::ERR_CONNECTION_RESET` through the
+  sandbox proxy, even when the page itself is `localhost`. The CSS still applies correctly
+  (`font-family: 'Orbitron', sans-serif` computed style is correct) but the browser silently
+  falls back to a system font, so a screenshot will show the *fallback*, not the real
+  typeface — don't mistake that for the font being wired up wrong. Verify a font swap by
+  reading the computed `font-family` string and confirming `document.fonts` would include it
+  (or just trust the source: the right Google Fonts `<link>` in `index.html` + the right
+  `--font-*` CSS var), not by eyeballing the rendered glyphs in a sandbox screenshot.
