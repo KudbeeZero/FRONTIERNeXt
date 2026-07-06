@@ -1,7 +1,7 @@
 import { resolveApiUrl } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
 
 function fmt(n: number): string {
@@ -31,12 +31,6 @@ export default function LandingEconomics() {
     { name: "Treasury",       value: Math.round(data.treasury) },
     { name: "Unallocated",    value: Math.max(0, Math.round(data.totalSupply - data.inGameCirculating - data.totalBurned - data.treasury)) },
   ] : [];
-
-  const trendData = Array.from({ length: 12 }, (_, i) => ({
-    month: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i],
-    circulating: Math.round(50000 + i * 8000 + Math.sin(i) * 5000),
-    burned:      Math.round(2000  + i * 600  + Math.cos(i) * 400),
-  }));
 
   return (
     <div style={{ position: "relative", minHeight: "100vh", width: "100%", overflow: "hidden", fontFamily: "'Courier New', 'SF Mono', monospace", color: "#e0eaff" }}>
@@ -98,35 +92,9 @@ export default function LandingEconomics() {
             </div>
           </div>
 
-          <div style={{ ...CARD, animation: "fadeInUp 0.7s ease-out 0.3s both" }}>
-            <div style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(100,140,200,0.7)", marginBottom: 16 }}>Circulating Supply Trend (Projected)</div>
-            <div style={{ height: 180 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gradCirc" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gradBurn" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(60,90,180,0.1)" />
-                  <XAxis dataKey="month" tick={{ fill: "rgba(150,190,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "rgba(150,190,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmt} width={45} />
-                  <Tooltip contentStyle={{ backgroundColor: "#0a0b14", border: "1px solid #1f2937", borderRadius: 6, fontSize: 10 }} formatter={(v: number) => [fmt(v), ""]} />
-                  <Area type="monotone" dataKey="circulating" stroke="#10b981" fill="url(#gradCirc)" strokeWidth={1.5} name="Circulating" />
-                  <Area type="monotone" dataKey="burned"      stroke="#ef4444" fill="url(#gradBurn)" strokeWidth={1.5} name="Burned" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, animation: "fadeInUp 0.7s ease-out 0.4s both" }}>
             {[
-              { icon: "🏗️", title: "Own Land",         desc: "Each biome generates 0.5–1.5 ASCEND/hr passively based on improvements built." },
+              { icon: "🏗️", title: "Own Land",         desc: "Each plot generates 1 ASCEND/day base — up to 6 ASCEND/day fully upgraded with a Blockchain Node." },
               { icon: "⚡", title: "Blockchain Nodes", desc: "Build blockchain infrastructure on your parcels to multiply your daily ASCEND yield." },
               { icon: "🔥", title: "Burn Mechanics",   desc: "Minting commanders, special attacks, and upgrades consume tokens — creating deflation." },
               { icon: "🏪", title: "Trade Station",    desc: "Trade iron, fuel, crystal and ASCEND with other players through the in-game market." },

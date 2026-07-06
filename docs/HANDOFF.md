@@ -10,25 +10,31 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: battle-visuals + dataviz PLAN (docs-only PR) · main green at `6689373`
+## Current baton — 🔎 AWAITING_AUDIT: Unit D1 token-data truth pass · main green at `e99b6d0`
 
 **Owner /goal (2026-07-06):** three new battle-engine features for map/cinematic
-visuals + a dataviz pass over the tokenomics/landing/economics pages. Two research
-agents mapped the battle/cinematic architecture and the economic surfaces; the
-synthesized draft plan is
+visuals + a dataviz pass over the tokenomics/landing/economics pages. Plan:
 [`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
-— **docs-only, no code changes**. Selected features: **B1 War Council Muster**
-(attacker build-up) · **B2 Shield Wall** (brace-beat dome) · **B3 Battle Scars**
-(persistent aftermath decals) — all real-data-driven, zero server changes, additive
-globe layers. Dataviz: **D1 truth pass first** — the research found the public
-landing page claims a **10B total supply (real ASA is 1B)** and the tokenomics
-page's "Circulating Supply Trend" chart is **synthetic sine-wave data** (HARD-RULE
-violation on a live surface); then D2 quick-win charts (faction control + battle
-pulse from existing endpoints), D3 real supply-history (needs a snapshot table).
+(merged as #195). **This unit (D1, first in the plan's order) is done:** killed
+fake/stale token data on live public surfaces — the landing page claimed a **10B
+total supply (real ASA is 1B)**, the tokenomics page's "Circulating Supply Trend"
+chart was **literally synthetic sine-wave data** (removed outright), a frozen
+"4,218 parcels claimed" ticker/footer, and a per-hour emission-rate typo (real
+rate is per-day). All five pages now read live from `/api/economics`. New test
+`landing-token-data.spec.tsx` (6 tests) pins the removed literals never return.
+tsc clean · server 439/14 skipped · client 236 (230+6 new). Full detail:
+[`session-notes/2026-07-06-token-data-truth-pass.md`](../artifacts/frontier-al/session-notes/2026-07-06-token-data-truth-pass.md).
 
-**Next session:** audit + merge the plan PR, then start **Unit D1** (truth pass) per
-the plan's execution order. Earlier this session: retroactive audit of #193 PASSED
-and merged as #194 (`6689373`) — see
+**Honest gap:** not manually screenshot-verified in a browser (public landing SPA,
+not the 3D globe canvas; `/api/economics` needs blockchain env this sandbox lacks) —
+SSR smoke + suites are the evidence. Owner should eyeball the deployed pages once live.
+
+**Next session:** audit + merge this PR, then **Unit B1 War Council Muster**
+(attacker-side pending-battle build-up) per the plan's execution order — B1 → B2
+Shield Wall → B3 Battle Scars → D2 quick-win charts → D3 supply history.
+
+Earlier this session: retroactive audit of #193 PASSED, merged as #194; the
+research + plan PR merged as #195 (`e99b6d0`) — see
 [`docs/audits/claude-session-ncb8qx.md`](./audits/claude-session-ncb8qx.md).
 
 **Owner smoke test outstanding (the real verification of #193):** on
