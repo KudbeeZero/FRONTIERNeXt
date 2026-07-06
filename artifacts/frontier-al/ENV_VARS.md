@@ -1,6 +1,6 @@
 # ENV_VARS.md — Required Environment Variables
 
-## Backend (Railway)
+## Backend (Fly.io)
 
 | Variable | Purpose | Example / Notes |
 |----------|---------|-----------------|
@@ -8,14 +8,14 @@
 | ALGORAND_ADMIN_MNEMONIC | Admin wallet mnemonic | 25-word phrase |
 | ALGORAND_ADMIN_ADDRESS | Admin wallet address | Algorand public address |
 | SESSION_SECRET | HMAC key for wallet-auth session tokens (≥16 chars). **Now actively used** — if unset in production the server falls back to an ephemeral per-process key (sessions die on restart and cannot be shared across instances). Set a strong value. | random 64-char string |
-| PUBLIC_BASE_URL | Railway service base URL (used for NFT metadata URLs) | `https://api.ascendancyalgo.xyz` |
+| PUBLIC_BASE_URL | Fly service base URL (used for NFT metadata URLs) | `https://api.frontierprotocol.app` |
 | ALGORAND_NETWORK | `testnet` or `mainnet` | `mainnet` |
 | FREE_PURCHASES | **TestNet testing only.** `true` makes plot + commander purchases free (no ALGO/ASCEND charge, no on-chain payment). **Force-disabled on mainnet / `ECONOMY_MODE=production`** by `computeFreePurchases` — it can never make mainnet purchases free. Unset/`false` = normal paid purchases. | `true` (testnet) / unset (prod) |
 | UPSTASH_REDIS_REST_URL | Upstash Redis REST URL. **Required for multi-instance**: when set, auth nonces + the enumeration/auth rate limiters are shared across instances; when unset, they fall back to per-instance memory (correct for a single instance only). Also backs world events / battle replays. | `https://....upstash.io` |
 | UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token | |
-| CLIENT_ORIGIN | Vercel frontend URL for CORS | `https://ascendancyalgo.xyz` |
+| CLIENT_ORIGIN | Cloudflare Pages frontend URL for CORS | `https://frontierprotocol.app` |
 | NODE_ENV | Environment flag | `production` |
-| PORT | Server listen port (Railway injects automatically) | `5000` |
+| PORT | Server listen port (set in `fly.toml` `[env]`) | `5000` |
 | AI_ENABLED | Enable/disable AI faction turns | `false` |
 | FORCE_NEW_ASA | Force new ASA creation on startup | `false` |
 | ADMIN_KEY | Admin API key for privileged endpoints. **In production a missing key now FAILS CLOSED** (admin endpoints return 503) instead of granting open access. Sent via `x-admin-key` header only in prod. | random secret string |
@@ -46,7 +46,7 @@
 | DEV_LOGIN_ENABLED | **TestNet dev tool.** `true` enables `POST /api/dev/quick-auth`, which signs a request in as a persistent test player **without a wallet/signature** (for testing battles + recording video). **Fail-closed** — any other value (unset/`false`/`1`) returns 403. **Never enable on mainnet.** Pair with `VITE_DEV_MODE=true` so the landing button shows. | `true` (testnet) / unset (prod) |
 | DEV_LOGIN_ADDRESS | The address the dev/test player is bound to. Defaults to a **non-wallet sentinel** (`DEV-TEST-COMMANDER`) which cannot move real funds. Override only if you knowingly want a real wallet identity. | unset (sentinel) |
 
-## Frontend (Vercel)
+## Frontend (Cloudflare Pages)
 
 | Variable | Purpose | Must be prefixed VITE_ |
 |----------|---------|------------------------|

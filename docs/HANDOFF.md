@@ -10,9 +10,23 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: Unit D3 real supply-flow history · main green at `5f42ab5`
+## Current baton — 🔎 AWAITING_AUDIT: deploy cleanup (Heroku/Railway removed) · main green at `e477a4b`
 
-**Owner /goal (2026-07-06): ALL SIX UNITS SHIPPED.** Plan:
+**Owner follow-up (2026-07-06, same day):** after the battle-visuals/dataviz plan
+shipped, the owner asked for four more things in one message: (1) delete Heroku
++ Railway config from the repo, stick with Fly.io + Cloudflare Pages only —
+**this unit, done** (see
+[`session-notes/2026-07-06-deploy-cleanup-heroku-railway.md`](../artifacts/frontier-al/session-notes/2026-07-06-deploy-cleanup-heroku-railway.md));
+(2) deploy agents to playtest the game, purchase a commander, and design a
+"commander garrison" feature (assign a commander to a plot for a bonus);
+(3) send a specialized agent through the right-side in-game menu system to find
+bugs and scope a full Armory visual rework; (4) scope a "2.5D Google-Earth-style
+plot image + cinematic globe layers for factions/economy/nature" vision, building
+on today's battle cinematic work. Research for (2)-(4) is running in parallel —
+see the next session note(s) for findings once synthesized into a plan.
+
+**Prior — ALL SIX battle-visuals/dataviz units shipped this session
+(#194–#201).** Plan:
 [`artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md)
 (merged as #195) — D1 truth pass (#196), B1 Muster (#197), B2 Shield Wall
 (#198), B3 Battle Scars (#199), D2 quick-win charts (#200), and **this unit,

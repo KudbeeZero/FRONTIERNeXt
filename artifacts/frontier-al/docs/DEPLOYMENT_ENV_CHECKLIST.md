@@ -1,14 +1,15 @@
-# Deployment Env-Var Checklist (Railway + Vercel)
+# Deployment Env-Var Checklist (Fly.io + Cloudflare Pages)
 
-Single source of truth for going live. Pairs with `ENV_VARS.md` (descriptions)
-and the security work in `docs/audit/2026-06-07-api-access-control-audit.md`.
+Single source of truth for going live. Pairs with `ENV_VARS.md` (descriptions),
+[`docs/DEPLOY_FLY.md`](../../docs/DEPLOY_FLY.md) (the deploy steps), and the
+security work in `docs/audit/2026-06-07-api-access-control-audit.md`.
 
 Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical ·
 **[OPT]** optional · default shown in `()`.
 
 ---
 
-## 1. Backend — Railway (API server)
+## 1. Backend — Fly.io (API server)
 
 ### Minimum to boot (validated by `validate-env.js` + `assertChainConfig`)
 | Var | Notes |
@@ -21,13 +22,13 @@ Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical 
 | `ALGORAND_NETWORK` **[REQ]** | `mainnet` or `testnet`. Must be explicit in prod. |
 | `FREE_PURCHASES` **[TESTNET-ONLY]** | `true` → plot/commander purchases are free (no ALGO/ASCEND charge). **MUST be unset (or `ECONOMY_MODE=production`) for any mainnet deploy** — `computeFreePurchases` force-disables it on mainnet/production, but do not rely on that as the only guard: leave it out of mainnet config. |
 | `NODE_ENV` | Set `production`. Enables strict CSP, secure cookies, fail-closed admin. |
-| `PORT` | Railway injects automatically. |
+| `PORT` | Set in `fly.toml` `[env]` (`5000`). |
 
 ### Strongly recommended for production
 | Var | Notes |
 |-----|-------|
 | `ADMIN_KEY` **[SEC]** | Gates `/api/admin/*`. **If unset, admin endpoints return 503 in prod (fail-closed).** Set a long random secret; send via `x-admin-key` header. |
-| `CLIENT_ORIGIN` **[SEC]** | Comma-separated allowed browser origins for CORS, e.g. `https://ascendancyalgo.xyz,https://frontier.vercel.app`. No wildcard. Required for the split-host (Vercel) frontend + cross-site cookies. |
+| `CLIENT_ORIGIN` **[SEC]** | Comma-separated allowed browser origins for CORS, e.g. `https://frontierprotocol.app,https://frontieralgo.pages.dev`. No wildcard. Required for the split-host (Cloudflare Pages) frontend + cross-site cookies. |
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` **[SEC]** | **Required if running >1 instance.** Enables distributed auth nonces + enumeration/auth rate limits (and world-event/replay persistence). Without them everything falls back to per-instance memory (correct for a *single* instance only). Startup log prints `Distributed mode ✓` vs `Per-instance mode`. |
 
 ### Security toggles — safe defaults; set only to override
@@ -64,15 +65,15 @@ Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical 
 
 ---
 
-## 2. Frontend — Vercel (SPA)
+## 2. Frontend — Cloudflare Pages (SPA)
 
-**All `VITE_`-prefixed and read at BUILD time** — set them in Vercel *before*
-building, and rebuild after any change.
+**All `VITE_`-prefixed and read at BUILD time** — set them in the Cloudflare
+Pages project settings *before* building, and rebuild after any change.
 
 | Var | Notes |
 |-----|-------|
-| `VITE_API_URL` **[REQ for split-host]** | Backend origin, e.g. `https://api.ascendancyalgo.xyz`. Empty only when the API serves the SPA same-origin. |
-| `VITE_WS_URL` **[REQ for split-host]** | Backend WebSocket base, e.g. `wss://api.ascendancyalgo.xyz`. |
+| `VITE_API_URL` **[REQ for split-host]** | Backend origin, e.g. `https://api.frontierprotocol.app`. Empty only when the API serves the SPA same-origin. |
+| `VITE_WS_URL` **[REQ for split-host]** | Backend WebSocket base, e.g. `wss://api.frontierprotocol.app`. |
 | `VITE_ALGORAND_NETWORK` | `mainnet` or `testnet` (must match backend). |
 | `VITE_ALGOD_URL` / `VITE_INDEXER_URL` **[OPT]** | Override for mainnet; default to testnet algonode. |
 
@@ -80,28 +81,29 @@ building, and rebuild after any change.
 
 ## 3. Go-live order & gotchas
 
-1. **Secrets first.** Put `ALGORAND_ADMIN_MNEMONIC` in Railway's secret store (not a file). Generate fresh `SESSION_SECRET` + `ADMIN_KEY`.
-2. **CORS + cookies.** Set `CLIENT_ORIGIN` to the exact Vercel origin(s). Cross-site cookies need `NODE_ENV=production` (sets `SameSite=None; Secure`) over HTTPS — both hosts must be HTTPS. The Bearer-token path is the primary auth channel, so third-party-cookie blocking won't break login.
-3. **Multi-instance.** If Railway scales beyond 1 replica, set the `UPSTASH_*` pair *before* scaling, and confirm the boot log shows `Distributed mode ✓`.
-4. **Split-host deploy ordering.** The SPA (Vercel) and API (Railway) deploy independently. To avoid a window where an old SPA can't write against an auth-enforcing API: deploy the new SPA first, *or* temporarily set `WALLET_AUTH_REQUIRED=false`, deploy both, then flip it back to `true`. (On a single-host Railway deploy that serves the built SPA, there's no window.)
+1. **Secrets first.** Set `ALGORAND_ADMIN_MNEMONIC` via `fly secrets set` (not a file). Generate fresh `SESSION_SECRET` + `ADMIN_KEY`.
+2. **CORS + cookies.** Set `CLIENT_ORIGIN` to the exact Cloudflare Pages origin(s). Cross-site cookies need `NODE_ENV=production` (sets `SameSite=None; Secure`) over HTTPS — both hosts must be HTTPS. The Bearer-token path is the primary auth channel, so third-party-cookie blocking won't break login.
+3. **Multi-instance.** If the Fly app scales beyond 1 machine, set the `UPSTASH_*` pair *before* scaling, and confirm the boot log shows `Distributed mode ✓`.
+4. **Split-host deploy ordering.** The SPA (Cloudflare Pages) and API (Fly) deploy independently. To avoid a window where an old SPA can't write against an auth-enforcing API: deploy the new SPA first, *or* temporarily set `WALLET_AUTH_REQUIRED=false`, deploy both, then flip it back to `true`.
 5. **Verify after deploy.** Boot log should show: `ALGORAND_NETWORK=… ✓`, blockchain ready, and the distributed/per-instance mode line. Hit `/health` (200) and `/api/blockchain/status` (no admin balances unless `x-admin-key` is sent).
 
 ---
 
-## 4. Quick copy-paste (Railway, production single-instance)
+## 4. Quick copy-paste (Fly.io, production single-instance)
 
-```
-NODE_ENV=production
-DATABASE_URL=postgres://…?sslmode=require
-ALGORAND_NETWORK=mainnet
-ALGORAND_ADMIN_MNEMONIC=…25 words…        # secrets manager
-ALGORAND_ADMIN_ADDRESS=…
-SESSION_SECRET=…openssl rand -hex 32…
-ADMIN_KEY=…openssl rand -hex 32…
-PUBLIC_BASE_URL=https://api.ascendancyalgo.xyz
-CLIENT_ORIGIN=https://ascendancyalgo.xyz
-AI_ENABLED=false
-# add when scaling >1 instance:
-# UPSTASH_REDIS_REST_URL=…
-# UPSTASH_REDIS_REST_TOKEN=…
+```bash
+fly secrets set -a frontiernext \
+  NODE_ENV=production \
+  DATABASE_URL='postgres://…?sslmode=require' \
+  ALGORAND_NETWORK=mainnet \
+  ALGORAND_ADMIN_MNEMONIC='…25 words…' \
+  ALGORAND_ADMIN_ADDRESS='…' \
+  SESSION_SECRET="$(openssl rand -hex 32)" \
+  ADMIN_KEY="$(openssl rand -hex 32)" \
+  PUBLIC_BASE_URL=https://api.frontierprotocol.app \
+  CLIENT_ORIGIN=https://frontierprotocol.app \
+  AI_ENABLED=false
+# add when scaling >1 machine:
+#   UPSTASH_REDIS_REST_URL=…
+#   UPSTASH_REDIS_REST_TOKEN=…
 ```

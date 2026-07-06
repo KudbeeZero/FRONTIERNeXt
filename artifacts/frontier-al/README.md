@@ -84,7 +84,7 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 | | Doc | Description |
 |---|---|---|
 | 🏛️ | **[Architecture](ARCHITECTURE.md)** | System design across client, engine, and the Algorand service layer |
-| 🚢 | **[Deployment](DEPLOYMENT.md)** | Ship to Railway / Render / DigitalOcean, with the pre-go-live checklist |
+| 🚢 | **[Deployment](DEPLOYMENT.md)** | Ship to Fly.io (backend) + Cloudflare Pages (frontend), with the pre-go-live checklist |
 | 🔧 | **[Environment Variables](ENV_VARS.md)** | Every config knob and required secret |
 | 🧪 | **[Testing Mode](TESTING_MODE.md)** | Partner-testing emission rates and switches |
 | 📊 | **[Coverage Gate](docs/COVERAGE_GATE.md)** | CI ≥80% line-coverage gate on the deterministic game-math core (`coverage:server`) — and why it is not a whole-package claim |
@@ -580,21 +580,10 @@ All transactions sent to Algorand use the prefix `ASCEND:` followed by structure
 
 ## Deployment
 
-### Railway (Recommended)
-Set environment variables in the Railway dashboard. Provision a Railway PostgreSQL plugin for `DATABASE_URL`. Build and start commands are auto-detected from `package.json`.
-
-### Render
-1. New Web Service → connect repo
-2. **Build command**: `npm install && npm run build`
-3. **Start command**: `npm start`
-4. **Environment**: Node 20, set all required env vars
-5. Add a Render PostgreSQL database, copy connection string to `DATABASE_URL`
-
-### DigitalOcean App Platform
-1. New App → connect repo
-2. Build command: `npm run build`
-3. Run command: `npm start`
-4. Add a DigitalOcean Managed PostgreSQL database
+Backend ships to **Fly.io**, frontend to **Cloudflare Pages** — see
+[`DEPLOYMENT.md`](./DEPLOYMENT.md) for the overview and
+[`docs/DEPLOY_FLY.md`](../../docs/DEPLOY_FLY.md) for the full backend deploy
+steps (secrets, CORS, DB migrations, the one-tap GitHub Actions path).
 
 ### Pre-Go-Live Checklist
 | Item | Action Required |

@@ -22,7 +22,7 @@ import { isRedisEnabled } from "./services/redis";
 const app = express();
 const httpServer = createServer(app);
 
-// Behind Railway's reverse proxy: trust the first hop so rate limiting and any
+// Behind Fly's reverse proxy: trust the first hop so rate limiting and any
 // IP-based logic key on the real client IP (X-Forwarded-For) rather than the proxy.
 app.set("trust proxy", 1);
 
