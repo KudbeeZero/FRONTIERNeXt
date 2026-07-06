@@ -71,6 +71,7 @@ import {
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
 import { requireAdminKey, isAdminRequest, enumerationLimiter, authLimiter, adviceLimiter, waitlistLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, isRealWallet, isRealVerifiedWallet, type PaymentRedemption } from "./security";
 import { redeemedPayments as redeemedPaymentsTable, actionNonces as actionNoncesTable } from "./db-schema";
+import { economicsSnapshots as economicsSnapshotsTable } from "./db-schema";
 import { evaluateOwnership } from "./routeOwnership";
 import { createActionIdempotencyGuard } from "./idempotencyGuard";
 
@@ -781,6 +782,27 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Economics fetch error:", error);
       res.status(500).json({ error: "Failed to fetch economics data" });
+    }
+  });
+
+  /** GET /api/economics/history — hourly economics snapshots (Unit D3), oldest
+   *  first, for the real supply-flow chart. Returns an empty list until the
+   *  sampler (server/services/economicsSnapshotSampler.ts) has accrued rows —
+   *  the chart states its real "data since" date rather than fabricating a
+   *  past. Public read of already-public aggregate data, same as
+   *  GET /api/economics. */
+  app.get("/api/economics/history", async (req, res) => {
+    try {
+      const limit = Math.min(500, Math.max(1, parseInt(String(req.query.limit ?? "500"), 10)));
+      const rows = await db
+        .select()
+        .from(economicsSnapshotsTable)
+        .orderBy(desc(economicsSnapshotsTable.capturedAt))
+        .limit(limit);
+      res.json({ snapshots: rows.reverse() });
+    } catch (err) {
+      console.error("[/api/economics/history]", err);
+      res.status(500).json({ error: "Failed to fetch economics history" });
     }
   });
 

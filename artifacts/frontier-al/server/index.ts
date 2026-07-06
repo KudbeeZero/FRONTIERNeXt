@@ -10,6 +10,7 @@ import {
   timeoutStalePurchaseIntents,
   PURCHASE_INTENT_REAP_INTERVAL_MS,
 } from "./services/chain/chainEventStore";
+import { sampleEconomicsSnapshotOnce } from "./services/economicsSnapshotSampler";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
@@ -256,6 +257,17 @@ app.use((req, res, next) => {
       .catch(() => {});
   }, PURCHASE_INTENT_REAP_INTERVAL_MS);
   _purchaseIntentReapInterval.unref();
+  // Unit D3: hourly economics-history sample for the real supply-flow chart
+  // (docs/BATTLE_MAP_CINEMATICS_AND_DATAVIZ_PLAN.md). Ticks every 5 minutes
+  // but only actually samples once the hourly interval has elapsed
+  // (sampleEconomicsSnapshotOnce's own internal gate) — never throws, never
+  // holds the process open, no-ops without chain config or a DB table.
+  const _economicsSnapshotInterval = setInterval(() => {
+    sampleEconomicsSnapshotOnce().catch(() => {});
+  }, 5 * 60 * 1000);
+  _economicsSnapshotInterval.unref();
+  // Take the first sample shortly after boot rather than waiting up to 5 minutes.
+  setTimeout(() => { sampleEconomicsSnapshotOnce().catch(() => {}); }, 30_000).unref();
   // Start season lifecycle manager (auto-expiry + countdown broadcasts)
   initSeasonManager(storage);
   console.log("[startup] Season manager initialised ✓");

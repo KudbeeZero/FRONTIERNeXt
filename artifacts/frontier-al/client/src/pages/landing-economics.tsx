@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, LabelList,
+  AreaChart, Area,
 } from "recharts";
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
 import { buildFactionControlRows, type FactionTerritory } from "@/lib/economics/factionControl";
@@ -70,6 +71,22 @@ export default function LandingEconomics() {
       }))
     : [];
 
+  const { data: historyData } = useQuery<{ snapshots: { capturedAt: number; inGameCirculating: number; treasury: number; totalBurned: number }[] }>({
+    queryKey: ["/api/economics/history"],
+    queryFn: () => fetch(resolveApiUrl("/api/economics/history")).then(r => r.json()),
+    staleTime: 5 * 60_000,
+  });
+  const snapshots = historyData?.snapshots ?? [];
+  const supplyFlowData = snapshots.map((s) => ({
+    dateLabel: new Date(s.capturedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit" }),
+    circulating: Math.round(s.inGameCirculating),
+    treasury: Math.round(s.treasury),
+    burned: Math.round(s.totalBurned),
+  }));
+  const historySinceLabel = snapshots.length > 0
+    ? new Date(snapshots[0].capturedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+    : null;
+
   return (
     <div style={{ position: "relative", minHeight: "100vh", width: "100%", overflow: "hidden", fontFamily: "'Courier New', 'SF Mono', monospace", color: "#e0eaff" }}>
       <Starfield />
@@ -129,6 +146,53 @@ export default function LandingEconomics() {
               </div>
             </div>
           </div>
+
+          {supplyFlowData.length > 0 && (
+            <div style={{ ...CARD, animation: "fadeInUp 0.7s ease-out 0.22s both" }}>
+              <div style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(100,140,200,0.7)", marginBottom: 4 }}>Supply Flow</div>
+              <div style={{ fontSize: 10, color: "rgba(120,150,200,0.5)", marginBottom: 16 }}>
+                Real hourly snapshots — data since {historySinceLabel}. No projection, no synthetic points.
+              </div>
+              <div style={{ height: 200 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={supplyFlowData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gradCirculating" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor={PIE_COLORS[0]} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={PIE_COLORS[0]} stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradTreasury" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor={PIE_COLORS[2]} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={PIE_COLORS[2]} stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradBurned" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor={PIE_COLORS[1]} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={PIE_COLORS[1]} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(60,90,180,0.1)" />
+                    <XAxis dataKey="dateLabel" tick={{ fill: "rgba(150,190,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={30} />
+                    <YAxis tick={{ fill: "rgba(150,190,255,0.5)", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmt} width={40} />
+                    <Tooltip contentStyle={{ backgroundColor: "#0a0b14", border: "1px solid #1f2937", borderRadius: 6, fontSize: 10 }} formatter={(v: number) => [fmt(v), ""]} />
+                    <Area type="monotone" dataKey="circulating" stackId="1" stroke={PIE_COLORS[0]} fill="url(#gradCirculating)" strokeWidth={1.5} name="In Circulation" />
+                    <Area type="monotone" dataKey="treasury"    stackId="1" stroke={PIE_COLORS[2]} fill="url(#gradTreasury)"    strokeWidth={1.5} name="Treasury" />
+                    <Area type="monotone" dataKey="burned"      stackId="1" stroke={PIE_COLORS[1]} fill="url(#gradBurned)"      strokeWidth={1.5} name="Burned" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: "flex", gap: 14, fontSize: 10, marginTop: 10, flexWrap: "wrap" }}>
+                {[
+                  { label: "In Circulation", color: PIE_COLORS[0] },
+                  { label: "Treasury",       color: PIE_COLORS[2] },
+                  { label: "Burned",         color: PIE_COLORS[1] },
+                ].map(({ label, color }) => (
+                  <span key={label} style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(200,220,255,0.75)" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: "inline-block" }} /> {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {factionRows.length > 0 && (
             <div style={{ ...CARD, animation: "fadeInUp 0.7s ease-out 0.25s both" }}>
