@@ -10,33 +10,35 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — 🔎 AWAITING_AUDIT: faction single-source-of-truth · main green at `936a4ce`
+## Current baton — 🔎 AWAITING_AUDIT: fix fillTradeOrder double-spend · main green at `aff8298`
 
-**Owner /goal (2026-07-06):** the faction claim/button/menu "don't link together"
-and a claimed faction "doesn't stay globally with the user — needs to stay in
-their ALGO account." **This unit, done:** a research agent confirmed the faction
-DOES persist durably (wallet-keyed `players.playerFactionId`) and the badge+panel
-read it right, but the **entry gate + objective HUD read a divergent localStorage
-key** and never reconcile — so a new device re-prompted an already-claimed player,
-and panel switch/leave left the cache stale (`clearFaction` was dead code). Fix
-makes localStorage a faithful cache of the authoritative server record: gate
-rehydrates from `/api/auth/me` on mount, panel join/leave keeps the cache in sync.
-New pure helpers `resolveEffectiveFaction`/`shouldShowFactionGate`/`asPlayerFactionId`
-(8 new tests). tsc clean · client 285 · build green. Detail:
-[`session-notes/2026-07-06-faction-single-source-of-truth.md`](../artifacts/frontier-al/session-notes/2026-07-06-faction-single-source-of-truth.md).
+**Owner /goal (2026-07-06): "nothing gets lost or repeats itself."** The DB-health
+research agent found real concurrent double-spends; **this unit fixes the first
+(CRITICAL): `fillTradeOrder`** (`db.ts:2281`) — two concurrent fills of the same
+open order both passed the `status==='open'` check (no `FOR UPDATE`, mark-filled
+keyed only on `id`) and both transferred resources. Fixed with the in-repo
+`openLootBox` pattern: `FOR UPDATE` on the order SELECT + a conditional
+`UPDATE … WHERE status='open'` (rowCount bail) claim BEFORE the transfers; also
+narrowed the player `SELECT *` to the 6 columns read. New gated
+`tradefill.db.spec.ts` (real-Postgres concurrency test) — **fail-before/pass-after
+proven against a throwaway Postgres**, added to `test:server:db`. tsc clean ·
+server 446/16 skipped (+2 gated) · build green. Detail:
+[`session-notes/2026-07-06-fix-trade-fill-double-spend.md`](../artifacts/frontier-al/session-notes/2026-07-06-fix-trade-fill-double-spend.md).
+
+Prior this session: faction single-source-of-truth (#203, `aff8298`) — the gate +
+objective HUD read a divergent localStorage key; now localStorage is a faithful
+cache of the wallet-keyed server record (gate rehydrates from `/api/auth/me`).
 
 ### 🔴 HIGH-PRIORITY QUEUE from this session's 5 research agents (do next, in order)
 
-**A. Concurrent double-spend bugs (DB-health audit) — jump the queue, these are real:**
-1. `fillTradeOrder` (`db.ts:2281`) — double-fill transfers resources twice (no
-   `FOR UPDATE`, mark-filled keys only on `id`). **CRITICAL.**
-2. `claimWinnings` (`db.ts:3278`) — not in a txn; double-claim pays out twice. **CRITICAL.**
+**A. Concurrent double-spend bugs (DB-health audit) — ✅ #1 done above; remaining:**
+2. `claimWinnings` (`db.ts:3278`) — not in a txn; double-claim pays out twice. **CRITICAL — NEXT.**
 3. `grantWelcomeBonus`+login (`routes.ts:444`) — concurrent logins double-enqueue the
    on-chain 500-ASCEND transfer (real funds). **BUG.**
 4. `placeBet` (`db.ts:3216`) — non-atomic double-credit. **BUG.**
-   Fix pattern already in-repo: `openLootBox`'s txn + `FOR UPDATE` + conditional
-   `UPDATE … WHERE <not-done> RETURNING` + rowCount bail; each needs a
-   fail-before/pass-after concurrency test like `lootbox.db.spec.ts`.
+   Fix pattern (proven on #1): `openLootBox`'s txn + `FOR UPDATE` + conditional
+   `UPDATE … WHERE <not-done> RETURNING` + rowCount bail; each needs a gated
+   real-Postgres fail-before/pass-after test like `tradefill.db.spec.ts`.
 **B. Quick DB/gate wins:** `players.address`/`player_faction_id` indexes (migration
 0013); extend the strict action rate-limiter to `/api/trade|markets|weapons|
 sub-parcels|factions`; a middleware-binding coverage test.

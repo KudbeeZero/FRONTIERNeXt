@@ -2279,23 +2279,34 @@ export class DbStorage implements IStorage {
     let result: { success: boolean; error?: string; trade?: TradeOrder } = { success: false };
 
     await this.db.transaction(async (tx) => {
-      // 1. Fetch and validate the order
+      // 1. Fetch and validate the order under a row lock. FOR UPDATE serializes
+      //    concurrent fills of the SAME order: a second filler blocks here until
+      //    the first commits, then re-reads status='filled' below and bails — so
+      //    the resource transfer can never apply twice (the double-spend the
+      //    unlocked read used to allow). Mirrors openLootBox's guard.
       const [order] = await tx
         .select()
         .from(tradeOrdersTable)
-        .where(eq(tradeOrdersTable.id, orderId));
+        .where(eq(tradeOrdersTable.id, orderId))
+        .for("update");
 
       if (!order) { result = { success: false, error: "Order not found" }; return; }
       if (order.status !== "open") { result = { success: false, error: "Order is no longer open" }; return; }
       if (order.offererId === fillerId) { result = { success: false, error: "Cannot fill your own order" }; return; }
 
-      // 2. Fetch both players
+      // 2. Fetch both players — only the columns this method reads (id, name,
+      //    and the four resource balances), not SELECT *.
+      const playerCols = {
+        id: playersTable.id, name: playersTable.name,
+        iron: playersTable.iron, fuel: playersTable.fuel,
+        crystal: playersTable.crystal, ascend: playersTable.ascend,
+      } as const;
       const [offererRow] = await tx
-        .select()
+        .select(playerCols)
         .from(playersTable)
         .where(eq(playersTable.id, order.offererId));
       const [fillerRow] = await tx
-        .select()
+        .select(playerCols)
         .from(playersTable)
         .where(eq(playersTable.id, fillerId));
 
@@ -2320,7 +2331,19 @@ export class DbStorage implements IStorage {
         return;
       }
 
-      // 4. Deduct giveResource from offerer, credit wantResource to offerer
+      // 4. Claim the order FIRST with a conditional UPDATE — belt to the FOR
+      //    UPDATE lock's suspenders. If a concurrent fill already flipped it to
+      //    'filled', this matches 0 rows and we bail BEFORE moving any resources,
+      //    so a resource transfer is impossible on a double-fill even in the
+      //    (theoretical) event the lock is bypassed.
+      const now = Date.now();
+      const [filled] = await tx.update(tradeOrdersTable)
+        .set({ status: "filled", filledById: fillerId, filledByName: fillerRow.name, filledAt: now })
+        .where(and(eq(tradeOrdersTable.id, orderId), eq(tradeOrdersTable.status, "open")))
+        .returning();
+      if (!filled) { result = { success: false, error: "Order is no longer open" }; return; }
+
+      // 5. Deduct giveResource from offerer, credit wantResource to offerer
       await tx.update(playersTable)
         .set({
           [order.giveResource]: sql`${giveCol} - ${order.giveAmount}`,
@@ -2328,20 +2351,13 @@ export class DbStorage implements IStorage {
         })
         .where(eq(playersTable.id, order.offererId));
 
-      // 5. Deduct wantResource from filler, credit giveResource to filler
+      // 6. Deduct wantResource from filler, credit giveResource to filler
       await tx.update(playersTable)
         .set({
           [order.wantResource]: sql`${wantCol} - ${order.wantAmount}`,
           [order.giveResource]: sql`${giveCol} + ${order.giveAmount}`,
         })
         .where(eq(playersTable.id, fillerId));
-
-      // 6. Mark order filled — persist filler identity for history / leaderboard
-      const now = Date.now();
-      const [filled] = await tx.update(tradeOrdersTable)
-        .set({ status: "filled", filledById: fillerId, filledByName: fillerRow.name, filledAt: now })
-        .where(eq(tradeOrdersTable.id, orderId))
-        .returning();
 
       result = { success: true, trade: filled };
     });
