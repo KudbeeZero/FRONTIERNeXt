@@ -10,20 +10,30 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
-## Current baton — ⏳ battle/commander/menu refactor · branch `feat/battle-menu-architecture-refactor` · plan doc phase
+## Current baton — ⏳ PR **#177** (battle/commander/menu refactor) · branch `feat/battle-menu-architecture-refactor` · merge-on-green
 
 **Owner `/goal` (2026-07-06): refactor the battle/commander architecture and the whole menu
-system, keep the NFTs, and make sure battles are actually working.** First unit is a docs-only
-scoping plan — [`artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md) —
-from a fresh read-only audit of the current battle engine, client battle/commander UI, and
-menu/nav code. Key finding: the server battle math (`resolve.ts`) is already clean and
-well-tested — leave it alone. The real target is `GameLayout.tsx`'s **two parallel nav state
-machines** (mobile `activeTab` vs desktop `desktopRightTab`, both routing into the same panels)
-and the ~11-file sprawl of battle-watching UI. Phased plan: A) unify menu/nav, B) consolidate
-battle-watch UI, C) broaden battle-engine test coverage (the "make sure battles are working"
-deliverable — extend the coverage gate past `resolve.ts` to `replayLog`/`verify`/`tuning`/AI
-reconquest, add one full attack→resolve→record→replay integration test). NFT mint/transfer code
-and combat math are explicit non-goals — see the doc's §0/§3.
+system, keep the NFTs, and make sure battles are actually working.** Plan doc —
+[`artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md`](../artifacts/frontier-al/docs/BATTLE_MENU_REFACTOR_PLAN.md) —
+from a fresh read-only audit. Key finding: server battle math (`resolve.ts`) is already clean and
+well-tested — leave it alone. The real target is `GameLayout.tsx`'s **three parallel rendering
+paths** for the same panel set (mobile fullscreen `activeTab`, desktop rail `desktopRightTab`,
+and a flag-gated dashboard-canvas widget map — not just two as first thought).
+**Shipped in this PR so far:**
+- **Phase A step 1 (code):** the off-by-default dashboard-canvas widgets now derive from one
+  `dashboardPanelRegistry` array instead of a third hand-rolled copy of every panel's props.
+  Desktop rail + mobile fullscreen deliberately untouched — real per-context differences found
+  (sizing classes, wrapper divs for Armory/University) mean a naive shared-registry reuse would
+  break desktop layout; that migration needs a render-factory registry shape and is its own
+  careful follow-up unit (documented in the plan doc), not rushed alongside this lower-risk step.
+- **Phase C (code):** broadened the CI coverage gate — `replayLog.ts`/`verify.ts`/`tuning.ts`/
+  `random.ts` had spec files but weren't enforced; now they are (94.02% lines/79.9% branches,
+  still clear of 80/70). **Found `server/engine/ai/reconquest.ts` (AI faction attacks) has ZERO
+  test coverage** — did not add it to the gate (would falsely dilute-pass); documented as an
+  honest gap in `COVERAGE_GATE.md` needing its own test-writing unit.
+- **Still open:** Phase B (consolidate the ~11-file battle-watching UI sprawl), the desktop-rail/
+  mobile registry migration, and writing tests for `reconquest.ts`.
+NFT mint/transfer code and combat math are explicit non-goals — see the plan doc's §0/§3.
 **Also this session: fixed a real, month-old production bug** — wallet login on
 frontierprotocol.app spawned ~12 popups and redirected to fly.dev (see #175/#176 below, both
 merged+deployed). Owner confirmed the popup storm is gone; the "developer account with no ALGO"
