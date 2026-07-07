@@ -26,7 +26,7 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: `feat/armory-loadout-polish` pushed, PR open, not yet audited
+## Current baton — 🟡 AWAITING_AUDIT: `fix/dev-session-ws-gate` pushed, PR open, not yet audited
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
@@ -52,7 +52,75 @@ CI + Fly deploy both confirmed green on `d9f5ff6`.
 
 **Working branch reset to a clean `origin/main` (`d9f5ff6`) at that point — no uncommitted
 changes, no open PR.** (Since then, this same session continued straight into the weapons
-plan + unit 1 below — see the AWAITING_AUDIT summary above for current state.)
+plan + unit 1 — see below.)
+
+**#211 (weapons unit 1, `feat/armory-loadout-polish`) merged** as `0ced366` — **audited
+PASS, no CONCERNS.** Independent auditor reproduced every claimed test number exactly
+(tsc clean, server 449/24 skipped, coverage 94.54% lines, client 303 passed, clean build),
+verified the loadout-gate ordering/semantics line-by-line, confirmed the `BottomNav.tsx`
+deletion was safe via a full-repo grep (not just the claimed touched files), and confirmed
+no funds/ASA/chain/cinematics files were touched. Only note: the PR body's file list omitted
+two pure-docs files that were actually in the commit range (cosmetic, not a functional gap).
+Full audit trail: [docs/audits/pr-211-audit.md](./audits/pr-211-audit.md). Session note:
+[2026-07-07-armory-loadout-polish.md](../artifacts/frontier-al/session-notes/2026-07-07-armory-loadout-polish.md).
+CI + Fly deploy both confirmed green on `0ced366`.
+
+**Working branch reset to a clean `origin/main` (`0ced366`) — no uncommitted changes, no
+open PR.**
+
+**New finding this session (from an owner ask for an image/art asset list — a research pass,
+no PR, no code changed):** two NFT `image` fields already in production code point at paths
+that don't exist on disk — `client/public/images/weapons/`
+(8 weapon-category icons, referenced by the weapon-NFT mint route) and
+`client/public/faction/images/` (4 faction SVGs, referenced by the faction metadata route).
+Both are live 404s today, not hypothetical. Faction emblem PNGs already exist in
+`attached_assets/` unused for this purpose — the weapon-category icons don't exist anywhere
+yet. Good candidate for a small, low-risk next unit (or folded into weapons plan unit 7,
+`feat/weapon-nft-claim`, since it touches the same NFT-metadata surface).
+
+**New unit this session, awaiting audit: `fix/dev-session-ws-gate`.** Owner asked for a
+"polish" pass + a real image of the battle system + honest answers on whether things work,
+Redis, and cinematics. Two background agents did a live headless health-check + a
+Redis/cinematics code audit. Findings (all documented, only one required a code fix):
+- **Real bug found + fixed**: dev/test sessions never bumped `WalletContext`'s
+  `authVersion`, which gates `useGameSocket`'s live-WS connect (`!authTrigger` blocks it
+  forever at its initial `0`). Confirmed live: a dev-session weapon fire resolved correctly
+  server-side but its missile/impact visuals never rendered, because the WS never opened
+  (base game state has a 30s REST-poll fallback so the globe itself still looked fine —
+  only live weapon/battle events were silently dropped). Real wallet-authenticated players
+  were never affected (their `authenticate()` call already bumps `authVersion` normally).
+  Fixed with a small pure helper (`devIdentityAuthVersion`) forcing a truthy trigger for the
+  dev identity, +2 new tests. Session note:
+  [2026-07-07-dev-session-ws-gate-fix.md](../artifacts/frontier-al/session-notes/2026-07-07-dev-session-ws-gate-fix.md).
+- **Domain "not loading" report — no evidence of a real outage found.** DNS, TLS certs,
+  full-page loads (including deep routes like `frontierprotocol.app/game`), CORS, and asset
+  delivery all checked out clean on both domains. Likely explanation for anyone checking
+  with `curl`/a script/an uptime monitor rather than a real browser tab: `server/index.ts`
+  serves a bare 23-byte placeholder for `GET /` whenever the request's `Accept` header
+  doesn't include `text/html` — flagged in
+  [`docs/LOGIN_AUTH_FLOW_MAP.md`](../artifacts/frontier-al/docs/LOGIN_AUTH_FLOW_MAP.md#open-questions--things-that-look-off).
+  Owner's actual browser symptom (if it recurs) is still not captured — get that detail if
+  this comes up again, since everything checkable from outside is green.
+- **Redis**: real-time game-state push is plain in-process WebSocket, **no Redis in that
+  path at all**. Redis is a separate, optional layer (auth nonces, rate-limit counters,
+  event/replay persistence) — not configured in production (`fly.toml` has no
+  `UPSTASH_REDIS_REST_URL`/`TOKEN`), safely falls back to in-memory, harmless today since
+  Fly runs a single instance. Would need to be set before ever scaling to >1 machine.
+- **Globe cinematics**: confirmed still accurate against current code — solid procedural
+  baseline (ballistic arc, particle trail, distinct intercept-vs-impact flash) but fully
+  disconnected from the shared `cinematicBus` (no camera reaction, no HUD callout, no
+  incoming-fire telegraph). Highest-value remaining gap = plan unit 8
+  (`feat/missile-cinematic-integration`), still not started.
+- **Replay**: a real battle-replay *log* works (`GET /api/battle/replay/:battleId`, text
+  breakdown, Redis-cached). Weapon fire itself has **zero cooldown** — fired the same
+  weapon 3x back-to-back with no rejection, confirming gap G-E. W1 (damage never settles
+  onto plot state) reconfirmed still real by reading current code, not just trusting the
+  plan doc.
+- Screenshots from the live headless run (globe + War Room mid-battle) sent to the owner
+  directly; not committed to the repo (throwaway verification artifacts).
+
+Verified green: tsc clean, client 305/305 (+2 new), server 449/24 skipped (unchanged, no
+server files touched), build clean.
 
 ### 🔴 NEW OWNER DIRECTIVE (2026-07-07, supersedes M1-4 as next-up)
 
@@ -86,18 +154,17 @@ still-live `NavTab` type export into `client/src/lib/panelNav.ts` (4 import site
 Session note:
 [2026-07-07-armory-loadout-polish.md](../artifacts/frontier-al/session-notes/2026-07-07-armory-loadout-polish.md).
 
-**Verified green locally** (not yet independently re-verified by CI/audit): `check` (tsc)
-clean · `test:server` 449/24 skipped (+3 new loadout-gate tests) · `coverage:server` 94.54%
-lines (gate ≥80%) · client `test` 303 passed (+5 new: loadout gating + `hasOwnedOffensiveWeapons`)
-· `build` clean. **Honest gap:** no headless visual/browser verification this unit — it's a
-pure logic gate + label/cost text change, no new layout to screenshot.
+**Merged as #211 (see above) — audited PASS.** `check`/`test:server`/`coverage:server`/`test`/
+`build` all reproduced green independently by the auditor, not just claimed. **Honest gap
+(still true):** no headless visual/browser verification this unit — it's a pure logic gate +
+label/cost text change, no new layout to screenshot.
 
-**Next session:** run `/handoff-audit` on this PR first (gate on PASS/CONCERNS/FAIL per
-protocol), then — once merged — move to the next plan unit. Units 3 (cooldown enforcement)
-and 5 (this one, done) were flagged as the least design-dependent; units 1→2 (damage
-settlement → combat convergence) should land before 8's telegraph piece is meaningful; 4
-(defense-deploy UI) and 7 (NFT claim) are independent and can run any time. 9 of 10 units
-remain.
+**Next session:** pick the next weapons-plan unit. Units 3 (cooldown enforcement) and 5 (this
+one, done) were flagged as the least design-dependent — 3 is a good next pick, self-contained,
+no design call needed. Units 1→2 (damage settlement → combat convergence) should land before
+8's telegraph piece is meaningful; 4 (defense-deploy UI) and 7 (NFT claim) are independent and
+can run any time. Also consider the broken-image-path fix noted above (small, low-risk,
+touches the same NFT-metadata surface as unit 7). 9 of 10 weapons-plan units remain.
 
 ### ➡️ THE QUEUE — 3-month buildout (Phase 25 of the master roadmap is the authoritative copy)
 
@@ -131,7 +198,7 @@ no fix without a failing-first test.
    never settled, `"impacted"` never set, no tick (roadmap Phase 8). 🚫 resolution math.
 8. **M2-2 (write)** `feat/combat-convergence` — W3+W4: settled damage feeds plot state;
    badges credit on impact only (`service.ts:202-206`).
-9. **M2-3 — DONE, AWAITING_AUDIT** `feat/armory-loadout-polish` — W2 loadout wiring (was
+9. **M2-3 — DONE, merged #211** `feat/armory-loadout-polish` — W2 loadout wiring (was
    persisted but never consulted, `service.ts:103` vs `:155`) now enforced server- and
    client-side; "FR"→"ASCEND" fixed, upgrade price + max-tier state surfaced; dead
    `BottomNav.tsx` deleted. Responsive rail-grid squeeze deferred to plan unit 6

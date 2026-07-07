@@ -683,6 +683,21 @@ export function shouldEndDevSessionOnDisconnect(
   return devMode && devActive;
 }
 
+/**
+ * `authVersion` is what gates `useGameSocket`'s connect effect (`!authTrigger`
+ * blocks it) — it's normally bumped by the real wallet's `authenticate()` on
+ * success. A dev/test session never calls `authenticate()` (it gets its
+ * session token from `POST /api/dev/quick-auth` instead), so `authVersion`
+ * would stay at its initial `0` — permanently falsy — for the entire life of
+ * a dev session, silently blocking the live WebSocket (weapon fire, battle
+ * resolution, chain-health) even though a valid token exists. Force a truthy
+ * value whenever the dev identity is active so the same gate that works for
+ * real wallets also opens for dev sessions.
+ */
+export function devIdentityAuthVersion(contextAuthVersion: number): number {
+  return contextAuthVersion || 1;
+}
+
 export function useWallet() {
   const context = useContext(WalletContext);
   if (!context) {
@@ -706,6 +721,7 @@ export function useWallet() {
         blockchainReady: true,
         isReady: true,
         isAuthenticated: true,
+        authVersion: devIdentityAuthVersion(context.authVersion),
       };
     }
   }
