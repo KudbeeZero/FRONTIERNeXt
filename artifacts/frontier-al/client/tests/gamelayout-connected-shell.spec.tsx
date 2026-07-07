@@ -42,7 +42,7 @@ const h = vi.hoisted(() => ({
   player: null as unknown,
 }));
 
-vi.mock("@/lib/walletManager", () => ({ walletManager: {} }));
+vi.mock("@/lib/walletManager", () => ({ createWalletManager: () => ({}) }));
 vi.mock("@txnlab/use-wallet-react", () => ({
   WalletProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useWallet: () => ({ wallets: [], activeAccount: null, activeAddress: null, isReady: true }),

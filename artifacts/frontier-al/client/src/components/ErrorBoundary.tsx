@@ -8,18 +8,25 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  message: string | null;
 }
 
 /**
  * Catches render-phase errors in its subtree and shows a recoverable fallback
  * instead of letting the throw unmount the whole React root (which previously
  * blanked the game to a black screen — e.g. the BattleWatchModal hooks crash).
+ *
+ * Shows the actual error message in the fallback UI (not just "Something went
+ * wrong") — on mobile, `console.error` is invisible without DevTools, so a
+ * silent generic fallback leaves a crash just as undiagnosable as a blank
+ * white screen. `error.message` alone (no stack) keeps this readable and
+ * avoids dumping internal file paths to end users.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  state: ErrorBoundaryState = { hasError: false, message: null };
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, message: error?.message || "Unknown error" };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -52,6 +59,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         }}
       >
         <div style={{ fontSize: 15, letterSpacing: "0.08em" }}>Something went wrong</div>
+        {this.state.message && (
+          <div
+            style={{
+              maxWidth: 480,
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: "rgba(255,140,140,0.85)",
+              wordBreak: "break-word",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {this.state.message}
+          </div>
+        )}
         <button
           onClick={this.handleReload}
           style={{
