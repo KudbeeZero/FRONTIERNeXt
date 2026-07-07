@@ -26,43 +26,47 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: PR (M1-2) `fix/placebet-atomicity`
+## Current baton — 🟡 AWAITING_AUDIT: PR (M1-3) `fix/wallet-single-provider`
 
-**#207 (roadmap/baton rewrite) merged** as `9782ee0` — audited CONCERNS first (two of the
-roadmap's own new findings, U4 and U1, had defects), owner chose "fix the two doc issues, then
-merge"; correction pushed, CI re-ran green, merged. Full audit trail:
-[`docs/audits/docs-roadmap-full-scope-audit.md`](./audits/docs-roadmap-full-scope-audit.md).
+**Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS
+first, owner had two doc issues corrected, then merged;
+[audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1, `grantWelcomeBonus`
+double-enqueue funds fix — merged directly by the owner, a valid alternate path since a session
+can't audit its own PR), #209 (M1-2, `placeBet` lost-update fix — independently audited PASS,
+auditor reproduced the fail-before/pass-after story itself in an isolated worktree;
+[audit](./audits/claude-handoff-audit-f5w0qn.md)). Main was green at `008b615` with no open PR
+before this unit started. Session notes:
+[#208](../artifacts/frontier-al/session-notes/2026-07-07-fix-welcome-bonus-double-enqueue.md) ·
+[#209](../artifacts/frontier-al/session-notes/2026-07-07-fix-placebet-atomicity.md).
 
-**#208 (M1-1, funds) merged** as `7f6a9e3` — merged directly by the owner (KudbeeZero), not via
-a fresh chat's `/handoff-audit` (a session can't independently audit its own PR; the owner
-merging it directly is a valid alternate path through the same gate, not a bypass).
-`DbStorage.grantWelcomeBonus` (`db.ts:1099`) ran in a transaction but the player SELECT had no
-row lock and the mark-received UPDATE was unconditional — two concurrent logins both saw
-`welcomeBonusReceived: false` and both enqueued the on-chain 500-ASCEND transfer (real
-double-spend). Found and fixed a second identical-bug call site
-(`POST /api/actions/connect-wallet`). Also bundled (owner request, separate commit): two
-backlog items from an external-repo review (`ammaarreshi/Generals-Mac-iOS-iPad`) — see below.
-Session note:
-[`2026-07-07-fix-welcome-bonus-double-enqueue.md`](../artifacts/frontier-al/session-notes/2026-07-07-fix-welcome-bonus-double-enqueue.md).
+**This chat then did M1-3:** residual wallet-popup vectors P1 + P3 (the #175/#176 popup-storm
+fix holds; these are what's left). **P1:** every route mounted its OWN `<WalletProvider>`
+instance, so a client-side nav between routes (no full reload) unmounted and remounted it —
+resetting its per-instance auth-tracking ref and re-arming a duplicate signature prompt for an
+address already authenticated on the previous mount. Fix: `App.tsx` now hoists **one** shared
+`<WalletProvider>` wrapping every route except `/university`/`/admin` (deliberately kept
+wallet-free, unchanged); `autoAuth` is derived reactively from the current path
+(`shouldAutoAuthenticateForPath`) instead of being a static per-route prop. Added a
+module-level auto-auth memory (`hasAutoAuthed`/`markAutoAuthed`/`clearAutoAuthedAddresses`) as
+defense-in-depth against any future remount. **P3:** the pre-connect stale-session purge fired
+whenever a wallet wasn't connected, with no way to distinguish an abandoned pairing from a
+session resume still completing in the background after the bounded reconnect grace gives up
+on the local spinner — new `shouldPurgeBeforeConnect(wallet)` narrows the purge to
+disconnected-**and**-inactive wallets only (`isActive` without `isConnected` is the signal a
+resume may still be in flight); reasoned through all three of #175's named storm scenarios in
+the code's own doc comment, unchanged for those. **Honest gap:** P3's exact SDK-timing race and
+the real wallet-connect/auto-auth-dedup flow are device-unverified (no real wallet reachable
+from this sandbox) — owner should smoke-test connect/disconnect/reconnect on a real device,
+including deliberately reproducing the original multi-stale-pairing storm scenario. 12 new
+pure-function client tests + a route-loop regression guard for `/university`/`/admin`.
+Attempted real-browser verification via this repo's headless-testing recipe (throwaway
+Postgres + real server + real Vite client + headless Chromium): zero hook/context errors from
+the provider restructure across `/`, `/info/economics`, `/university`, `/battles`, `/armory`.
+tsc clean · server 446/24 skipped (unchanged, server untouched) · client 297 (285 + 12 new) ·
+build green. Session note:
+[2026-07-07-fix-wallet-popup-vectors-p1-p3.md](../artifacts/frontier-al/session-notes/2026-07-07-fix-wallet-popup-vectors-p1-p3.md).
 
-**This chat (same session, resumed) then did M1-2:** `DbStorage.placeBet` (`db.ts:3252` — the
-roadmap's `db.ts:3216` had drifted, re-verified before coding) ran bare statements with no
-transaction — the player balance debit and the market pool credit were both read-then-write,
-so two concurrent bets (same player racing themselves, or two players on the same
-market/outcome) could lose an update: a player could place two bets while only paying for one,
-and a market's pool could drift out of sync with the sum of its positions (corrupting
-`claimWinnings`' payout math). Fix mirrors #204/#205/#208: `FOR UPDATE` on **both** the market
-and player rows taken **before any mutation** (so the checks are authoritative and no path can
-strand a debit against a bet that never completes), narrowed selects, then conditional relative
-updates as a belt to the lock. New `placebet.db.spec.ts` — **deterministic** fail-before/
-pass-after proven against a throwaway real Postgres (same lesson as #205/#208: the naive
-`Promise.all` case alone did NOT catch the buggy variant; only the raw-connection `FOR UPDATE`
-lock test did). tsc clean · server 446/24 skipped (+3 gated) · coverage:server 94.54% lines
-(unchanged, DB code not in the curated include) · client 285 · build green · `test:server:db`
-21/21 together. Session note:
-[`2026-07-07-fix-placebet-atomicity.md`](../artifacts/frontier-al/session-notes/2026-07-07-fix-placebet-atomicity.md).
-
-**Next chat: `/handoff-audit` this PR, merge on PASS, then start M1-3.**
+**Next chat: `/handoff-audit` this PR, merge on PASS, then start M1-4.**
 
 ### ➡️ THE QUEUE — 3-month buildout (Phase 25 of the master roadmap is the authoritative copy)
 
@@ -73,16 +77,12 @@ no fix without a failing-first test.
 **Month 1 — funds safety + wallet truth**
 1. **M1-1 — DONE, merged #208** `fix/welcome-bonus-double-enqueue` — see baton summary above
    for full detail.
-2. **M1-2 — DONE, AWAITING_AUDIT** `fix/placebet-atomicity` — see baton summary above for full
+2. **M1-2 — DONE, merged #209** `fix/placebet-atomicity` — see baton summary above for full
    detail.
-3. **M1-3** `fix/wallet-single-provider` — residual wallet-popup vectors (the #175/#176
-   popup-storm fix holds; these are what's left, roadmap Phase 6c): P1 per-route
-   `WalletProvider` remount re-arms auto-auth (`App.tsx:40` + per-instance refs
-   `WalletContext.tsx:252,355-361`) → ONE app-level provider + module-level auth guard;
-   P3 purge-on-connect aborts in-flight session resume (`WalletContext.tsx:405`);
-   P2 (landing↔game cross-origin second connect) is an ADR + owner decision, not code here.
-   Read `WalletContext.tsx` + `WalletConnect.tsx` fully first; don't regress #175's fixes.
-4. **M1-4 (read)** `fix/pin-ascend-asa` — pin ASCEND ASA via `ASCEND_ASA_ID` env + startup
+3. **M1-3 — DONE, AWAITING_AUDIT** `fix/wallet-single-provider` — P1+P3 fixed, see baton
+   summary above for full detail. P2 (landing↔game cross-origin second connect) remains an ADR
+   + owner decision, not code — still not started.
+4. **M1-4 (NEXT UP, read)** `fix/pin-ascend-asa` — pin ASCEND ASA via `ASCEND_ASA_ID` env + startup
    assert; today it's name-lookup only (`services/chain/asa.ts:117,128`) with no env-pinned
    ID — `755818217` appears only as free-text in source/docs (`shared/university/curriculum.ts`
    + several markdown docs), never as a config value. Update `ENV_VARS.md` + deployment checklist.
