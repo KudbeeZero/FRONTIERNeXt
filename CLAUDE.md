@@ -22,6 +22,12 @@ artifact, not trust.
 4. **End with `/closeout`.** Commit, confirm tests green, open **exactly one** PR
    into `main` with an Audit checklist, and rewrite the baton. The final baton
    commit must **not** use `[skip ci]`.
+5. **End-of-day state is non-negotiable** (full checklist in the baton's
+   "Definition of done"): `main` green on its real head commit, the loop closed,
+   and **everything pushed — what the owner sees on github.com must be exactly
+   what you have locally.** The container is ephemeral; unpushed work is lost work.
+   Verify with `git status` + `git log origin/<branch>..HEAD` (must be empty)
+   before ending any session.
 
 ## Invariants
 
@@ -42,11 +48,19 @@ Next:    <do I test it now, or what's the next unit / branch?>
 
 ## App-specific rules
 
-This file governs the **chat loop**. For application rules (the FRONTIER-AL
-Algorand game — architecture, HARD RULES on pricing/finality/atomic delivery,
-the `algo-auditor` and `mainnet-gate` gates), defer to
+This file governs the **chat loop**. For app-side working conventions (token
+efficiency, subagent policy, headless visual testing, session close-out), defer to
 [`artifacts/frontier-al/CLAUDE.md`](./artifacts/frontier-al/CLAUDE.md). If the two
 ever conflict, the app file wins on app matters; this file wins on the chat loop.
+The funds/pricing/finality/atomic-delivery **HARD RULES live in this file** (below)
+and are enforced by the `/mainnet-gate` + `algo-auditor` gates — not in the app file.
+
+## Roadmap & queue
+
+The living roadmap is [`docs/FRONTIER_MASTER_ROADMAP.md`](./docs/FRONTIER_MASTER_ROADMAP.md)
+(26 phases; **Phase 25 = the current 3-month unit queue**, mirrored in the baton;
+**Phase 26 = NFT & on-chain state completeness**). `artifacts/frontier-al/ROADMAP.md` and
+`artifacts/frontier-al/docs/ROADMAP_90DAY.md` are superseded — don't work from them.
 
 ## Mainnet readiness flow
 

@@ -1,5 +1,9 @@
 # Ascendancy — 90-Day Roadmap
 
+> **⛔ SUPERSEDED (2026-07-07).** This "Ascendancy"-era plan is historical. The living roadmap —
+> including the current 3-month unit queue (Phase 25) and the NFT/on-chain completeness phase
+> (Phase 26) — is [`docs/FRONTIER_MASTER_ROADMAP.md`](../../../docs/FRONTIER_MASTER_ROADMAP.md).
+
 _June 2026. Condenses the LUT release ladder (v0.1→v1.0) into a realistic 90-day plan and
 defines the next feature branches. Updated after the blocker + hardening passes (PR #2 merged)._
 

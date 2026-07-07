@@ -111,7 +111,7 @@ the yield/claim path, not in `mineResources` itself.
 | **Purpose** | Plot NFT mint and admin→buyer delivery. |
 | **API** | `mintLandNft`, `transferLandNft`, `attemptDelivery`. |
 | ✅ | Custody-then-deliver pattern is correct (buyer cannot opt-in to a not-yet-existing ASA). |
-| ⚠ | `attemptDelivery` is defined but never called in routes — `/api/nft/deliver/:plotId` calls `transferLandNft` directly ([routes.ts:561](../../server/routes.ts:561)). The retry-loop framing in the doc-comment is aspirational. |
+| ⚠ | ~~`attemptDelivery` is defined but never called in routes~~ **Stale (corrected 2026-07-07):** the purchase path DOES call `attemptDelivery` ([routes.ts:2084](../../server/routes.ts:2084)); `/api/nft/deliver/:plotId` still calls `transferLandNft` directly ([routes.ts:1052](../../server/routes.ts:1052)). Both are one-shot — the retry-loop framing in the doc-comment remains aspirational. |
 | ❌ | None. |
 
 ### [`chain/upgrades.ts`](../../server/services/chain/upgrades.ts)
