@@ -41,7 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest, resolveApiUrl } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair, GraduationCap, BarChart3, Radar } from "lucide-react";
+import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Flag, Swords, Crosshair, GraduationCap, BarChart3, Radar, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { safeUuid } from "@/lib/safeUuid";
 import { serverNow } from "@/lib/serverClock";
@@ -1259,6 +1259,7 @@ export function GameLayout() {
               { id: "armory",      icon: Crosshair,       label: "Armory"   },
               { id: "university",  icon: GraduationCap,   label: "Academy"  },
               { id: "commander",   icon: Shield,          label: "Commander"},
+              { id: "inventory",   icon: Package,         label: "Inventory"},
               { id: "leaderboard", icon: Trophy,          label: "Rankings" },
               { id: "trade",       icon: ArrowLeftRight,  label: "Trade"    },
               { id: "factions",    icon: Flag,            label: "Factions" },
@@ -1341,6 +1342,18 @@ export function GameLayout() {
             ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
             wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
             className="flex-1 border-0 rounded-none overflow-auto"
+          />
+        ) : desktopRightTab === "inventory" && gameState ? (
+          <InventoryPanel
+            player={player}
+            parcels={gameState.parcels}
+            onCollectAll={handleCollectAll}
+            onSelectParcel={handleParcelSelectFromInventory}
+            onMineParcel={handleMineParcel}
+            isMiningParcel={isMiningParcel}
+            isCollecting={collectMutation.isPending}
+            onOpenLootBox={handleOpenLootBox}
+            openingLootBoxId={openingLootBoxId}
           />
         ) : desktopRightTab === "economics" ? (
           <EconomicsPanel className="flex-1 border-0 rounded-none overflow-auto" />

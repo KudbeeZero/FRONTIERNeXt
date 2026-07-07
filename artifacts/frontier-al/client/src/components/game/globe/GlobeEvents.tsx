@@ -333,7 +333,7 @@ export function SatelliteOrbitLayer({ players }: { players: Player[] }) {
   }, [players]);
 
   const orbitsRef  = useRef<Map<string, SatOrbitState>>(new Map());
-  const meshesRef  = useRef<(THREE.Mesh | null)[]>([]);
+  const meshesRef  = useRef<(THREE.Group | null)[]>([]);
 
   useEffect(() => {
     const next = new Map<string, SatOrbitState>();
@@ -375,20 +375,51 @@ export function SatelliteOrbitLayer({ players }: { players: Player[] }) {
   return (
     <group name="satellite-orbit-layer">
       {activeSats.map((sat, i) => (
-        <mesh
+        // A recognizable satellite silhouette (body + solar panels + dish) built
+        // from cheap procedural geometry — no GLTF asset pipeline required.
+        // Was a bare low-poly sphere, which read as "just a round object."
+        <group
           key={sat.id}
           ref={(el) => { meshesRef.current[i] = el; }}
           position={[SAT_ORBIT_RADIUS, 0, 0]}
         >
-          <sphereGeometry args={[SAT_SPHERE_RADIUS, 12, 12]} />
-          <meshStandardMaterial
-            color={sat.color}
-            emissive={sat.color}
-            emissiveIntensity={0.7}
-            metalness={0.6}
-            roughness={0.4}
-          />
-        </mesh>
+          <mesh>
+            <boxGeometry args={[SAT_SPHERE_RADIUS * 0.9, SAT_SPHERE_RADIUS * 0.9, SAT_SPHERE_RADIUS * 1.6]} />
+            <meshStandardMaterial
+              color={sat.color}
+              emissive={sat.color}
+              emissiveIntensity={0.7}
+              metalness={0.7}
+              roughness={0.35}
+            />
+          </mesh>
+          <mesh position={[SAT_SPHERE_RADIUS * 1.8, 0, 0]}>
+            <planeGeometry args={[SAT_SPHERE_RADIUS * 2.2, SAT_SPHERE_RADIUS * 1]} />
+            <meshStandardMaterial
+              color="#1a2f6b"
+              emissive="#3355aa"
+              emissiveIntensity={0.3}
+              side={THREE.DoubleSide}
+              metalness={0.3}
+              roughness={0.6}
+            />
+          </mesh>
+          <mesh position={[-SAT_SPHERE_RADIUS * 1.8, 0, 0]}>
+            <planeGeometry args={[SAT_SPHERE_RADIUS * 2.2, SAT_SPHERE_RADIUS * 1]} />
+            <meshStandardMaterial
+              color="#1a2f6b"
+              emissive="#3355aa"
+              emissiveIntensity={0.3}
+              side={THREE.DoubleSide}
+              metalness={0.3}
+              roughness={0.6}
+            />
+          </mesh>
+          <mesh position={[0, SAT_SPHERE_RADIUS * 0.9, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[SAT_SPHERE_RADIUS * 0.35, SAT_SPHERE_RADIUS * 0.5, 8]} />
+            <meshStandardMaterial color="#cfd8ff" metalness={0.5} roughness={0.4} />
+          </mesh>
+        </group>
       ))}
     </group>
   );

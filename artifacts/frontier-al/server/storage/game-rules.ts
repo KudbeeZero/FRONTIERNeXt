@@ -21,7 +21,9 @@ import {
   LAND_PURCHASE_ALGO,
   ARCHETYPE_FACTION_BONUSES,
   MAX_SAME_ARCHETYPE_PER_GRID,
+  calculateAscendPerDay,
 } from "@shared/schema";
+import { INFLUENCE_YIELD_THRESHOLD } from "../engine/battle/tuning.js";
 import { parcels as parcelsTable, players as playersTable, battles as battlesTable, gameEvents as gameEventsTable, subParcels as subParcelsTable, lootBoxInventory as lootBoxTable } from "../db-schema";
 
 export type ParcelRow     = typeof parcelsTable.$inferSelect;
@@ -120,6 +122,26 @@ export function rowToParcel(row: ParcelRow): LandParcel {
     metadataVersion:     (row as any).metadataVersion ?? 1,
     visualStateRevision: (row as any).visualStateRevision ?? 0,
   };
+}
+
+/**
+ * Live ASCEND accrued on a parcel since its last claim — the exact formula
+ * DbStorage.claimAscend() pays out, including the influence-yield gate.
+ * `parcel.ascendAccumulated` alone is NOT this value: in the Postgres-backed
+ * storage it is only ever written as part of a claim's reset (to 0), so a
+ * plain read of the column is permanently stale between claims. Any surface
+ * that shows the player "how much can I claim right now" must call this
+ * instead of reading the column directly, or the claim button will look
+ * like it's always at zero.
+ */
+export function computeLiveAscendAccrued(parcel: LandParcel, now: number): number {
+  if (!parcel.ownerId) return 0;
+  const influenceOk = (parcel.influence ?? 100) >= INFLUENCE_YIELD_THRESHOLD;
+  if (!influenceOk) return parcel.ascendAccumulated;
+  const days = (now - parcel.lastAscendClaimTs) / (1000 * 60 * 60 * 24);
+  if (days <= 0) return parcel.ascendAccumulated;
+  const perDay = calculateAscendPerDay(parcel.improvements);
+  return parcel.ascendAccumulated + perDay * days;
 }
 
 export function rowToPlayer(row: PlayerRow, ownedParcelIds: string[], lootBoxes: LootBoxRecord[] = []): Player {

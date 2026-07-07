@@ -120,6 +120,7 @@ import {
   rowToSubParcel,
   rowToLootBox,
   computeLeaderboard,
+  computeLiveAscendAccrued,
   canSubdivideParcel,
   buildSubParcelRows,
   computeSubParcelPrice,
@@ -245,15 +246,6 @@ export class DbStorage implements IStorage {
           .where(eq(parcelsTable.id, row.id));
       }
     }
-  }
-
-  /** Compute how much FRONTIER has accumulated on a parcel and update the row. */
-  private accumulatedAscend(parcel: LandParcel, now: number): number {
-    if (!parcel.ownerId) return 0;
-    const days = (now - parcel.lastAscendClaimTs) / (1000 * 60 * 60 * 24);
-    if (days <= 0) return 0;
-    const perDay = calculateAscendPerDay(parcel.improvements);
-    return perDay * days;
   }
 
   // ── Orbital Event Engine ─────────────────────────────────────────────────
@@ -499,10 +491,15 @@ export class DbStorage implements IStorage {
 
     const claimedPlots = allParcels.filter((p) => p.ownerId !== null).length;
     const ascendCirculating = allPlayers.reduce((sum, p) => sum + fromMicroASCEND(p.ascendBalanceMicro), 0);
+    const now = Date.now();
 
     return {
       parcels: allParcels.map(r => {
         const parcel = rowToParcel(r);
+        // Overlay the live-computed accrual — the stored column is always
+        // stale (see computeLiveAscendAccrued's doc comment) and would
+        // otherwise make the client's "Claim ASCEND" button never appear.
+        parcel.ascendAccumulated = computeLiveAscendAccrued(parcel, now);
         const ownerIds = subParcelMap.get(r.plotId);
         if (ownerIds) {
           parcel.isSubdivided = true;
