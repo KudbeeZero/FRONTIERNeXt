@@ -17,7 +17,32 @@ import {
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
 import { cn } from "@/lib/utils";
+import { resetWalletConnection } from "@/lib/walletReset";
 import { useState, useMemo } from "react";
+
+/**
+ * Escape hatch for the wallet-popup-storm bug (see walletReset.ts's doc
+ * comment for the full mechanism). Deliberately small/low-key — most players
+ * never need it — but reachable from every pre-connected state, including
+ * "restoring", since that's the state showing while a storm is actually
+ * firing (the popups are separate browser windows; this page's own DOM stays
+ * interactive underneath them).
+ */
+function TroubleConnectingLink({ className }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={resetWalletConnection}
+      className={cn(
+        "text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2",
+        className,
+      )}
+      data-testid="link-reset-wallet-connection"
+    >
+      Trouble connecting? Reset wallet connection
+    </button>
+  );
+}
 
 function detectBrowser() {
   const ua = navigator.userAgent;
@@ -102,15 +127,18 @@ export function WalletConnect({ className }: { className?: string }) {
   // instead of flashing "Connect Wallet" before snapping to the connected state.
   if (walletStatus === "restoring" && !isConnected) {
     return (
-      <Button
-        variant="outline"
-        disabled
-        className={cn("gap-2 font-display uppercase tracking-wide", className)}
-        data-testid="button-wallet-restoring"
-      >
-        <Loader2 className="w-4 h-4 animate-spin" />
-        Restoring...
-      </Button>
+      <div className={cn("flex flex-col items-center gap-1.5", className)}>
+        <Button
+          variant="outline"
+          disabled
+          className="gap-2 font-display uppercase tracking-wide"
+          data-testid="button-wallet-restoring"
+        >
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Restoring...
+        </Button>
+        <TroubleConnectingLink />
+      </div>
     );
   }
 
@@ -158,14 +186,17 @@ export function WalletConnect({ className }: { className?: string }) {
   if (!isConnected) {
     return (
       <>
-        <Button
-          onClick={openPicker}
-          className={cn("gap-2 font-display uppercase tracking-wide", className)}
-          data-testid="button-wallet-connect"
-        >
-          <Wallet className="w-4 h-4" />
-          Connect Wallet
-        </Button>
+        <div className={cn("flex flex-col items-center gap-1.5", className)}>
+          <Button
+            onClick={openPicker}
+            className="gap-2 font-display uppercase tracking-wide"
+            data-testid="button-wallet-connect"
+          >
+            <Wallet className="w-4 h-4" />
+            Connect Wallet
+          </Button>
+          <TroubleConnectingLink />
+        </div>
         <WalletPickerDialog
           open={showPicker}
           onOpenChange={setShowPicker}

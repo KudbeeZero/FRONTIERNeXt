@@ -26,7 +26,7 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: PR #213 (`fix/mobile-white-screen`) open, CI green, not yet audited
+## Current baton — 🟡 AWAITING_AUDIT: `fix/wallet-popup-storm-recovery` pushed, PR open, not yet audited
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
@@ -166,12 +166,45 @@ exact trigger. Verified green: tsc clean, client 311/311 (+6 new), server 449/24
 (unchanged, no server files touched), build clean (spot-checked the diagnostic script
 survives the build unmangled).
 
-**PR #213 open, CI confirmed green** (both "Typecheck & server tests" and "Cloudflare
-Pages" `completed`/`success` on head `9ea4f24`) — **not yet independently audited.** Owner
-asked to close out the session here to conserve credit rather than spend another subagent
-call on `/handoff-audit` right now. **Next session: run `/handoff-audit` on PR #213 first**
-(gate on PASS/CONCERNS/FAIL per protocol) before starting any new unit. Local branch is
-fully pushed, nothing uncommitted.
+**#213 merged** as `efd28a4` — **audited PASS, no CONCERNS.** Independent auditor
+re-verified every core claim by reading the diff directly (lazy `useMemo` construction,
+the new root `ErrorBoundary`, the error-message display, the pre-React diagnostic script's
+inert-on-normal-load logic), reproduced all test/build numbers exactly, and confirmed
+scope stayed within the claimed 12 files. Full audit trail:
+[docs/audits/pr-213-audit.md](./audits/pr-213-audit.md). CI + Fly deploy both confirmed
+green on `efd28a4`.
+
+**New unit this session, awaiting audit: `fix/wallet-popup-storm-recovery`.** Owner came
+back with a second, more urgent live symptom: opening the app triggers 8+ Pera/
+WalletConnect popups back-to-back on load, locking them out of the homepage. Traced the
+actual mechanism by reading the installed `@txnlab/use-wallet`/`@txnlab/use-wallet-react`
+SDK source directly (not guessed): `WalletProvider` calls `manager.resumeSessions()`
+exactly once per mount (ref-guarded, confirmed NOT a React re-render bug in this app's own
+code); Pera's `resumeSession()` only calls the third-party `PeraWalletConnect
+.reconnectSession()` — where the storm actually happens — if this app's own persisted key
+(`@txnlab/use-wallet:v4`) already has a recorded session. If a browser has accumulated
+multiple stale WalletConnect pairings (same class of bug `shouldPurgeBeforeConnect`
+already guards on the manual-connect path), Pera resurfaces every one as its own popup, on
+**every page load**, with **zero signal in this app's own UI** (the SDK's resume effect is
+invisible to `WalletContext`'s `error` state).
+
+Since the storm lives inside a third-party dependency this app doesn't control, shipped a
+**recovery escape hatch** rather than attempting to patch SDK internals: a new
+`client/src/lib/walletReset.ts` clears use-wallet's own persisted key (confirmed sufficient
+to stop `resumeSession()` from ever reaching `reconnectSession()` again) plus this app's
+own wallet-identity keys, then reloads; wired as a small "Trouble connecting? Reset wallet
+connection" link into `WalletConnect.tsx`'s "restoring" and not-connected states (not shown
+once connected). Session note:
+[2026-07-07-wallet-popup-storm-recovery.md](../artifacts/frontier-al/session-notes/2026-07-07-wallet-popup-storm-recovery.md).
+
+**Honest gaps**: (1) `"@txnlab/use-wallet:v4"` is an internal SDK storage key, not a public
+API — coupled to the installed version (4.6.0), flagged in the module's own doc comment to
+re-verify on any SDK upgrade. (2) Not reproduced live — no real Pera/WalletConnect session
+in this sandbox to trigger the actual storm against; the mechanism is read directly from
+the SDK's own source (not assumed), but the recovery flow itself (click → clear → reload →
+clean reconnect) hasn't been exercised end-to-end on a real device. Owner should confirm on
+the device that was actually stuck. Verified green: tsc clean, client 320/320 (+9 new),
+server 449/24 skipped (unchanged, no server files touched), build clean.
 
 ### 🔴 NEW OWNER DIRECTIVE (2026-07-07, supersedes M1-4 as next-up)
 

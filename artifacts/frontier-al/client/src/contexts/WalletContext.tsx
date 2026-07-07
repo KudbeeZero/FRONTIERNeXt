@@ -87,6 +87,10 @@ export function deriveWalletStatus(
  */
 export const WALLET_SESSION_HINT_KEY = "frontier_wallet_session";
 
+/** localStorage keys the signer-registration effect below sets/clears. */
+export const WALLET_TYPE_KEY = "frontier_wallet_type";
+export const WALLET_ADDRESS_KEY = "frontier_wallet_address";
+
 /**
  * How long to keep showing "restoring" after the library is ready while we wait
  * for a saved session to repopulate the address. Generous enough for a real
@@ -355,15 +359,15 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
         const results = await signTransactions([txns]);
         return results.map((r) => (r === null ? new Uint8Array() : r));
       });
-      localStorage.setItem("frontier_wallet_type", "use-wallet");
-      localStorage.setItem("frontier_wallet_address", activeAddress);
+      localStorage.setItem(WALLET_TYPE_KEY, "use-wallet");
+      localStorage.setItem(WALLET_ADDRESS_KEY, activeAddress);
       // Clear any stale error once connected
       setError(null);
     } else {
       registerWalletSigner(null);
       if (!activeAddress) {
-        localStorage.removeItem("frontier_wallet_type");
-        localStorage.removeItem("frontier_wallet_address");
+        localStorage.removeItem(WALLET_TYPE_KEY);
+        localStorage.removeItem(WALLET_ADDRESS_KEY);
       }
     }
   }, [activeAddress, signTransactions]);
