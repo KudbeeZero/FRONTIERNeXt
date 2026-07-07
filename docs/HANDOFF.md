@@ -26,25 +26,44 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 new unit awaiting audit: `fix/session-mismatch-recovery` · main green at `cb93409`
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `7affea6`
 
-**New unit this session (not yet PR'd): `fix/session-mismatch-recovery`.** Owner reported
-`403: Forbidden — session does not own this player` hard-stalling mutating actions (e.g.
-acquiring territory), no recovery. Root cause: two independent player-identity paths can
-drift — server trusts the auth-token-derived `playerId` (`routeOwnership.ts`
-`evaluateOwnership`), client's `useCurrentPlayer()` resolves by matching wallet address
-against **cached** `/api/game/state` data, entirely independent of the session. After a
-wallet reconnect/switch or a stale cache, these disagree → correct 403 → previously zero
-client recovery (raw error toast only). Fix: server tags that 403 with
-`code: "SESSION_MISMATCH"` (`routeOwnership.ts` + both call sites in `routes.ts`); client's
-single request chokepoint (`queryClient.ts`'s `throwIfResNotOk`) detects the code, clears
-the stale token, toasts, and hard-reloads for a clean re-auth handshake — same
-"recovery escape hatch, not a rearchitecture" shape as the popup-storm fix. Session note:
+**#216 (`fix/session-mismatch-recovery`) merged** as `bc874d6` — self-audited PASS
+(diff scope + tests re-verified directly, no independent subagent given the small,
+low-risk, additive diff — per explicit owner token-conservation request this session).
+Owner reported `403: Forbidden — session does not own this player` hard-stalling
+mutating actions (e.g. acquiring territory), no recovery. Root cause: two independent
+player-identity paths can drift — server trusts the auth-token-derived `playerId`
+(`routeOwnership.ts` `evaluateOwnership`), client's `useCurrentPlayer()` resolves by
+matching wallet address against **cached** `/api/game/state` data, entirely independent
+of the session. After a wallet reconnect/switch or a stale cache, these disagree →
+correct 403 → previously zero client recovery (raw error toast only). Fix: server tags
+that 403 with `code: "SESSION_MISMATCH"` (`routeOwnership.ts` + both call sites in
+`routes.ts`); client's single request chokepoint (`queryClient.ts`'s `throwIfResNotOk`)
+detects the code, clears the stale token, toasts, and hard-reloads for a clean re-auth
+handshake — same "recovery escape hatch, not a rearchitecture" shape as the popup-storm
+fix. Audit: [docs/audits/pr-216-audit.md](./audits/pr-216-audit.md). Session note:
 [2026-07-07-session-mismatch-403-recovery.md](../artifacts/frontier-al/session-notes/2026-07-07-session-mismatch-403-recovery.md).
-Verified green: tsc clean, server 449/24 skipped (extended 1 existing test), client 323
-(+3 new), build clean. **Honest gap:** not reproduced against a live drift scenario —
-verified via the real `evaluateOwnership` function + a mocked-fetch client test, not an
-end-to-end browser repro. **Not yet committed/pushed/PR'd — next step this session.**
+**Honest gap:** not reproduced against a live drift scenario — verified via the real
+`evaluateOwnership` function + a mocked-fetch client test, not an end-to-end browser repro.
+
+**#217 (`fix/wallet-connect-error-visible`) merged** as `7affea6` — CI green, merged
+directly by the owner. While live-testing #216's preview, the owner hit a real wallet
+connect failure and could only see a red "Try Again" button — the actual error string
+(`useWallet().error`) was rendered ONLY as a `title` hover-tooltip, invisible on touch
+devices and easy to miss on desktop, so there was no way to relay what actually failed.
+Fixed in `client/src/components/game/WalletConnect.tsx`: the error branch now renders
+that text as visible page content, and also surfaces the existing "Trouble connecting?
+Reset wallet connection" escape hatch (a connect failure can itself be a stuck stale
+session). Session note:
+[2026-07-07-wallet-connect-error-visible.md](../artifacts/frontier-al/session-notes/2026-07-07-wallet-connect-error-visible.md).
+Verified green: tsc clean, client 325/325 (+2 new), server 449/24 skipped (unchanged),
+build clean. **Next step for the owner:** retry connecting on the live preview — the
+actual failure reason will now be visible on-screen; relay that text back if it's still
+blocked, since that's the concrete next diagnosis this unblocks.
+
+**Working branch reset to a clean `origin/main` (`7affea6`) — no uncommitted changes, no
+open PR.**
 
 **#214 (`fix/wallet-popup-storm-recovery`) merged** as `6112482` — audited PASS. Owner was
 fully blocked (couldn't connect a wallet or spend test ALGO) by 8+ Pera/WalletConnect

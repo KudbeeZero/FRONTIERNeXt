@@ -240,13 +240,14 @@ export function clearAutoAuthedAddresses(): void {
 
 /**
  * Which route should auto-prompt the one wallet signature once connected.
- * Only the in-game route opts in — marketing/info pages never prompt a
+ * Only in-game routes opt in — marketing/info pages never prompt a
  * signature, so players aren't asked to log into the wallet until they
- * actually enter the game. Pure so the routing decision is unit-testable
- * without mounting the router.
+ * actually enter the game. "/" now mounts the game directly (2026-07-07:
+ * the landing page moved to "/landing"), so it opts in too. Pure so the
+ * routing decision is unit-testable without mounting the router.
  */
 export function shouldAutoAuthenticateForPath(pathname: string): boolean {
-  return pathname === "/game";
+  return pathname === "/game" || pathname === "/";
 }
 
 interface WalletProviderProps {
