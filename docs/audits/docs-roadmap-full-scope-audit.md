@@ -1,11 +1,26 @@
 # Audit: PR #207 — docs: merge full-scope audit into master roadmap + baton rewrite
 
-## Verdict: CONCERNS
+## Verdict: CONCERNS → corrected → **PASS, MERGED**
+
+Initial pass (below) found the PR process-clean but flagged two factual defects in the
+roadmap's own new findings (U4 reversed, U1 mischaracterized). Per the CONCERNS gate, merge
+was held and the owner was asked. Owner chose "fix the two doc issues, then merge." A
+follow-up commit (`ab19614` → squashed into merge commit `9782ee0`) corrected both findings
+in `docs/FRONTIER_MASTER_ROADMAP.md` and `docs/HANDOFF.md` (M2-6 now correctly targets
+`WarRoomPanel.tsx`; M2-3/U1 now carries a caveat that the missing WalletProvider on
+`/university` may be intentional and needs confirmation before being "fixed"; the ASCEND ASA
+id wording was also tightened). CI re-ran green on the correction commit
+(`Typecheck & server tests` + `Cloudflare Pages`, both success). **PR #207 merged via squash
+as `9782ee0`.**
 
 ## PR / branch / commit
-- PR #207, branch `docs/roadmap-full-scope-audit`, head `a13b3af018e4c1436f6548d8c118477fb422dd25`
+- PR #207, branch `docs/roadmap-full-scope-audit`, original head `a13b3af018e4c1436f6548d8c118477fb422dd25`, corrected head `ab19614`
 - Base: `main` @ `42b4a5c76e0c1668b4814fba63a67b1a7fb86c21`
-- CI on head: "Typecheck & server tests" ✅ success, "Cloudflare Pages" ✅ success
+- CI on original head: "Typecheck & server tests" ✅ success, "Cloudflare Pages" ✅ success
+- CI on corrected head (`ab19614`): "Typecheck & server tests" ✅ success, "Cloudflare Pages" ✅ success
+- Merged as `9782ee0` on `main`
+
+## Initial audit (pre-correction)
 
 ## Method
 Independent auditor subagent fetched PR metadata + full diff via GitHub MCP tools, fetched
