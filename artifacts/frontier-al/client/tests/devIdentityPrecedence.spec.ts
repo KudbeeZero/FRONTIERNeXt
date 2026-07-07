@@ -11,7 +11,7 @@
  * "connected" — so a real wallet always wins.
  */
 import { describe, it, expect } from "vitest";
-import { shouldUseDevIdentity } from "@/contexts/WalletContext";
+import { shouldUseDevIdentity, devIdentityAuthVersion } from "@/contexts/WalletContext";
 
 describe("shouldUseDevIdentity", () => {
   it("shows the dev identity only when DEV_MODE + a dev session + wallet disconnected", () => {
@@ -34,5 +34,23 @@ describe("shouldUseDevIdentity", () => {
   it("stays off when DEV_MODE is not enabled, regardless of session/status", () => {
     expect(shouldUseDevIdentity(false, "disconnected", true)).toBe(false);
     expect(shouldUseDevIdentity(false, "connected", true)).toBe(false);
+  });
+});
+
+// W2-follow-up (2026-07-07): a dev/test session gets its session token from
+// POST /api/dev/quick-auth, never from the real wallet's authenticate() —
+// which is the only place `authVersion` used to get bumped. Left at its
+// initial 0, `useGameSocket`'s `!authTrigger` gate silently blocked the live
+// WebSocket (weapon fire, battle resolution, chain-health) for every dev
+// session, forever, even though a valid token existed. Confirmed live in a
+// headless run: 3 weapon fires resolved correctly server-side but never
+// rendered on screen because the socket never opened.
+describe("devIdentityAuthVersion", () => {
+  it("forces a truthy trigger when the real context's authVersion is still the initial 0", () => {
+    expect(devIdentityAuthVersion(0)).toBe(1);
+  });
+
+  it("preserves a real, already-bumped authVersion instead of resetting it", () => {
+    expect(devIdentityAuthVersion(3)).toBe(3);
   });
 });

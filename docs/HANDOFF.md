@@ -26,7 +26,7 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `0ced366`
+## Current baton — 🟡 AWAITING_AUDIT: `fix/dev-session-ws-gate` pushed, PR open, not yet audited
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
@@ -77,6 +77,50 @@ Both are live 404s today, not hypothetical. Faction emblem PNGs already exist in
 `attached_assets/` unused for this purpose — the weapon-category icons don't exist anywhere
 yet. Good candidate for a small, low-risk next unit (or folded into weapons plan unit 7,
 `feat/weapon-nft-claim`, since it touches the same NFT-metadata surface).
+
+**New unit this session, awaiting audit: `fix/dev-session-ws-gate`.** Owner asked for a
+"polish" pass + a real image of the battle system + honest answers on whether things work,
+Redis, and cinematics. Two background agents did a live headless health-check + a
+Redis/cinematics code audit. Findings (all documented, only one required a code fix):
+- **Real bug found + fixed**: dev/test sessions never bumped `WalletContext`'s
+  `authVersion`, which gates `useGameSocket`'s live-WS connect (`!authTrigger` blocks it
+  forever at its initial `0`). Confirmed live: a dev-session weapon fire resolved correctly
+  server-side but its missile/impact visuals never rendered, because the WS never opened
+  (base game state has a 30s REST-poll fallback so the globe itself still looked fine —
+  only live weapon/battle events were silently dropped). Real wallet-authenticated players
+  were never affected (their `authenticate()` call already bumps `authVersion` normally).
+  Fixed with a small pure helper (`devIdentityAuthVersion`) forcing a truthy trigger for the
+  dev identity, +2 new tests. Session note:
+  [2026-07-07-dev-session-ws-gate-fix.md](../artifacts/frontier-al/session-notes/2026-07-07-dev-session-ws-gate-fix.md).
+- **Domain "not loading" report — no evidence of a real outage found.** DNS, TLS certs,
+  full-page loads (including deep routes like `frontierprotocol.app/game`), CORS, and asset
+  delivery all checked out clean on both domains. Likely explanation for anyone checking
+  with `curl`/a script/an uptime monitor rather than a real browser tab: `server/index.ts`
+  serves a bare 23-byte placeholder for `GET /` whenever the request's `Accept` header
+  doesn't include `text/html` — flagged in
+  [`docs/LOGIN_AUTH_FLOW_MAP.md`](../artifacts/frontier-al/docs/LOGIN_AUTH_FLOW_MAP.md#open-questions--things-that-look-off).
+  Owner's actual browser symptom (if it recurs) is still not captured — get that detail if
+  this comes up again, since everything checkable from outside is green.
+- **Redis**: real-time game-state push is plain in-process WebSocket, **no Redis in that
+  path at all**. Redis is a separate, optional layer (auth nonces, rate-limit counters,
+  event/replay persistence) — not configured in production (`fly.toml` has no
+  `UPSTASH_REDIS_REST_URL`/`TOKEN`), safely falls back to in-memory, harmless today since
+  Fly runs a single instance. Would need to be set before ever scaling to >1 machine.
+- **Globe cinematics**: confirmed still accurate against current code — solid procedural
+  baseline (ballistic arc, particle trail, distinct intercept-vs-impact flash) but fully
+  disconnected from the shared `cinematicBus` (no camera reaction, no HUD callout, no
+  incoming-fire telegraph). Highest-value remaining gap = plan unit 8
+  (`feat/missile-cinematic-integration`), still not started.
+- **Replay**: a real battle-replay *log* works (`GET /api/battle/replay/:battleId`, text
+  breakdown, Redis-cached). Weapon fire itself has **zero cooldown** — fired the same
+  weapon 3x back-to-back with no rejection, confirming gap G-E. W1 (damage never settles
+  onto plot state) reconfirmed still real by reading current code, not just trusting the
+  plan doc.
+- Screenshots from the live headless run (globe + War Room mid-battle) sent to the owner
+  directly; not committed to the repo (throwaway verification artifacts).
+
+Verified green: tsc clean, client 305/305 (+2 new), server 449/24 skipped (unchanged, no
+server files touched), build clean.
 
 ### 🔴 NEW OWNER DIRECTIVE (2026-07-07, supersedes M1-4 as next-up)
 
