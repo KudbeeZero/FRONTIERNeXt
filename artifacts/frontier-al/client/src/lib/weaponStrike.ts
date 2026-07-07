@@ -47,6 +47,17 @@ export interface StrikeOption {
   reason: string | null;
 }
 
+/**
+ * Whether the player owns at least one offensive weapon at all — used to
+ * distinguish "you own nothing to strike with" from "you own offensive
+ * weapons but none are in your loadout" in the empty-state UI, since
+ * `eligibleStrikes` alone can't tell those two cases apart once a loadout
+ * filter empties the result.
+ */
+export function hasOwnedOffensiveWeapons(entries: CatalogEntryLike[]): boolean {
+  return entries.some((e) => e.owned && !isDefenseSpec(e.spec));
+}
+
 /** Nearest owned parcel to the target, with its great-circle distance. */
 function nearestSource(
   parcels: SourceParcel[],
@@ -64,13 +75,23 @@ function nearestSource(
  * The fireable/unfireable status of every owned OFFENSIVE weapon against
  * `target`, fired from the nearest owned parcel. Defensive weapons (which are
  * deployed, not fired) and unowned catalog entries are excluded entirely.
+ *
+ * `loadout` mirrors the server's own gate in `fireWeapon` (server/weapons/
+ * service.ts): an EMPTY loadout means "no restriction yet" (every profile
+ * defaults to `loadout: []`, so a player who has never opened the equip UI
+ * can still fire any owned weapon, unchanged from before loadout existed).
+ * Once at least one weapon is equipped, only equipped specs are eligible —
+ * so the UI never offers a strike the server would then reject.
  */
 export function eligibleStrikes(
   entries: CatalogEntryLike[],
   ownedParcels: SourceParcel[],
   target: Geo,
+  loadout: string[] = [],
 ): StrikeOption[] {
-  const offensiveOwned = entries.filter((e) => e.owned && !isDefenseSpec(e.spec));
+  const offensiveOwned = entries.filter(
+    (e) => e.owned && !isDefenseSpec(e.spec) && (loadout.length === 0 || loadout.includes(e.spec.id)),
+  );
   const near = nearestSource(ownedParcels, target);
 
   return offensiveOwned.map((e): StrikeOption => {

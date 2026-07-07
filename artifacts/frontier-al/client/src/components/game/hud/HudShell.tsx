@@ -15,7 +15,7 @@ import {
   Crosshair,
   GraduationCap,
 } from "lucide-react";
-import type { NavTab } from "../BottomNav";
+import type { NavTab } from "@/lib/panelNav";
 import { Dock, type DockItem } from "./Dock";
 import { Drawer } from "./Drawer";
 

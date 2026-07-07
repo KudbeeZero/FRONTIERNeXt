@@ -1,4 +1,5 @@
-import type { NavTab } from "@/components/game/BottomNav";
+/** Every panel tab the game's nav (mobile bottom bar + desktop rail) can show. */
+export type NavTab = "map" | "inventory" | "battles" | "armory" | "leaderboard" | "commander" | "economics" | "intel" | "trade" | "factions" | "markets" | "university";
 
 /**
  * Panel tabs the desktop rail can show. Unlike mobile's fullscreen panel (which

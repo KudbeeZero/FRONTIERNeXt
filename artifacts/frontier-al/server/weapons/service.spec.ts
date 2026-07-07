@@ -106,4 +106,36 @@ describe("weapon service · fire + deploy guards", () => {
       svc.deployDefense(storage, store, { playerId, specId: "msl_ballistic_1", parcelId: "x" }),
     ).rejects.toThrow(/not a defensive/i);
   });
+
+  // W2 (loadout wiring, 2026-07-07): the loadout check runs before the parcel
+  // lookup, so bogus parcel ids are fine here — these tests isolate the gate's
+  // own behavior (allow vs. reject) without needing real owned territory.
+  describe("loadout gate", () => {
+    it("an empty loadout imposes no restriction — the owned weapon fires past the gate", async () => {
+      const { storage, store, playerId } = await setup();
+      await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
+      await expect(
+        svc.fireWeapon(storage, store, { playerId, specId: "msl_ballistic_1", sourceParcelId: "a", targetParcelId: "b" }),
+      ).rejects.toThrow(/parcel not found/i); // past the gate, blocked by the (bogus) parcel lookup instead
+    });
+
+    it("rejects firing an owned-but-unequipped weapon once the loadout is non-empty", async () => {
+      const { storage, store, playerId } = await setup();
+      await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
+      await svc.unlockWeapon(storage, playerId, "msl_cruise_1");
+      await svc.setLoadout(storage, playerId, ["msl_cruise_1"]);
+      await expect(
+        svc.fireWeapon(storage, store, { playerId, specId: "msl_ballistic_1", sourceParcelId: "a", targetParcelId: "b" }),
+      ).rejects.toThrow(/not equipped/i);
+    });
+
+    it("allows firing an equipped weapon past the gate once the loadout is non-empty", async () => {
+      const { storage, store, playerId } = await setup();
+      await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
+      await svc.setLoadout(storage, playerId, ["msl_ballistic_1"]);
+      await expect(
+        svc.fireWeapon(storage, store, { playerId, specId: "msl_ballistic_1", sourceParcelId: "a", targetParcelId: "b" }),
+      ).rejects.toThrow(/parcel not found/i); // past the gate, blocked by the (bogus) parcel lookup instead
+    });
+  });
 });

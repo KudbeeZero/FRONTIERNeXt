@@ -167,6 +167,14 @@ export async function fireWeapon(
   if (ownedOfSpec.length === 0) {
     throw new Error(`${spec.name} is not in your armory.`);
   }
+  // Loadout gates which OWNED weapons are actually fireable, once a player has
+  // customized it — an empty loadout (the default for every profile, and for
+  // every player who has never opened the equip UI) means "no restriction
+  // yet," so existing fire behavior for players who never touch loadout is
+  // unchanged. Once at least one weapon is equipped, only equipped specs fire.
+  if (profile.loadout.length > 0 && !profile.loadout.includes(specId)) {
+    throw new Error(`${spec.name} is not equipped — add it to your loadout first.`);
+  }
   // Fire the best (highest-tier) copy the player owns; its tier scales damage.
   const upgradeTier = Math.max(0, ...ownedOfSpec.map((w) => w.upgradeTier ?? 0));
 

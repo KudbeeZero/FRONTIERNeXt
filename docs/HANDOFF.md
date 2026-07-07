@@ -26,7 +26,7 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `d9f5ff6`
+## Current baton — 🟡 AWAITING_AUDIT: `feat/armory-loadout-polish` pushed, PR open, not yet audited
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
@@ -50,8 +50,9 @@ server 446/24 skipped (unchanged), build green. Full audit trail:
 [2026-07-07-fix-wallet-popup-vectors-p1-p3.md](../artifacts/frontier-al/session-notes/2026-07-07-fix-wallet-popup-vectors-p1-p3.md).
 CI + Fly deploy both confirmed green on `d9f5ff6`.
 
-**Working branch reset to a clean `origin/main` (`d9f5ff6`) — no uncommitted changes, no open
-PR.**
+**Working branch reset to a clean `origin/main` (`d9f5ff6`) at that point — no uncommitted
+changes, no open PR.** (Since then, this same session continued straight into the weapons
+plan + unit 1 below — see the AWAITING_AUDIT summary above for current state.)
 
 ### 🔴 NEW OWNER DIRECTIVE (2026-07-07, supersedes M1-4 as next-up)
 
@@ -62,14 +63,41 @@ the Algorand chain layer (weapon NFT mint/custody, wherever that's actually rele
 game's "smart contract" surface is ASA mint/config-note transactions, not on-chain game logic;
 confirm that framing holds before assuming more chain work is needed than W5 already covers).
 
-**Status:** a thorough read-only research agent has been dispatched to map the current state
-end-to-end (server weapon engine, Armory/loadout UI, missile-flight/animation code, plot/
-sub-parcel targeting flow, and the real chain tie-in) before any code changes. **Next session:**
-read that mapping (or re-run it if this session didn't finish), turn it into a concrete
-phased unit breakdown (this is too large for one PR — needs scoping into the same
-one-unit-per-chat, audited-then-merged flow as everything else), and start executing the first
-scoped unit. This directive takes priority over M1-4 (pin ASCEND ASA) — M1-4 through M1-6 and
-the rest of Phase 25 are not dropped, just deferred behind this.
+**Status:** the read-only research pass is done and written up as
+[`docs/WEAPONS_SYSTEM_UX_PLAN.md`](../artifacts/frontier-al/docs/WEAPONS_SYSTEM_UX_PLAN.md) — an
+architecture map, gap list (G-A…G-O), and a 10-unit phased plan table, each unit sized to fit
+the one-PR-at-a-time flow. This directive takes priority over M1-4 (pin ASCEND ASA) — M1-4
+through M1-6 and the rest of Phase 25 are not dropped, just deferred behind this.
+
+**Unit 1 of 10 executed this session: `feat/armory-loadout-polish`** (plan unit 5 =
+M2-3/W2+U1+U2+U3 — picked first per the plan's own note that it's the least
+design-dependent, highest value-per-risk). Real bug fixed, not cosmetic: `PlayerWeaponProfile
+.loadout` was persisted (`setLoadout`) but never consulted anywhere — a player could equip a
+loadout in the UI and the server would still fire any owned weapon regardless. Fixed
+server-side (`server/weapons/service.ts` `fireWeapon()` now rejects an owned-but-unequipped
+weapon once loadout is non-empty) and client-side (`weaponStrike.ts`'s `eligibleStrikes()`
+takes the same gate, so the Strike panel never offers what the server would reject). Design
+call made under explicit owner delegation ("you're the developer... I trust you"): **empty
+loadout = unrestricted** (every existing profile has `loadout: []` — the strict reading would
+silently disarm every player who's never opened the equip UI). Also fixed two small Armory
+bugs (U2/U3): "FR"→"ASCEND" label, hidden upgrade cost + missing max-tier state. Deleted dead
+`BottomNav.tsx` (component never rendered, superseded by `HudShell`) after relocating its
+still-live `NavTab` type export into `client/src/lib/panelNav.ts` (4 import sites updated).
+Session note:
+[2026-07-07-armory-loadout-polish.md](../artifacts/frontier-al/session-notes/2026-07-07-armory-loadout-polish.md).
+
+**Verified green locally** (not yet independently re-verified by CI/audit): `check` (tsc)
+clean · `test:server` 449/24 skipped (+3 new loadout-gate tests) · `coverage:server` 94.54%
+lines (gate ≥80%) · client `test` 303 passed (+5 new: loadout gating + `hasOwnedOffensiveWeapons`)
+· `build` clean. **Honest gap:** no headless visual/browser verification this unit — it's a
+pure logic gate + label/cost text change, no new layout to screenshot.
+
+**Next session:** run `/handoff-audit` on this PR first (gate on PASS/CONCERNS/FAIL per
+protocol), then — once merged — move to the next plan unit. Units 3 (cooldown enforcement)
+and 5 (this one, done) were flagged as the least design-dependent; units 1→2 (damage
+settlement → combat convergence) should land before 8's telegraph piece is meaningful; 4
+(defense-deploy UI) and 7 (NFT claim) are independent and can run any time. 9 of 10 units
+remain.
 
 ### ➡️ THE QUEUE — 3-month buildout (Phase 25 of the master roadmap is the authoritative copy)
 
@@ -103,12 +131,15 @@ no fix without a failing-first test.
    never settled, `"impacted"` never set, no tick (roadmap Phase 8). 🚫 resolution math.
 8. **M2-2 (write)** `feat/combat-convergence` — W3+W4: settled damage feeds plot state;
    badges credit on impact only (`service.ts:202-206`).
-9. **M2-3** `feat/armory-loadout-polish` — W2 loadout wiring (persisted but never consulted,
-   `service.ts:103` vs `:155`) + Armory UX ("FR"→"ASCEND" `ArmoryPanel.tsx:253`, hidden
-   upgrade price, inverted radius, rail grid squeeze) + delete dead `BottomNav.tsx` +
-   `/university` WalletProvider wrapper — **caveat (audit correction):** `university.tsx`'s own
-   doc-comment says the missing wallet wrapper is deliberate (no wallet needed there, no
-   chain/funds touched); confirm an actual failure mode exists before adding it.
+9. **M2-3 — DONE, AWAITING_AUDIT** `feat/armory-loadout-polish` — W2 loadout wiring (was
+   persisted but never consulted, `service.ts:103` vs `:155`) now enforced server- and
+   client-side; "FR"→"ASCEND" fixed, upgrade price + max-tier state surfaced; dead
+   `BottomNav.tsx` deleted. Responsive rail-grid squeeze deferred to plan unit 6
+   (`feat/armory-responsive-layout`, container-query root cause, needs a design call) — not
+   part of this unit. `/university` WalletProvider wrapper NOT touched this unit —
+   **caveat (still open):** `university.tsx`'s own doc-comment says the missing wallet
+   wrapper is deliberate (no wallet needed there, no chain/funds touched); confirm an actual
+   failure mode exists before adding it.
 10. **M2-4 (write)** `feat/subparcel-onchain-arc69` — ADR + impl: sub-parcels/upgrades are
     DB-only today; upgrade "anchor" is a detached admin self-transfer note (`upgrades.ts:28`)
     not tied to the plot ASA, and likely broken under algosdk v3 (Address-vs-string,

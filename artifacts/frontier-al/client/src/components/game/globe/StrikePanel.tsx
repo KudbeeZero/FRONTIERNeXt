@@ -13,7 +13,7 @@ import { Crosshair, X, Zap } from "lucide-react";
 import type { LandParcel } from "@shared/schema";
 import { useGameState } from "@/hooks/useGameState";
 import { useWeaponCatalog, useFireWeapon } from "@/hooks/useWeapons";
-import { eligibleStrikes, type SourceParcel, type StrikeOption } from "@/lib/weaponStrike";
+import { eligibleStrikes, hasOwnedOffensiveWeapons, type SourceParcel, type StrikeOption } from "@/lib/weaponStrike";
 import { useToast } from "@/hooks/use-toast";
 
 export function StrikePanel({
@@ -43,7 +43,12 @@ export function StrikePanel({
   const options: StrikeOption[] = useMemo(
     () =>
       catalog.data
-        ? eligibleStrikes(catalog.data.entries, ownedParcels, { lat: target.lat, lng: target.lng })
+        ? eligibleStrikes(
+            catalog.data.entries,
+            ownedParcels,
+            { lat: target.lat, lng: target.lng },
+            catalog.data.profile.loadout,
+          )
         : [],
     [catalog.data, ownedParcels, target.lat, target.lng],
   );
@@ -101,7 +106,9 @@ export function StrikePanel({
           <p className="py-6 text-center text-xs text-slate-400">Loading armory…</p>
         ) : options.length === 0 ? (
           <p className="py-6 text-center text-xs text-slate-400">
-            No offensive weapons in your armory. Build one in the Armory to strike from your territory.
+            {catalog.data && hasOwnedOffensiveWeapons(catalog.data.entries)
+              ? "None of your offensive weapons are equipped. Add one to your loadout in the Armory to strike from your territory."
+              : "No offensive weapons in your armory. Build one in the Armory to strike from your territory."}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
