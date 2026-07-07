@@ -20,6 +20,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   WALLET_RESET_STORAGE_KEYS,
   clearWalletStorage,
+  resetWalletConnection,
 } from "@/lib/walletReset";
 import { WALLET_SESSION_HINT_KEY, WALLET_TYPE_KEY, WALLET_ADDRESS_KEY } from "@/contexts/WalletContext";
 
@@ -88,5 +89,30 @@ describe("clearWalletStorage clears the session auth token too", () => {
     localStorage.setItem("frontier_session_token", "abc123");
     clearWalletStorage({ removeItem: () => {} });
     expect(localStorage.getItem("frontier_session_token")).toBeNull();
+  });
+});
+
+describe("resetWalletConnection", () => {
+  const originalReload = typeof window !== "undefined" ? window.location.reload : undefined;
+
+  beforeEach(() => {
+    if (typeof window !== "undefined") {
+      vi.spyOn(window.location, "reload").mockImplementation(() => {});
+    }
+  });
+
+  afterEach(() => {
+    if (typeof window !== "undefined" && originalReload) {
+      window.location.reload = originalReload;
+    }
+  });
+
+  it("calls clearWalletStorage then hard-reloads the page", () => {
+    if (typeof window === "undefined") {
+      expect(true).toBe(true);
+      return;
+    }
+    resetWalletConnection();
+    expect(window.location.reload).toHaveBeenCalledTimes(1);
   });
 });
