@@ -8,7 +8,7 @@
  * progress" rejection. Every signer call now funnels through a shared
  * promise-chain lock so a second call queues instead of racing.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type algosdk from "algosdk";
 import {
   registerWalletSigner,
@@ -74,5 +74,28 @@ describe("wallet-sign serialization lock", () => {
     // Must still run — a failed prior call must not permanently lock later callers out.
     const result = await signTransactionWithActiveWallet(fakeTxn, "ADDR");
     expect(result).toEqual([new Uint8Array([1])]);
+  });
+
+  describe("a signer call that never settles (stuck wallet request)", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("times out instead of wedging the queue forever, and the next caller still gets to run", async () => {
+      let calls = 0;
+      registerWalletSigner(async (txns) => {
+        calls++;
+        if (calls === 1) return new Promise(() => {}); // never resolves — a dead WalletConnect request
+        return txns.map(() => new Uint8Array([2]));
+      });
+
+      const stuck = signTransactionWithActiveWallet(fakeTxn, "ADDR");
+      const rejection = expect(stuck).rejects.toThrow(/didn't respond in time/);
+      await vi.advanceTimersByTimeAsync(120_000);
+      await rejection;
+
+      // The queue must have advanced past the dead request for the next caller.
+      const result = await signTransactionWithActiveWallet(fakeTxn, "ADDR");
+      expect(result).toEqual([new Uint8Array([2])]);
+    });
   });
 });

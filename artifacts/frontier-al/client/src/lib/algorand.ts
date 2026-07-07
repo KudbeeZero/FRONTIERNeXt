@@ -66,12 +66,37 @@ export function hasRegisteredSigner(): boolean {
 // State machine: idle (queue empty) -> signing (one link running) -> idle,
 // with every subsequent call simply chaining onto the tail.
 // ---------------------------------------------------------------------------
+// A signer call that never settles (a stuck WalletConnect session, a mobile
+// wallet notification the user never taps) would otherwise wedge this queue
+// forever — every later caller queues behind a promise that's never going to
+// resolve. This timeout guarantees the queue always keeps moving: it doesn't
+// (can't) cancel the underlying wallet request, but it stops waiting on it
+// after WALLET_SIGN_TIMEOUT_MS so the NEXT caller gets their turn instead of
+// hanging indefinitely behind a dead request.
+const WALLET_SIGN_TIMEOUT_MS = 120_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 let _walletSignQueue: Promise<unknown> = Promise.resolve();
 
 function withWalletSignLock<T>(run: () => Promise<T>): Promise<T> {
-  const result = _walletSignQueue.then(run, run);
+  const guarded = () => withTimeout(
+    run(),
+    WALLET_SIGN_TIMEOUT_MS,
+    "Wallet didn't respond in time — check your wallet app for a pending request (approve or reject it), then try again.",
+  );
+  const result = _walletSignQueue.then(guarded, guarded);
   // Chain the NEXT caller off this settling regardless of outcome — a
-  // rejected/cancelled signature must not wedge the queue for later callers.
+  // rejected/cancelled/timed-out signature must not wedge the queue for
+  // later callers.
   _walletSignQueue = result.then(
     () => undefined,
     () => undefined,

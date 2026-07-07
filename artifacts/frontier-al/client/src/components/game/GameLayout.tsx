@@ -532,13 +532,13 @@ export function GameLayout() {
 
         if (data.success) {
           toast({ title: "Land NFT Delivered!", description: `Plot #${plotId} is now in your wallet. TX: ${data.txId?.slice(0, 8)}...` });
-          queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+          queryClient.invalidateQueries({ queryKey: ["nft-plot", plotId] });
           return true;
         }
 
         if (data.reason === "not_in_custody") {
           toast({ title: "Already In Your Wallet", description: data.message || "NFT has already been delivered." });
-          queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+          queryClient.invalidateQueries({ queryKey: ["nft-plot", plotId] });
           return true;
         }
 
@@ -559,7 +559,7 @@ export function GameLayout() {
             const retryData = await retryRes.json();
             if (retryData.success) {
               toast({ title: "Land NFT Delivered!", description: `Plot #${plotId} is now in your wallet. TX: ${retryData.txId?.slice(0, 8)}...` });
-              queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+              queryClient.invalidateQueries({ queryKey: ["nft-plot", plotId] });
               return true;
             }
             if (retryData.reason !== "not_opted_in") break;
@@ -638,7 +638,7 @@ export function GameLayout() {
         })
       );
       const delivered = results.filter(r => r.ok).length;
-      queryClient.invalidateQueries({ queryKey: ["nft-plot-notification"] });
+      queryClient.invalidateQueries({ queryKey: ["nft-plot"] });
       if (delivered === plots.length) {
         toast({ title: "All Land NFTs Delivered!", description: `${delivered} plot${delivered === 1 ? "" : "s"} now in your wallet.` });
       } else {

@@ -380,11 +380,17 @@ export function CommanderPanel({
           {/* ── Pending NFT Claims ── */}
           {pendingNftPlots.length > 0 && (
             <div
-              className="rounded-lg border border-amber-500/30 overflow-hidden"
-              style={{ background: "linear-gradient(180deg, rgba(120,80,10,0.08) 0%, rgba(0,0,0,0.15) 100%)" }}
+              className="rounded-lg border border-amber-500/30 overflow-hidden animate-in fade-in-0 slide-in-from-top-1 duration-300"
+              style={{
+                background: "linear-gradient(180deg, rgba(120,80,10,0.08) 0%, rgba(0,0,0,0.15) 100%)",
+                boxShadow: "0 0 16px rgba(251,191,36,0.06)",
+              }}
             >
               <div className="flex items-center gap-2 px-2.5 py-2 border-b border-amber-500/20">
-                <PackageCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <div className="relative shrink-0">
+                  <div className="absolute inset-0 rounded-full bg-amber-400/30 blur-[6px] animate-pulse" />
+                  <PackageCheck className="relative w-3.5 h-3.5 text-amber-400" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-display uppercase tracking-wide text-amber-400 font-bold leading-none">
                     {pendingNftPlots.length} NFT{pendingNftPlots.length > 1 ? "s" : ""} Awaiting Claim
@@ -397,6 +403,7 @@ export function CommanderPanel({
                     onClick={() => onClaimAllPlotNfts(pendingNftPlots.map(p => ({ plotId: p.plotId, assetId: p.assetId })))}
                     disabled={!!isClaimingAllPlotNfts}
                     className="h-6 px-2 text-[9px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
+                    style={{ boxShadow: "0 0 10px rgba(251,191,36,0.35)" }}
                   >
                     {isClaimingAllPlotNfts ? (
                       <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Claiming…</>
@@ -410,7 +417,7 @@ export function CommanderPanel({
                 {pendingNftPlots.map(plot => (
                   <div
                     key={plot.plotId}
-                    className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-amber-500/5 transition-colors"
+                    className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-amber-500/5 transition-colors animate-in fade-in-0 duration-300"
                   >
                     <div className="flex-1 min-w-0 flex items-center gap-1.5">
                       <span className="text-[10px] font-mono font-bold text-amber-300 shrink-0">#{plot.plotId}</span>
