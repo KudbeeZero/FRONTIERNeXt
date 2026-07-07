@@ -11,10 +11,10 @@ import { createWalletManager } from "@/lib/walletManager";
 import NotFound from "@/pages/not-found";
 import GamePage from "@/pages/game";
 import TestnetPage from "@/pages/testnet";
-// "/" serves the static homepage (landing). Its "Enter Game" CTAs jump to the
-// backend that serves the live game (see lib/gameUrl.ts) — so the landing can be
-// hosted statically (Cloudflare Pages) while the game runs on its backend (Fly).
-// "/game" mounts the gameplay page directly for the backend-served origin.
+// "/" now mounts the game directly (owner directive 2026-07-07: skip the
+// marketing landing page, drop straight into the globe). The old landing page
+// is kept, just moved to "/landing" rather than deleted — not linked from the
+// primary nav for now, easy to restore as the default later if wanted.
 import LandingPage from "@/pages/landing";
 import LandingEconomics from "@/pages/landing-economics";
 import LandingGameplay from "@/pages/landing-gameplay";
@@ -71,6 +71,9 @@ function App() {
                       <GamePage />
                     </Route>
                     <Route path="/">
+                      <GamePage />
+                    </Route>
+                    <Route path="/landing">
                       <LandingPage />
                     </Route>
                     <Route path="/info/economics">

@@ -19,13 +19,15 @@
  *   instead of a module-load crash), so they are stubbed to inert passthroughs
  *   with a disconnected wallet — the real first-load state for a visitor who
  *   hasn't connected.
- * - `/` serves the static landing homepage (Cloudflare-hostable); its "Enter
- *   Game" CTA jumps to the backend game (see lib/gameUrl). The `/info/*` and
- *   catch-all (404) routes render their REAL components. The gameplay page is a
- *   heavy WebGL globe (`@react-three/fiber` Canvas) that cannot render headless;
- *   it is stubbed at the page render BOUNDARY so this test asserts the router
- *   MOUNTS the gameplay page for `/game`. Rendering the real 3D entry state
- *   headless is out of scope — a focused GameLayout component test is the follow-up.
+ * - `/` mounts the gameplay page directly (2026-07-07: skip the marketing
+ *   landing page, drop straight into the globe). The old landing homepage is
+ *   kept at `/landing`, not deleted, just no longer the default. The `/info/*`
+ *   and catch-all (404) routes render their REAL components. The gameplay page
+ *   is a heavy WebGL globe (`@react-three/fiber` Canvas) that cannot render
+ *   headless; it is stubbed at the page render BOUNDARY so this test asserts
+ *   the router MOUNTS the gameplay page for `/` and `/game`. Rendering the
+ *   real 3D entry state headless is out of scope — a focused GameLayout
+ *   component test is the follow-up.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
@@ -97,18 +99,20 @@ describe("client route loop (App router)", () => {
     expect(html.length).toBeGreaterThan(0);
   });
 
-  it("serves the static homepage (landing) on the core route '/'", () => {
+  it("mounts the gameplay page directly on the core route '/' (owner directive 2026-07-07)", () => {
     const html = renderAt("/");
-    // '/' mounts the static landing page (Cloudflare-hostable homepage) — its
-    // "Enter Game" CTA jumps to the backend game (lib/gameUrl), it does NOT
-    // mount the heavy gameplay page here.
-    expect(html).toContain("Conquer the");
-    expect(html).not.toContain("GAME ROUTE ENTRY");
-    // It is NOT the 404 fallback.
+    expect(html).toContain("GAME ROUTE ENTRY");
     expect(html).not.toContain("404 Page Not Found");
   });
 
-  it("mounts the gameplay page on '/game' (route → page boundary)", () => {
+  it("still serves the old landing homepage at '/landing' (kept, not deleted)", () => {
+    const html = renderAt("/landing");
+    expect(html).toContain("Conquer the");
+    expect(html).not.toContain("GAME ROUTE ENTRY");
+    expect(html).not.toContain("404 Page Not Found");
+  });
+
+  it("mounts the gameplay page on '/game' too (route → page boundary)", () => {
     const html = renderAt("/game");
     expect(html).toContain("GAME ROUTE ENTRY");
     // The router selected the gameplay branch, not the fallback.
@@ -136,10 +140,10 @@ describe("client route loop (App router)", () => {
     const home = renderAt("/");
     const info = renderAt("/info/economics");
     const missing = renderAt("/definitely-not-a-route");
-    // '/' serves the landing homepage; an /info page and the 404 fallback are
-    // distinct outputs, so the Switch still selects per-path — a dropped or
-    // mis-wired <Route> would break at least one of these assertions.
-    expect(home).toContain("Conquer the");
+    // '/' now mounts the game; an /info page and the 404 fallback are distinct
+    // outputs, so the Switch still selects per-path — a dropped or mis-wired
+    // <Route> would break at least one of these assertions.
+    expect(home).toContain("GAME ROUTE ENTRY");
     expect(info).not.toBe(home);
     expect(info).not.toBe(missing);
     expect(home).not.toBe(missing);
