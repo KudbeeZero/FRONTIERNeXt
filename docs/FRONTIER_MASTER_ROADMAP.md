@@ -286,6 +286,37 @@ Still live from the old 30/60/90 (slot in where capacity allows, not dropped): F
 #1–#6 / Mission Control v1 + kill switches (Phases 3/14), `smoke:testnet` live run (owner funds
 the session wallet — also settles the `upgrades.ts` algosdk-v3 question), onboarding quest
 chain (Phase 5), HERMES contracts (Phase 12), econ telemetry → marketplace design (Phase 11).
+
+**Added 2026-07-07 (external reference review — owner asked whether
+[`ammaarreshi/Generals-Mac-iOS-iPad`](https://github.com/ammaarreshi/Generals-Mac-iOS-iPad),
+a native macOS/iOS port of C&C Generals Zero Hour, had anything applicable). Different stack
+entirely (C++/DirectX8→DXVK→Metal vs. this repo's TS/React/three.js), so nothing ports
+directly — but two of its solved problems map to real, currently-unaddressed gaps here,
+verified by grep against the current tree, not assumed):**
+- **(G1) Globe touch-gesture vocabulary.** Plot selection today is single tap/click only
+  (`GlobeParcels.tsx`); camera pan/zoom rides on drei `OrbitControls`' built-in touch support,
+  but there is no drag-box multi-select or long-press-deselect pattern anywhere in
+  `client/src/components/game/globe/`. The Generals port's RTS touch vocabulary (tap-select,
+  drag-box select, long-press deselect, two-finger pan, pinch-zoom) is a candidate reference if
+  multi-plot selection (bulk actions, sub-parcel picking) becomes a real need — slot into
+  Phase 15 (UI/UX Master Design) if/when scoped.
+- **(G2) WebGL context-loss / backgrounding on mobile.** Grepped the whole client for
+  `webglcontextlost`/`visibilitychange`/`onContextLost` — **zero hits**. The three.js globe
+  Canvas has no handler for a lost/restored WebGL context (common on mobile when a tab is
+  backgrounded long enough for the OS to reclaim the GPU context) or for `visibilitychange`.
+  Today this would likely present as "the globe goes black/frozen after switching apps and
+  never recovers without a manual reload" — plausible, not owner-confirmed. Not the same fix as
+  the Generals port (that's native Metal drawable lifecycle; this needs a JS
+  `canvas.addEventListener('webglcontextlost'/'webglcontextrestored', …)` + `three.js` renderer
+  re-init), but the *problem class* is the same. Candidate unit: reproduce on a real mobile
+  device first (owner smoke-test), then a small, test-backed fix in the globe's R3F `Canvas`
+  wrapper — not scoped or started; would need its own audited unit, not bundled into whatever
+  PR is open when it's picked up.
+
+Both are genuinely new findings (G1/G2), not yet part of the M1→M3 queue above — they slot in
+wherever capacity allows per the cadence rule below, same as the rest of this backlog
+paragraph. Neither is funds/mainnet-adjacent.
+
 Standing cadence: baton every session · one PR at a time · truth/registry updated when facts
 change.
 

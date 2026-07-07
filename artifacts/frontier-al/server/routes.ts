@@ -449,8 +449,12 @@ export async function registerRoutes(
     const elig = await assessWelcomeBonusEligibility(address);
     if (!elig.eligible) return { granted: false, reason: elig.reason };
 
-    await storage.grantWelcomeBonus(playerId);
-    // Enqueue regardless of asaId / opt-in state; the worker retries.
+    // grantWelcomeBonus is the atomic gate: concurrent callers here (e.g. two
+    // logins racing) can both pass the pre-checks above, but only one of them
+    // gets `true` back — that's the only one allowed to enqueue the on-chain
+    // transfer, so the 500 ASCEND can never be double-sent.
+    const granted = await storage.grantWelcomeBonus(playerId);
+    if (!granted) return { granted: false };
     enqueueAscendTransfer({
       recipientAddress: address,
       recipientPlayerId: playerId,
@@ -1371,20 +1375,23 @@ export async function registerRoutes(
       const player = await storage.getPlayer(playerId);
       let welcomeBonus = false;
       if (player && !player.welcomeBonusReceived) {
-        await storage.grantWelcomeBonus(playerId);
-        welcomeBonus = true;
-        console.log(`Welcome bonus of 500 ASCEND granted to player ${player.name} (${address})`);
+        // grantWelcomeBonus is the atomic gate — see maybeGrantWelcomeBonus above.
+        // Only the caller that actually flips welcomeBonusReceived may enqueue.
+        welcomeBonus = await storage.grantWelcomeBonus(playerId);
+        if (welcomeBonus) {
+          console.log(`Welcome bonus of 500 ASCEND granted to player ${player.name} (${address})`);
 
-        // SEV2 #7 fix: enqueue regardless of asaId / opt-in state; worker retries.
-        if (address && !address.startsWith("AI_")) {
-          enqueueAscendTransfer({
-            recipientAddress:  address,
-            recipientPlayerId: playerId,
-            amount:            500,
-            reason:            "welcome_bonus",
-          }).catch((err) =>
-            console.error("Welcome bonus enqueue failed (in-game balance still granted):", err)
-          );
+          // SEV2 #7 fix: enqueue regardless of asaId / opt-in state; worker retries.
+          if (address && !address.startsWith("AI_")) {
+            enqueueAscendTransfer({
+              recipientAddress:  address,
+              recipientPlayerId: playerId,
+              amount:            500,
+              reason:            "welcome_bonus",
+            }).catch((err) =>
+              console.error("Welcome bonus enqueue failed (in-game balance still granted):", err)
+            );
+          }
         }
       }
 

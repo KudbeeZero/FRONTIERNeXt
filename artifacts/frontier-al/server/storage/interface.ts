@@ -78,8 +78,8 @@ export interface IStorage {
   deploySatellite(action: DeploySatelliteAction): Promise<OrbitalSatellite>;
   updatePlayerName(playerId: string, name: string): Promise<void>;
   updateTestnetProgress(playerId: string, completedMissions: string[]): Promise<void>;
-  /** Grant the 500 ASCEND welcome bonus (idempotent). */
-  grantWelcomeBonus(playerId: string): Promise<void>;
+  /** Grant the 500 ASCEND welcome bonus (idempotent). Returns true iff this call actually granted it. */
+  grantWelcomeBonus(playerId: string): Promise<boolean>;
   /**
    * Atomically switch a player's active commander and emit a game event.
    * Throws if the index is out of bounds.
