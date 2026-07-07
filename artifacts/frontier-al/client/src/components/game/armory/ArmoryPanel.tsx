@@ -25,6 +25,7 @@ import {
   ARCHETYPES,
   BADGE_KEYS,
   BADGE_DEFS,
+  MAX_WEAPON_UPGRADE_TIER,
   type AttributeBuild,
   type AttributeKey,
   type BadgeKey,
@@ -32,6 +33,7 @@ import {
   type WeaponSpec,
   type PlayerWeaponProfile,
 } from "@shared/weapons";
+import { upgradeCostAscend } from "@shared/weapon-economy";
 
 interface CatalogEntry {
   spec: WeaponSpec;
@@ -250,16 +252,22 @@ function ArmoryInner({
                         <button disabled={unlockMut.isPending}
                           onClick={() => unlockMut.mutate(e.spec.id)}
                           className="rounded bg-emerald-600 px-2 py-0.5 font-semibold text-white disabled:opacity-40">
-                          Unlock · {e.unlockCost} FR
+                          Unlock · {e.unlockCost} ASCEND
                         </button>
                       )}
                       {owned && (
                         <>
-                          <button disabled={upgradeMut.isPending}
-                            onClick={() => upgradeMut.mutate(owned.id)}
-                            className="rounded bg-indigo-600 px-2 py-0.5 font-semibold text-white disabled:opacity-40">
-                            Upgrade
-                          </button>
+                          {owned.upgradeTier < MAX_WEAPON_UPGRADE_TIER ? (
+                            <button disabled={upgradeMut.isPending}
+                              onClick={() => upgradeMut.mutate(owned.id)}
+                              className="rounded bg-indigo-600 px-2 py-0.5 font-semibold text-white disabled:opacity-40">
+                              Upgrade · {upgradeCostAscend(e.spec, owned.upgradeTier + 1)} ASCEND
+                            </button>
+                          ) : (
+                            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-400">
+                              Max tier
+                            </span>
+                          )}
                           <button disabled={loadoutMut.isPending}
                             onClick={() => toggleEquip(e.spec.id)}
                             className={`rounded px-2 py-0.5 font-semibold text-white disabled:opacity-40 ${equipped ? "bg-amber-600" : "bg-slate-600"}`}>

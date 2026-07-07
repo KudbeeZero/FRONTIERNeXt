@@ -13,7 +13,7 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { HudShell } from "@/components/game/hud/HudShell";
-import type { NavTab } from "@/components/game/BottomNav";
+import type { NavTab } from "@/lib/panelNav";
 
 function render(props: { activeTab: NavTab; battleCount?: number }): string {
   return renderToStaticMarkup(

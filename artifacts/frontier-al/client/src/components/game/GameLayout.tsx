@@ -5,7 +5,7 @@ import type { LivePulse } from "@/components/game/PlanetGlobe";
 import { BattleWatchModal } from "./BattleWatchModal";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CommTerminal } from "./CommTerminal";
-import { type NavTab } from "./BottomNav";
+import { type NavTab } from "@/lib/panelNav";
 import { HudShell } from "./hud/HudShell";
 import { LandSheet } from "./LandSheet";
 import { InventoryPanel } from "./InventoryPanel";
