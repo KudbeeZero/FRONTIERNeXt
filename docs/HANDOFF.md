@@ -26,7 +26,7 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: `fix/mobile-white-screen` pushed, PR open, not yet audited
+## Current baton — 🟡 AWAITING_AUDIT: PR #213 (`fix/mobile-white-screen`) open, CI green, not yet audited
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
@@ -165,6 +165,13 @@ working Reload button," true regardless of whether this exact root cause is the 
 exact trigger. Verified green: tsc clean, client 311/311 (+6 new), server 449/24 skipped
 (unchanged, no server files touched), build clean (spot-checked the diagnostic script
 survives the build unmangled).
+
+**PR #213 open, CI confirmed green** (both "Typecheck & server tests" and "Cloudflare
+Pages" `completed`/`success` on head `9ea4f24`) — **not yet independently audited.** Owner
+asked to close out the session here to conserve credit rather than spend another subagent
+call on `/handoff-audit` right now. **Next session: run `/handoff-audit` on PR #213 first**
+(gate on PASS/CONCERNS/FAIL per protocol) before starting any new unit. Local branch is
+fully pushed, nothing uncommitted.
 
 ### 🔴 NEW OWNER DIRECTIVE (2026-07-07, supersedes M1-4 as next-up)
 
