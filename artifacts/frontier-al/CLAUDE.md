@@ -226,4 +226,10 @@ Always `reset --hard origin/main` first — skipping it produces a messy first-p
 - Only after the three checks are green AND the merge is verified (`local main == origin/main`). Never merge on red.
 - For PR-watch / "babysit" tasks, the task isn't done until the PR is MERGED or CLOSED.
 - Secrets are never committed — document them in the env checklist; real values go in the host dashboard (Railway/Vercel), mnemonic in a secrets manager.
+- **For fixes claimed to affect production (routing, wallet, domain, deploy config): verify "CI is green" and "it works live" separately — they're different claims.**
+  CI green only proves the test suite passed; it says nothing about the deployed
+  site. Check the exact head commit's checks with `/ci-check`, and separately
+  confirm the live behavior (curl the endpoint, or check the Cloudflare/Fly
+  deploy comment on the PR for its preview/prod URL) before telling the user
+  it's fixed in production.
 
