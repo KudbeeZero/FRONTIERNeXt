@@ -449,12 +449,26 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     void authenticate();
   }, [autoAuth, activeAddress, signTransactions, authenticate]);
 
-  // Reset auth state on disconnect.
+  // Reset auth state whenever the active address drops — not just on the
+  // explicit disconnect() button below, but for ANY reason (e.g. the wallet
+  // SDK itself dropping and later resuming the same address mid-session).
   useEffect(() => {
     if (!activeAddress) {
       setIsAuthenticated(false);
       setAuthError(null);
       authAttemptedFor.current = null;
+      // Also clear the module-level auto-auth memory here, not only in
+      // disconnect(). Audit finding on PR #210: without this, a wallet SDK
+      // that transiently nulls-then-restores the same address (a
+      // WalletConnect hiccup that self-resumes, the user re-authorizing from
+      // inside the wallet app) would leave hasAutoAuthed() reporting true
+      // even though authAttemptedFor was just reset above — the auto-auth
+      // effect would then silently skip re-authenticating forever, leaving
+      // the player unauthenticated to the game server with no recovery short
+      // of a manual Disconnect. Clearing the whole set (not just this one
+      // address) matches disconnect()'s existing behavior — only one wallet
+      // is ever active at a time in this app.
+      clearAutoAuthedAddresses();
     }
   }, [activeAddress]);
 
