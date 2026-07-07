@@ -114,6 +114,14 @@ provably-fair resolution math itself stays untouched.
 `feat/weapon-damage-settlement` then `feat/combat-convergence`.
 **Accept** a non-intercepted shot measurably changes the target plot (test-backed);
 `verifyBattleProof` still green. **🚫** resolution math; `battle-sequence.ts`/cinematics.
+**Added 2026-07-07 (owner weapons-system deep dive):** full architecture map + gap list + phased
+unit plan now lives in
+[`artifacts/frontier-al/docs/WEAPONS_SYSTEM_UX_PLAN.md`](../artifacts/frontier-al/docs/WEAPONS_SYSTEM_UX_PLAN.md)
+— this phase's queue entries below are the authoritative summary; that doc has full file:line
+evidence. New findings beyond W1/W3: no cooldown enforcement anywhere despite every weapon spec
+defining `cooldownMs`; missile-flight animation is architecturally disconnected from the shipped
+battle-cinematics `cinematicBus` (no shared camera/HUD/telegraph); 13 badge-gated animation
+variants are computed but never rendered.
 
 ## Phase 9 — Ship / Aether Voyager System
 **Purpose** connect prologue → game arrival (the Voyager as a persistent player asset/HUB).
@@ -135,6 +143,17 @@ squeeze; (U2) delete dead `BottomNav.tsx` (superseded by `HudShell.tsx`).
 `feat/armory-loadout-polish` then `feat/armory-deploy-ui`. **Accept** deploy flow test-covered;
 spends only through existing guarded endpoints; loadout demonstrably affects fire.
 **🚫** weapon-economy constants.
+**Added 2026-07-07 (owner weapons-system deep dive — see
+[`WEAPONS_SYSTEM_UX_PLAN.md`](../artifacts/frontier-al/docs/WEAPONS_SYSTEM_UX_PLAN.md) for full
+evidence):** (G-A, highest-impact new finding) **defensive weapons (14/42 of the catalog) have
+ZERO client UI to deploy** — unlockable/ownable/upgradable but never placeable; no read endpoint
+even exists for a player's own batteries. (G-J) the armory-rail grid squeeze's root mechanical
+cause is a *viewport* Tailwind breakpoint (`sm:grid-cols-2`) on a component whose rendered width
+varies by mount context (240px rail vs. full page vs. mobile) — needs a container-query fix, not
+a one-off style tweak. (G-D) the loadout-ignored bug (W2) is confirmed client-side too —
+`client/src/lib/weaponStrike.ts`'s `eligibleStrikes()` also ignores `profile.loadout`. (G-M)
+sub-parcel combat targeting doesn't exist at all (not just DB-only on-chain) — `SubParcelOverlay`
+has zero pointer handlers.
 
 ## Phase 11 — Economy / Resource System
 **Purpose** economy with a destination: playbook D1 (plot marketplace) + D2 (season arcs) +
