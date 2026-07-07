@@ -70,8 +70,9 @@ delivery/rollback** — a paid purchase whose background mint fails leaves ALGO 
 no refund, no retry; recovery is manual (`routes.ts:2091-2098`; `attemptDelivery` is one-shot at
 `routes.ts:2084`) → build a mint-retry worker + refund-or-retry policy (funds-gated);
 (b) **ASCEND ASA id not pinned** — resolved by name-lookup of admin-created assets
-(`services/chain/asa.ts:117,128`), the canonical `755818217` appears only in `handbook.html` →
-pin via `ASCEND_ASA_ID` env + startup assert, lookup as fallback; (c) **residual wallet-popup
+(`services/chain/asa.ts:117,128`), with no env-pinned ID; `755818217` appears only as free-text
+in source/docs (`shared/university/curriculum.ts` + several markdown docs), never as a config
+value → pin via `ASCEND_ASA_ID` env + startup assert, lookup as fallback; (c) **residual wallet-popup
 vectors** (the #175/#176 popup-storm fix holds; these are what's left): P1 per-route
 `WalletProvider` remount re-arms the auto-auth signature prompt (`App.tsx:40` +
 `WalletContext.tsx:252,355-361` — guards are per-instance refs), P2 landing↔game cross-origin
@@ -171,11 +172,16 @@ Mission Control toggles them. **🚫** changing what agents do when ON.
 **Purpose** one design language across game HUD + Mission Control (tokens, spacing, dark-first),
 leveraging `.agents/skills/ui-ux-pro-max`. **Exists** Tailwind 4, shadcn components,
 `design_guidelines.md`; `index.html` meta/OG/canonical healthy. **Missing** consolidated token
-sheet + panel patterns doc. **Added 2026-07-07 (UI consistency findings):** (U1) `/university`
-is the only route missing the `WalletProvider` wrapper (`App.tsx`); (U4) time drift —
-`BattlesPanel` uses `Date.now()` where `WarRoomPanel` uses `serverNow()`; (U5) `/admin`
-dashboard is built but unlinked from any nav; (U6) `index.html` shows a blank `#root` until
-React mounts → add an inline loading state. **⛓** none.
+sheet + panel patterns doc. **Added 2026-07-07 (UI consistency findings, corrected on
+audit):** (U1) `/university` is the only route missing the `WalletProvider` wrapper
+(`App.tsx:84-86`) — **but `university.tsx`'s own doc-comment says this is deliberate** (no
+wallet needed, the panel touches neither chain nor funds); confirm there's an actual failure
+mode before treating this as a bug, not just add the wrapper reflexively; (U4) time drift —
+**`WarRoomPanel.tsx:29,154`** uses `Date.now()` against server-relative timestamps (the real
+clock-drift risk); `BattlesPanel.tsx:35,197` already correctly uses `serverNow()` (its one
+`Date.now()` at line 194 is an unrelated local-freshness check, not a server-time comparison —
+leave it); (U5) `/admin` dashboard is built but unlinked from any nav; (U6) `index.html` shows
+a blank `#root` until React mounts → add an inline loading state. **⛓** none.
 **Branch** `fix/ui-consistency-pass` (quick fixes) then `docs/ui-master-design`.
 **Accept** owner-approved; new panels reference it. **🚫** globe visuals.
 
@@ -261,10 +267,10 @@ cites its gate lane. **🚫** weakening funds-path gates.
 |---|---|---|---|
 | M2-1 | W1: weapon damage settlement — `"impacted"` becomes real (Phase 8) | `feat/weapon-damage-settlement` | write |
 | M2-2 | W3+W4: settled damage feeds plot state; badges credit on impact only (Phase 8/10) | `feat/combat-convergence` | write |
-| M2-3 | W2 loadout wiring + U3 armory UX fixes + U2 delete BottomNav + U1 university WalletProvider (Phase 10/15) | `feat/armory-loadout-polish` | none |
+| M2-3 | W2 loadout wiring + U3 armory UX fixes + U2 delete BottomNav + U1 university WalletProvider — **first confirm U1 is an actual bug, not the app's deliberate wallet-free design** (Phase 10/15) | `feat/armory-loadout-polish` | none |
 | M2-4 | ADR + impl: sub-parcel & upgrade on-chain recording via ARC-69 config notes on the plot ASA; fix the algosdk-v3 Address bug in `upgrades.ts` (Phase 26) | `feat/subparcel-onchain-arc69` | write |
 | M2-5 | W5: weapon-NFT mint completion — custody+claim parity with land NFTs (Phase 26) | `feat/weapon-nft-claim` | write |
-| M2-6 | U4 serverNow drift + U5 admin nav link + U6 index.html loading state (Phase 15) | `fix/ui-consistency-pass` | none |
+| M2-6 | U4: fix `WarRoomPanel.tsx` `Date.now()`→`serverNow()` drift (not `BattlesPanel`, which is already correct) + U5 admin nav link + U6 index.html loading state (Phase 15) | `fix/ui-consistency-pass` | none |
 
 **Month 3 — AAA security posture + launch path:**
 | # | Unit | Branch | ⛓ |

@@ -62,8 +62,9 @@ no fix without a failing-first test.
    P2 (landing↔game cross-origin second connect) is an ADR + owner decision, not code here.
    Read `WalletContext.tsx` + `WalletConnect.tsx` fully first; don't regress #175's fixes.
 4. **M1-4 (read)** `fix/pin-ascend-asa` — pin ASCEND ASA via `ASCEND_ASA_ID` env + startup
-   assert; today it's name-lookup only (`services/chain/asa.ts:117,128`) and `755818217`
-   appears only in `handbook.html`. Update `ENV_VARS.md` + deployment checklist.
+   assert; today it's name-lookup only (`services/chain/asa.ts:117,128`) with no env-pinned
+   ID — `755818217` appears only as free-text in source/docs (`shared/university/curriculum.ts`
+   + several markdown docs), never as a config value. Update `ENV_VARS.md` + deployment checklist.
 5. **M1-5 (funds)** `feat/mint-retry-delivery` — no atomic delivery/rollback: paid purchase
    whose background mint fails = ALGO consumed, no NFT, no refund, manual recovery
    (`routes.ts:2091-2098`); `attemptDelivery` one-shot (`routes.ts:2084`). Build mint-retry
@@ -81,7 +82,9 @@ no fix without a failing-first test.
 9. **M2-3** `feat/armory-loadout-polish` — W2 loadout wiring (persisted but never consulted,
    `service.ts:103` vs `:155`) + Armory UX ("FR"→"ASCEND" `ArmoryPanel.tsx:253`, hidden
    upgrade price, inverted radius, rail grid squeeze) + delete dead `BottomNav.tsx` +
-   `/university` WalletProvider wrapper.
+   `/university` WalletProvider wrapper — **caveat (audit correction):** `university.tsx`'s own
+   doc-comment says the missing wallet wrapper is deliberate (no wallet needed there, no
+   chain/funds touched); confirm an actual failure mode exists before adding it.
 10. **M2-4 (write)** `feat/subparcel-onchain-arc69` — ADR + impl: sub-parcels/upgrades are
     DB-only today; upgrade "anchor" is a detached admin self-transfer note (`upgrades.ts:28`)
     not tied to the plot ASA, and likely broken under algosdk v3 (Address-vs-string,
@@ -89,7 +92,10 @@ no fix without a failing-first test.
     (roadmap Phase 26 has the full approach + rejected alternatives).
 11. **M2-5 (write)** `feat/weapon-nft-claim` — W5: weapon-NFT mint completion, custody+claim
     parity with land NFTs (503 without `PUBLIC_BASE_URL`, `routes.ts:2644`).
-12. **M2-6** `fix/ui-consistency-pass` — `BattlesPanel` `Date.now()`→`serverNow()`, link
+12. **M2-6** `fix/ui-consistency-pass` — **audit correction:** the real clock-drift risk is
+    `WarRoomPanel.tsx:29,154` using `Date.now()` against server-relative timestamps —
+    `BattlesPanel.tsx` already correctly uses `serverNow()` (its lone `Date.now()` at line 194
+    is an unrelated local-freshness check, leave it). Fix `WarRoomPanel` → `serverNow()`, link
     `/admin` in nav, `index.html` inline loading state.
 
 **Month 3 — AAA security posture + launch path**
