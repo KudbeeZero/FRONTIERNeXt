@@ -158,27 +158,39 @@ export function WalletConnect({ className }: { className?: string }) {
 
   if (error) {
     return (
-      <div className={cn("flex items-center gap-2", className)}>
-        <Button
-          variant="destructive"
-          onClick={openPicker}
-          className="flex-1 gap-2 font-display uppercase tracking-wide text-xs"
-          data-testid="button-wallet-error"
-          title={error}
+      <div className={cn("flex flex-col items-center gap-1.5", className)}>
+        <div className="flex items-center gap-2 w-full">
+          <Button
+            variant="destructive"
+            onClick={openPicker}
+            className="flex-1 gap-2 font-display uppercase tracking-wide text-xs"
+            data-testid="button-wallet-error"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Try Again
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={clearError}
+            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+            data-testid="button-wallet-error-dismiss"
+            title="Dismiss"
+          >
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+        {/* The actual failure reason — previously only in a hover title, invisible
+            on touch devices and easy to miss on desktop. Player-facing so a real
+            connect failure (rejected signature, unsupported wallet, network
+            hiccup) is legible without opening devtools. */}
+        <p
+          className="text-xs text-destructive text-center break-words"
+          data-testid="text-wallet-error-detail"
         >
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          Try Again
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={clearError}
-          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-          data-testid="button-wallet-error-dismiss"
-          title="Dismiss"
-        >
-          <X className="w-3 h-3" />
-        </Button>
+          {error}
+        </p>
+        <TroubleConnectingLink />
       </div>
     );
   }
