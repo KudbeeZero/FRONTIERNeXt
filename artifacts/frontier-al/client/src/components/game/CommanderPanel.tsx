@@ -68,6 +68,8 @@ export interface CommanderPanelProps {
   className?: string;
   onDeliverPlotNft?: (plotId: number, assetId: number) => void;
   isDeliveringPlotNftId?: number | null;
+  onClaimAllPlotNfts?: (plots: { plotId: number; assetId: number }[]) => void;
+  isClaimingAllPlotNfts?: boolean;
 }
 
 export function CommanderPanel({
@@ -75,6 +77,7 @@ export function CommanderPanel({
   onClaimCommanderNft, onAttack, isMinting, isDeployingDrone, isDeployingSatellite,
   isClaimingCommanderNft, isAttacking, openBattlefrontSignal, selectedParcel, ownedParcels = [],
   wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
+  onClaimAllPlotNfts, isClaimingAllPlotNfts,
 }: CommanderPanelProps) {
   const queryClient = useQueryClient();
   const [selectedTier, setSelectedTier] = useState<CommanderTier>("sentinel");
@@ -388,6 +391,20 @@ export function CommanderPanel({
                   </p>
                   <p className="text-[8px] text-amber-300/60 mt-0.5">Sign to receive it in your Algorand wallet</p>
                 </div>
+                {pendingNftPlots.length > 1 && onClaimAllPlotNfts && (
+                  <Button
+                    size="sm"
+                    onClick={() => onClaimAllPlotNfts(pendingNftPlots.map(p => ({ plotId: p.plotId, assetId: p.assetId })))}
+                    disabled={!!isClaimingAllPlotNfts}
+                    className="h-6 px-2 text-[9px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
+                  >
+                    {isClaimingAllPlotNfts ? (
+                      <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Claiming…</>
+                    ) : (
+                      `Claim All (${pendingNftPlots.length})`
+                    )}
+                  </Button>
+                )}
               </div>
               <div className="max-h-40 overflow-y-auto divide-y divide-amber-500/10">
                 {pendingNftPlots.map(plot => (
