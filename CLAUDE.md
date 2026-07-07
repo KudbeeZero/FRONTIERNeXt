@@ -22,6 +22,12 @@ artifact, not trust.
 4. **End with `/closeout`.** Commit, confirm tests green, open **exactly one** PR
    into `main` with an Audit checklist, and rewrite the baton. The final baton
    commit must **not** use `[skip ci]`.
+5. **End-of-day state is non-negotiable** (full checklist in the baton's
+   "Definition of done"): `main` green on its real head commit, the loop closed,
+   and **everything pushed — what the owner sees on github.com must be exactly
+   what you have locally.** The container is ephemeral; unpushed work is lost work.
+   Verify with `git status` + `git log origin/<branch>..HEAD` (must be empty)
+   before ending any session.
 
 ## Invariants
 

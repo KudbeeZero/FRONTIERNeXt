@@ -10,6 +10,22 @@
 - **ONE PR open at a time.** Never open a second PR while one is unaudited/open.
 - The next unit **does not start** until the current PR is audited **and** merged/closed.
 
+### ✅ Definition of done — EVERY session ends in this state (owner directive 2026-07-07)
+A session is NOT finished until all of these hold — check them, don't assume:
+1. **`main` is green** — CI passed on the actual head commit of `origin/main` (not a stale or
+   `[skip ci]` run). If your merge broke main, fixing it IS your session, whatever else you planned.
+2. **The loop is closed** — this chat's unit is committed → pushed → PR'd → baton rewritten.
+   No half-open state: no unpushed commits, no PR-less pushed branch, no baton describing work
+   that isn't on GitHub.
+3. **Local == GitHub (the website is the truth the owner sees).** The container is ephemeral —
+   anything not pushed is lost. Verify mechanically before ending:
+   `git status` clean · `git fetch origin && git log origin/<branch>..HEAD` empty (nothing
+   local-only) · every open PR's head on GitHub matches what you tested locally.
+4. **You have the tools — use them.** `/closeout` or `/end-session` runs this checklist;
+   `/pr-gate` gives the mechanical go/no-go; CI status comes from the GitHub MCP tools
+   (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
+   If a push or PR call fails, retry with backoff; do not end the session with work only local.
+
 ## Current baton — 🟡 AWAITING_AUDIT: docs-only PR from `docs/roadmap-full-scope-audit`
 
 Main is green at `42b4a5c` (#206). **This chat (2026-07-07, owner-directed full-scope audit):**
