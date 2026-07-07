@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { WalletProvider as UseWalletProvider } from "@txnlab/use-wallet-react";
 import { WalletProvider, shouldAutoAuthenticateForPath } from "@/contexts/WalletContext";
-import { walletManager } from "@/lib/walletManager";
+import { createWalletManager } from "@/lib/walletManager";
 import NotFound from "@/pages/not-found";
 import GamePage from "@/pages/game";
 import TestnetPage from "@/pages/testnet";
@@ -30,6 +30,12 @@ const AdminDashboard = lazy(() => import("@/pages/admin"));
 
 function App() {
   const [location] = useLocation();
+  // Constructed here (during render) rather than at module scope so a
+  // connector-init failure on some mobile browser/webview is a normal React
+  // render error the root <ErrorBoundary> in main.tsx can catch and show a
+  // real message for, instead of a module-evaluation throw that blanks the
+  // whole app before React even mounts. See createWalletManager's doc comment.
+  const walletManager = useMemo(() => createWalletManager(), []);
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

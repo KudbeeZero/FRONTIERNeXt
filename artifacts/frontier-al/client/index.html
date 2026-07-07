@@ -2,6 +2,83 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Mobile white-screen safety net. Runs before React (or anything else)
+      loads, in the most conservative JS this codebase writes anywhere (var,
+      plain functions, no arrow/template-literal syntax) — this script's only
+      job is to survive on an engine broken enough to blank the whole app, so
+      it must not itself be able to fail to parse. Catches the two classes of
+      failure a React <ErrorBoundary> structurally cannot: an error thrown
+      before React ever mounts (e.g. a wallet-connector's constructor
+      touching window/indexedDB in a restricted mobile browser), and resource
+      load failures (a script/asset 404 or timing out on a bad connection).
+      Only surfaces the overlay if #root is still empty a few seconds after
+      load — i.e. only for a genuinely blank page, never interrupting a game
+      that's actually running.
+    -->
+    <script>
+      (function () {
+        var events = [];
+        function record(type, message, detail) {
+          events.push({ type: type, message: message, detail: detail || "" });
+        }
+        window.addEventListener(
+          "error",
+          function (e) {
+            if (e && e.target && e.target !== window && (e.target.src || e.target.href)) {
+              record("resource", "Failed to load: " + (e.target.src || e.target.href), e.target.tagName || "");
+            } else {
+              record("error", (e && e.message) || "Unknown script error", (e && e.filename ? e.filename + ":" + e.lineno + ":" + e.colno : ""));
+            }
+          },
+          true,
+        );
+        window.addEventListener("unhandledrejection", function (e) {
+          var reason = e && e.reason;
+          var message = reason && reason.message ? reason.message : String(reason);
+          record("promise rejection", message, "");
+        });
+        window.setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && root.firstChild) return; // app rendered something — do nothing
+          var box = document.createElement("div");
+          box.setAttribute(
+            "style",
+            "position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0a0a0f;" +
+              "color:#e6e6e6;font-family:monospace;padding:20px;box-sizing:border-box;" +
+              "overflow-y:auto;z-index:999999;font-size:12px;line-height:1.6;",
+          );
+          var title = document.createElement("div");
+          title.textContent = "FRONTIER failed to load";
+          title.setAttribute("style", "font-size:15px;font-weight:700;color:#ff8080;margin-bottom:14px;");
+          box.appendChild(title);
+          var hint = document.createElement("div");
+          hint.textContent = events.length
+            ? "Details captured below — please share this with support:"
+            : "No error details were captured. Please reload, and if this repeats, try a different browser.";
+          hint.setAttribute("style", "color:#999;margin-bottom:14px;");
+          box.appendChild(hint);
+          for (var i = 0; i < events.length; i++) {
+            var item = document.createElement("div");
+            item.setAttribute("style", "margin-bottom:10px;border-bottom:1px solid #2a2a33;padding-bottom:8px;");
+            item.textContent = "[" + events[i].type + "] " + events[i].message + (events[i].detail ? " (" + events[i].detail + ")" : "");
+            box.appendChild(item);
+          }
+          var reload = document.createElement("button");
+          reload.textContent = "Reload";
+          reload.setAttribute(
+            "style",
+            "margin-top:10px;background:#1e3a6e;border:1px solid #3d6ec2;border-radius:8px;" +
+              "padding:10px 22px;color:#cfe0ff;font-size:12px;cursor:pointer;",
+          );
+          reload.onclick = function () {
+            window.location.reload();
+          };
+          box.appendChild(reload);
+          document.documentElement.appendChild(box);
+        }, 6000);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>FRONTIER - Algorand Strategy Game</title>
     <meta name="description" content="FRONTIER is a persistent hex-based war strategy game where players and AI factions compete for land, resources, and dominance on the Algorand blockchain." />

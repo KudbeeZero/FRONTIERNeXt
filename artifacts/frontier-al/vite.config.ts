@@ -29,6 +29,11 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
+    // Explicit, conservative target for mobile-browser reach — Vite's own
+    // default already tracks modern "baseline" browsers, but pinning this
+    // gives a documented, deliberate floor rather than an implicit one that
+    // shifts with Vite version bumps.
+    target: "es2020",
   },
   server: {
     host: "0.0.0.0",

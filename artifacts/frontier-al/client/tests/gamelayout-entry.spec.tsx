@@ -39,8 +39,8 @@ const h = vi.hoisted(() => ({
   gameState: { data: undefined as unknown, isLoading: false, error: null as unknown },
 }));
 
-// ── Wallet / SDK boundary (touch window/IndexedDB at import) ─────────────────
-vi.mock("@/lib/walletManager", () => ({ walletManager: {} }));
+// ── Wallet / SDK boundary (construction touches window/IndexedDB) ────────────
+vi.mock("@/lib/walletManager", () => ({ createWalletManager: () => ({}) }));
 vi.mock("@txnlab/use-wallet-react", () => ({
   WalletProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useWallet: () => ({ wallets: [], activeAccount: null, activeAddress: null, isReady: true }),

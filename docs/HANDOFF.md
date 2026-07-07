@@ -26,7 +26,7 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: `fix/dev-session-ws-gate` pushed, PR open, not yet audited
+## Current baton — 🟡 AWAITING_AUDIT: `fix/mobile-white-screen` pushed, PR open, not yet audited
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
@@ -78,10 +78,17 @@ Both are live 404s today, not hypothetical. Faction emblem PNGs already exist in
 yet. Good candidate for a small, low-risk next unit (or folded into weapons plan unit 7,
 `feat/weapon-nft-claim`, since it touches the same NFT-metadata surface).
 
-**New unit this session, awaiting audit: `fix/dev-session-ws-gate`.** Owner asked for a
-"polish" pass + a real image of the battle system + honest answers on whether things work,
-Redis, and cinematics. Two background agents did a live headless health-check + a
-Redis/cinematics code audit. Findings (all documented, only one required a code fix):
+**#212 (`fix/dev-session-ws-gate`) merged** as `12c92d6` — **audited PASS, no CONCERNS.**
+Independent auditor verified the `devIdentityAuthVersion` fix line-by-line, confirmed the
+real wallet's `authenticate()` path is byte-for-byte untouched, and reproduced every test
+number exactly (tsc clean, server 449/24 skipped, client 305 passed, clean build). Full
+audit trail: [docs/audits/pr-212-audit.md](./audits/pr-212-audit.md). CI + Fly deploy both
+confirmed green on `12c92d6`. Working branch reset to a clean `origin/main` at that point.
+
+**That same session, the owner also asked for a "polish" pass**: a real image of the battle
+system + honest answers on whether things work, Redis, and cinematics. Two background
+agents did a live headless health-check + a Redis/cinematics code audit. Findings (all
+documented, one required the code fix that became PR #212 above):
 - **Real bug found + fixed**: dev/test sessions never bumped `WalletContext`'s
   `authVersion`, which gates `useGameSocket`'s live-WS connect (`!authTrigger` blocks it
   forever at its initial `0`). Confirmed live: a dev-session weapon fire resolved correctly
@@ -121,6 +128,43 @@ Redis/cinematics code audit. Findings (all documented, only one required a code 
 
 Verified green: tsc clean, client 305/305 (+2 new), server 449/24 skipped (unchanged, no
 server files touched), build clean.
+
+**New unit this session, awaiting audit: `fix/mobile-white-screen`.** Owner came back with
+the concrete symptom: production throws a complete blank white page specifically on mobile
+browsers (desktop fine). Root cause found and fixed — real, not hypothetical:
+`client/src/lib/walletManager.ts` constructed `new WalletManager({...})` **at module
+scope**, so it ran the instant the module was imported, before React ever mounted. Each
+wallet connector's constructor (Pera's WalletConnect setup, Lute's extension-detection)
+touches `window`/`indexedDB` immediately — already flagged in a prior session's own test
+comments (`route-loop.spec.tsx`: "the wallet SDK + walletManager touch `window`/IndexedDB
+at import"). Some mobile browsers/webviews restrict or throw on these APIs. A throw at
+module-load time happens *before* `createRoot(...).render()` runs, so no React error
+boundary could ever catch it — permanent blank white screen, only trace a `console.error`
+invisible on a phone with no DevTools. There was also no root-level `<ErrorBoundary>` at
+all (`main.tsx` rendered `<App/>` directly), and the one `ErrorBoundary` that did exist
+(deep inside `GameLayout`) only logged to console, never showing the actual error.
+
+Fixed in layers: (1) `walletManager.ts` now exports a factory (`createWalletManager()`)
+instead of constructing eagerly; (2) `App.tsx` calls it inside a `useMemo` during React's
+render phase, so a failure is now a catchable render error, not a fatal module-load crash;
+(3) `main.tsx` wraps the root render in `<ErrorBoundary>` for the first time; (4)
+`ErrorBoundary.tsx` now captures and displays the real `error.message` on screen (not just
+"Something went wrong"); (5) `client/index.html` gained a defense-in-depth diagnostic
+script — deliberately conservative ES5-style JS, the very first thing in `<head>` — that
+only shows an overlay if `#root` is still empty ~6s after load (never interrupting a
+working game), catching what a React boundary structurally cannot (pre-mount throws,
+resource-load failures); (6) `vite.config.ts` gained an explicit `build.target: "es2020"`
+as a documented compatibility floor. Session note:
+[2026-07-07-mobile-white-screen-fix.md](../artifacts/frontier-al/session-notes/2026-07-07-mobile-white-screen-fix.md).
+
+**Honest gap**: not reproduced on an actual mobile device — the diagnosis is strong and
+independently corroborated by a prior session's own test comments, but unconfirmed against
+the owner's specific device/browser. What IS certain: the failure mode changed from
+"silent, permanent, unrecoverable blank page" to "a visible error with a real message and a
+working Reload button," true regardless of whether this exact root cause is the owner's
+exact trigger. Verified green: tsc clean, client 311/311 (+6 new), server 449/24 skipped
+(unchanged, no server files touched), build clean (spot-checked the diagnostic script
+survives the build unmangled).
 
 ### 🔴 NEW OWNER DIRECTIVE (2026-07-07, supersedes M1-4 as next-up)
 

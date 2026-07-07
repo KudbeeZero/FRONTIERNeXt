@@ -13,9 +13,12 @@
  *   runs render bodies but not effects, which keeps the boot deterministic
  *   (WebSocket connect, localStorage, fetch all live in effects).
  * - The wallet/auth/blockchain boundary is mocked EXPLICITLY and realistically:
- *   the wallet SDK + walletManager touch `window`/IndexedDB at import, so they
- *   are stubbed to inert passthroughs with a disconnected wallet — the real
- *   first-load state for a visitor who hasn't connected.
+ *   the wallet SDK's connectors touch `window`/IndexedDB when constructed (now
+ *   during React's render, inside `App`'s `useMemo` — see `createWalletManager`'s
+ *   doc comment — so a real construction failure is a catchable render error
+ *   instead of a module-load crash), so they are stubbed to inert passthroughs
+ *   with a disconnected wallet — the real first-load state for a visitor who
+ *   hasn't connected.
  * - `/` serves the static landing homepage (Cloudflare-hostable); its "Enter
  *   Game" CTA jumps to the backend game (see lib/gameUrl). The `/info/*` and
  *   catch-all (404) routes render their REAL components. The gameplay page is a
@@ -30,8 +33,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Router } from "wouter";
 
 // ── Explicit, realistic boundary mocks ──────────────────────────────────────
-// Wallet SDK manager (constructs against window/IndexedDB at import) → inert.
-vi.mock("@/lib/walletManager", () => ({ walletManager: {} }));
+// Wallet SDK manager (constructs against window/IndexedDB) → inert.
+vi.mock("@/lib/walletManager", () => ({ createWalletManager: () => ({}) }));
 
 // use-wallet-react provider/hooks → passthrough provider + disconnected wallet.
 vi.mock("@txnlab/use-wallet-react", () => ({
