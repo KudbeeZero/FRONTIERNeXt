@@ -26,47 +26,50 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: PR (M1-3) `fix/wallet-single-provider`
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `d9f5ff6`
 
-**Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS
-first, owner had two doc issues corrected, then merged;
-[audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1, `grantWelcomeBonus`
-double-enqueue funds fix — merged directly by the owner, a valid alternate path since a session
-can't audit its own PR), #209 (M1-2, `placeBet` lost-update fix — independently audited PASS,
-auditor reproduced the fail-before/pass-after story itself in an isolated worktree;
-[audit](./audits/claude-handoff-audit-f5w0qn.md)). Main was green at `008b615` with no open PR
-before this unit started. Session notes:
+**Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
+corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
+`grantWelcomeBonus` double-enqueue funds fix — merged directly by the owner), #209 (M1-2,
+`placeBet` lost-update fix — independently audited PASS;
+[audit](./audits/claude-handoff-audit-f5w0qn.md)). Session notes:
 [#208](../artifacts/frontier-al/session-notes/2026-07-07-fix-welcome-bonus-double-enqueue.md) ·
 [#209](../artifacts/frontier-al/session-notes/2026-07-07-fix-placebet-atomicity.md).
 
-**This chat then did M1-3:** residual wallet-popup vectors P1 + P3 (the #175/#176 popup-storm
-fix holds; these are what's left). **P1:** every route mounted its OWN `<WalletProvider>`
-instance, so a client-side nav between routes (no full reload) unmounted and remounted it —
-resetting its per-instance auth-tracking ref and re-arming a duplicate signature prompt for an
-address already authenticated on the previous mount. Fix: `App.tsx` now hoists **one** shared
-`<WalletProvider>` wrapping every route except `/university`/`/admin` (deliberately kept
-wallet-free, unchanged); `autoAuth` is derived reactively from the current path
-(`shouldAutoAuthenticateForPath`) instead of being a static per-route prop. Added a
-module-level auto-auth memory (`hasAutoAuthed`/`markAutoAuthed`/`clearAutoAuthedAddresses`) as
-defense-in-depth against any future remount. **P3:** the pre-connect stale-session purge fired
-whenever a wallet wasn't connected, with no way to distinguish an abandoned pairing from a
-session resume still completing in the background after the bounded reconnect grace gives up
-on the local spinner — new `shouldPurgeBeforeConnect(wallet)` narrows the purge to
-disconnected-**and**-inactive wallets only (`isActive` without `isConnected` is the signal a
-resume may still be in flight); reasoned through all three of #175's named storm scenarios in
-the code's own doc comment, unchanged for those. **Honest gap:** P3's exact SDK-timing race and
-the real wallet-connect/auto-auth-dedup flow are device-unverified (no real wallet reachable
-from this sandbox) — owner should smoke-test connect/disconnect/reconnect on a real device,
-including deliberately reproducing the original multi-stale-pairing storm scenario. 12 new
-pure-function client tests + a route-loop regression guard for `/university`/`/admin`.
-Attempted real-browser verification via this repo's headless-testing recipe (throwaway
-Postgres + real server + real Vite client + headless Chromium): zero hook/context errors from
-the provider restructure across `/`, `/info/economics`, `/university`, `/battles`, `/armory`.
-tsc clean · server 446/24 skipped (unchanged, server untouched) · client 297 (285 + 12 new) ·
-build green. Session note:
+**#210 (M1-3, wallet-popup vectors P1+P3) merged** as `d9f5ff6` — **audited CONCERNS → fixed →
+PASS.** Independent auditor found the P1 (single-provider hoist) and P3 (purge-gate narrowing)
+fixes solid, well-tested, and correctly scoped, but surfaced an undisclosed gap: the new
+module-level auto-auth guard cleared only on the explicit `disconnect()` button, not on the
+broader "reset auth state" effect that fires whenever the wallet address drops for **any**
+reason — a wallet-SDK hiccup that self-resumes the same address mid-session could leave a
+player silently unauthenticated to the game server forever, with no recovery short of a manual
+disconnect. Owner delegated the fix decision; corrected by also clearing that memory in the
+broader reset effect, plus a new regression test. Re-verified: tsc clean, client 298/298,
+server 446/24 skipped (unchanged), build green. Full audit trail:
+[docs/audits/pr-210-audit.md](./audits/pr-210-audit.md). Session note:
 [2026-07-07-fix-wallet-popup-vectors-p1-p3.md](../artifacts/frontier-al/session-notes/2026-07-07-fix-wallet-popup-vectors-p1-p3.md).
+CI + Fly deploy both confirmed green on `d9f5ff6`.
 
-**Next chat: `/handoff-audit` this PR, merge on PASS, then start M1-4.**
+**Working branch reset to a clean `origin/main` (`d9f5ff6`) — no uncommitted changes, no open
+PR.**
+
+### 🔴 NEW OWNER DIRECTIVE (2026-07-07, supersedes M1-4 as next-up)
+
+**Owner asked for a full weapons-system pass:** map out and fix the ENTIRE weapons system —
+organize it so it looks great on mobile AND desktop, polish missile flight/animation, and make
+plot/sub-parcel attack-targeting selection clear — all tied into the existing game logic and
+the Algorand chain layer (weapon NFT mint/custody, wherever that's actually relevant — this
+game's "smart contract" surface is ASA mint/config-note transactions, not on-chain game logic;
+confirm that framing holds before assuming more chain work is needed than W5 already covers).
+
+**Status:** a thorough read-only research agent has been dispatched to map the current state
+end-to-end (server weapon engine, Armory/loadout UI, missile-flight/animation code, plot/
+sub-parcel targeting flow, and the real chain tie-in) before any code changes. **Next session:**
+read that mapping (or re-run it if this session didn't finish), turn it into a concrete
+phased unit breakdown (this is too large for one PR — needs scoping into the same
+one-unit-per-chat, audited-then-merged flow as everything else), and start executing the first
+scoped unit. This directive takes priority over M1-4 (pin ASCEND ASA) — M1-4 through M1-6 and
+the rest of Phase 25 are not dropped, just deferred behind this.
 
 ### ➡️ THE QUEUE — 3-month buildout (Phase 25 of the master roadmap is the authoritative copy)
 
