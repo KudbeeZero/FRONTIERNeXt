@@ -376,46 +376,47 @@ export function CommanderPanel({
 
           {/* ── Pending NFT Claims ── */}
           {pendingNftPlots.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/40">
-                <PackageCheck className="w-4 h-4 text-amber-400 shrink-0" />
+            <div
+              className="rounded-lg border border-amber-500/30 overflow-hidden"
+              style={{ background: "linear-gradient(180deg, rgba(120,80,10,0.08) 0%, rgba(0,0,0,0.15) 100%)" }}
+            >
+              <div className="flex items-center gap-2 px-2.5 py-2 border-b border-amber-500/20">
+                <PackageCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-display uppercase tracking-wide text-amber-400 font-bold">
+                  <p className="text-[10px] font-display uppercase tracking-wide text-amber-400 font-bold leading-none">
                     {pendingNftPlots.length} NFT{pendingNftPlots.length > 1 ? "s" : ""} Awaiting Claim
                   </p>
-                  <p className="text-[9px] text-amber-300/70">Mining and upgrades are locked until you claim your NFT</p>
+                  <p className="text-[8px] text-amber-300/60 mt-0.5">Sign to receive it in your Algorand wallet</p>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="max-h-40 overflow-y-auto divide-y divide-amber-500/10">
                 {pendingNftPlots.map(plot => (
                   <div
                     key={plot.plotId}
-                    className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5"
+                    className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-amber-500/5 transition-colors"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-xs font-mono font-bold text-amber-300">Plot #{plot.plotId}</span>
-                        <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/40 text-amber-400 capitalize">{plot.biome}</Badge>
-                      </div>
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono font-bold text-amber-300 shrink-0">#{plot.plotId}</span>
+                      <Badge variant="outline" className="text-[7px] px-1 py-0 border-amber-500/40 text-amber-400 capitalize shrink-0">{plot.biome}</Badge>
                       <a
                         href={`https://explorer.perawallet.app/assets/${plot.assetId}/`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[9px] text-muted-foreground font-mono hover:text-amber-300 transition-colors flex items-center gap-0.5"
+                        className="text-[8px] text-muted-foreground font-mono hover:text-amber-300 transition-colors truncate"
                       >
-                        ASA {plot.assetId} <ExternalLink className="w-2.5 h-2.5" />
+                        ASA {plot.assetId}
                       </a>
                     </div>
                     <Button
                       size="sm"
                       onClick={() => onDeliverPlotNft?.(plot.plotId, plot.assetId)}
                       disabled={isDeliveringPlotNftId === plot.plotId}
-                      className="h-8 px-3 text-[10px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
+                      className="h-6 px-2 text-[9px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
                     >
                       {isDeliveringPlotNftId === plot.plotId ? (
-                        <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Claiming…</>
+                        <Loader2 className="w-3 h-3 animate-spin" />
                       ) : (
-                        <><PackageCheck className="w-3 h-3 mr-1" />Claim NFT</>
+                        "Claim"
                       )}
                     </Button>
                   </div>

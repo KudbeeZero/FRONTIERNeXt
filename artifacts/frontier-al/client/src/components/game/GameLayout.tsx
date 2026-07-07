@@ -456,12 +456,14 @@ export function GameLayout() {
       algoPaymentTxId = result;
     }
 
+    const purchasedPlotId = selectedParcel.plotId;
     purchaseMutation.mutate(
       { playerId: player.id, parcelId: selectedParcelId, algoPaymentTxId },
       {
         onSuccess: () => {
-          toast({ title: "Territory Acquired", description: "New land is now yours." });
+          toast({ title: "Territory Acquired", description: "New land is now yours — delivering your Plot NFT..." });
           setSelectedParcelId(null);
+          void pollAndAutoClaimPlotNft(purchasedPlotId);
         },
         onError: (error) => toast({ title: "Purchase Failed", description: error.message, variant: "destructive" }),
       }
@@ -510,6 +512,105 @@ export function GameLayout() {
 
   const [isClaimingCommanderNft, setIsClaimingCommanderNft] = useState(false);
   const [isRetryingCommanderMintId, setIsRetryingCommanderMintId] = useState<string | null>(null);
+  const [isDeliveringPlotNftId, setIsDeliveringPlotNftId] = useState<number | null>(null);
+
+  // Land NFTs mint server-side as a distinct ASA per plot; Algorand asset
+  // transfers are pull-only, so the buyer's wallet must opt in before the
+  // admin-custody NFT can be handed over. This mirrors handleClaimCommanderNft's
+  // opt-in → retry → deliver pattern for /api/nft/deliver/:plotId.
+  const handleDeliverPlotNft = async (plotId: number, assetId: number) => {
+    if (!wallet.address) return;
+    setIsDeliveringPlotNftId(plotId);
+    try {
+      const attemptDeliver = async (): Promise<boolean> => {
+        const res = await fetch(resolveApiUrl(`/api/nft/deliver/${plotId}`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: wallet.address }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          toast({ title: "Land NFT Delivered!", description: `Plot #${plotId} is now in your wallet. TX: ${data.txId?.slice(0, 8)}...` });
+          queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+          return true;
+        }
+
+        if (data.reason === "not_in_custody") {
+          toast({ title: "Already In Your Wallet", description: data.message || "NFT has already been delivered." });
+          queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+          return true;
+        }
+
+        if (data.reason === "not_opted_in") {
+          // Prompt user to opt-in to this plot's ASA first (a real wallet signature).
+          const optedIn = await signOptInToPlotNft(data.assetId ?? assetId);
+          if (!optedIn) return false;
+
+          // Algorand block time is ~3.3s — retry up to 3 times with 4s gaps
+          // to give the opt-in transaction time to be confirmed on-chain.
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 4000));
+            const retryRes = await fetch(resolveApiUrl(`/api/nft/deliver/${plotId}`), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ address: wallet.address }),
+            });
+            const retryData = await retryRes.json();
+            if (retryData.success) {
+              toast({ title: "Land NFT Delivered!", description: `Plot #${plotId} is now in your wallet. TX: ${retryData.txId?.slice(0, 8)}...` });
+              queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+              return true;
+            }
+            if (retryData.reason !== "not_opted_in") break;
+          }
+          toast({
+            title: "Opt-In Confirmed",
+            description: "Your opt-in was approved. Click 'Claim NFT' one more time to complete the transfer.",
+          });
+          return false;
+        }
+
+        toast({ title: "Claim Info", description: data.message || "Unexpected state — try again.", variant: "destructive" });
+        return false;
+      };
+
+      await attemptDeliver();
+    } catch (err) {
+      toast({ title: "Claim Failed", description: err instanceof Error ? err.message : "Unexpected error", variant: "destructive" });
+    } finally {
+      setIsDeliveringPlotNftId(null);
+    }
+  };
+
+  // Land NFTs mint asynchronously (fire-and-forget) server-side after a
+  // purchase confirms, so the ASA doesn't exist yet at the moment the purchase
+  // response returns. Poll briefly for it to appear, then immediately run the
+  // same claim flow as the manual "Claim NFT" button — so every purchase,
+  // even a free (0 ALGO) TestNet one, still prompts a real wallet signature
+  // and ends with the NFT actually delivered, instead of silently sitting in
+  // admin custody until the player notices the "awaiting claim" banner.
+  const pollAndAutoClaimPlotNft = async (plotId: number) => {
+    for (let attempt = 1; attempt <= 8; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        const res = await fetch(resolveApiUrl(`/api/nft/plot/${plotId}`));
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.assetId) {
+            await handleDeliverPlotNft(plotId, data.assetId);
+            return;
+          }
+        }
+      } catch {
+        // Transient network hiccup — keep polling.
+      }
+    }
+    toast({
+      title: "NFT Still Minting",
+      description: `Plot #${plotId}'s NFT is taking longer than usual — claim it from the Commander tab once it's ready.`,
+    });
+  };
 
   const handleRetryCommanderMint = async (commanderId: string) => {
     if (!player) return;
@@ -949,6 +1050,8 @@ export function GameLayout() {
           onDeploySatellite={handleDeploySatellite}
           onSwitchCommander={handleSwitchCommander}
           onClaimCommanderNft={handleClaimCommanderNft}
+          onDeliverPlotNft={handleDeliverPlotNft}
+          isDeliveringPlotNftId={isDeliveringPlotNftId}
           onAttack={handleAttackConfirm}
           isMinting={mintAvatarMutation.isPending}
           isDeployingDrone={deployDroneMutation.isPending}
@@ -1225,6 +1328,8 @@ export function GameLayout() {
             onDeploySatellite={handleDeploySatellite}
             onSwitchCommander={handleSwitchCommander}
             onClaimCommanderNft={handleClaimCommanderNft}
+          onDeliverPlotNft={handleDeliverPlotNft}
+          isDeliveringPlotNftId={isDeliveringPlotNftId}
             onAttack={handleAttackConfirm}
             isMinting={mintAvatarMutation.isPending}
             isDeployingDrone={deployDroneMutation.isPending}
@@ -1321,6 +1426,8 @@ export function GameLayout() {
               onDeploySatellite={handleDeploySatellite}
               onSwitchCommander={handleSwitchCommander}
               onClaimCommanderNft={handleClaimCommanderNft}
+          onDeliverPlotNft={handleDeliverPlotNft}
+          isDeliveringPlotNftId={isDeliveringPlotNftId}
               onAttack={handleAttackConfirm}
               isMinting={mintAvatarMutation.isPending}
               isDeployingDrone={deployDroneMutation.isPending}
