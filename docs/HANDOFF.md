@@ -141,6 +141,14 @@ chain, `?dashboard=1` flagship-dashboard vision, veritas watchdog deployment.
 - **Do NOT unify `mem.ts`/`db.ts` game methods** — combat/economy divergence risk.
 - Standing mainnet-gate item: `VITE_DEV_MODE` + `DEV_LOGIN_ENABLED` ship `'true'` in prod
   fly.toml — deliberate for TestNet; M3-4 is the exit path.
+- **New backlog (2026-07-07, not queue-jumping M1-2):** owner asked about
+  `ammaarreshi/Generals-Mac-iOS-iPad` (native C&C Generals iOS/macOS port) for reusable ideas.
+  Nothing ports directly (different stack), but two real gaps found by grep, recorded in the
+  master roadmap's backlog paragraph: **(G1)** no drag-box/long-press touch-select vocabulary on
+  the globe (only single tap); **(G2)** zero `webglcontextlost`/`visibilitychange` handling
+  anywhere in the client — the three.js globe likely goes black/frozen after a mobile tab
+  backgrounds and never recovers (unconfirmed, owner should smoke-test). Both slot in "where
+  capacity allows," same as the rest of the backlog — not started, not next-up.
 
 ### 🛑 HARD RULES / off-limits (absolute)
 - No funds/ASA/transfer code toward mainnet without **`/mainnet-gate` PASS + `algo-auditor` pass**.
