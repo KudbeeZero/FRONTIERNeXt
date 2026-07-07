@@ -26,7 +26,40 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: `fix/wallet-popup-storm-recovery` pushed, PR open, not yet audited
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `cb93409`
+
+**#214 (`fix/wallet-popup-storm-recovery`) merged** as `6112482` — audited PASS. Owner was
+fully blocked (couldn't connect a wallet or spend test ALGO) by 8+ Pera/WalletConnect
+popups firing on every page load. Root cause traced by reading the actual installed
+`@txnlab/use-wallet` SDK source: `resumeSession()` only calls Pera's third-party
+`reconnectSession()` (where the storm happens) if this app's own persisted key
+(`@txnlab/use-wallet:v4`) has a recorded session; if the browser has accumulated stale
+WalletConnect pairings, Pera resurfaces every one as its own popup. Not fixable in this
+app's code (third-party SDK behavior) — shipped a recovery escape hatch instead:
+`client/src/lib/walletReset.ts` clears that key + this app's own wallet keys, then
+reloads; wired as a "Trouble connecting? Reset wallet connection" link in
+`WalletConnect.tsx`. Audit: [docs/audits/pr-214-audit.md](./audits/pr-214-audit.md).
+Session note: [2026-07-07-wallet-popup-storm-recovery.md](../artifacts/frontier-al/session-notes/2026-07-07-wallet-popup-storm-recovery.md).
+
+**#215 merged** as `cb93409` — a second AI tool (Kilo Code, given repo access + this
+repo's guardrails) did an independent second-opinion review of #214, confirmed it correct,
+and added one missing test for `resetWalletConnection()` (verifies `window.location
+.reload` fires) + its own audit note
+(`session-notes/2026-07-07-wallet-popup-storm-audit.md`). Verified directly (not a full
+subagent audit, given the tiny scope): tsc clean, the new test passes (321/321), no
+server/funds/cinematics files touched.
+
+**Honest gap (carried from #214, still open)**: the fix has not been confirmed live on
+the device that originally triggered the storm — mechanism verified from SDK source, not
+from a live repro (no real wallet available in this sandbox). Ask the owner to confirm the
+reset link actually clears their storm next session if not already done.
+
+**Also this session**: found and reported (not fixed — needs owner dashboard access) that
+a decommissioned Railway GitHub integration was posting a stale `failure` commit status on
+every `main` commit (separate from the real CI/Fly checks, both of which are green).
+Railway was dropped for Fly.io + Cloudflare Pages back on 2026-07-06; the GitHub App
+integration was never uninstalled. Owner needs to delete the Railway project / remove its
+GitHub App access — not something fixable from this repo.
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
