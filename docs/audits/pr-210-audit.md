@@ -1,11 +1,23 @@
 # Audit: PR #210 — fix(client): close residual wallet-popup vectors P1 + P3
 
-## Verdict: CONCERNS
+## Verdict: CONCERNS → corrected → **PASS**
+
+Initial pass (below) found the P1/P3 fixes solid, well-tested, and correctly scoped, but
+surfaced one undisclosed gap in the new module-level auto-auth guard (see "New finding"). Owner
+delegated the fix decision; applied the recommended correction — the "reset auth state" effect
+now calls `clearAutoAuthedAddresses()` on ANY address drop, not only inside the explicit
+`disconnect()` handler — plus a new regression test proving a subsequent auto-auth for the same
+address is no longer silently skipped after that reset path fires. Re-verified: tsc clean,
+client **298/298** (297 + 1 new test), server 446/24 skipped (unchanged), production build
+green. Commit `a621bd6`.
 
 ## PR / branch / commit
-- PR #210, branch `claude/handoff-audit-f5w0qn`, head `4cabcecda17ce06381290eda0b97dd0d653e215d`
+- PR #210, branch `claude/handoff-audit-f5w0qn`, original head
+  `4cabcecda17ce06381290eda0b97dd0d653e215d`, corrected head `a621bd6`
 - Base: `main` @ `008b615289d461b64b8899a1854b936d527eb0b6`
-- CI on head: "Typecheck & server tests" ✅ success, "Cloudflare Pages" ✅ success
+- CI on original head: "Typecheck & server tests" ✅ success, "Cloudflare Pages" ✅ success
+
+## Initial audit (pre-correction)
 
 ## Method
 Independent auditor subagent fetched the full PR diff + file list via GitHub MCP tools, read
