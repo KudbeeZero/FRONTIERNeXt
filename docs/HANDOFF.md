@@ -26,19 +26,29 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: docs-only PR from `docs/roadmap-full-scope-audit`
+## Current baton — 🟡 AWAITING_AUDIT: PR #208 `fix/welcome-bonus-double-enqueue` (M1-1)
 
-Main is green at `42b4a5c` (#206). **This chat (2026-07-07, owner-directed full-scope audit):**
-three parallel exploration agents swept weapons/battle, NFT/wallet/chain, and UI/security; all
-findings were **merged into the existing master roadmap** (owner /goal: no parallel roadmap) —
-[`docs/FRONTIER_MASTER_ROADMAP.md`](./FRONTIER_MASTER_ROADMAP.md): Phases 6/8/10/15 extended,
-**new Phase 26 (NFT & On-Chain State Completeness)**, and **Phase 25 rewritten as the concrete
-3-month unit queue below**. Also: supersession banner on the stale `ROADMAP_90DAY.md`, stale
-`attemptDelivery` claim corrected in `chain-services-audit.md`, session note
-[`2026-07-07-full-scope-audit.md`](../artifacts/frontier-al/session-notes/2026-07-07-full-scope-audit.md).
-Docs-only — zero code changes; all fixes below are queued as future audited units.
+**#207 (roadmap/baton rewrite) is merged** as `9782ee0` — audited CONCERNS first (two of the
+roadmap's own new findings, U4 and U1, had defects), owner chose "fix the two doc issues, then
+merge"; correction pushed, CI re-ran green, merged. Full audit trail:
+[`docs/audits/docs-roadmap-full-scope-audit.md`](./audits/docs-roadmap-full-scope-audit.md).
 
-**Next chat: `/handoff-audit` this PR (docs diff vs. claims), merge on PASS, then start M1-1.**
+**This chat then started M1-1 (funds):** `DbStorage.grantWelcomeBonus` (`db.ts:1099`) ran in a
+transaction but the player SELECT had no row lock and the mark-received UPDATE was
+unconditional — two concurrent logins both saw `welcomeBonusReceived: false` and both enqueued
+the on-chain 500-ASCEND transfer (real double-spend). **Found a second identical-bug call site**
+while re-verifying the file:line before coding: `POST /api/actions/connect-wallet` duplicated
+the same check-then-grant-then-enqueue logic inline — fixed both by making the storage method
+the atomic gate (`FOR UPDATE` + conditional `UPDATE … WHERE welcomeBonusReceived=false
+RETURNING`; `grantWelcomeBonus` now returns a boolean the route layer enqueues off of, not a
+stale pre-check read). New `welcomebonus.db.spec.ts` — **deterministic** fail-before/pass-after
+proven against a throwaway real Postgres (same lesson as #205: the naive `Promise.all` case
+alone did NOT catch the buggy variant; only the raw-connection `FOR UPDATE` lock test did). tsc
+clean · server 446/21 skipped (+3 gated) · coverage:server 94.54% lines · client 285 · build
+green · `test:server:db` 18/18 together. Session note:
+[`2026-07-07-fix-welcome-bonus-double-enqueue.md`](../artifacts/frontier-al/session-notes/2026-07-07-fix-welcome-bonus-double-enqueue.md).
+
+**Next chat: `/handoff-audit` PR #208, merge on PASS, then start M1-2.**
 
 ### ➡️ THE QUEUE — 3-month buildout (Phase 25 of the master roadmap is the authoritative copy)
 
@@ -47,12 +57,9 @@ cited. Funds lanes take full gates (`/security-pass`, TestNet click-test, owner 
 no fix without a failing-first test.
 
 **Month 1 — funds safety + wallet truth**
-1. **M1-1 (NEXT UP, funds)** `fix/welcome-bonus-double-enqueue` — A3: concurrent logins
-   double-enqueue the on-chain 500-ASCEND welcome transfer (`routes.ts:444`). Fix = atomic
-   `UPDATE … WHERE welcomeBonusReceived=false RETURNING` gating the enqueue; gated
-   real-Postgres fail-before/pass-after test with a raw-connection lock (the deterministic
-   pattern proven on #204/#205 — a naive `Promise.all` race can mask the bug).
-2. **M1-2 (write)** `fix/placebet-atomicity` — A4: `placeBet` (`db.ts:3216`) non-atomic
+1. **M1-1 — DONE, PR #208 (AWAITING_AUDIT)** `fix/welcome-bonus-double-enqueue` — see baton
+   summary above for full detail.
+2. **M1-2 (NEXT UP, write)** `fix/placebet-atomicity` — A4: `placeBet` (`db.ts:3216`) non-atomic
    double-credit; same proven txn + `FOR UPDATE` + rowCount-bail pattern.
 3. **M1-3** `fix/wallet-single-provider` — residual wallet-popup vectors (the #175/#176
    popup-storm fix holds; these are what's left, roadmap Phase 6c): P1 per-route
