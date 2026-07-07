@@ -49,6 +49,7 @@ vi.mock("@txnlab/use-wallet-react", () => ({
 vi.mock("@/contexts/WalletContext", () => ({
   WalletProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useWallet: () => h.wallet,
+  shouldAutoAuthenticateForPath: (pathname: string) => pathname === "/game",
 }));
 vi.mock("@/components/game/WalletConnect", () => ({
   WalletConnect: () => <button data-testid="wallet-connect">Connect Wallet</button>,

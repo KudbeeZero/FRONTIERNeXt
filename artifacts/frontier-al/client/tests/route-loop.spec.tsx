@@ -50,6 +50,7 @@ vi.mock("@/contexts/WalletContext", () => ({
     balance: 0,
     walletStatus: "disconnected",
   }),
+  shouldAutoAuthenticateForPath: (pathname: string) => pathname === "/game",
 }));
 
 // Inert test-mode flag (App no longer branches `/` on it — landing is bypassed —
@@ -115,6 +116,17 @@ describe("client route loop (App router)", () => {
     const html = renderAt("/no-such-route-xyz");
     expect(html).toContain("404 Page Not Found");
     expect(html).not.toContain("GAME ROUTE ENTRY");
+  });
+
+  // Regression guard for the P1 fix (2026-07-07): /university and /admin were
+  // pulled out of the flat per-route list into an outer Switch branch (ahead of
+  // the shared-WalletProvider catch-all that now wraps every other route) so
+  // they keep mounting with NO wallet context. Wouter's Switch selects the
+  // first matching path regardless of nesting depth, so this reorder must not
+  // change which route wins for these two exact paths.
+  it("still resolves /university and /admin to their own routes, not the 404 fallback", () => {
+    expect(renderAt("/university")).not.toContain("404 Page Not Found");
+    expect(renderAt("/admin")).not.toContain("404 Page Not Found");
   });
 
   it("transitions between routes — the loop is wired, not a single shared page", () => {

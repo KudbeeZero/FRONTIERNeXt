@@ -168,6 +168,83 @@ export async function purgeStaleSession(
   return true;
 }
 
+/**
+ * Whether a wallet's half-open WalletConnect pairing should be purged before
+ * dialing a fresh connect (audit finding P3, 2026-07-07).
+ *
+ * The purge must never fire on a wallet the SDK still considers `isActive` —
+ * that flag without `isConnected` is precisely the signal that a session
+ * resume may still be completing in the background. The bounded reconnect
+ * grace (`RECONNECT_GRACE_MS`) gives up on the LOCAL "restoring" spinner after
+ * 3s and shows the Connect button again, but it does not cancel the
+ * underlying resume promise inside the wallet SDK — that can still land a
+ * moment later. If the player then taps Connect on that same wallet and we
+ * purge it, we tear down a resume that was about to succeed, forcing a fresh
+ * QR/approval flow for no reason.
+ *
+ * A wallet that is BOTH disconnected and inactive has no resume in flight —
+ * that's the exact "abandoned pairing" case #175/#204 purges for, and this
+ * check does not loosen that: reasoned through all three of #175's named
+ * storm scenarios (crashed connect, cross-origin hop, abandoned tab), the
+ * wallet reads `isActive: false` in the first two (a fresh origin/session has
+ * nothing marked active yet), so the purge still runs unchanged there.
+ *
+ * Honest gap: the "abandoned tab with a still-cryptographically-valid but
+ * genuinely-given-up-on pairing" case cannot be fully distinguished from a
+ * real in-flight resume without live SDK behavior this sandbox cannot
+ * exercise — owner should smoke-test connect/disconnect/reconnect (including
+ * the multi-stale-pairing storm scenario) on a real device.
+ */
+export function shouldPurgeBeforeConnect(
+  wallet: { isConnected?: boolean; isActive?: boolean } | undefined | null,
+): boolean {
+  if (!wallet) return false;
+  return !wallet.isConnected && !wallet.isActive;
+}
+
+/**
+ * Module-level (not per-component-instance) memory of which addresses have
+ * already completed auto-auth THIS page load. A defense-in-depth backstop for
+ * audit finding P1: every route used to mount its OWN `<WalletProvider>`
+ * instance, so client-side navigation between routes (no full page reload)
+ * unmounted and remounted the provider — resetting its per-instance
+ * `authAttemptedFor` ref and re-arming a duplicate signature prompt for an
+ * address already authenticated on the previous mount. App.tsx now hoists a
+ * single shared `<WalletProvider>` instance so that specific remount no
+ * longer happens — but this module-level guard is a second, independent line
+ * of defense: even if a future change reintroduces multiple instances, or any
+ * other remount occurs, an address already auto-authed this page load will
+ * not be re-prompted. Cleared only on an explicit disconnect (mirrors the
+ * per-instance ref reset), so reconnecting genuinely re-triggers auto-auth.
+ */
+const autoAuthedAddressesThisLoad = new Set<string>();
+
+/** Has `address` already completed auto-auth this page load (any instance)? */
+export function hasAutoAuthed(address: string): boolean {
+  return autoAuthedAddressesThisLoad.has(address);
+}
+
+/** Record that `address` has completed auto-auth this page load. */
+export function markAutoAuthed(address: string): void {
+  autoAuthedAddressesThisLoad.add(address);
+}
+
+/** Forget all auto-auth memory — called on an explicit user disconnect. */
+export function clearAutoAuthedAddresses(): void {
+  autoAuthedAddressesThisLoad.clear();
+}
+
+/**
+ * Which route should auto-prompt the one wallet signature once connected.
+ * Only the in-game route opts in — marketing/info pages never prompt a
+ * signature, so players aren't asked to log into the wallet until they
+ * actually enter the game. Pure so the routing decision is unit-testable
+ * without mounting the router.
+ */
+export function shouldAutoAuthenticateForPath(pathname: string): boolean {
+  return pathname === "/game";
+}
+
 interface WalletProviderProps {
   children: ReactNode;
   /**
@@ -321,6 +398,10 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     try {
       await authenticateWallet(activeAddress);
       setIsAuthenticated(true);
+      // Record success at the module level too (P1 defense-in-depth — see
+      // markAutoAuthed's doc comment) so a later WalletProvider remount, if
+      // one ever happens, won't re-prompt this same address.
+      markAutoAuthed(activeAddress);
       // Fresh token issued — bump the socket trigger so the WS reconnects with it.
       setAuthVersion((v) => v + 1);
     } catch (err) {
@@ -356,6 +437,14 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     if (!autoAuth) return;
     if (!activeAddress || !signTransactions) return;
     if (authAttemptedFor.current === activeAddress) return;
+    // P1 defense-in-depth: this address already completed auto-auth in a
+    // PRIOR instance this page load (see markAutoAuthed's doc comment) — mark
+    // this instance as attempted too and skip, rather than firing a duplicate
+    // signature prompt.
+    if (hasAutoAuthed(activeAddress)) {
+      authAttemptedFor.current = activeAddress;
+      return;
+    }
     authAttemptedFor.current = activeAddress;
     void authenticate();
   }, [autoAuth, activeAddress, signTransactions, authenticate]);
@@ -401,8 +490,10 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
       // (abandoned tab, crashed connect, the old cross-origin fly.dev hop).
       // Pera resurfaces EVERY leftover pairing as its own popup on the next
       // connect — the "12 windows" storm. Purge before dialing, but only when
-      // this wallet isn't currently connected (never drop a live session).
-      if (!wallet.isConnected) await purgeStaleSession(wallet);
+      // this wallet isn't currently connected (never drop a live session) AND
+      // isn't still `isActive` (never abort an in-flight session resume —
+      // audit finding P3, see shouldPurgeBeforeConnect's doc comment).
+      if (shouldPurgeBeforeConnect(wallet)) await purgeStaleSession(wallet);
       // Bound the connect so a modal that never surfaces can't spin forever.
       // Extension wallets get a tighter budget than QR/mobile wallets.
       await promiseWithTimeout(wallet.connect(), connectTimeoutFor(walletId));
@@ -454,6 +545,10 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     setIsAuthenticated(false);
     setAuthError(null);
     authAttemptedFor.current = null;
+    // Explicit user disconnect — forget the module-level auto-auth memory too
+    // (see markAutoAuthed's doc comment), so a later reconnect genuinely
+    // re-triggers auto-auth instead of being skipped as "already done".
+    clearAutoAuthedAddresses();
     // Explicit user disconnect — forget the resume hint and skip the grace so
     // the connect-gate shows immediately (no lingering "restoring" spinner).
     hadSessionHint.current = false;
