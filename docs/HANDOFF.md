@@ -26,29 +26,37 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: PR #208 `fix/welcome-bonus-double-enqueue` (M1-1)
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `7f6a9e3`
 
-**#207 (roadmap/baton rewrite) is merged** as `9782ee0` — audited CONCERNS first (two of the
+**#207 (roadmap/baton rewrite) merged** as `9782ee0` — audited CONCERNS first (two of the
 roadmap's own new findings, U4 and U1, had defects), owner chose "fix the two doc issues, then
 merge"; correction pushed, CI re-ran green, merged. Full audit trail:
 [`docs/audits/docs-roadmap-full-scope-audit.md`](./audits/docs-roadmap-full-scope-audit.md).
 
-**This chat then started M1-1 (funds):** `DbStorage.grantWelcomeBonus` (`db.ts:1099`) ran in a
-transaction but the player SELECT had no row lock and the mark-received UPDATE was
-unconditional — two concurrent logins both saw `welcomeBonusReceived: false` and both enqueued
-the on-chain 500-ASCEND transfer (real double-spend). **Found a second identical-bug call site**
-while re-verifying the file:line before coding: `POST /api/actions/connect-wallet` duplicated
-the same check-then-grant-then-enqueue logic inline — fixed both by making the storage method
-the atomic gate (`FOR UPDATE` + conditional `UPDATE … WHERE welcomeBonusReceived=false
-RETURNING`; `grantWelcomeBonus` now returns a boolean the route layer enqueues off of, not a
-stale pre-check read). New `welcomebonus.db.spec.ts` — **deterministic** fail-before/pass-after
+**#208 (M1-1, funds) merged** as `7f6a9e3` — **merged directly by the owner (KudbeeZero)**,
+not via this chat's own `/handoff-audit` (a session can't independently audit its own PR; the
+owner merging it directly is a valid alternate path through the same gate, not a bypass).
+`DbStorage.grantWelcomeBonus` (`db.ts:1099`) ran in a transaction but the player SELECT had no
+row lock and the mark-received UPDATE was unconditional — two concurrent logins both saw
+`welcomeBonusReceived: false` and both enqueued the on-chain 500-ASCEND transfer (real
+double-spend). **Found a second identical-bug call site** while re-verifying the file:line
+before coding: `POST /api/actions/connect-wallet` duplicated the same
+check-then-grant-then-enqueue logic inline — fixed both by making the storage method the
+atomic gate (`FOR UPDATE` + conditional `UPDATE … WHERE welcomeBonusReceived=false RETURNING`;
+`grantWelcomeBonus` now returns a boolean the route layer enqueues off of, not a stale
+pre-check read). New `welcomebonus.db.spec.ts` — **deterministic** fail-before/pass-after
 proven against a throwaway real Postgres (same lesson as #205: the naive `Promise.all` case
-alone did NOT catch the buggy variant; only the raw-connection `FOR UPDATE` lock test did). tsc
+alone did NOT catch the buggy variant; only the raw-connection `FOR UPDATE` lock test did).
+Also bundled (owner request, separate commit, zero overlap with the M1-1 fix): two backlog
+items from an external-repo review (`ammaarreshi/Generals-Mac-iOS-iPad`) — see below. tsc
 clean · server 446/21 skipped (+3 gated) · coverage:server 94.54% lines · client 285 · build
-green · `test:server:db` 18/18 together. Session note:
+green · `test:server:db` 18/18 together · CI + Fly deploy both confirmed green on `7f6a9e3`.
+Session note:
 [`2026-07-07-fix-welcome-bonus-double-enqueue.md`](../artifacts/frontier-al/session-notes/2026-07-07-fix-welcome-bonus-double-enqueue.md).
 
-**Next chat: `/handoff-audit` PR #208, merge on PASS, then start M1-2.**
+**Working branch has been reset to a clean `origin/main` (`7f6a9e3`) — no uncommitted changes,
+no open PR.** Next session starts fresh from here: `/handoff-audit` finds nothing to audit
+(state below is not `AWAITING_AUDIT`), proceed straight to M1-2.
 
 ### ➡️ THE QUEUE — 3-month buildout (Phase 25 of the master roadmap is the authoritative copy)
 
@@ -57,8 +65,8 @@ cited. Funds lanes take full gates (`/security-pass`, TestNet click-test, owner 
 no fix without a failing-first test.
 
 **Month 1 — funds safety + wallet truth**
-1. **M1-1 — DONE, PR #208 (AWAITING_AUDIT)** `fix/welcome-bonus-double-enqueue` — see baton
-   summary above for full detail.
+1. **M1-1 — DONE, merged #208** `fix/welcome-bonus-double-enqueue` — see baton summary above
+   for full detail.
 2. **M1-2 (NEXT UP, write)** `fix/placebet-atomicity` — A4: `placeBet` (`db.ts:3216`) non-atomic
    double-credit; same proven txn + `FOR UPDATE` + rowCount-bail pattern.
 3. **M1-3** `fix/wallet-single-provider` — residual wallet-popup vectors (the #175/#176
