@@ -42,11 +42,19 @@ Next:    <do I test it now, or what's the next unit / branch?>
 
 ## App-specific rules
 
-This file governs the **chat loop**. For application rules (the FRONTIER-AL
-Algorand game — architecture, HARD RULES on pricing/finality/atomic delivery,
-the `algo-auditor` and `mainnet-gate` gates), defer to
+This file governs the **chat loop**. For app-side working conventions (token
+efficiency, subagent policy, headless visual testing, session close-out), defer to
 [`artifacts/frontier-al/CLAUDE.md`](./artifacts/frontier-al/CLAUDE.md). If the two
 ever conflict, the app file wins on app matters; this file wins on the chat loop.
+The funds/pricing/finality/atomic-delivery **HARD RULES live in this file** (below)
+and are enforced by the `/mainnet-gate` + `algo-auditor` gates — not in the app file.
+
+## Roadmap & queue
+
+The living roadmap is [`docs/FRONTIER_MASTER_ROADMAP.md`](./docs/FRONTIER_MASTER_ROADMAP.md)
+(26 phases; **Phase 25 = the current 3-month unit queue**, mirrored in the baton;
+**Phase 26 = NFT & on-chain state completeness**). `artifacts/frontier-al/ROADMAP.md` and
+`artifacts/frontier-al/docs/ROADMAP_90DAY.md` are superseded — don't work from them.
 
 ## Mainnet readiness flow
 

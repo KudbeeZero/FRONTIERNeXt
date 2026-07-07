@@ -159,6 +159,15 @@ This system should:
 
 ---
 
+# Roadmap & work queue
+
+> The living roadmap is [`docs/FRONTIER_MASTER_ROADMAP.md`](../../docs/FRONTIER_MASTER_ROADMAP.md)
+> (Phase 25 = current 3-month unit queue · Phase 26 = NFT/on-chain completeness). The baton
+> [`docs/HANDOFF.md`](../../docs/HANDOFF.md) names the active unit. This repo's local
+> `ROADMAP.md` and `docs/ROADMAP_90DAY.md` are superseded — don't work from them.
+
+---
+
 # Session Notes
 
 > Session logs are stored in [`session-notes/`](session-notes/). See [session-notes/README.md](session-notes/README.md) for the full index.
