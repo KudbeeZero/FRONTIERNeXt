@@ -16,6 +16,7 @@ import {
   evaluateOwnership,
   AUTH_REQUIRED_ERROR,
   NOT_OWNER_ERROR,
+  SESSION_MISMATCH_CODE,
 } from "./routeOwnership";
 import { createPaymentReplayGuard } from "./security";
 import { mineActionSchema } from "@shared/schema";
@@ -40,9 +41,14 @@ describe("route-loop auth/ownership decision (evaluateOwnership)", () => {
     ).toEqual({ ok: false, status: 401, error: AUTH_REQUIRED_ERROR });
   });
 
-  it("3. invalid auth — a session cannot act as a different player (403)", () => {
+  it("3. invalid auth — a session cannot act as a different player (403, with a machine-readable code)", () => {
     const verdict = evaluateOwnership({ authRequired: true, auth: SESSION, ownerId: "player-bob" });
-    expect(verdict).toEqual({ ok: false, status: 403, error: NOT_OWNER_ERROR });
+    expect(verdict).toEqual({
+      ok: false,
+      status: 403,
+      error: NOT_OWNER_ERROR,
+      code: SESSION_MISMATCH_CODE,
+    });
   });
 
   it("documents the WALLET_AUTH_REQUIRED=false escape hatch (auth not enforced → allowed)", () => {

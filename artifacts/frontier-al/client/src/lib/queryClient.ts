@@ -1,6 +1,29 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getAuthToken } from "./authToken";
+import { getAuthToken, clearAuthToken } from "./authToken";
 import { BACKEND_ORIGIN } from "./backendOrigin";
+import { toast } from "@/hooks/use-toast";
+
+// Server-side code for the 403 "session does not own this player" branch of
+// evaluateOwnership() (server/routeOwnership.ts) — a stale/mismatched session
+// (e.g. after a wallet reconnect/switch) rather than a genuine permission
+// error. Recovered here instead of leaving every call site to show a raw,
+// unrecoverable error toast.
+const SESSION_MISMATCH_CODE = "SESSION_MISMATCH";
+
+// Guards against a burst of concurrent requests all triggering recovery at once.
+let sessionRecoveryTriggered = false;
+
+function recoverFromSessionMismatch() {
+  if (sessionRecoveryTriggered) return;
+  sessionRecoveryTriggered = true;
+  clearAuthToken();
+  toast({
+    title: "Session out of sync",
+    description: "Your wallet session was reset — reconnecting…",
+    variant: "destructive",
+  });
+  setTimeout(() => window.location.reload(), 1500);
+}
 
 /** Attach the wallet session token (if any) as a Bearer header. */
 function withAuthHeaders(base: Record<string, string> = {}): Record<string, string> {
@@ -23,6 +46,15 @@ export function resolveApiUrl(path: string): string {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    if (res.status === 403) {
+      try {
+        if (JSON.parse(text)?.code === SESSION_MISMATCH_CODE) {
+          recoverFromSessionMismatch();
+        }
+      } catch {
+        /* not JSON — not a coded response, fall through to generic error */
+      }
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

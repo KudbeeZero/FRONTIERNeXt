@@ -12,11 +12,18 @@ import type { AuthInfo } from "./auth";
 
 export type OwnershipVerdict =
   | { ok: true }
-  | { ok: false; status: 401 | 403; error: string };
+  | { ok: false; status: 401; error: string }
+  | { ok: false; status: 403; error: string; code: typeof SESSION_MISMATCH_CODE };
 
 /** Generic, non-leaking error strings (kept as constants so tests can assert exact, safe copy). */
 export const AUTH_REQUIRED_ERROR = "Authentication required — connect your wallet";
 export const NOT_OWNER_ERROR = "Forbidden — session does not own this player";
+/**
+ * Machine-readable code for the 403 branch — lets the client tell "session is
+ * stale/mismatched, clear it and re-auth" apart from other 403s without
+ * string-matching the human-readable error copy.
+ */
+export const SESSION_MISMATCH_CODE = "SESSION_MISMATCH";
 
 /**
  * Decide whether a mutating route-loop request may proceed.
@@ -38,7 +45,7 @@ export function evaluateOwnership(opts: {
     return { ok: false, status: 401, error: AUTH_REQUIRED_ERROR };
   }
   if (auth && ownerId && ownerId !== auth.playerId) {
-    return { ok: false, status: 403, error: NOT_OWNER_ERROR };
+    return { ok: false, status: 403, error: NOT_OWNER_ERROR, code: SESSION_MISMATCH_CODE };
   }
   return { ok: true };
 }

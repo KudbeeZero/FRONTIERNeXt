@@ -408,7 +408,10 @@ export async function registerRoutes(
       ownerId: claimedId,
     });
     if (!verdict.ok) {
-      res.status(verdict.status).json({ error: verdict.error });
+      res.status(verdict.status).json({
+        error: verdict.error,
+        ...("code" in verdict ? { code: verdict.code } : {}),
+      });
       return null;
     }
 
@@ -616,7 +619,10 @@ export async function registerRoutes(
       ownerId,
     });
     if (!verdict.ok) {
-      return res.status(verdict.status).json({ error: verdict.error });
+      return res.status(verdict.status).json({
+        error: verdict.error,
+        ...("code" in verdict ? { code: verdict.code } : {}),
+      });
     }
     if (auth) req.auth = auth;
     next();
