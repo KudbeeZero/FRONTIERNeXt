@@ -26,7 +26,58 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: `fix/wallet-popup-storm-recovery` pushed, PR open, not yet audited
+## Current baton — 🟡 new unit awaiting audit: `fix/session-mismatch-recovery` · main green at `cb93409`
+
+**New unit this session (not yet PR'd): `fix/session-mismatch-recovery`.** Owner reported
+`403: Forbidden — session does not own this player` hard-stalling mutating actions (e.g.
+acquiring territory), no recovery. Root cause: two independent player-identity paths can
+drift — server trusts the auth-token-derived `playerId` (`routeOwnership.ts`
+`evaluateOwnership`), client's `useCurrentPlayer()` resolves by matching wallet address
+against **cached** `/api/game/state` data, entirely independent of the session. After a
+wallet reconnect/switch or a stale cache, these disagree → correct 403 → previously zero
+client recovery (raw error toast only). Fix: server tags that 403 with
+`code: "SESSION_MISMATCH"` (`routeOwnership.ts` + both call sites in `routes.ts`); client's
+single request chokepoint (`queryClient.ts`'s `throwIfResNotOk`) detects the code, clears
+the stale token, toasts, and hard-reloads for a clean re-auth handshake — same
+"recovery escape hatch, not a rearchitecture" shape as the popup-storm fix. Session note:
+[2026-07-07-session-mismatch-403-recovery.md](../artifacts/frontier-al/session-notes/2026-07-07-session-mismatch-403-recovery.md).
+Verified green: tsc clean, server 449/24 skipped (extended 1 existing test), client 323
+(+3 new), build clean. **Honest gap:** not reproduced against a live drift scenario —
+verified via the real `evaluateOwnership` function + a mocked-fetch client test, not an
+end-to-end browser repro. **Not yet committed/pushed/PR'd — next step this session.**
+
+**#214 (`fix/wallet-popup-storm-recovery`) merged** as `6112482` — audited PASS. Owner was
+fully blocked (couldn't connect a wallet or spend test ALGO) by 8+ Pera/WalletConnect
+popups firing on every page load. Root cause traced by reading the actual installed
+`@txnlab/use-wallet` SDK source: `resumeSession()` only calls Pera's third-party
+`reconnectSession()` (where the storm happens) if this app's own persisted key
+(`@txnlab/use-wallet:v4`) has a recorded session; if the browser has accumulated stale
+WalletConnect pairings, Pera resurfaces every one as its own popup. Not fixable in this
+app's code (third-party SDK behavior) — shipped a recovery escape hatch instead:
+`client/src/lib/walletReset.ts` clears that key + this app's own wallet keys, then
+reloads; wired as a "Trouble connecting? Reset wallet connection" link in
+`WalletConnect.tsx`. Audit: [docs/audits/pr-214-audit.md](./audits/pr-214-audit.md).
+Session note: [2026-07-07-wallet-popup-storm-recovery.md](../artifacts/frontier-al/session-notes/2026-07-07-wallet-popup-storm-recovery.md).
+
+**#215 merged** as `cb93409` — a second AI tool (Kilo Code, given repo access + this
+repo's guardrails) did an independent second-opinion review of #214, confirmed it correct,
+and added one missing test for `resetWalletConnection()` (verifies `window.location
+.reload` fires) + its own audit note
+(`session-notes/2026-07-07-wallet-popup-storm-audit.md`). Verified directly (not a full
+subagent audit, given the tiny scope): tsc clean, the new test passes (321/321), no
+server/funds/cinematics files touched.
+
+**Honest gap (carried from #214, still open)**: the fix has not been confirmed live on
+the device that originally triggered the storm — mechanism verified from SDK source, not
+from a live repro (no real wallet available in this sandbox). Ask the owner to confirm the
+reset link actually clears their storm next session if not already done.
+
+**Also this session**: found and reported (not fixed — needs owner dashboard access) that
+a decommissioned Railway GitHub integration was posting a stale `failure` commit status on
+every `main` commit (separate from the real CI/Fly checks, both of which are green).
+Railway was dropped for Fly.io + Cloudflare Pages back on 2026-07-06; the GitHub App
+integration was never uninstalled. Owner needs to delete the Railway project / remove its
+GitHub App access — not something fixable from this repo.
 
 **Earlier this session, all merged on green:** #207 (roadmap/baton rewrite — audited CONCERNS,
 corrected, merged; [audit](./audits/docs-roadmap-full-scope-audit.md)), #208 (M1-1,
