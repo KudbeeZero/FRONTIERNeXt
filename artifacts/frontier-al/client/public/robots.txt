@@ -5,4 +5,4 @@ Allow: /
 Disallow: /admin
 Disallow: /game
 
-Sitemap: https://ascendancyalgo.xyz/sitemap.xml
+Sitemap: https://frontierprotocol.app/sitemap.xml

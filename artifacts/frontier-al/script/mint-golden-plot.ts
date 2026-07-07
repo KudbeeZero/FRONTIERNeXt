@@ -11,7 +11,7 @@ async function main() {
   const result = await mintLandNft({
     plotId: 1,
     receiverAddress: admin.addr.toString(),
-    metadataBaseUrl: "https://ascendancyalgo.xyz",
+    metadataBaseUrl: "https://frontierprotocol.app",
   });
 
   console.log("✅ Minted!");
