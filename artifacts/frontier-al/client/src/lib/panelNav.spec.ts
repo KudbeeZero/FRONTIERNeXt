@@ -4,16 +4,15 @@ import { isRailTab, resolveRailTab } from "./panelNav";
 describe("isRailTab", () => {
   it("is true for every panel the desktop rail can render", () => {
     for (const t of [
-      "battles", "armory", "university", "commander", "leaderboard",
-      "trade", "factions", "markets", "economics", "intel",
+      "battles", "armory", "university", "commander", "inventory",
+      "leaderboard", "trade", "factions", "markets", "economics", "intel",
     ] as const) {
       expect(isRailTab(t)).toBe(true);
     }
   });
 
-  it("is false for the two mobile-only concepts", () => {
+  it("is false for the one mobile-only concept ('map' has no desktop-rail panel)", () => {
     expect(isRailTab("map")).toBe(false);
-    expect(isRailTab("inventory")).toBe(false);
   });
 });
 
@@ -26,7 +25,7 @@ describe("resolveRailTab", () => {
     expect(resolveRailTab("map", "armory")).toBe("armory");
   });
 
-  it("falls back to the last rail tab when the active tab is 'inventory'", () => {
-    expect(resolveRailTab("inventory", "markets")).toBe("markets");
+  it("shows 'inventory' directly now that it has a desktop-rail panel (was mobile-only)", () => {
+    expect(resolveRailTab("inventory", "markets")).toBe("inventory");
   });
 });

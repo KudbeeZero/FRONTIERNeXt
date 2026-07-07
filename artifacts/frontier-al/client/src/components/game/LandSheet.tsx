@@ -708,6 +708,14 @@ export function LandSheet({
             </div>
           )}
 
+          {expanded && isEnemyOwned && !player?.commander && onSpecialAttack && (
+            <div className="mt-3 pt-3 border-t border-border">
+              <p className="text-[10px] text-muted-foreground font-mono">
+                Mint a Commander to unlock Special Attacks.
+              </p>
+            </div>
+          )}
+
           {expanded && isEnemyOwned && player?.commander && onSpecialAttack && (
             <div className="mt-3 pt-3 border-t border-border">
               <h4 className="text-xs font-display uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">

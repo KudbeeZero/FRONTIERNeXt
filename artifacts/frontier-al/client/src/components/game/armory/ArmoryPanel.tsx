@@ -223,6 +223,13 @@ function ArmoryInner({
         </button>
       </section>
 
+      {/* The Armory only unlocks/acquires/upgrades/equips weapons — firing
+          happens on the globe, which isn't obvious from here alone. */}
+      <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/80">
+        <span className="font-semibold text-amber-300">To fire an equipped weapon:</span>{" "}
+        go to the Map, select an enemy-owned plot, then use its "Weapon Strike" button.
+      </div>
+
       {/* Catalog */}
       <section className="mt-3 space-y-4">
         {Object.keys(grouped).map((cat) => (

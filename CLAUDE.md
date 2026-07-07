@@ -69,9 +69,11 @@ the chat loop — see [`docs/MAINNET_READINESS_FLOW.md`](./docs/MAINNET_READINES
 The skills: `/pr-gate` (mechanical pre-merge go/no-go), `/security-pass` (surgical
 security review — fix + test + document), `/mainnet-gate` (read-only PASS/CONCERNS/
 FAIL mainnet check, the concrete impl of the gate referenced above), `/test-matrix`
-(visible coverage grid), and `/end-session` (safe stop + dated session note). They
-are process only — they do not change game behavior. Nothing reaches mainnet
-without a PASS from `/mainnet-gate` **and** an `algo-auditor` pass.
+(visible coverage grid), `/ci-check` (enumerate every check's exact per-check state
+when a status indicator is ambiguous or "still red" — never trust a single visual
+icon), and `/end-session` (safe stop + dated session note). They are process only —
+they do not change game behavior. Nothing reaches mainnet without a PASS from
+`/mainnet-gate` **and** an `algo-auditor` pass.
 
 ---
 
@@ -214,3 +216,9 @@ These belong to the game and are enforced by gates; see
   `docs/DEPLOYMENT_ENV_CHECKLIST.md`), audit reports under `docs/audit/`, and a dated
   `session-notes/` file.
 - Treat **`docs/HANDOFF.md` as the authoritative baton.**
+- **"CI is green" and "the fix works in production" are two separate claims —
+  check both, don't conflate them.** Pin the exact head commit SHA before checking
+  either. For CI, use `/ci-check` to enumerate every check's real state rather than
+  reading a single visual indicator (a red/green icon can mean pending, failed, a
+  required-check-name mismatch, or — for a repo's default branch specifically —
+  something unrelated to CI entirely, like a branch-compare icon).

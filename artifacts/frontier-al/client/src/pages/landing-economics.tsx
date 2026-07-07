@@ -37,7 +37,7 @@ const NEUTRAL_MIDLINE = "rgba(150,190,255,0.35)";
 
 export default function LandingEconomics() {
   const [, setLocation] = useLocation();
-  const { data } = useQuery<{ totalSupply: number; inGameCirculating: number; totalBurned: number; treasury: number; asaId: number | null; unitName: string; network: string; ownedParcelCount: number }>({
+  const { data } = useQuery<{ totalSupply: number; inGameCirculating: number; totalBurned: number; treasury: number; asaId: number | null; unitName: string; network: string; ownedParcelCount: number; economyMode?: string; emissionRatePerDay?: number }>({
     queryKey: ["/api/economics"],
     queryFn: () => fetch(resolveApiUrl("/api/economics")).then(r => r.json()),
     staleTime: 30_000,
@@ -263,7 +263,9 @@ export default function LandingEconomics() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, animation: "fadeInUp 0.7s ease-out 0.4s both" }}>
             {[
-              { icon: "🏗️", title: "Own Land",         desc: "Each plot generates 1 ASCEND/day base — up to 6 ASCEND/day fully upgraded with a Blockchain Node." },
+              { icon: "🏗️", title: "Own Land",         desc: data?.emissionRatePerDay
+                  ? `Each plot generates ${data.emissionRatePerDay} ASCEND/day base${data.economyMode === "testing" ? " (current TestNet testing rate — mainnet base rate is lower)" : ""}, plus Blockchain Node upgrades on top.`
+                  : "Each plot generates ASCEND daily, with Blockchain Node upgrades boosting the rate further." },
               { icon: "⚡", title: "Blockchain Nodes", desc: "Build blockchain infrastructure on your parcels to multiply your daily ASCEND yield." },
               { icon: "🔥", title: "Burn Mechanics",   desc: "Minting commanders, special attacks, and upgrades consume tokens — creating deflation." },
               { icon: "🏪", title: "Trade Station",    desc: "Trade iron, fuel, crystal and ASCEND with other players through the in-game market." },
