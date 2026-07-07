@@ -1096,21 +1096,40 @@ export class DbStorage implements IStorage {
     });
   }
 
-  async grantWelcomeBonus(playerId: string): Promise<void> {
+  /** Returns true iff this call actually granted the bonus (false = already received). */
+  async grantWelcomeBonus(playerId: string): Promise<boolean> {
     await this.initialize();
-    await this.db.transaction(async (tx) => {
-      const [row] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+    return await this.db.transaction(async (tx) => {
+      // Lock the row so a concurrent grant can't also pass the check below —
+      // it blocks here, then re-reads welcomeBonusReceived=true after this
+      // transaction commits and bails at the conditional UPDATE. Narrowed to
+      // the columns actually read (mirrors fillTradeOrder/claimWinnings).
+      const [row] = await tx
+        .select({
+          name:                 playersTable.name,
+          ascendBalanceMicro:   playersTable.ascendBalanceMicro,
+          totalAscendEarned:    playersTable.totalAscendEarned,
+          welcomeBonusReceived: playersTable.welcomeBonusReceived,
+        })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId))
+        .for("update");
       if (!row) throw new Error("Player not found");
-      if (row.welcomeBonusReceived) return;
+      if (row.welcomeBonusReceived) return false;
 
       const now = Date.now();
-      await tx.update(playersTable)
+      // Conditional UPDATE (belt to the FOR UPDATE lock): only flips if still
+      // unreceived. A concurrent grant that raced past the lock would find 0
+      // rows here and bail BEFORE the caller enqueues a second on-chain transfer.
+      const [granted] = await tx.update(playersTable)
         .set({
           ascendBalanceMicro:    row.ascendBalanceMicro    + toMicroASCEND(WELCOME_BONUS_ASCEND),
           totalAscendEarned:  row.totalAscendEarned + WELCOME_BONUS_ASCEND,
           welcomeBonusReceived: true,
         })
-        .where(eq(playersTable.id, playerId));
+        .where(and(eq(playersTable.id, playerId), eq(playersTable.welcomeBonusReceived, false)))
+        .returning({ id: playersTable.id });
+      if (!granted) return false;
 
       await this.addEvent({
         type:        "claim_ascend",
@@ -1119,6 +1138,7 @@ export class DbStorage implements IStorage {
         timestamp:   now,
       }, tx);
       await this.bumpLastTs(now, tx);
+      return true;
     });
   }
 

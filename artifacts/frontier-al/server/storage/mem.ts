@@ -594,11 +594,11 @@ export class MemStorage implements IStorage {
     return newPlayer;
   }
 
-  async grantWelcomeBonus(playerId: string): Promise<void> {
+  async grantWelcomeBonus(playerId: string): Promise<boolean> {
     await this.initialize();
     const player = this.players.get(playerId);
     if (!player) throw new Error("Player not found");
-    if (player.welcomeBonusReceived) return;
+    if (player.welcomeBonusReceived) return false;
 
     player.ascend += WELCOME_BONUS_ASCEND;
     player.totalAscendEarned += WELCOME_BONUS_ASCEND;
@@ -613,6 +613,7 @@ export class MemStorage implements IStorage {
       timestamp: Date.now(),
     });
     this.lastUpdateTs = Date.now();
+    return true;
   }
 
   async claimAscend(playerId: string): Promise<{ amount: number }> {
