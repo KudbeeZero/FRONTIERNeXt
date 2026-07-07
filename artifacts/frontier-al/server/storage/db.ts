@@ -91,7 +91,7 @@ import {
   MIN_INFLUENCE_DAMAGE,
   INFLUENCE_YIELD_THRESHOLD,
 } from "../engine/battle/tuning.js";
-import { eq, and, or, desc, lt, gt, sql, sum, isNull, inArray } from "drizzle-orm";
+import { eq, and, or, desc, lt, gt, gte, sql, sum, isNull, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   gameMeta,
@@ -3257,58 +3257,82 @@ export class DbStorage implements IStorage {
   ): Promise<{ position: MarketPosition; market: PredictionMarket } | { error: string }> {
     await this.initialize();
 
-    const [marketRow] = await this.db
-      .select()
-      .from(predictionMarketsTable)
-      .where(eq(predictionMarketsTable.id, marketId));
-    if (!marketRow) return { error: "Market not found" };
-    if (marketRow.status !== "open") return { error: "Market is not open for betting" };
-    if (Number(marketRow.resolvesAt) <= Date.now()) return { error: "Market has expired" };
-    // Provably-fair: staking MUST close at the resolution cutoff (before the resolving
-    // fact is knowable), so no one can bet on a known/derivable outcome. Without this,
-    // a player could stake in the window after a battle resolves but before the
-    // automated resolver fires — the exact front-running hole the design forbids.
-    if (marketRow.resolutionCutoffTs != null && Date.now() >= Number(marketRow.resolutionCutoffTs)) {
-      return { error: "Staking is closed (resolution cutoff passed)" };
-    }
+    // Everything runs in ONE transaction. Previously this ran bare statements
+    // with no txn: the balance debit was a read-then-write (`ascend:
+    // playerRow.ascend - amount`) and so was the pool credit — two concurrent
+    // bets (same player racing themselves, or two players on the same
+    // market/outcome) could both read the same starting value and one
+    // update's result got clobbered by the other (a lost update), so a
+    // player could place two bets while only ever being charged for one, and
+    // a market's pool total could drift out of sync with the sum of its
+    // positions. Mirrors claimWinnings/fillTradeOrder/grantWelcomeBonus:
+    // FOR UPDATE locks taken BEFORE any mutation (so the checks below are
+    // authoritative), then conditional relative updates as a belt to the lock.
+    return await this.db.transaction(async (tx) => {
+      const [marketRow] = await tx
+        .select({
+          status:             predictionMarketsTable.status,
+          resolvesAt:         predictionMarketsTable.resolvesAt,
+          resolutionCutoffTs: predictionMarketsTable.resolutionCutoffTs,
+        })
+        .from(predictionMarketsTable)
+        .where(eq(predictionMarketsTable.id, marketId))
+        .for("update");
+      if (!marketRow) return { error: "Market not found" };
+      if (marketRow.status !== "open") return { error: "Market is not open for betting" };
+      if (Number(marketRow.resolvesAt) <= Date.now()) return { error: "Market has expired" };
+      // Provably-fair: staking MUST close at the resolution cutoff (before the resolving
+      // fact is knowable), so no one can bet on a known/derivable outcome. Without this,
+      // a player could stake in the window after a battle resolves but before the
+      // automated resolver fires — the exact front-running hole the design forbids.
+      if (marketRow.resolutionCutoffTs != null && Date.now() >= Number(marketRow.resolutionCutoffTs)) {
+        return { error: "Staking is closed (resolution cutoff passed)" };
+      }
 
-    const [playerRow] = await this.db
-      .select()
-      .from(playersTable)
-      .where(eq(playersTable.id, playerId));
-    if (!playerRow) return { error: "Player not found" };
-    if (playerRow.isAi) return { error: "AI players cannot place bets" };
-    if (playerRow.ascend < amount) return { error: "Insufficient ASCEND balance" };
+      const [playerRow] = await tx
+        .select({ id: playersTable.id, ascend: playersTable.ascend, isAi: playersTable.isAi })
+        .from(playersTable)
+        .where(eq(playersTable.id, playerId))
+        .for("update");
+      if (!playerRow) return { error: "Player not found" };
+      if (playerRow.isAi) return { error: "AI players cannot place bets" };
+      if (playerRow.ascend < amount) return { error: "Insufficient ASCEND balance" };
 
-    // Deduct from player
-    await this.db
-      .update(playersTable)
-      .set({ ascend: playerRow.ascend - amount })
-      .where(eq(playersTable.id, playerId));
+      // Both rows are locked and freshly validated above, so this can't lose
+      // an update or under-draw — the `gte` re-check is defensive (belt to
+      // the lock), matching the conditional-update idiom used elsewhere.
+      const [debited] = await tx
+        .update(playersTable)
+        .set({ ascend: sql`${playersTable.ascend} - ${amount}` })
+        .where(and(eq(playersTable.id, playerId), gte(playersTable.ascend, amount)))
+        .returning({ id: playersTable.id });
+      if (!debited) return { error: "Insufficient ASCEND balance" };
 
-    // Update pool
-    const poolField = outcome === "a" ? { tokenPoolA: marketRow.tokenPoolA + amount } : { tokenPoolB: marketRow.tokenPoolB + amount };
-    const [updatedMarket] = await this.db
-      .update(predictionMarketsTable)
-      .set(poolField)
-      .where(eq(predictionMarketsTable.id, marketId))
-      .returning();
+      const poolField = outcome === "a"
+        ? { tokenPoolA: sql`${predictionMarketsTable.tokenPoolA} + ${amount}` }
+        : { tokenPoolB: sql`${predictionMarketsTable.tokenPoolB} + ${amount}` };
+      const [updatedMarket] = await tx
+        .update(predictionMarketsTable)
+        .set(poolField)
+        .where(and(eq(predictionMarketsTable.id, marketId), eq(predictionMarketsTable.status, "open")))
+        .returning();
+      if (!updatedMarket) return { error: "Market is not open for betting" };
 
-    // Create position
-    const [posRow] = await this.db
-      .insert(marketPositionsTable)
-      .values({
-        id: randomUUID(),
-        marketId,
-        playerId,
-        outcome,
-        amountWagered: amount,
-        claimed: false,
-        createdAt: Date.now(),
-      })
-      .returning();
+      const [posRow] = await tx
+        .insert(marketPositionsTable)
+        .values({
+          id: randomUUID(),
+          marketId,
+          playerId,
+          outcome,
+          amountWagered: amount,
+          claimed: false,
+          createdAt: Date.now(),
+        })
+        .returning();
 
-    return { position: this.rowToPosition(posRow), market: this.rowToMarket(updatedMarket) };
+      return { position: this.rowToPosition(posRow), market: this.rowToMarket(updatedMarket) };
+    });
   }
 
   async claimWinnings(marketId: string, playerId: string): Promise<{ payout: number } | { error: string }> {
