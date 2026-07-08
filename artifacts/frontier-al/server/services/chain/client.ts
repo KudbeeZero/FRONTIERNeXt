@@ -143,6 +143,17 @@ export function assertChainConfig(): void {
   } else {
     console.log(`[FRONTIER] Network: ${network}`);
   }
+
+  if (process.env.ASCEND_ASA_ID) {
+    const parsed = Number(process.env.ASCEND_ASA_ID);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error(
+        `[FRONTIER] ASCEND_ASA_ID env var is set but invalid: "${process.env.ASCEND_ASA_ID}". ` +
+        `Must be a positive integer (the Algorand ASA asset ID).`
+      );
+    }
+    console.log(`[FRONTIER] ASCEND ASA pinned to ${parsed}`);
+  }
 }
 
 // Override with env vars to switch networks without code changes.

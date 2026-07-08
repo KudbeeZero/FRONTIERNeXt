@@ -27,6 +27,26 @@ export function setAscendAsaId(id: AssetId): void {
   console.log(`[chain/asa] FRONTIER ASA ID set to: ${id}`);
 }
 
+/**
+ * Read ASCEND_ASA_ID from environment and validate it.
+ * Returns the parsed ID if set and valid, null if unset.
+ * Throws if set but invalid (non-numeric or non-positive).
+ */
+export function getPinnedAscendAsaId(): AssetId | null {
+  const envVal = process.env.ASCEND_ASA_ID;
+  if (!envVal) return null;
+  
+  const parsed = Number(envVal);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      `[chain/asa] ASCEND_ASA_ID env var is set but invalid: "${envVal}". ` +
+      `Must be a positive integer (the Algorand ASA asset ID).`
+    );
+  }
+  
+  return parsed;
+}
+
 // ── Lookup ────────────────────────────────────────────────────────────────────
 
 /**
@@ -122,9 +142,17 @@ export async function getOrCreateAscendAsa(
     return _ascendAsaId;
   }
 
+  // 2. Pin from environment — authoritative if set
+  const pinned = getPinnedAscendAsaId();
+  if (pinned) {
+    console.log(`[chain/asa] ASCEND_ASA_ID env var set — pinning ASA to ${pinned}`);
+    _ascendAsaId = pinned;
+    return pinned;
+  }
+
   const adminAddr = getAdminAccount().addr.toString();
 
-  // 2. Look up on-chain
+  // 3. Look up on-chain by name
   const existing = await lookupAsaByCreator(adminAddr, { name: "Ascend", unitName: "ASCEND" });
 
   if (existing) {
@@ -146,7 +174,7 @@ export async function getOrCreateAscendAsa(
     console.log("[chain/asa] No existing Ascend ASA found. Creating new token.");
   }
 
-  // 3. Create — clawback MUST be set so fireBurn / clawbackAscendAsa work on-chain.
+  // 4. Create — clawback MUST be set so fireBurn / clawbackAscendAsa work on-chain.
   const { assetId } = await createAsa({
     name:     "Ascend",
     unitName: "ASCEND",
