@@ -26,13 +26,22 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `c7c74cc`
+## Current baton — 🟡 AWAITING_AUDIT: PR #230 · branch `fix/pin-ascend-asa`
 
-### 2026-07-08 — PR #229 merged: wallet connection gate + fresh params + singleton modal + queue reset
+### 2026-07-08 — PR #230 opened: pin ASCEND ASA via `ASCEND_ASA_ID` env var + startup assert
 
-**#229 (`feat/wallet-connection-gate`) — MERGED as `c7c74cc`.** Audited PASS. Owner reported checkout/minting flow broken: wallet provider not invoked before transactions, timeout messages, duplicate UI windows on re-auth. Fixed: (1) `requestConnection()` in WalletContext blocks tx pipeline and triggers connect flow if disconnected; (2) Lifted `showPicker` to context-level singleton modal state; (3) `buildAndSignWithFreshParams()` fetches params inside signing lock (wired into `createPurchaseWithAlgoTransaction`); (4) `resetSignQueue()` auto-resets on timeout (wired into `withWalletSignLock`). 4 new tests. Audit: [docs/audits/pr-229-audit.md](./audits/pr-229-audit.md).
+**#230 (`fix/pin-ascend-asa`) — AWAITING_AUDIT.** M1-4 from Phase 25 queue. Pinned the ASCEND ASA ID via `ASCEND_ASA_ID` env var instead of relying solely on name-based on-chain lookup. Added `getPinnedAscendAsaId()` helper in `services/chain/asa.ts` that reads and validates the env var. `getOrCreateAscendAsa()` now checks env var (step 2) before falling back to on-chain name lookup (step 3). `assertChainConfig()` validates `ASCEND_ASA_ID` at startup — invalid values (non-integer, zero, negative, float) fail fast. Updated `ENV_VARS.md` + `DEPLOYMENT_ENV_CHECKLIST.md`. 13 new regression tests (7 for `assertChainConfig` validation, 6 for `getPinnedAscendAsaId` helper). All 471 server tests pass.
 
-**Next unit:** M1-4 (pin ASCEND ASA via `ASCEND_ASA_ID` env + startup assert; update `ENV_VARS.md` + deployment checklist). Branch: `fix/pin-ascend-asa`. Open risks: none. Off-limits: don't change wallet/chain behavior outside scoped audit; standard hard rules (no mainnet without gates, don't merge `wip/atomic-purchase`, don't reintroduce mock data).
+**What this chat did (for the auditor):**
+- `services/chain/asa.ts:18-40` — Added `getPinnedAscendAsaId()` helper with validation
+- `services/chain/asa.ts:145-151` — `getOrCreateAscendAsa()` checks env var before on-chain lookup
+- `services/chain/client.ts:147-156` — `assertChainConfig()` validates `ASCEND_ASA_ID` at startup
+- `services/chain/asa.spec.ts` — 13 new tests covering valid/invalid env var values
+- `ENV_VARS.md` + `DEPLOYMENT_ENV_CHECKLIST.md` — Documented new env var
+
+**Next unit:** M1-5 (`feat/mint-retry-delivery`) — no atomic delivery/rollback: paid purchase whose background mint fails = ALGO consumed, no NFT, no refund, manual recovery. Build mint-retry worker + refund-or-retry policy + surface custody/claim state in HUD. Full gates. Branch: `feat/mint-retry-delivery`. Open risks: none beyond standard funds-lane gates. Off-limits: don't change wallet/chain behavior outside scoped unit; standard hard rules (no mainnet without gates, don't merge `wip/atomic-purchase`, don't reintroduce mock data).
+
+**PR #229 merged:** `feat/wallet-connection-gate` — wallet connection gate + fresh params + singleton modal + queue reset.
 
 **PR #228 (z-index hardening) — CLOSED.** Another session is handling the backlog items. The z-index fixes (CommTerminal z-40, hud-drawer z-49) were valid but created without coordinating with the session already working on those items.
 
