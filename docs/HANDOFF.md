@@ -26,13 +26,15 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT · PR #229 open · main green at `3edf528`
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `c7c74cc`
 
-### 2026-07-08 — Wallet connection gate + fresh params + singleton modal + queue reset
+### 2026-07-08 — PR #229 merged: wallet connection gate + fresh params + singleton modal + queue reset
 
-**#229 (`feat/wallet-connection-gate`) — AWAITING_AUDIT.** Owner reported checkout/minting flow broken: wallet provider not invoked before transactions, timeout messages, duplicate UI windows on re-auth. Root causes: (1) `GameLayout.handlePurchase()` checked `isWalletConnected` and toasted if not, but didn't block or trigger connect; (2) `WalletConnect.tsx` had `showPicker` as component-local state, allowing duplicate modals; (3) `suggestedParams` fetched at transaction creation time, stale by signing time if queue had wait; (4) no queue reset mechanism for wedged timeouts. Fixed: (1) Added `requestConnection()` to WalletContext that blocks tx pipeline and triggers connect flow if disconnected (returns `Promise<boolean>`, 90s timeout); (2) Lifted `showPicker` to context-level `isPickerOpen`/`openPicker()`/`closePicker()` for singleton modal; (3) Added `buildAndSignWithFreshParams()` and `buildAndSignGroupedWithFreshParams()` helpers that fetch fresh params inside signing lock; (4) Added `resetSignQueue()` for manual recovery. 4 new tests. Verified green: `check` clean, `test` 355/355 (+4), `test:server` 458/24 skipped. **Honest gaps:** not live-verified on real device (test-backed only); `requestConnection()` timeout path untested (requires React context + fake timers).
+**#229 (`feat/wallet-connection-gate`) — MERGED as `c7c74cc`.** Audited PASS. Owner reported checkout/minting flow broken: wallet provider not invoked before transactions, timeout messages, duplicate UI windows on re-auth. Fixed: (1) `requestConnection()` in WalletContext blocks tx pipeline and triggers connect flow if disconnected; (2) Lifted `showPicker` to context-level singleton modal state; (3) `buildAndSignWithFreshParams()` fetches params inside signing lock (wired into `createPurchaseWithAlgoTransaction`); (4) `resetSignQueue()` auto-resets on timeout (wired into `withWalletSignLock`). 4 new tests. Audit: [docs/audits/pr-229-audit.md](./audits/pr-229-audit.md).
 
 **Next unit:** M1-4 (pin ASCEND ASA via `ASCEND_ASA_ID` env + startup assert; update `ENV_VARS.md` + deployment checklist). Branch: `fix/pin-ascend-asa`. Open risks: none. Off-limits: don't change wallet/chain behavior outside scoped audit; standard hard rules (no mainnet without gates, don't merge `wip/atomic-purchase`, don't reintroduce mock data).
+
+**PR #228 (z-index hardening) — CLOSED.** Another session is handling the backlog items. The z-index fixes (CommTerminal z-40, hud-drawer z-49) were valid but created without coordinating with the session already working on those items.
 
 ### 2026-07-08 — PR #227 audited and merged
 
