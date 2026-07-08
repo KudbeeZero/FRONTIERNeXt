@@ -22,6 +22,8 @@ import { DroneCard } from "./commander/DroneCard";
 import { AvatarCard } from "./commander/AvatarCard";
 import { SubParcelGridPicker } from "./commander/SubParcelGridPicker";
 import { BattleResultCard, type BattleResult } from "./commander/BattleResultCard";
+import { GameTerminal } from "./GameTerminal";
+import type { TerminalCommand } from "@/lib/terminalCommands";
 import { COMPANION, COMMANDER_IMAGES, TIER_COLORS, formatCountdown } from "./commander/shared";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
 import {
@@ -377,77 +379,87 @@ export function CommanderPanel({
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-4">
 
-          {/* ── Pending NFT Claims ── */}
-          {pendingNftPlots.length > 0 && (
-            <div
-              className="rounded-lg border border-amber-500/30 overflow-hidden animate-in fade-in-0 slide-in-from-top-1 duration-300"
-              style={{
-                background: "linear-gradient(180deg, rgba(120,80,10,0.08) 0%, rgba(0,0,0,0.15) 100%)",
-                boxShadow: "0 0 16px rgba(251,191,36,0.06)",
-              }}
-            >
-              <div className="flex items-center gap-2 px-2.5 py-2 border-b border-amber-500/20">
-                <div className="relative shrink-0">
-                  <div className="absolute inset-0 rounded-full bg-amber-400/30 blur-[6px] animate-pulse" />
-                  <PackageCheck className="relative w-3.5 h-3.5 text-amber-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-display uppercase tracking-wide text-amber-400 font-bold leading-none">
-                    {pendingNftPlots.length} NFT{pendingNftPlots.length > 1 ? "s" : ""} Awaiting Claim
-                  </p>
-                  <p className="text-[8px] text-amber-300/60 mt-0.5">Sign to receive it in your Algorand wallet</p>
-                </div>
-                {pendingNftPlots.length > 1 && onClaimAllPlotNfts && (
-                  <Button
-                    size="sm"
-                    onClick={() => onClaimAllPlotNfts(pendingNftPlots.map(p => ({ plotId: p.plotId, assetId: p.assetId })))}
-                    disabled={!!isClaimingAllPlotNfts}
-                    className="h-6 px-2 text-[9px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
-                    style={{ boxShadow: "0 0 10px rgba(251,191,36,0.35)" }}
-                  >
-                    {isClaimingAllPlotNfts ? (
-                      <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Claiming…</>
-                    ) : (
-                      `Claim All (${pendingNftPlots.length})`
-                    )}
-                  </Button>
-                )}
-              </div>
-              <div className="max-h-40 overflow-y-auto divide-y divide-amber-500/10">
-                {pendingNftPlots.map(plot => (
-                  <div
-                    key={plot.plotId}
-                    className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-amber-500/5 transition-colors animate-in fade-in-0 duration-300"
-                  >
-                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono font-bold text-amber-300 shrink-0">#{plot.plotId}</span>
-                      <Badge variant="outline" className="text-[7px] px-1 py-0 border-amber-500/40 text-amber-400 capitalize shrink-0">{plot.biome}</Badge>
-                      <a
-                        href={`https://explorer.perawallet.app/assets/${plot.assetId}/`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[8px] text-muted-foreground font-mono hover:text-amber-300 transition-colors truncate"
+          {/* ── Pending NFT Claims (terminal console — type or click to claim) ── */}
+          {pendingNftPlots.length > 0 && (() => {
+            const claimCommands: TerminalCommand[] = [];
+            if (pendingNftPlots.length > 1 && onClaimAllPlotNfts) {
+              claimCommands.push({
+                keyword: "claim all",
+                aliases: ["claimall"],
+                label: "claim all",
+                run: () => onClaimAllPlotNfts(pendingNftPlots.map(p => ({ plotId: p.plotId, assetId: p.assetId }))),
+                disabled: !!isClaimingAllPlotNfts,
+              });
+            }
+            if (pendingNftPlots.length === 1) {
+              const only = pendingNftPlots[0];
+              claimCommands.push({
+                keyword: "claim",
+                label: "claim",
+                run: () => onDeliverPlotNft?.(only.plotId, only.assetId),
+                disabled: isDeliveringPlotNftId === only.plotId,
+              });
+            }
+            pendingNftPlots.forEach(plot => {
+              claimCommands.push({
+                keyword: `claim ${plot.plotId}`,
+                label: `claim ${plot.plotId}`,
+                run: () => onDeliverPlotNft?.(plot.plotId, plot.assetId),
+                disabled: isDeliveringPlotNftId === plot.plotId,
+              });
+            });
+
+            return (
+              <div className="animate-in fade-in-0 slide-in-from-top-1 duration-300">
+                <GameTerminal
+                  accent="amber"
+                  title={`${pendingNftPlots.length} NFT${pendingNftPlots.length > 1 ? "s" : ""} Awaiting Claim`}
+                  lines={[
+                    "Sign to receive it in your Algorand wallet.",
+                    pendingNftPlots.length > 1
+                      ? "Type claim <plot#> or [claim all] to sign every pending NFT."
+                      : "Type [claim] or click below to sign.",
+                  ]}
+                  commands={claimCommands}
+                  testId="commander-nft-terminal"
+                >
+                  <div className="mt-2 -mx-3 max-h-40 overflow-y-auto divide-y divide-amber-500/10 border-t border-amber-500/10">
+                    {pendingNftPlots.map(plot => (
+                      <div
+                        key={plot.plotId}
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-amber-500/5 transition-colors animate-in fade-in-0 duration-300"
                       >
-                        ASA {plot.assetId}
-                      </a>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => onDeliverPlotNft?.(plot.plotId, plot.assetId)}
-                      disabled={isDeliveringPlotNftId === plot.plotId}
-                      className="h-6 px-2 text-[9px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
-                    >
-                      {isDeliveringPlotNftId === plot.plotId ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        "Claim"
-                      )}
-                    </Button>
+                        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono font-bold text-amber-300 shrink-0">#{plot.plotId}</span>
+                          <Badge variant="outline" className="text-[7px] px-1 py-0 border-amber-500/40 text-amber-400 capitalize shrink-0">{plot.biome}</Badge>
+                          <a
+                            href={`https://explorer.perawallet.app/assets/${plot.assetId}/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[8px] text-muted-foreground font-mono hover:text-amber-300 transition-colors truncate"
+                          >
+                            ASA {plot.assetId}
+                          </a>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => onDeliverPlotNft?.(plot.plotId, plot.assetId)}
+                          disabled={isDeliveringPlotNftId === plot.plotId}
+                          className="h-6 px-2 text-[9px] font-display uppercase tracking-wide bg-amber-500 hover:bg-amber-600 text-black border-0 shrink-0"
+                        >
+                          {isDeliveringPlotNftId === plot.plotId ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            "Claim"
+                          )}
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </GameTerminal>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ── Avatar Gallery (2-column grid + pagination) ── */}
           {hasCommander ? (

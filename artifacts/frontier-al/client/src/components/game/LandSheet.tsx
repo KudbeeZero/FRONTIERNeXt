@@ -10,6 +10,8 @@ import { effectiveInCustody } from "@/lib/devSession";
 import { ATTACK_ICONS } from "@/lib/attackIcons";
 import { SubParcelGrid } from "./land/SubParcelGrid";
 import { CooldownTimer } from "./land/CooldownTimer";
+import { GameTerminal } from "./GameTerminal";
+import type { TerminalCommand } from "@/lib/terminalCommands";
 import type { LandParcel, Player, ImprovementType, SpecialAttackType, DefenseImprovementType, FacilityType, BiomeType } from "@shared/schema";
 import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS, DEFENSE_IMPROVEMENT_INFO, FACILITY_INFO, IMPROVEMENT_INFO, SPECIAL_ATTACK_INFO, BASE_YIELD, TERRAFORM_COSTS, TERRAFORM_BIOME_MAP } from "@shared/schema";
 import { ZClass } from "@/lib/uiLayers";
@@ -361,6 +363,48 @@ export function LandSheet({
           {(parcel.isSubdivided || isOwned) && (
             <SubParcelGrid parcel={parcel} player={player} onNavigate={onNavigateToPlot} />
           )}
+
+          {/* Command console — type "mine"/"upgrade"/"claim" or click the [bracketed] word */}
+          {isOwned && (() => {
+            const consoleCommands: TerminalCommand[] = [];
+            if (inCustody && onDeliverNft) {
+              consoleCommands.push({
+                keyword: "claim",
+                label: "claim",
+                run: onDeliverNft,
+                disabled: !!isDeliveringNft,
+              });
+            } else {
+              consoleCommands.push({
+                keyword: "mine",
+                aliases: ["m", "extract"],
+                label: "mine",
+                run: onMine,
+                disabled: !canMine || isMining,
+              });
+              consoleCommands.push({
+                keyword: "upgrade",
+                aliases: ["u"],
+                label: "upgrade",
+                run: () => setExpanded(true),
+              });
+            }
+            return (
+              <div className="mb-2">
+                <GameTerminal
+                  accent="cyan"
+                  title="Command Console"
+                  lines={[
+                    inCustody
+                      ? "NFT awaiting claim — mining & upgrades locked."
+                      : "Type [mine] to extract resources, or [upgrade] to open the upgrade panel.",
+                  ]}
+                  commands={consoleCommands}
+                  testId="land-sheet-terminal"
+                />
+              </div>
+            );
+          })()}
 
           <div className="flex gap-2">
             {isOwned && (
