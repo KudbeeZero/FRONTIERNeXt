@@ -106,11 +106,21 @@ export function getQueueDepth(): number {
 }
 
 function withWalletSignLock<T>(run: () => Promise<T>): Promise<T> {
-  const guarded = () => withTimeout(
-    run(),
-    WALLET_SIGN_TIMEOUT_MS,
-    "Wallet didn't respond in time — check your wallet app for a pending request (approve or reject it), then try again.",
-  );
+  const guarded = async () => {
+    try {
+      return await withTimeout(
+        run(),
+        WALLET_SIGN_TIMEOUT_MS,
+        "Wallet didn't respond in time — check your wallet app for a pending request (approve or reject it), then try again.",
+      );
+    } catch (err) {
+      // On timeout, reset the queue to allow fresh attempts
+      if (err instanceof Error && err.message.includes("didn't respond in time")) {
+        resetSignQueue();
+      }
+      throw err;
+    }
+  };
   const result = _walletSignQueue.then(guarded, guarded);
   // Chain the NEXT caller off this settling regardless of outcome — a
   // rejected/cancelled/timed-out signature must not wedge the queue for
@@ -271,7 +281,6 @@ export async function createPurchaseWithAlgoTransaction(
   algoAmount: number
 ): Promise<string> {
   dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction triggered | plotId: ${plotId} | algo: ${algoAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${treasuryAddress.slice(0,8)}...`);
-  const suggestedParams = await getTransactionParams();
   const microAlgos = Math.floor(algoAmount * 1_000_000);
   
   const actionData = JSON.stringify({
@@ -285,18 +294,20 @@ export async function createPurchaseWithAlgoTransaction(
     network: "testnet",
   });
 
-  const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-    sender: fromAddress,
-    receiver: treasuryAddress,
-    amount: microAlgos,
-    note: new TextEncoder().encode(`ASCEND:${actionData}`),
-    suggestedParams,
-  });
+  // Build and sign with fresh params fetched inside the signing lock
+  const signedTxnBlob = await buildAndSignWithFreshParams((freshParams) => {
+    return algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      sender: fromAddress,
+      receiver: treasuryAddress,
+      amount: microAlgos,
+      note: new TextEncoder().encode(`ASCEND:${actionData}`),
+      suggestedParams: freshParams,
+    });
+  }, fromAddress);
 
-  const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
   dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
-  const txId = response.txid || txn.txID();
+  const txId = response.txid;
   await algosdk.waitForConfirmation(algodClient, txId, 4);
   dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
