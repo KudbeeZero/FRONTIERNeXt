@@ -566,14 +566,14 @@ When a territory is captured, all **adjacent plots** owned by the defender lose 
 
 Loot boxes are designed to contain randomized rewards including resources, ASCEND, rare minerals, and exclusive items.
 
-> ⚠️ **Status: Planned — not yet active.** The loot-box system is defined in code
-> (`shared/schema.ts`) but is **not yet awarded or openable at runtime** as of this
-> version — no mine, battle, or orbital outcome currently grants a box, and there is no
-> open/reward logic. The values below describe the **intended design**, not live mechanics.
+> ✅ **Status: Live.** Mine/battle/orbital outcomes award boxes at runtime
+> (`server/engine/lootbox/open.ts`, a deterministic per-action roll), and boxes are
+> openable from the Inventory panel. Quantum Forge (Legendary) is the one trigger not
+> yet wired up — it isn't in `LOOT_BOX_TRIGGERS` in `shared/schema.ts` today.
 
-### How to Obtain (designed)
+### How to Obtain
 
-Each trigger is designed to award a single box tier at the rate defined in `shared/schema.ts`:
+Each trigger awards a single box tier at the rate defined in `shared/schema.ts`:
 
 | Source | Box tier | Drop chance |
 |--------|----------|-------------|
@@ -582,10 +582,10 @@ Each trigger is designed to award a single box tier at the rate defined in `shar
 | **Orbital Impact Event** | Epic | 50% |
 | **Quantum Forge** (crafting) | Legendary | planned |
 
-### Tiers & Contents *(designed — not yet implemented)*
+### Tiers & Contents
 
-> The reward tables below are the intended contents; no reward-granting logic exists in
-> the current runtime.
+> Reward tables are weighted rolls defined in `shared/schema.ts`; the ranges below are
+> illustrative of that live table, not hand-verified against every exact weight.
 
 #### Common (Gray)
 
@@ -629,9 +629,9 @@ Each trigger is designed to award a single box tier at the rate defined in `shar
 | Exclusive Cosmetic Title | 25% chance |
 | Golden Plot NFT Badge | 5% chance |
 
-### Inventory Rules *(designed)*
+### Inventory Rules
 
-- Designed maximum: **20 unopened boxes** at a time
+- Maximum: **20 unopened boxes** at a time
 - Must open boxes to make room for new drops
 - Opening is instant with an animated reveal sequence
 - Results are added to your inventory immediately

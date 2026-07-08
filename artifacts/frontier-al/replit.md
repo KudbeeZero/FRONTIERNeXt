@@ -5,7 +5,7 @@ Frontier AL is a massive-scale strategy game set on a 3D globe, where players co
 ## Project Status
 - **Phase**: Production Ready
 - **Network**: Algorand Testnet
-- **ASA ID**: 755818217 (FRONTIER / ASCEND)
+- **ASA ID**: 764083761 (FRONTIER / ASCEND)
 - **Factions**:
   - NEXUS-7 (756388635)
   - KRONOS (756388636)
@@ -199,7 +199,7 @@ Frontier AL is a massive-scale strategy game set on a 3D globe, where players co
 ### Ready for Game Testing
 The app is now **production-ready** with all core systems stable and tested:
 - ✅ All 31 unit tests passing
-- ✅ Blockchain integration confirmed (ASA 755818217, 94.2 ALGO available)
+- ✅ Blockchain integration confirmed (ASA 764083761, 94.2 ALGO available)
 - ✅ Commander NFT pipeline working (Sentinel, Phantom, Reaper tiers)
 - ✅ Landing page mobile responsive
 - ✅ Terraform DB fields initialized on all 21,000 parcels

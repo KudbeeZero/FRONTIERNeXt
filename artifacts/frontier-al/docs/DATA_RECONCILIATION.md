@@ -95,6 +95,10 @@ and the docs were updated to match.
   exists in code (`schema.ts:967-987`) but phase modifiers/day ranges were not found there.
 - **ASA ID `755818217`** and **decimals 6** — documented (README/ECONOMICS), not in the
   constants read.
+  > **Addendum (2026-07-08):** the live TestNet ASCEND ASA has since changed to
+  > `764083761` (confirmed via `/api/economics` and `/api/blockchain/status`). This
+  > snapshot is left as originally recorded for 2026-06-07 — see current docs
+  > (README, TOKENOMICS, GLOSSARY) for the live ID.
 
 ---
 

@@ -378,10 +378,10 @@ Once you have a Quantum Forge, you can convert minerals:
 
 | Source | Best Strategy |
 |--------|---------------|
-| **Mining** (5% Common) | Mine frequently across many plots — volume is key |
-| **Battle Victory** (guaranteed Common + 15% Rare) | Attack weak targets for easy wins and boxes |
-| **Orbital Impact** (25% Rare) | Prioritize mining during impact events |
-| **Quantum Forge** (1 Legendary/48h) | Never miss a craft cycle — set a reminder |
+| **Mining** (3% Common) | Mine frequently across many plots — volume is key |
+| **Battle Victory** (25% Rare) | Attack weak targets for easy wins and boxes |
+| **Orbital Impact** (50% Epic) | Prioritize mining during impact events |
+| **Quantum Forge** (not yet implemented) | No live trigger yet — `LOOT_BOX_TRIGGERS` in `shared/schema.ts` has no `quantum_forge` entry |
 
 ### Battle Farming for Boxes
 

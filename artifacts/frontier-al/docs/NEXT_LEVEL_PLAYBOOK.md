@@ -70,7 +70,7 @@ artifacts/frontier-al/
 └── script/                     build.ts, mint-golden-plot.ts, testnet-nft-smoke.ts
 ```
 
-**On-chain model (TestNet, ASA `755818217` = ASCEND):** single admin/custodian wallet
+**On-chain model (TestNet, ASA `764083761` = ASCEND):** single admin/custodian wallet
 signs everything. NFTs = 1-of-1 ARC-3 ASAs for **plots** (`PLOT`), **commanders** (`CMDR`),
 **weapons** (`WPN`); custody-then-deliver (buyer opts in → transfer). **Sub-plots have no
 NFT by design** — anchored via 0-ALGO note txns (`recordUpgradeOnChain`). Faction identity
@@ -78,7 +78,7 @@ ASAs bootstrapped at world init. ASCEND transfers go through a batched atomic-gr
 with Postgres retry.
 
 **Known chain gaps (from `docs/audit/chain-services-audit.md`):**
-- Live ASCEND ASA `755818217` has **no clawback address** (immutable) → `clawbackAscendAsa`
+- Live ASCEND ASA `764083761` has **no clawback address** (immutable) → `clawbackAscendAsa`
   fails against it; in-game ASCEND spends rely on off-chain accounting.
 - `recordUpgradeOnChain` under algosdk v3 is **unverified live** (`smoke:testnet` settles it).
 - One admin key = mint + treasury + custodian. Fine for TestNet; **must** split before mainnet.

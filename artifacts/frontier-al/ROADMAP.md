@@ -3,6 +3,12 @@
 > Full development roadmap covering infrastructure, new features, and visual polish.
 > Organized by phase with sub-categories for each work stream.
 
+> ⚠️ **Superseded.** This file (and `docs/ROADMAP_90DAY.md`) are no longer the live
+> roadmap — the current, actively-maintained plan is the repo-root
+> [`docs/FRONTIER_MASTER_ROADMAP.md`](../../docs/FRONTIER_MASTER_ROADMAP.md) (26 phases;
+> Phase 25 is the current work queue, mirrored in the baton `docs/HANDOFF.md`). Kept here
+> for historical context on the pre-master-roadmap plan.
+
 ---
 
 ## Current State (March 2026)
