@@ -68,7 +68,14 @@ export function ObjectiveHud() {
   return (
     <div
       style={{
-        position: "fixed", top: 10, left: "50%", transform: "translateX(-50%)",
+        // top:10 used to sit directly on top of TopBar's content — TopBar is
+        // laid out normally (sticky top-0) while this is an independent
+        // fixed overlay at z-60, so it visually covered whatever TopBar
+        // rendered at that same screen position (confirmed live: obscured
+        // the "Claim ASCEND" button entirely on mobile). 64px clears
+        // TopBar's real rendered height (matches this codebase's existing
+        // convention for the bottom dock's height, hud.css's --hud-dock-h).
+        position: "fixed", top: 64, left: "50%", transform: "translateX(-50%)",
         zIndex: 60, pointerEvents: "none",
         background: "rgba(6,12,32,0.78)", border: `1px solid ${accent}55`,
         borderRadius: 10, padding: "7px 14px", minWidth: 230, maxWidth: 320,
