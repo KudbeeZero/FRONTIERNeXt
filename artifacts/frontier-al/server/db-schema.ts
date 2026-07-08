@@ -16,6 +16,7 @@ import {
   jsonb,
   text,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 import type { ResolutionSource } from "@shared/schema";
 
@@ -723,7 +724,7 @@ export const plotMintRetryQueue = pgTable(
   },
   (t) => ({
     statusIdx: index("plot_mint_retry_queue_status_idx").on(t.status),
-    plotIdIdx: index("plot_mint_retry_queue_plot_id_idx").on(t.plotId),
+    plotIdUnique: unique("plot_mint_retry_queue_plot_id_unique").on(t.plotId),
   })
 );
 

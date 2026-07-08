@@ -28,7 +28,6 @@ import { eq, and } from "drizzle-orm";
 import { mintLandNft } from "./land";
 import { attemptDelivery } from "./land";
 import { refundAlgoPayment } from "./refund";
-import { getAdminAddress } from "./client";
 
 const MAX_ATTEMPTS = 5;
 
@@ -44,27 +43,53 @@ export interface EnqueuePlotMintRetryParams {
 
 /**
  * Insert a pending plot mint retry row.
+ * If a row already exists for this plot_id, update it to pending with reset attempts.
  * The mint is NOT attempted immediately — `drainPlotMintRetries` will pick it up.
  */
 export async function enqueuePlotMintRetry(params: EnqueuePlotMintRetryParams): Promise<void> {
   const now = Date.now();
-  await db.insert(plotMintRetryQueue).values({
-    id: randomUUID(),
-    plotId: params.plotId,
-    playerId: params.playerId,
-    buyerAddress: params.buyerAddress,
-    algoPaymentTxId: params.algoPaymentTxId ?? null,
-    amountMicroAlgos: params.amountMicroAlgos ?? null,
-    status: "pending",
-    attempts: 0,
-    lastError: null,
-    refundTxId: null,
-    createdAt: now,
-    updatedAt: now,
-  });
-  console.log(
-    `[mintRetryQueue] enqueued plotId=${params.plotId} buyer=${params.buyerAddress}`
-  );
+
+  // Check if a row already exists for this plot_id (handles duplicate enqueues)
+  const [existing] = await db
+    .select()
+    .from(plotMintRetryQueue)
+    .where(eq(plotMintRetryQueue.plotId, params.plotId))
+    .limit(1);
+
+  if (existing) {
+    // Update existing row to pending with reset attempts
+    await db
+      .update(plotMintRetryQueue)
+      .set({
+        status: "pending",
+        attempts: 0,
+        lastError: null,
+        updatedAt: now,
+      })
+      .where(eq(plotMintRetryQueue.id, existing.id));
+    console.log(
+      `[mintRetryQueue] re-enqueued plotId=${params.plotId} buyer=${params.buyerAddress} (existing row reset)`
+    );
+  } else {
+    // Insert new row
+    await db.insert(plotMintRetryQueue).values({
+      id: randomUUID(),
+      plotId: params.plotId,
+      playerId: params.playerId,
+      buyerAddress: params.buyerAddress,
+      algoPaymentTxId: params.algoPaymentTxId ?? null,
+      amountMicroAlgos: params.amountMicroAlgos ?? null,
+      status: "pending",
+      attempts: 0,
+      lastError: null,
+      refundTxId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    console.log(
+      `[mintRetryQueue] enqueued plotId=${params.plotId} buyer=${params.buyerAddress}`
+    );
+  }
 }
 
 /**

@@ -74,6 +74,16 @@ describe("mintRetryQueue", () => {
         amountMicroAlgos: 1000000,
       };
 
+      // Mock query chain: check for existing row (returns empty)
+      mockSelect
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        });
+
       await enqueuePlotMintRetry(params);
 
       expect(mockInsert).toHaveBeenCalledWith(plotMintRetryQueue);

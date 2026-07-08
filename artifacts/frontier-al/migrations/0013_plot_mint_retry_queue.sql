@@ -26,5 +26,5 @@ CREATE TABLE IF NOT EXISTS "plot_mint_retry_queue" (
 CREATE INDEX IF NOT EXISTS "plot_mint_retry_queue_status_idx"
   ON "plot_mint_retry_queue" ("status");
 
-CREATE INDEX IF NOT EXISTS "plot_mint_retry_queue_plot_id_idx"
+CREATE UNIQUE INDEX IF NOT EXISTS "plot_mint_retry_queue_plot_id_unique"
   ON "plot_mint_retry_queue" ("plot_id");

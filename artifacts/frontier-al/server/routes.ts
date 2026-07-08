@@ -1136,8 +1136,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "No failed mint found for this plot" });
       }
 
-      if (retryRow.status === "delivered" || retryRow.status === "refunded") {
-        return res.json({ success: false, reason: `already_${retryRow.status}` });
+      if (retryRow.status === "delivered" || retryRow.status === "refunded" || retryRow.status === "refund_needed" || retryRow.status === "refund_failed") {
+        return res.json({ success: false, reason: `transaction_${retryRow.status}` });
       }
 
       // Reset attempts to allow immediate retry
@@ -2180,11 +2180,19 @@ export async function registerRoutes(
                     .where(eq(plotNftsTable.plotId, parcel.plotId));
                   console.log(`[purchase] plotId=${parcel.plotId} NFT auto-delivered to ${buyerAddress}`);
                   void recordPurchaseTransition({ ...intentBase, state: "complete", event: "delivery_complete", metadata: { plotId: parcel.plotId, assetId: result.assetId } });
-                } else if (delivery.reason === "transfer_failed") {
-                  // CRITICAL: payment received and NFT minted but delivery failed — flag for admin review
-                  console.error(`[CRITICAL] plotId=${parcel.plotId} NFT delivery failed after payment. assetId=${result.assetId} buyer=${buyerAddress} reason=${delivery.reason}`);
-                  void recordPurchaseTransition({ ...intentBase, state: "failed", event: "delivery_failed", lastError: "transfer_failed", metadata: { plotId: parcel.plotId, assetId: result.assetId } });
-                } else {
+} else if (delivery.reason === "transfer_failed") {
+                   // CRITICAL: payment received and NFT minted but delivery failed — flag for admin review
+                   console.error(`[CRITICAL] plotId=${parcel.plotId} NFT delivery failed after payment. assetId=${result.assetId} buyer=${buyerAddress} reason=${delivery.reason}`);
+                   void recordPurchaseTransition({ ...intentBase, state: "failed", event: "delivery_failed", lastError: "transfer_failed", metadata: { plotId: parcel.plotId, assetId: result.assetId } });
+                   // Enqueue for retry so the worker can attempt delivery again
+                   await enqueuePlotMintRetry({
+                     plotId: parcel.plotId,
+                     playerId: action.playerId,
+                     buyerAddress,
+                     algoPaymentTxId: action.algoPaymentTxId,
+                     amountMicroAlgos: parcel.purchasePriceAlgo ? Math.round(parcel.purchasePriceAlgo * 1e6) : undefined,
+                   });
+                 } else {
                   console.log(`[purchase] plotId=${parcel.plotId} NFT in custody (${delivery.reason}) — buyer must opt-in then call /api/nft/deliver/${parcel.plotId}`);
                   void recordPurchaseTransition({ ...intentBase, state: "inventory_syncing", event: "delivery_pending_optin", metadata: { plotId: parcel.plotId, assetId: result.assetId, reason: delivery.reason } });
                 }
