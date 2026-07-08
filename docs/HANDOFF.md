@@ -26,35 +26,18 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT · PR #227 open · main green at `26bfba6`
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `69b494d`
 
-### 2026-07-08 — Economics formatter fix + known-issues investigation
+### 2026-07-08 — PR #227 audited and merged
 
-PR #226 (repo hygiene, docs-only) merged. Then investigated 4 backlog issues from the baton,
-fixed the highest-impact one (economics panel display bugs, owner-flagged).
+**#227 (`fix/economics-formatter-accuracy`) — MERGED as `69b494d`.** Audited PASS. Owner flagged "I don't think any of this information is accurate." Root cause: `fmt()` in `EconomicsPanel.tsx` and `landing-economics.tsx` had no billions tier and only 1-decimal precision at the millions scale — Treasury (~999.95M) and Total Supply (1B) both displayed as "1000.0M". Also hardcoded "0.5–1.5 ASCEND/hr" emission text didn't match actual 50/day (testing) or 1/day (production) rates. Fixed: extracted shared `fmtSupply()` to `client/src/lib/fmtSupply.ts` with billions tier + 2-decimal precision; emission text now reads live `data.emissionRatePerDay` dynamically. 11 new regression tests. Audit: [docs/audits/pr-227-audit.md](./audits/pr-227-audit.md).
 
-**#227 (`fix/economics-formatter-accuracy`) — AWAITING_AUDIT.** Owner flagged "I don't think any
-of this information is accurate." Root cause: `fmt()` in `EconomicsPanel.tsx` and
-`landing-economics.tsx` had no billions tier and only 1-decimal precision at the millions scale —
-Treasury (~999.95M) and Total Supply (1B) both displayed as "1000.0M". Also hardcoded "0.5–1.5
-ASCEND/hr" emission text didn't match actual 50/day (testing) or 1/day (production) rates. Fixed:
-extracted shared `fmtSupply()` to `client/src/lib/fmtSupply.ts` with billions tier + 2-decimal
-precision; emission text now reads live `data.emissionRatePerDay` dynamically. 11 new regression
-tests. Verified green: `check` clean, `test:server` 458/24 skipped, `test` 351/351 (+11), `build`
-clean. Session note:
-[2026-07-08-economics-formatter-and-known-issues](../artifacts/frontier-al/session-notes/2026-07-08-economics-formatter-and-known-issues.md).
+**PR #228 (z-index hardening) — CLOSED.** Another session is handling the backlog items. The z-index fixes (CommTerminal z-40, hud-drawer z-49) were valid but created without coordinating with the session already working on those items.
 
-**Other findings (investigated, not fixed — backlog):**
-- **WebGL context loss (G2):** confirmed zero handling — 0 `webglcontextlost`/`visibilitychange`/`pageshow`
-  listeners across the entire client. 27 `useFrame` hooks + 7 DOM rAF loops at risk. Globe will
-  freeze/go black after mobile tab backgrounds. Needs: context loss handler hook + visibility change
-  listener + R3F invalidate. Not fixed — design call needed on recovery UX.
-- **CommTerminal z-40 fragility:** confirmed `CommTerminal.tsx:122` at `z-40` is below mobile
-  bottomNav (`z-50`). Also `hud.css` `.hud-drawer` at `z-49`. ZClass registry only covers 4 of 10
-  layers; 12+ game components use hardcoded z-values. Needs z-index hardening pass.
-- **Broken image paths (404s):** 8 weapon PNGs + 4 faction SVGs referenced by on-chain metadata
-  routes don't exist on disk. Faction path is permanent (baked into ASA at creation). Blocked on
-  art assets from owner.
+**Remaining backlog (being handled by another session):**
+- **WebGL context loss (G2):** confirmed zero handling — 0 `webglcontextlost`/`visibilitychange`/`pageshow` listeners across the entire client. 27 `useFrame` hooks + 7 DOM rAF loops at risk. Globe will freeze/go black after mobile tab backgrounds. Needs: context loss handler hook + visibility change listener + R3F invalidate. Design call needed on recovery UX.
+- **CommTerminal z-40 fragility:** confirmed `CommTerminal.tsx:122` at `z-40` is below mobile bottomNav (`z-50`). Also `hud.css` `.hud-drawer` at `z-49`. ZClass registry only covers 4 of 10 layers; 12+ game components use hardcoded z-values. Needs z-index hardening pass.
+- **Broken image paths (404s):** 8 weapon PNGs + 4 faction SVGs referenced by on-chain metadata routes don't exist on disk. Faction path is permanent (baked into ASA at creation). Blocked on art assets from owner.
 
 ### 2026-07-08 — Repo hygiene pass: stale branches purged, baton refreshed, main green
 
