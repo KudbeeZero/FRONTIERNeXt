@@ -26,23 +26,29 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT · PR #227 open · main green at `26bfba6`
+## Current baton — 🟡 AWAITING_AUDIT · PR #228 open · main green at `69b494d`
 
-### 2026-07-08 — Economics formatter fix + known-issues investigation
+### 2026-07-08 — Z-index hardening (CommTerminal + hud-drawer above bottomNav)
 
-PR #226 (repo hygiene, docs-only) merged. Then investigated 4 backlog issues from the baton,
-fixed the highest-impact one (economics panel display bugs, owner-flagged).
+PR #227 (economics formatter fix) audited PASS and merged as `69b494d`. Then fixed two z-index
+stacking bugs from the backlog.
 
-**#227 (`fix/economics-formatter-accuracy`) — AWAITING_AUDIT.** Owner flagged "I don't think any
-of this information is accurate." Root cause: `fmt()` in `EconomicsPanel.tsx` and
-`landing-economics.tsx` had no billions tier and only 1-decimal precision at the millions scale —
-Treasury (~999.95M) and Total Supply (1B) both displayed as "1000.0M". Also hardcoded "0.5–1.5
-ASCEND/hr" emission text didn't match actual 50/day (testing) or 1/day (production) rates. Fixed:
-extracted shared `fmtSupply()` to `client/src/lib/fmtSupply.ts` with billions tier + 2-decimal
-precision; emission text now reads live `data.emissionRatePerDay` dynamically. 11 new regression
-tests. Verified green: `check` clean, `test:server` 458/24 skipped, `test` 351/351 (+11), `build`
-clean. Session note:
-[2026-07-08-economics-formatter-and-known-issues](../artifacts/frontier-al/session-notes/2026-07-08-economics-formatter-and-known-issues.md).
+**#228 (`fix/z-index-hardening`) — AWAITING_AUDIT.** Extended `ZClass` registry in `uiLayers.ts`
+to cover all 10 Z layers (previously only 4). Fixed two confirmed stacking bugs: (1) `CommTerminal.tsx:122`
+had hardcoded `z-40` at `fixed bottom-20` — visually above mobile bottomNav (z-50) but behind in
+stacking context; changed to `ZClass.toast` (z-60). (2) `hud.css` `.hud-drawer` and `.hud-drawer-track`
+had `z-index: 49` — visually above `.hud-dock` (z-50) but behind in stacking context; changed to
+`z-index: 55` (plotSheet level). Same class of fragility as the LandSheet z-index bug fixed in PR #221.
+Verified green: `check` clean, `test` 351/351, `build` clean.
+
+**Remaining backlog (not fixed):**
+- **WebGL context loss (G2):** confirmed zero handling — 0 `webglcontextlost`/`visibilitychange`/`pageshow`
+  listeners across the entire client. 27 `useFrame` hooks + 7 DOM rAF loops at risk. Globe will
+  freeze/go black after mobile tab backgrounds. Needs: context loss handler hook + visibility change
+  listener + R3F invalidate. Design call needed on recovery UX.
+- **Broken image paths (404s):** 8 weapon PNGs + 4 faction SVGs referenced by on-chain metadata
+  routes don't exist on disk. Faction path is permanent (baked into ASA at creation). Blocked on
+  art assets from owner.
 
 **Other findings (investigated, not fixed — backlog):**
 - **WebGL context loss (G2):** confirmed zero handling — 0 `webglcontextlost`/`visibilitychange`/`pageshow`
