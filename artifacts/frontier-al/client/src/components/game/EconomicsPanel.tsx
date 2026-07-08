@@ -1,4 +1,5 @@
 import { resolveApiUrl } from "@/lib/queryClient";
+import { fmtSupply as fmt } from "@/lib/fmtSupply";
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp,
@@ -51,13 +52,6 @@ interface EconomicsData {
   currentDailyBaseEmission: number;
   projectedEmissions: Record<string, number>;
   testingPrices?: TestingPrices;
-}
-
-function fmt(n: number | undefined | null, decimals = 2): string {
-  if (n == null || isNaN(n)) return "0";
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-  return n.toFixed(decimals);
 }
 
 function pct(part: number | undefined | null, total: number | undefined | null): string {
@@ -486,7 +480,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                 <p className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-2">How to Earn ASCEND</p>
                 <div className="bg-card/60 border border-border/50 rounded-lg p-3 space-y-2">
                   {[
-                    { label: "Own Land Plots", desc: "Each biome generates 0.5–1.5 ASCEND/hr passively" },
+                    { label: "Own Land Plots", desc: `Each parcel earns ${data.emissionRatePerDay} ASCEND/day passively` },
                     { label: "Booster Buildings", desc: "Blockchain nodes, data centres & AI labs multiply your yield" },
                     { label: "Welcome Bonus", desc: "New commanders receive 500 ASCEND on wallet connection" },
                     { label: "Claim On-Chain", desc: "Accumulated tokens sent directly to your Algorand wallet" },
