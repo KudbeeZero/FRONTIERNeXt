@@ -17,7 +17,6 @@ import { Mail, Wallet, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { PLAYER_FACTIONS, chosenFaction, chooseFaction, nextFactionSync, asPlayerFactionId, shouldShowFactionGate } from "@/lib/factions";
 import { FACTION_EMBLEMS } from "@/lib/factionEmblems";
-import { DEV_MODE, startDevSession } from "@/lib/devSession";
 import { getAuthToken, setAuthToken } from "@/lib/authToken";
 import { goToGame } from "@/lib/gameUrl";
 import { validateWaitlistSignup, type PlayerFactionId } from "@shared/waitlist";
@@ -92,27 +91,6 @@ export function FactionSelectGate() {
     setBusy(true);
     chooseFaction(selected);
 
-    // No-wallet playtest entry: in dev/playtest builds (VITE_DEV_MODE), if there's
-    // no session yet, sign in as the shared test player so picking a faction
-    // actually drops you into the game — no wallet, no funds. Requires the server's
-    // DEV_LOGIN_ENABLED; on a normal deploy quick-auth 403s and we just continue to
-    // the usual wallet flow (no crash). On success we reload /game so the app picks
-    // up the fresh session instead of falling through to the wallet gate.
-    let establishedDevSession = false;
-    if (DEV_MODE && !getAuthToken()) {
-      try {
-        const res = await apiRequest("POST", "/api/dev/quick-auth", {});
-        const data = await res.json().catch(() => ({}));
-        if (data?.token && data?.address) {
-          setAuthToken(data.token);
-          startDevSession(data.address);
-          establishedDevSession = true;
-        }
-      } catch {
-        /* dev login disabled on this server — fall through to the wallet flow */
-      }
-    }
-
     // Persist the alignment to the player's record (best-effort) so the faction is
     // attached to the wallet/DB, not just localStorage. Never blocks entry.
     try {
@@ -150,13 +128,6 @@ export function FactionSelectGate() {
       }
     }
 
-    // If we just signed in without a wallet, reload /game so the app re-reads the
-    // session and drops straight into the game (otherwise it would still show the
-    // wallet gate). Otherwise just dismiss the overlay.
-    if (establishedDevSession) {
-      goToGame();
-      return;
-    }
     setVisible(false);
   };
 

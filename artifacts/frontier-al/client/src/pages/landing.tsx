@@ -5,7 +5,6 @@ import heroPlanetImg from "@assets/landing-hero-planet.jpg";
 import { GAME_URL, goToGame } from "@/lib/gameUrl";
 import { apiRequest, resolveApiUrl } from "@/lib/queryClient";
 import { setAuthToken } from "@/lib/authToken";
-import { DEV_MODE, DEV_AUTOLOGIN, startDevSession, devSessionActive, shouldDevAutoLogin } from "@/lib/devSession";
 
 // Live token/world snapshot shared by HypeTicker + TokenSection — same
 // queryKey as landing-economics.tsx, so react-query dedupes the request.
@@ -507,54 +506,6 @@ export default function LandingPage() {
   // and the game's own 3D loader cover the transition.
   const handleEnter = () => { goToGame(); };
 
-  // DEV / TEST entry: sign in as a persistent test player (no wallet) and enter
-  // the game. Shown only when VITE_DEV_MODE === "true"; backed by the server's
-  // DEV_LOGIN_ENABLED-gated /api/dev/quick-auth.
-  const [devBusy, setDevBusy] = useState(false);
-
-  // Shared dev entry: server quick-auth → store token + session → enter game.
-  // Returns false if the server hasn't enabled DEV_LOGIN_ENABLED (the 403 gate),
-  // so callers can decide whether to surface that.
-  const quickAuthAndEnter = async (): Promise<boolean> => {
-    const res = await apiRequest("POST", "/api/dev/quick-auth", {});
-    const data = await res.json();
-    if (data?.token && data?.address) {
-      setAuthToken(data.token);
-      startDevSession(data.address);
-      goToGame();
-      return true;
-    }
-    return false;
-  };
-
-  const handleDevMode = async () => {
-    if (devBusy) return;
-    setDevBusy(true);
-    try {
-      const ok = await quickAuthAndEnter();
-      if (!ok) {
-        alert("Dev mode is not enabled on this server (set DEV_LOGIN_ENABLED=true).");
-        setDevBusy(false);
-      }
-    } catch {
-      alert("Dev login failed — is DEV_LOGIN_ENABLED=true on the server?");
-      setDevBusy(false);
-    }
-  };
-
-  // Zero-click dev auto-login: when VITE_DEV_MODE and VITE_DEV_AUTOLOGIN are both
-  // "true" and no dev session is active yet, sign in as the test player and enter
-  // the game on load — no button click. Stays fail-closed behind the server's
-  // DEV_LOGIN_ENABLED gate: if the server hasn't enabled it, we silently stay on
-  // the landing page (button still available).
-  useEffect(() => {
-    if (!shouldDevAutoLogin(DEV_MODE, DEV_AUTOLOGIN, devSessionActive())) return;
-    void quickAuthAndEnter().catch(() => {
-      /* server gate off or network error — stay on the landing page */
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Scroll-driven hero blur — rAF-throttled (one frame per scroll burst). Skip
   // entirely under reduced motion. Cleans up the listener + any pending rAF.
   useEffect(() => {
@@ -659,15 +610,6 @@ export default function LandingPage() {
                 cursor: "pointer", fontWeight: 700, fontFamily: "inherit",
                 boxShadow: "0 0 24px rgba(60,100,255,0.2)",
               }}>▶ Enter Game</button>
-              {DEV_MODE && (
-                <button onClick={handleDevMode} disabled={devBusy} title="Enter as a test player — no wallet needed (TestNet dev tool)" className="hero-btn-ripple" style={{
-                  background: "rgba(255,176,32,0.16)", border: "1px solid rgba(255,176,32,0.55)",
-                  borderRadius: 8, padding: "13px 24px", color: "rgba(255,210,120,0.95)",
-                  fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase",
-                  cursor: devBusy ? "wait" : "pointer", fontWeight: 700, fontFamily: "inherit",
-                  boxShadow: "0 0 24px rgba(255,176,32,0.14)", opacity: devBusy ? 0.6 : 1,
-                }}>⚙ {devBusy ? "Entering…" : "Dev / Test Mode"}</button>
-              )}
               {/* Story prologue — Aether's Journey. Real <a> (not wouter) so the
                   static bundle served at /story/ loads instead of the SPA router. */}
               <a href="/story/" style={{

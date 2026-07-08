@@ -15,7 +15,6 @@ import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/rea
 import { cn } from "@/lib/utils";
 import { ATTACK_ICONS } from "@/lib/attackIcons";
 import { serverNow } from "@/lib/serverClock";
-import { devSessionActive, effectiveInCustody } from "@/lib/devSession";
 import { CommanderCombatRecord } from "./CommanderCombatRecord";
 import { SatelliteCard } from "./commander/SatelliteCard";
 import { DroneCard } from "./commander/DroneCard";
@@ -162,13 +161,10 @@ export function CommanderPanel({
     })),
   });
 
-  // The dev/test player can never claim (sentinel wallet) — collapse custody to
-  // false so the claim banner + rows never nag it.
-  const isDevPlayer = devSessionActive();
   const pendingNftPlots = ownedParcels.slice(0, 25).flatMap((parcel, idx) => {
     const d = plotNftQueries[idx]?.data;
     if (!d?.assetId) return [];
-    const inCustody = effectiveInCustody(!!d.mintedToAddress && d.mintedToAddress !== wallet?.address, isDevPlayer);
+    const inCustody = !!d.mintedToAddress && d.mintedToAddress !== wallet?.address;
     if (!inCustody) return [];
     return [{ plotId: parcel.plotId, assetId: d.assetId, biome: parcel.biome as string }];
   });
@@ -349,8 +345,7 @@ export function CommanderPanel({
               </div>
             )}
           </div>
-          {!isDevPlayer && (
-            <button
+          <button
               onClick={() => setShowMintSection(!showMintSection)}
               className="shrink-0 px-3 py-2 rounded-lg text-[10px] font-display font-bold uppercase tracking-wide leading-tight text-center transition-all"
               style={{
@@ -366,7 +361,6 @@ export function CommanderPanel({
               MINT<br />
               <span className="font-mono text-[9px] opacity-80">{COMMANDER_INFO[selectedTier]?.mintCostAscend ?? 10} ASCEND</span>
             </button>
-          )}
         </div>
 
         {/* Bottom border glow */}

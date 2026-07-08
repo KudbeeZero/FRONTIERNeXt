@@ -52,7 +52,6 @@ import { SelectedPlotPanel } from "./SelectedPlotPanel";
 import { sendPaymentTransaction, batchOptInToASAs } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
-import { DEV_MODE, devSessionActive } from "@/lib/devSession";
 import { isRailTab, resolveRailTab, type RailTab } from "@/lib/panelNav";
 
 export function GameLayout() {
@@ -982,15 +981,6 @@ export function GameLayout() {
   }
 
   if (!isConnected && !TEST_GLOBE) {
-    // Dev/playtest builds: if no session is active, redirect to the landing page
-    // where the auto-login fires and sends the player back into the game as the
-    // test commander. Covers the case where someone lands on /game directly
-    // (bypassing the landing) or their session was cleared. DEV_MODE=false on
-    // mainnet/Cloudflare builds, so this branch never fires there.
-    if (DEV_MODE && !devSessionActive()) {
-      window.location.replace("/");
-      return null;
-    }
     return (
       <div className="min-h-screen overflow-y-auto bg-background flex flex-col" data-testid="wallet-gate">
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">

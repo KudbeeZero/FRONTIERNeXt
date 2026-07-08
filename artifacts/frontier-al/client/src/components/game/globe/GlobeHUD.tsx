@@ -11,7 +11,6 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { LandParcel, Player } from "@shared/schema";
 import { Sword, HardHat, Pickaxe, Zap, Gift, Crosshair } from "lucide-react";
 import { useChainHealth } from "@/hooks/useGameSocket";
-import { effectiveInCustody } from "@/lib/devSession";
 import { StrikePanel } from "./StrikePanel";
 
 // ── GlobeHUD ──────────────────────────────────────────────────────────────────
@@ -345,7 +344,7 @@ export function ParcelHUD({ parcel, currentPlayerId, playerMap, onAttack, onMine
                 style={{ background: "#4fc3f712", border: "1px solid #4fc3f735", color: "#4fc3f7" }}>
                 <HardHat className="w-3.5 h-3.5" /> Develop
               </button>
-              {effectiveInCustody(nftInfo?.inCustody) && (
+              {!!nftInfo?.inCustody && (
                 <button
                   onClick={onDeliverNft}
                   disabled={isDeliveringNft}

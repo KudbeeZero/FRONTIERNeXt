@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { effectiveInCustody } from "@/lib/devSession";
 import { ATTACK_ICONS } from "@/lib/attackIcons";
 import { SubParcelGrid } from "./land/SubParcelGrid";
 import { CooldownTimer } from "./land/CooldownTimer";
@@ -106,7 +105,7 @@ export function LandSheet({
   const canMine = isOwned && Date.now() - parcel.lastMineTs >= MINE_COOLDOWN_MS;
   // Dev/test player can never claim — never treat its plots as escrow-locked, so
   // mining/upgrades stay unlocked and no claim prompt shows.
-  const inCustody = effectiveInCustody(nftInfo?.inCustody);
+  const inCustody = !!nftInfo?.inCustody;
   const biomeBonus = biomeBonuses[parcel.biome];
   const totalStored = parcel.ironStored + parcel.fuelStored + parcel.crystalStored;
   const storagePercent = (totalStored / parcel.storageCapacity) * 100;

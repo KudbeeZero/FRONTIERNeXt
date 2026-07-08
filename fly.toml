@@ -8,34 +8,11 @@ primary_region = 'ord'
 
 [build]
   dockerfile = 'Dockerfile'
-  # Build-time client flags (Vite bakes these into the bundle). VITE_DEV_MODE turns
-  # on the no-wallet "AI Battle Test" playtest entry: the faction-select gate signs
-  # visitors in as the shared test player (paired with DEV_LOGIN_ENABLED below) so
-  # they can play with NO wallet and NO funds. TestNet only — never set on a mainnet
-  # build. Remove these args (and DEV_LOGIN_ENABLED) to require real wallets again.
-  [build.args]
-    VITE_DEV_MODE = 'true'
-    # VITE_DEV_AUTOLOGIN was 'true' here — zero-click sign-in as the shared
-    # test player on EVERY page load, for EVERY visitor, real wallet or not.
-    # Removed 2026-07-06: it was silently hijacking real players into the
-    # non-spendable dev/test identity (can't sign out, can't purchase land —
-    # see session-notes/2026-07-06-fix-dev-autologin-wallet-hijack.md).
-    # The manual "⚙ Dev / Test Mode" button (VITE_DEV_MODE above) still works
-    # for opt-in no-wallet playtesting; it just no longer fires automatically.
 
 [env]
   ALGORAND_NETWORK = 'testnet'
   NODE_ENV = 'production'
   PORT = '5000'
-  # Server half of the no-wallet playtest: enables POST /api/dev/quick-auth so the
-  # faction gate can sign visitors in without a wallet. Fail-closed in code (only
-  # "true" enables it); the test player is a non-spendable sentinel. TestNet only.
-  DEV_LOGIN_ENABLED = 'true'
-  # TestNet testing toggle: plot + commander purchases are FREE (no ALGO/ASCEND
-  # charge). Safe-by-default — computeFreePurchases force-disables this on
-  # mainnet / ECONOMY_MODE=production, so it can never make mainnet purchases
-  # free. Remove this line (or set ECONOMY_MODE=production) to charge again.
-  FREE_PURCHASES = 'true'
 
 [http_service]
   internal_port = 5000

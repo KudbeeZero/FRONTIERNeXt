@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import { DEV_MODE, devSessionActive, devSessionAddress, endDevSession } from "@/lib/devSession";
 import { useWallet as useWalletLib } from "@txnlab/use-wallet-react";
 import {
   getAccountBalance,
@@ -407,11 +406,6 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     } catch {
       /* storage unavailable (private mode / SSR) — hint is best-effort */
     }
-    // A REAL wallet just became active — it always wins over the dev/test
-    // identity. Purge any lingering dev session (e.g. a VITE_DEV_AUTOLOGIN one
-    // started on the landing page) so it can't shadow the connected wallet on
-    // the /game route, where the post-nav resume gap briefly drops isConnected.
-    if (DEV_MODE && devSessionActive()) endDevSession();
   }, [activeAddress]);
 
   // ── Wallet-signature authentication ─────────────────────────────────────────
@@ -598,12 +592,6 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
     } catch {
       /* best-effort */
     }
-    // A lingering dev/test session (e.g. from VITE_DEV_AUTOLOGIN) must be
-    // cleared here too — otherwise `shouldUseDevIdentity` immediately
-    // re-shadows the now-genuinely-disconnected wallet with the dev identity
-    // on the very next render, and "Disconnect" silently does nothing from
-    // the player's point of view.
-    if (shouldEndDevSessionOnDisconnect(DEV_MODE, devSessionActive())) endDevSession();
     void logoutWallet();
   }, [wallets]);
 
@@ -713,79 +701,10 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   );
 }
 
-/**
- * Whether to present the DEV / TEST identity instead of the real wallet context.
- *
- * The dev/test player is a FALLBACK for no-wallet play — a real wallet always
- * wins. We gate on `walletStatus === "disconnected"` (not merely `!isConnected`)
- * so the dev identity can't shadow a wallet that is still **restoring** after the
- * full-page nav into /game: during that resume gap `isConnected` is briefly false
- * but the status is "restoring", and the connected Lute wallet must win once it
- * lands. Pure so the precedence is unit-pinned without a DOM.
- */
-export function shouldUseDevIdentity(
-  devMode: boolean,
-  walletStatus: WalletStatus,
-  devActive: boolean,
-): boolean {
-  return devMode && devActive && walletStatus === "disconnected";
-}
-
-/**
- * Whether an explicit user disconnect should also end an active dev/test
- * session. Without this, a lingering dev session (started by
- * `VITE_DEV_AUTOLOGIN` or the manual Dev/Test button) survives "Disconnect" —
- * so {@link shouldUseDevIdentity} fires again on the next render and the dev
- * identity re-shadows the wallet the player just tried to leave.
- */
-export function shouldEndDevSessionOnDisconnect(
-  devMode: boolean,
-  devActive: boolean,
-): boolean {
-  return devMode && devActive;
-}
-
-/**
- * `authVersion` is what gates `useGameSocket`'s connect effect (`!authTrigger`
- * blocks it) — it's normally bumped by the real wallet's `authenticate()` on
- * success. A dev/test session never calls `authenticate()` (it gets its
- * session token from `POST /api/dev/quick-auth` instead), so `authVersion`
- * would stay at its initial `0` — permanently falsy — for the entire life of
- * a dev session, silently blocking the live WebSocket (weapon fire, battle
- * resolution, chain-health) even though a valid token exists. Force a truthy
- * value whenever the dev identity is active so the same gate that works for
- * real wallets also opens for dev sessions.
- */
-export function devIdentityAuthVersion(contextAuthVersion: number): number {
-  return contextAuthVersion || 1;
-}
-
 export function useWallet() {
   const context = useContext(WalletContext);
   if (!context) {
     throw new Error("useWallet must be used within a WalletProvider");
-  }
-  // DEV / TEST entry: when a dev session is active and no real wallet is
-  // connected (or restoring), present the dev address as a connected +
-  // authenticated identity so the whole game runs as the test player. The
-  // matching server session token is set by the landing page's dev button
-  // (POST /api/dev/quick-auth). A real wallet always takes precedence.
-  if (shouldUseDevIdentity(DEV_MODE, context.walletStatus, devSessionActive())) {
-    const address = devSessionAddress();
-    if (address) {
-      return {
-        ...context,
-        isConnected: true,
-        walletStatus: "connected" as WalletStatus,
-        address,
-        displayAddress: formatAddress(address),
-        signerReady: true,
-        blockchainReady: true,
-        isReady: true,
-        isAuthenticated: true,
-        authVersion: devIdentityAuthVersion(context.authVersion),
-      };
-    }
   }
   return context;
 }
