@@ -16,6 +16,7 @@ import {
   jsonb,
   text,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 import type { ResolutionSource } from "@shared/schema";
 
@@ -691,3 +692,41 @@ export const pendingAscendTransfers = pgTable(
 
 export type PendingAscendTransferRow    = typeof pendingAscendTransfers.$inferSelect;
 export type InsertPendingAscendTransfer = typeof pendingAscendTransfers.$inferInsert;
+
+// ─── plot_mint_retry_queue ─────────────────────────────────────────────────────
+// Persistent retry queue for Plot NFT mints that fail AFTER the buyer's ALGO
+// payment has already been claimed (redeemed_payments) and land ownership
+// committed. A row is inserted whenever the fire-and-forget mint in
+// POST /api/actions/purchase rejects. The background worker
+// (services/chain/mintRetryQueue.ts) drains this table, retrying the mint
+// until it succeeds or MAX_ATTEMPTS is reached, at which point it escalates
+// to a refund (services/chain/refund.ts) so the buyer is never left with
+// ALGO consumed and nothing delivered.
+//
+// Status lifecycle: pending -> delivered
+//                           -> refund_needed -> refunded | refund_failed
+
+export const plotMintRetryQueue = pgTable(
+  "plot_mint_retry_queue",
+  {
+    id:               text("id").primaryKey(),                                       // UUID
+    plotId:           integer("plot_id").notNull(),
+    playerId:         text("player_id").notNull(),
+    buyerAddress:     text("buyer_address").notNull(),
+    algoPaymentTxId:  text("algo_payment_tx_id"),                                    // for refund + replay-guard release
+    amountMicroAlgos: bigint("amount_micro_algos", { mode: "number" }),              // for refund amount
+    status:           varchar("status", { length: 20 }).notNull().default("pending"), // pending|delivered|refund_needed|refunded|refund_failed
+    attempts:         integer("attempts").notNull().default(0),
+    lastError:        text("last_error"),
+    refundTxId:       text("refund_tx_id"),
+    createdAt:        bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt:        bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (t) => ({
+    statusIdx: index("plot_mint_retry_queue_status_idx").on(t.status),
+    plotIdUnique: unique("plot_mint_retry_queue_plot_id_unique").on(t.plotId),
+  })
+);
+
+export type PlotMintRetryRow    = typeof plotMintRetryQueue.$inferSelect;
+export type InsertPlotMintRetry = typeof plotMintRetryQueue.$inferInsert;

@@ -275,6 +275,10 @@ app.use((req, res, next) => {
   const { startAscendTransferWorker } = await import("./services/chain/transferQueue");
   startAscendTransferWorker();
   console.log("[startup] FRONTIER transfer retry worker started ✓");
+  // Start persistent Plot NFT mint retry worker (M1-5)
+  const { startPlotMintRetryWorker } = await import("./services/chain/mintRetryQueue");
+  startPlotMintRetryWorker();
+  console.log("[startup] Plot NFT mint retry worker started ✓");
 
   // Surface whether security state (auth nonces + enumeration/auth rate limits)
   // is shared across instances (Redis) or per-instance (memory). The latter is

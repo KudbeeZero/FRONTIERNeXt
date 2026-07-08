@@ -13,6 +13,10 @@ import { Gift, X, ExternalLink, Shield, MapPin, Loader2 } from "lucide-react";
 import { devSessionActive } from "@/lib/devSession";
 import type { Player, LandParcel } from "@shared/schema";
 
+type ClaimableItem = 
+  | { key: string; type: "commander"; id: string; name: string; tier: string; assetId: number | null; mintStatus: "minted" | "failed" }
+  | { key: string; type: "plot"; plotId: number; assetId: number | null; biome: string; mintStatus: "minted" | "failed" | "minting"; error?: string };
+
 interface NftClaimNotificationProps {
   commanders: Player["commanders"];
   ownedParcels: LandParcel[];
@@ -22,9 +26,11 @@ interface NftClaimNotificationProps {
   onClaimCommander: (commanderId: string) => void;
   onRetryCommanderMint: (commanderId: string) => void;
   onDeliverPlotNft?: (plotId: number, assetId: number) => void;
+  onRetryPlotMint?: (plotId: number) => void;
   isClaimingCommander?: boolean;
   isRetryingCommanderMint?: string | null;
   isDeliveringPlotId?: number | null;
+  isRetryingPlotMint?: number | null;
 }
 
 export function NftClaimNotification({
@@ -36,9 +42,11 @@ export function NftClaimNotification({
   onClaimCommander,
   onRetryCommanderMint,
   onDeliverPlotNft,
+  onRetryPlotMint,
   isClaimingCommander,
   isRetryingCommanderMint,
   isDeliveringPlotId,
+  isRetryingPlotMint,
 }: NftClaimNotificationProps) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -69,36 +77,54 @@ export function NftClaimNotification({
         const res = await fetch(resolveApiUrl(`/api/nft/plot/${parcel.plotId}`));
         if (res.status === 404) return null;
         if (!res.ok) return null;
-        return res.json() as Promise<{ plotId: number; assetId: number | null; mintedToAddress: string | null } | null>;
+        return res.json() as Promise<{ plotId: number; assetId: number | null; mintedToAddress: string | null; status?: string; error?: string } | null>;
       },
       staleTime: 30_000,
-      refetchInterval: 30_000,
+      refetchInterval: (query: any) => {
+        const d = query.state.data;
+        // Keep polling while minting or failed (user may trigger retry)
+        if (d?.status === "minting" || d?.status === "failed") return 5_000;
+        return 30_000;
+      },
     })),
   });
 
   // Commander NFTs: show when minted (in escrow) or failed (retry available)
-  const claimableCommanders = commanders.slice(0, 10).flatMap((cmd, idx) => {
+  const claimableCommanders: ClaimableItem[] = commanders.slice(0, 10).flatMap((cmd, idx) => {
     const d = commanderNftQueries[idx]?.data;
     if (!d?.exists) return [];
     // Show "minted" badges (claimable) and "failed" badges (retryable)
     if (d.status !== "minted" && d.status !== "failed") return [];
     const key = `cmd-${cmd.id}`;
     if (dismissed.has(key)) return [];
-    return [{ key, type: "commander" as const, id: cmd.id, name: cmd.name, tier: cmd.tier, assetId: d.assetId ?? null, mintStatus: d.status as "minted" | "failed" }];
+    return { key, type: "commander" as const, id: cmd.id, name: cmd.name, tier: cmd.tier, assetId: d.assetId ?? null, mintStatus: d.status as "minted" | "failed" };
   });
 
-  // Plot NFTs in escrow (minted but mintedToAddress !== wallet)
-  const claimablePlots = ownedParcels.slice(0, 15).flatMap((parcel, idx) => {
+  // Plot NFTs in escrow (minted but mintedToAddress !== wallet) or failed mints
+  const claimablePlots: ClaimableItem[] = ownedParcels.slice(0, 15).flatMap((parcel, idx) => {
     const d = plotNftQueries[idx]?.data;
+    if (!d) return [];
+    
+    const key = `plot-${parcel.plotId}`;
+    if (dismissed.has(key)) return [];
+    
+    // Show failed mints (retryable)
+    if (d.status === "failed") {
+      return { key, type: "plot" as const, plotId: parcel.plotId, assetId: null, biome: parcel.biome as string, mintStatus: "failed" as const, error: d.error };
+    }
+    
+    // Show minting status
+    if (d.status === "minting") {
+      return { key, type: "plot" as const, plotId: parcel.plotId, assetId: null, biome: parcel.biome as string, mintStatus: "minting" as const };
+    }
+    
     if (!d?.assetId) return [];
     const inCustody = !!d.mintedToAddress && d.mintedToAddress !== walletAddress;
     if (!inCustody) return [];
-    const key = `plot-${parcel.plotId}`;
-    if (dismissed.has(key)) return [];
-    return [{ key, type: "plot" as const, plotId: parcel.plotId, assetId: d.assetId, biome: parcel.biome as string }];
+    return { key, type: "plot" as const, plotId: parcel.plotId, assetId: d.assetId, biome: parcel.biome as string, mintStatus: "minted" as const };
   });
 
-  const all = [...claimableCommanders, ...claimablePlots];
+  const all: ClaimableItem[] = [...claimableCommanders, ...claimablePlots];
   // The dev/test player can never claim — never nag it with claim cards.
   if (devSessionActive() || all.length === 0) return null;
 
@@ -215,37 +241,70 @@ export function NftClaimNotification({
               <>
                 <p className="text-[11px] font-bold text-white mb-0.5">Plot #{item.plotId}</p>
                 <p className="text-[9px] capitalize mb-2" style={{ color: "rgba(251,191,36,0.75)" }}>
-                  {item.biome} · ASA {item.assetId}
+                  {item.biome}
+                  {item.mintStatus === "failed" ? " · Mint failed — tap Retry" :
+                   item.mintStatus === "minting" ? " · Minting…" :
+                   item.assetId ? ` · ASA ${item.assetId}` : ""}
                 </p>
                 <div className="flex gap-2">
                   {walletConnected ? (
-                    <button
-                      onClick={() => onDeliverPlotNft?.(item.plotId, item.assetId)}
-                      disabled={isDeliveringPlotId === item.plotId}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[9px] font-display font-bold uppercase tracking-wide transition-colors"
-                      style={{
-                        background: "rgba(251,191,36,0.15)",
-                        border: "1px solid rgba(251,191,36,0.55)",
-                        color: "#fbbf24",
-                      }}
-                    >
-                      {isDeliveringPlotId === item.plotId
-                        ? <><Loader2 className="w-3 h-3 animate-spin" />Delivering…</>
-                        : <><Gift className="w-3 h-3" />Claim NFT</>
-                      }
-                    </button>
+                    item.mintStatus === "failed" ? (
+                      <button
+                        onClick={() => onRetryPlotMint?.(item.plotId)}
+                        disabled={isRetryingPlotMint === item.plotId}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[9px] font-display font-bold uppercase tracking-wide transition-colors"
+                        style={{
+                          background: "rgba(239,68,68,0.2)",
+                          border: "1px solid rgba(239,68,68,0.6)",
+                          color: "#f87171",
+                        }}
+                      >
+                        {isRetryingPlotMint === item.plotId
+                          ? <><Loader2 className="w-3 h-3 animate-spin" />Retrying…</>
+                          : <>↻ Retry Mint</>
+                        }
+                      </button>
+                    ) : item.mintStatus === "minting" ? (
+                      <div className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[9px] font-display font-bold uppercase tracking-wide"
+                        style={{
+                          background: "rgba(251,191,36,0.1)",
+                          border: "1px solid rgba(251,191,36,0.3)",
+                          color: "rgba(251,191,36,0.6)",
+                        }}
+                      >
+                        <Loader2 className="w-3 h-3 animate-spin" />Minting…
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onDeliverPlotNft?.(item.plotId, item.assetId!)}
+                        disabled={isDeliveringPlotId === item.plotId}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[9px] font-display font-bold uppercase tracking-wide transition-colors"
+                        style={{
+                          background: "rgba(251,191,36,0.15)",
+                          border: "1px solid rgba(251,191,36,0.55)",
+                          color: "#fbbf24",
+                        }}
+                      >
+                        {isDeliveringPlotId === item.plotId
+                          ? <><Loader2 className="w-3 h-3 animate-spin" />Delivering…</>
+                          : <><Gift className="w-3 h-3" />Claim NFT</>
+                        }
+                      </button>
+                    )
                   ) : (
                     <p className="text-[9px] text-white/35">Connect wallet to claim</p>
                   )}
-                  <a
-                    href={`https://explorer.perawallet.app/assets/${item.assetId}/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[9px] text-white/40 hover:text-white/70 transition-colors"
-                    style={{ border: "1px solid rgba(255,255,255,0.1)" }}
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                  {item.assetId && (
+                    <a
+                      href={`https://explorer.perawallet.app/assets/${item.assetId}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[9px] text-white/40 hover:text-white/70 transition-colors"
+                      style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </div>
               </>
             )}
