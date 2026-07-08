@@ -121,9 +121,9 @@
 .hud-dock-handle.is-lifted svg { transform: rotate(180deg); }
 
 /* ---------- slide-up drawer ---------- */
-.hud-drawer-track { position: fixed; left: 50%; bottom: var(--hud-dock-h); width: 2px; height: 0; z-index: 49; transform: translateX(-50%); pointer-events: none; background: linear-gradient(180deg, rgba(77, 255, 192, .6), transparent); transition: height .4s var(--hud-ease); }
+.hud-drawer-track { position: fixed; left: 50%; bottom: var(--hud-dock-h); width: 2px; height: 0; z-index: 55; transform: translateX(-50%); pointer-events: none; background: linear-gradient(180deg, rgba(77, 255, 192, .6), transparent); transition: height .4s var(--hud-ease); }
 .hud-drawer-track.open { height: 18px; }
-.hud-drawer { position: fixed; left: 50%; bottom: var(--hud-dock-h); width: min(440px, 92vw); z-index: 49; background: var(--hud-panel); backdrop-filter: blur(16px); border: 1px solid var(--hud-hairline); border-radius: 14px 14px 0 0; padding: 14px 16px 18px; opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); transition: transform .45s var(--hud-ease), opacity .35s ease; box-shadow: 0 -14px 40px rgba(0, 0, 0, .5); max-height: 46vh; overflow: auto; color: var(--hud-hi); font-family: var(--hud-f-body); }
+.hud-drawer { position: fixed; left: 50%; bottom: var(--hud-dock-h); width: min(440px, 92vw); z-index: 55; background: var(--hud-panel); backdrop-filter: blur(16px); border: 1px solid var(--hud-hairline); border-radius: 14px 14px 0 0; padding: 14px 16px 18px; opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); transition: transform .45s var(--hud-ease), opacity .35s ease; box-shadow: 0 -14px 40px rgba(0, 0, 0, .5); max-height: 46vh; overflow: auto; color: var(--hud-hi); font-family: var(--hud-f-body); }
 .hud-drawer.open { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
 .hud-dh { display: flex; align-items: center; gap: 9px; }
 .hud-dh .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hud-mint); box-shadow: 0 0 9px var(--hud-mint); }
