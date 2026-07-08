@@ -7,7 +7,7 @@ import { storage } from "./storage";
 import { mineActionSchema, upgradeActionSchema, attackActionSchema, buildActionSchema, purchaseActionSchema, collectActionSchema, claimAscendActionSchema, openLootBoxActionSchema, mintAvatarActionSchema, specialAttackActionSchema, deployDroneActionSchema, deploySatelliteActionSchema, SlimGameState, createTradeOrderSchema, placeBetSchema, createMarketSchema, terraformActionSchema } from "@shared/schema";
 import { z } from "zod";
 import { db, withDbRetry, getPoolStats } from "./db";
-import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable } from "./db-schema";
+import { parcels as parcelsTable, plotNfts as plotNftsTable, players as playersTable, mintIdempotency as mintIdempotencyTable, battles as battlesTable, gameEvents as gameEventsTable, gameMeta, tradeOrders as tradeOrdersTable, subParcels as subParcelsTable, orbitalEvents as orbitalEventsTable, commanderNfts as commanderNftsTable, commanderMintIdempotency as commanderMintIdempotencyTable, plotMintRetryQueue as plotMintRetryQueueTable } from "./db-schema";
 import { eq, sql, desc, lt } from "drizzle-orm";
 import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advisor";
 import { plotTerminalBrief, type PlotOwnership } from "./engine/narrative/plotTerminal";
@@ -38,6 +38,7 @@ import { getAscendAsaId, getOrCreateAscendAsa, isAddressOptedIn, setAscendAsaId,
 import { enqueueAscendTransfer } from "./services/chain/transferQueue";
 import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient } from "./services/chain/client";
 import { mintLandNft, transferLandNft, attemptDelivery } from "./services/chain/land";
+import { enqueuePlotMintRetry } from "./services/chain/mintRetryQueue";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
 import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment, attemptCommanderDelivery } from "./services/chain/commander";
 import { recordPurchaseTransition, newIntentId, queryRecentChainEvents, queryPurchaseIntents, summarizePurchaseFunnel, summarizeChainHealth } from "./services/chain/chainEventStore";
@@ -981,6 +982,28 @@ export async function registerRoutes(
         .where(eq(plotNftsTable.plotId, plotId));
 
       if (!row) {
+        // Check retry queue for pending/failed state
+        const [retryRow] = await db
+          .select()
+          .from(plotMintRetryQueueTable)
+          .where(eq(plotMintRetryQueueTable.plotId, plotId))
+          .limit(1);
+        
+        if (retryRow) {
+          if (retryRow.status === "pending") {
+            return res.json({ plotId, assetId: null, status: "minting", mintedToAddress: null, mintedAt: null, explorerUrl: null });
+          }
+          if (retryRow.status === "refund_needed" || retryRow.status === "refund_failed") {
+            return res.json({ plotId, assetId: null, status: "failed", mintedToAddress: null, mintedAt: null, explorerUrl: null, error: retryRow.lastError });
+          }
+          if (retryRow.status === "refunded") {
+            return res.json({ plotId, assetId: null, status: "refunded", mintedToAddress: null, mintedAt: null, explorerUrl: null, refundTxId: retryRow.refundTxId });
+          }
+          if (retryRow.status === "delivered") {
+            return res.json({ plotId, assetId: null, status: "delivered", mintedToAddress: retryRow.buyerAddress, mintedAt: retryRow.updatedAt, explorerUrl: null });
+          }
+        }
+        
         return res.status(404).json({ error: "No NFT record for this plot" });
       }
 
@@ -1071,6 +1094,62 @@ export async function registerRoutes(
     } catch (error) {
       console.error(`[nft/deliver] plotId=${plotId} error:`, error instanceof Error ? error.message : error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Delivery failed" });
+    }
+  });
+
+  // ── Plot NFT Retry Mint ─────────────────────────────────────────────────────
+  // POST /api/nft/retry-plot/:plotId  body: { playerId: string }
+  // Triggers an immediate retry for a plot whose mint failed and is in the retry queue.
+  app.post("/api/nft/retry-plot/:plotId", async (req, res) => {
+    const plotId = parseInt(req.params.plotId, 10);
+    if (isNaN(plotId) || plotId < 1) {
+      return res.status(400).json({ error: "plotId must be a positive integer" });
+    }
+    const playerId = await assertPlayerOwnership(req, res);
+    if (!playerId) return;
+    if (!db) return res.status(503).json({ error: "Database not available" });
+
+    try {
+      // Verify player owns this plot
+      const [parcelRow] = await db
+        .select({ ownerId: parcelsTable.ownerId })
+        .from(parcelsTable)
+        .where(eq(parcelsTable.plotId, plotId));
+      if (!parcelRow || parcelRow.ownerId !== playerId) {
+        return res.status(404).json({ error: "Plot not found or not owned by this player" });
+      }
+
+      // Check if already minted
+      const [existingNft] = await db.select().from(plotNftsTable).where(eq(plotNftsTable.plotId, plotId));
+      if (existingNft?.assetId) {
+        return res.json({ success: false, reason: "already_minted", assetId: Number(existingNft.assetId) });
+      }
+
+      // Check retry queue
+      const [retryRow] = await db
+        .select()
+        .from(plotMintRetryQueueTable)
+        .where(eq(plotMintRetryQueueTable.plotId, plotId))
+        .limit(1);
+
+      if (!retryRow) {
+        return res.status(404).json({ error: "No failed mint found for this plot" });
+      }
+
+      if (retryRow.status === "delivered" || retryRow.status === "refunded") {
+        return res.json({ success: false, reason: `already_${retryRow.status}` });
+      }
+
+      // Reset attempts to allow immediate retry
+      await db
+        .update(plotMintRetryQueueTable)
+        .set({ attempts: 0, status: "pending", updatedAt: Date.now() })
+        .where(eq(plotMintRetryQueueTable.id, retryRow.id));
+
+      res.json({ success: true, status: "minting", plotId, message: "Mint retry queued — check the badge for updates." });
+    } catch (error) {
+      console.error("[retry-plot] error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Retry failed" });
     }
   });
 
@@ -2117,6 +2196,13 @@ export async function registerRoutes(
                   .where(eq(mintIdempotencyTable.key, idempotencyKey));
                 console.error(`[purchase] NFT minting failed for plotId=${parcel.plotId}:`, err instanceof Error ? err.message : err);
                 void recordPurchaseTransition({ ...intentBase, state: "failed", event: "mint_failed", lastError: err instanceof Error ? err.message : String(err), metadata: { plotId: parcel.plotId } });
+                await enqueuePlotMintRetry({
+                  plotId: parcel.plotId,
+                  playerId: action.playerId,
+                  buyerAddress,
+                  algoPaymentTxId: action.algoPaymentTxId,
+                  amountMicroAlgos: parcel.purchasePriceAlgo ? Math.round(parcel.purchasePriceAlgo * 1e6) : undefined,
+                });
               });
           } else {
             console.warn(`[purchase] PUBLIC_BASE_URL not set — skipping NFT mint for plotId=${parcel.plotId}`);

@@ -48,6 +48,7 @@ import { serverNow } from "@/lib/serverClock";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
+import { NftClaimNotification } from "./NftClaimNotification";
 import { SelectedPlotPanel } from "./SelectedPlotPanel";
 import { sendPaymentTransaction, batchOptInToASAs } from "@/lib/algorand";
 import algosdk from "algosdk";
@@ -516,6 +517,7 @@ export function GameLayout() {
 
   const [isClaimingCommanderNft, setIsClaimingCommanderNft] = useState(false);
   const [isRetryingCommanderMintId, setIsRetryingCommanderMintId] = useState<string | null>(null);
+  const [isRetryingPlotMintId, setIsRetryingPlotMintId] = useState<number | null>(null);
   const [isDeliveringPlotNftId, setIsDeliveringPlotNftId] = useState<number | null>(null);
 
   // Land NFTs mint server-side as a distinct ASA per plot; Algorand asset
@@ -684,6 +686,28 @@ export function GameLayout() {
       toast({ title: "Retry Failed", description: err instanceof Error ? err.message : "Unexpected error", variant: "destructive" });
     } finally {
       setIsRetryingCommanderMintId(null);
+    }
+  };
+
+  const handleRetryPlotMint = async (plotId: number) => {
+    if (!player) return;
+    setIsRetryingPlotMintId(plotId);
+    try {
+      const res = await apiRequest("POST", `/api/nft/retry-plot/${plotId}`, { playerId: player.id });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Mint Restarted", description: "Your Plot NFT is being minted. The badge will update when it's ready to claim." });
+        queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+      } else if (data.reason === "already_minted") {
+        toast({ title: "Already Minted", description: `ASA ${data.assetId} — check your badge to claim.` });
+        queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+      } else {
+        toast({ title: "Retry Failed", description: data.error || "Could not restart mint.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Retry Failed", description: err instanceof Error ? err.message : "Unexpected error", variant: "destructive" });
+    } finally {
+      setIsRetryingPlotMintId(null);
     }
   };
 
@@ -1655,6 +1679,25 @@ export function GameLayout() {
 
       {/* Live Activity Feed overlay — streams world events in real-time */}
       <ActivityFeed />
+
+      {/* NFT claim notifications — floating cards for minted/failed NFTs */}
+      {player && (
+        <NftClaimNotification
+          commanders={player.commanders ?? []}
+          ownedParcels={(gameState?.parcels ?? []).filter(p => player.ownedParcels?.includes(p.id))}
+          walletAddress={wallet?.address ?? null}
+          walletConnected={wallet?.isConnected ?? false}
+          playerId={player.id}
+          onClaimCommander={handleClaimCommanderNft}
+          onRetryCommanderMint={handleRetryCommanderMint}
+          onDeliverPlotNft={handleDeliverPlotNft}
+          onRetryPlotMint={handleRetryPlotMint}
+          isClaimingCommander={isClaimingCommanderNft}
+          isRetryingCommanderMint={isRetryingCommanderMintId}
+          isDeliveringPlotId={isDeliveringPlotNftId}
+          isRetryingPlotMint={isRetryingPlotMintId}
+        />
+      )}
     </div>
   );
 }
