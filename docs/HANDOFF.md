@@ -26,13 +26,13 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `9086032`
+## Current baton — 🔴 FAIL: PR #231 · branch `feat/mint-retry-delivery` (audit found critical bug)
 
 ### 2026-07-08 — PR #230 audited and merged: pin ASCEND ASA via `ASCEND_ASA_ID` env var + startup assert
 
 **#230 (`fix/pin-ascend-asa`) — MERGED as `9086032`.** Audited PASS. M1-4 from Phase 25 queue. Pinned the ASCEND ASA ID via `ASCEND_ASA_ID` env var instead of relying solely on name-based on-chain lookup. Added `getPinnedAscendAsaId()` helper in `services/chain/asa.ts` that reads and validates the env var. `getOrCreateAscendAsa()` now checks env var (step 2) before falling back to on-chain name lookup (step 3). `assertChainConfig()` validates `ASCEND_ASA_ID` at startup — invalid values (non-integer, zero, negative, float) fail fast (confirmed unguarded throw at `server/index.ts:212`). Updated `ENV_VARS.md` + `DEPLOYMENT_ENV_CHECKLIST.md`. 13 new regression tests (7 for `assertChainConfig` validation, 6 for `getPinnedAscendAsaId` helper). Independently reproduced: 471 server tests pass, `tsc` clean. CI green on merge commit `9086032`. Audit: [docs/audits/pr-230-audit.md](./audits/pr-230-audit.md).
 
-**Next unit:** M1-5 (`feat/mint-retry-delivery`) — no atomic delivery/rollback: paid purchase whose background mint fails = ALGO consumed, no NFT, no refund, manual recovery. Build mint-retry worker + refund-or-retry policy + surface custody/claim state in HUD. Full gates. Branch: `feat/mint-retry-delivery`. Open risks: none beyond standard funds-lane gates. Off-limits: don't change wallet/chain behavior outside scoped unit; standard hard rules (no mainnet without gates, don't merge `wip/atomic-purchase`, don't reintroduce mock data).
+**PR #231 (`feat/mint-retry-delivery`) — AUDIT FAIL.** M1-5 from Phase 25 queue. Added persistent retry queue for Plot NFT mints. **Critical bug found:** `routes.ts:996-1004` has unreachable dead code — `delivered` and `refunded` states return as `status: "failed"` instead of their actual status values. Test count mismatch: claimed 7 tests but only 5 exist. Audit report: [docs/audits/pr-231-audit.md](./audits/pr-231-audit.md).
 
 **PR #229 merged:** `feat/wallet-connection-gate` — wallet connection gate + fresh params + singleton modal + queue reset.
 
