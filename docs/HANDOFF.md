@@ -50,18 +50,6 @@ Verified green: `check` clean, `test` 351/351, `build` clean.
   routes don't exist on disk. Faction path is permanent (baked into ASA at creation). Blocked on
   art assets from owner.
 
-**Other findings (investigated, not fixed — backlog):**
-- **WebGL context loss (G2):** confirmed zero handling — 0 `webglcontextlost`/`visibilitychange`/`pageshow`
-  listeners across the entire client. 27 `useFrame` hooks + 7 DOM rAF loops at risk. Globe will
-  freeze/go black after mobile tab backgrounds. Needs: context loss handler hook + visibility change
-  listener + R3F invalidate. Not fixed — design call needed on recovery UX.
-- **CommTerminal z-40 fragility:** confirmed `CommTerminal.tsx:122` at `z-40` is below mobile
-  bottomNav (`z-50`). Also `hud.css` `.hud-drawer` at `z-49`. ZClass registry only covers 4 of 10
-  layers; 12+ game components use hardcoded z-values. Needs z-index hardening pass.
-- **Broken image paths (404s):** 8 weapon PNGs + 4 faction SVGs referenced by on-chain metadata
-  routes don't exist on disk. Faction path is permanent (baked into ASA at creation). Blocked on
-  art assets from owner.
-
 ### 2026-07-08 — Repo hygiene pass: stale branches purged, baton refreshed, main green
 
 Owner actively played the live game throughout (TestNet wallet
