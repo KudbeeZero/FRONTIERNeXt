@@ -1575,8 +1575,12 @@ export function GameLayout() {
         />
       )}
 
-      {/* ── Full LandSheet — owned plot management (desktop only for now) ───── */}
-      {!isMobile && activeTab === "map" && selectedParcel && showFullLandSheet && (
+      {/* ── Full LandSheet — plot management (mine/upgrade/build/attack) ─────
+          Was desktop-only ("!isMobile" gate) — the layout itself is already
+          responsive (fixed bottom-0 left-0 right-0 on mobile, same pattern
+          as MobilePlotSheet), it was just never enabled on mobile. Owner:
+          "there's like a whole secondary menu that doesn't exist on mobile." */}
+      {activeTab === "map" && selectedParcel && showFullLandSheet && (
         <LandSheet
           parcel={selectedParcel}
           player={player}
