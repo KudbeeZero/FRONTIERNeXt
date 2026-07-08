@@ -56,7 +56,7 @@ little ALGO for plot purchases and to cover wallet minimum balances.
 You almost certainly haven't **opted in** to the FRONTIER asset yet. Algorand
 requires every wallet to explicitly opt in before it can receive an asset.
 
-1. Open your wallet → search Asset ID **`755818217`** (FRONTIER / ASCEND).
+1. Open your wallet → search Asset ID **`764083761`** (FRONTIER / ASCEND).
 2. Tap **Opt In** and confirm (~0.1 ALGO minimum balance hold).
 3. Your queued ASCEND transfer will then settle on-chain.
 

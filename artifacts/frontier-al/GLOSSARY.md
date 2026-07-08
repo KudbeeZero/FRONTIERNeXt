@@ -29,7 +29,7 @@
 - **Algorand** — The Layer-1 blockchain FRONTIERNeXt runs on, using **TestNet** (chainId `416002`).
 - **Annihilate** — The Reaper commander's special ability; unlocks Siege Barrage.
 - **ARC-3** — The Algorand NFT metadata standard used for each unique **Plot NFT**.
-- **ASA (Algorand Standard Asset)** — The on-chain asset type. **ASCEND** is an ASA; each plot is also minted as an ASA (NFT). ASCEND Asset ID: **755818217**.
+- **ASA (Algorand Standard Asset)** — The on-chain asset type. **ASCEND** is an ASA; each plot is also minted as an ASA (NFT). ASCEND Asset ID: **764083761**.
 - **Attack Cooldown** — A lockout after losses: 2 min × consecutive losses; resets on a win/successful defense.
 - **Attacker Power** — `(troops × 10) + (iron × 0.5) + (fuel × 0.8) + commanderBonus`, with morale/random modifiers.
 
@@ -106,7 +106,7 @@
 
 ### O
 
-- **Opt-In** — The Algorand requirement to register a wallet for an asset before receiving it (ASCEND ASA: 755818217).
+- **Opt-In** — The Algorand requirement to register a wallet for an asset before receiving it (ASCEND ASA: 764083761).
 - **Orbital Alien Dome** — The server-unique landmark; the Season Nexus that doubles ASCEND in-season.
 - **Orbital Event** — A sky phenomenon — cosmetic, a Resource Burst (+50% yield), or a Tile Hazard (−40% yield, −20% defense).
 - **Orbital Satellite** — A deployable that grants +25% mining yield on all your plots while active (stacks).

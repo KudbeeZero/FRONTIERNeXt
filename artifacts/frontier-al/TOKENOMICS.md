@@ -32,7 +32,7 @@
 |---|---|
 | **Name / Symbol** | FRONTIER / **ASCEND** |
 | **Chain** | Algorand TestNet (chainId `416002`) |
-| **Standard** | Algorand Standard Asset (ASA) · ID `755818217` |
+| **Standard** | Algorand Standard Asset (ASA) · ID `764083761` |
 | **Total Supply** | **1,000,000,000** ASCEND — fixed & immutable |
 | **Decimals** | 6 (1 ASCEND = 1,000,000 microASCEND) |
 | **Custody** | Two-layer: instant DB balance + batched on-chain transfers |

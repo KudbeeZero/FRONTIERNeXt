@@ -36,7 +36,7 @@ Before you can land, you need three things — all free on TestNet:
 |---|---|---|
 | 👛 | A **TestNet Algorand wallet** | [Pera Wallet](https://perawallet.app/) (mobile + browser) or [LUTE Wallet](https://lute.app/) (browser extension) |
 | 🪙 | **TestNet ALGO** to spend | Free from the [Algorand TestNet Faucet](https://bank.testnet.algorand.network/) |
-| 🛸 | The **FRONTIER ASA** opt-in | Asset ID **`755818217`** — done in Step 2 below |
+| 🛸 | The **FRONTIER ASA** opt-in | Asset ID **`764083761`** — done in Step 2 below |
 
 > ⚠️ Make sure your wallet is set to **TestNet**, not MainNet. FRONTIERNeXt runs entirely on Algorand TestNet (chainId `416002`).
 
@@ -57,7 +57,7 @@ battle logs.
 Algorand requires every wallet to opt in before it can hold a new asset.
 
 1. Open your wallet app.
-2. Search for Asset ID **`755818217`** (FRONTIER / **ASCEND**).
+2. Search for Asset ID **`764083761`** (FRONTIER / **ASCEND**).
 3. Tap **Opt In** and confirm (holds ~0.1 ALGO as a minimum balance).
 4. Return to FRONTIERNeXt — your wallet can now receive ASCEND.
 

@@ -192,9 +192,10 @@ defenderPower = (defenseLevel × 15 + improvementBonus) × biomeDefenseMod
 | Orbital impact | Epic | 50% |
 | Quantum Forge | Legendary | planned |
 
-> ⚠️ **Planned feature — not yet active.** These triggers are defined in `shared/schema.ts`,
-> but loot boxes are **not yet awarded or openable at runtime** (`Player.lootBoxes` is always
-> empty). See **[Game Manual §18](GAME_MANUAL.md)** and **[Data Reconciliation](docs/DATA_RECONCILIATION.md)**.
+> ✅ **Live.** Boxes are awarded on these triggers at runtime (`server/engine/lootbox/open.ts`,
+> deterministic per-action roll) and are openable from the Inventory panel
+> (`InventoryPanel.tsx`). Quantum Forge (Legendary) is the one trigger still unimplemented —
+> `LOOT_BOX_TRIGGERS` in `shared/schema.ts` only defines mine/battle/orbital today.
 
 ---
 

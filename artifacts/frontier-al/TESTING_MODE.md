@@ -7,7 +7,7 @@ Frontier AL is now live on Algorand Testnet and ready for game testing. This gui
 
 ### Production Ready
 - ✅ **All 31 unit tests passing** — TypeScript clean, no errors
-- ✅ **Blockchain confirmed** — ASA 755818217 (FRONTIER token)
+- ✅ **Blockchain confirmed** — ASA 764083761 (FRONTIER token)
 - ✅ **Network**: Algorand TestNet
 - ✅ **Economy mode**: `testing` (50 ASCEND/day emission)
 - ✅ **Commander tiers** fully functional: Sentinel (10 ASCEND), Phantom (25 ASCEND), Reaper (50 ASCEND)
@@ -330,7 +330,7 @@ TIME:
 - [ ] Leave game idle 10 minutes, come back → state correct
 - [ ] Toggle dark/light mode → UI still readable
 - [ ] Switch wallets → player switches correctly
-- [ ] Run `npx vitest run` → all 31 tests pass
+- [ ] Run `pnpm --filter @workspace/frontier-al run test:server` → all server tests pass
 
 ---
 
@@ -357,8 +357,9 @@ curl http://localhost:5000/api/plots/1/state
 # Get player info
 curl http://localhost:5000/api/players/current
 
-# Run tests
-npx vitest run
+# Run tests (pnpm only — this repo enforces pnpm via a preinstall hook)
+pnpm --filter @workspace/frontier-al run test:server   # server suite
+pnpm --filter @workspace/frontier-al run test           # client suite
 ```
 
 ---
