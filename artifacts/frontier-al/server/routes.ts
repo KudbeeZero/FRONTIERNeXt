@@ -993,7 +993,7 @@ export async function registerRoutes(
           if (retryRow.status === "pending") {
             return res.json({ plotId, assetId: null, status: "minting", mintedToAddress: null, mintedAt: null, explorerUrl: null });
           }
-          if (retryRow.status === "refund_needed" || retryRow.status === "refund_failed") {
+          if (retryRow.status === "delivered" || retryRow.status === "refunded" || retryRow.status === "refund_needed" || retryRow.status === "refund_failed") {
             return res.json({ plotId, assetId: null, status: "failed", mintedToAddress: null, mintedAt: null, explorerUrl: null, error: retryRow.lastError });
           }
           if (retryRow.status === "refunded") {
@@ -1136,8 +1136,11 @@ export async function registerRoutes(
         return res.status(404).json({ error: "No failed mint found for this plot" });
       }
 
-      if (retryRow.status === "delivered" || retryRow.status === "refunded" || retryRow.status === "refund_needed" || retryRow.status === "refund_failed") {
-        return res.json({ success: false, reason: `transaction_${retryRow.status}` });
+      if (retryRow.status === "delivered" || retryRow.status === "refunded") {
+        return res.json({ success: false, reason: `already_${retryRow.status}` });
+      }
+      if (retryRow.status === "refund_needed" || retryRow.status === "refund_failed") {
+        return res.status(409).json({ error: "Mint retry not allowed — transaction already " + retryRow.status });
       }
 
       // Reset attempts to allow immediate retry
