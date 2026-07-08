@@ -26,9 +26,9 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `5cd6ee5`
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `b2dfe79`
 
-### 2026-07-07/08 — Extended live-playtest session, 5 PRs merged (#218–#222)
+### 2026-07-08 — Repo hygiene pass: stale branches purged, baton refreshed, main green
 
 Owner actively played the live game throughout (TestNet wallet
 `OC6LXJ5WDGKMINKPWJF7ZZRU6ARWIOVFJMCMXBVOYUGQN3O67PFEL5B74A`) and reported
