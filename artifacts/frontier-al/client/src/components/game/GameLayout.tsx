@@ -1560,9 +1560,14 @@ export function GameLayout() {
            Mobile → MobilePlotSheet (above BottomNav). Desktop → floating card.
            The full LandSheet opens separately when the player taps "Manage Plot".
       ────────────────────────────────────────────────────────────────────────── */}
-      {/* Mobile: plot cards are hidden — the globe's PLOT #N popup is the entry
-          point we'll build the new menu off. Desktop keeps the panels. */}
-      {!isMobile && activeTab === "map" && selectedParcel && (
+      {/* Was mobile-gated on the theory that the globe's PLOT #N popup
+          (ParcelHUD) would be the mobile entry point instead — but ParcelHUD's
+          "Develop" action was never wired up (a no-op), so mobile had NO
+          working plot-action surface at all. SelectedPlotPanel already
+          delegates to MobilePlotSheet internally on mobile (see its own
+          isMobile switch), so enabling it here is what actually makes the
+          mobile terminal-readout and LandSheet fixes (above) reachable. */}
+      {activeTab === "map" && selectedParcel && (
         <SelectedPlotPanel
           parcel={selectedParcel}
           player={player}
