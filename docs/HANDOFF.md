@@ -26,7 +26,153 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `7affea6`
+## Current baton — 🟢 CLEAN HANDOFF: nothing in flight · main green at `5cd6ee5`
+
+### 2026-07-07/08 — Extended live-playtest session, 5 PRs merged (#218–#222)
+
+Owner actively played the live game throughout (TestNet wallet
+`OC6LXJ5WDGKMINKPWJF7ZZRU6ARWIOVFJMCMXBVOYUGQN3O67PFEL5B74A`) and reported
+real symptoms one at a time; each was traced to a root cause (often via a
+background research/audit subagent) before any fix, verified on-chain where
+possible (not just unit tests), then shipped. Owner gave explicit blanket
+authorization mid-session to keep merging autonomously through to a clean
+end-of-night state ("fill any gaps you see... make sure main is green...
+I'm going to bed") — all 5 PRs below were merged by Claude directly, not
+the owner, under that authorization.
+
+**#218** `/` now loads the globe directly (landing page moved to
+`/landing`) — owner directive to stop requiring a `/game` hop.
+
+**#219** Swept remaining hardcoded `ascendancyalgo.xyz` references
+(robots.txt, sitemap.xml, env-checklist doc, the one-off mint script) that
+#218's meta-tag fix didn't cover.
+
+**#220** Two units: (1) new `/ci-check` skill + CLAUDE.md convention that
+"CI is green" and "it works in production" are separate claims to verify
+independently — from this session's own `/insights` friction report. (2)
+**Root cause found for "purchased land never shows up as an NFT in my
+wallet"**: `GameLayout.tsx` never passed `onDeliverPlotNft` to
+`CommanderPanel` at any of its 3 render sites — the "Claim NFT" button was a
+complete no-op, silently, the whole time. Server delivery endpoint was
+already correct. Also: purchasing now auto-triggers the claim flow (real
+wallet signature required even for free TestNet purchases, per owner
+directive), fixed a misleading "mining locked" claim-banner that wasn't
+actually enforced anywhere, and `landing-economics.tsx` now reads the live
+ASCEND emission rate instead of a stale hardcoded production number.
+
+**#221** Large unit, grew through live testing: (1) **Batch NFT claim** —
+"Claim All (N)" groups multiple ASA opt-ins into one atomic transaction,
+one wallet approval instead of N. (2) **Wallet-sign concurrency lock** — a
+promise-chain mutex at the shared signer chokepoint so concurrent signing
+requests queue instead of hitting the wallet SDK's raw "another request
+already in progress" error; **plus a 120s timeout** added after the owner
+live-hit a stuck/abandoned WalletConnect request (same nonce reappearing
+repeatedly) — without the timeout a hung request would wedge the queue
+forever. (3) Fixed a stale query-key (`nft-plot-notification` vs the real
+`nft-plot`) that left claimed plots stuck in the "awaiting claim" list. (4)
+**Live regression found and fixed**: `PUBLIC_BASE_URL` was resolving
+without an `https://` scheme, breaking every NFT/faction/weapon metadata
+`image`/`external_url` field — normalized once at `assertChainConfig()`
+(server bootstrap). (5) Mobile parity: dead "Attack (Coming Soon)" stub
+wired to the real Special Attacks flow, missing AI-terminal readout
+(`PlotTerminalReadout`) added to mobile, and **the entire `LandSheet`
+plot-management sheet (mine/upgrade/build/attack) was found to be
+`!isMobile`-gated** — completely unreachable on mobile despite its own
+layout already being responsive. Gate removed; a hardcoded `z-40` that
+would've sat under the mobile nav bar (documented registry: `bottomNav=50`)
+fixed to `ZClass.plotSheet`. **Verified live on-chain**, not just tests: two
+previously-stuck plots (#8257 asset `764909648`, #4558 asset `764909649`)
+confirmed delivered via `testnet-idx.algonode.cloud` transaction lookups.
+
+**#222** A background mobile-parity audit (spawned after #221) found the
+mobile LandSheet fix was *still* unreachable: `SelectedPlotPanel` itself
+(the wrapper that delegates to `MobilePlotSheet`) was separately gated
+`!isMobile` at a different call site, with a stale comment about routing
+mobile through the globe's `ParcelHUD` popup instead — but `ParcelHUD`'s
+"Develop" button was a literal no-op, never built. **Mobile had zero
+working plot-action surface of any kind until this PR.** Gate removed.
+Also fixed, from an owner screenshot: the "Claim ASCEND" button (real,
+working, showing an actual accrued amount) was visually buried under the
+`ObjectiveHud` "Mission" banner — a `position:fixed` overlay independent of
+`TopBar`'s real layout, `top:10` sat directly on top of TopBar's content.
+Moved to `top:64` to clear it.
+
+Session notes (chronological):
+[root-route](../artifacts/frontier-al/session-notes/2026-07-07-root-route-loads-game-directly.md) ·
+[production-url-fix](../artifacts/frontier-al/session-notes/2026-07-07-production-url-fix-and-routing-merge.md) ·
+[nft-delivery-never-wired](../artifacts/frontier-al/session-notes/2026-07-07-plot-nft-delivery-never-wired.md) ·
+[ascend-satellites-lootbox-armory](../artifacts/frontier-al/session-notes/2026-07-07-ascend-satellites-lootbox-armory.md) ·
+[batch-claim-wallet-lock](../artifacts/frontier-al/session-notes/2026-07-07-batch-nft-claim-and-wallet-sign-lock.md) ·
+[metadata-scheme-bug](../artifacts/frontier-al/session-notes/2026-07-08-nft-metadata-scheme-bug-and-new-asa-plan.md) ·
+[mobile-attack-landsheet-gap](../artifacts/frontier-al/session-notes/2026-07-08-mobile-attack-and-landsheet-gap.md) ·
+[mobile-plot-panel-gate-hud-overlap](../artifacts/frontier-al/session-notes/2026-07-08-mobile-plot-panel-gate-and-hud-overlap.md).
+
+Verified green throughout: `pnpm run check` clean at every step;
+`pnpm run test:server` grew 449→458 (9 new tests: `computeLiveAscendAccrued`
+regression coverage, `assertChainConfig` scheme normalization);
+`pnpm run test` (client) grew 325→330 (4 new: wallet-sign lock coverage in
+`algorand.spec.ts`, including the timeout case via fake timers);
+`pnpm run build` clean at every step. CI + Cloudflare Pages deploy confirmed
+green on every merge commit through `5cd6ee5`.
+
+### 🔴 URGENT owner action required — admin/treasury wallet is nearly out of spendable ALGO
+
+Live-diagnosed the night's final symptom ("I'm not able to claim NFTs,
+they're getting stuck"): **not a code bug.** Checked the admin wallet
+(`ZK55X7SGIGMLGORVNJHHPTYZMZOGSQNVROBHX7N27X6ZEQRHAZ2UPKOXQU`) directly on
+TestNet: 88.05 ALGO total balance, but 88.0495 ALGO locked as minimum
+balance (795 created assets + 801 opted-in assets) — **0.0006 ALGO
+spendable.** The admin account can no longer cover even a 0.001 ALGO
+transaction fee, let alone the 0.1 ALGO minimum-balance cost of minting a
+new land NFT. Confirmed by cross-checking the owner's own account: 24 of
+their 31 owned parcels have **no NFT record at all** in `plot_nfts` (mint
+never completed), while the 7 that do have a record are all correctly
+delivered — the claim/delivery code path works fine; new *mints* have been
+silently failing for a while.
+
+**Action needed (cannot be done from this session — no wallet access):**
+send TestNet ALGO to the admin address via
+[the official TestNet dispenser](https://bank.testnet.algorand.network/).
+Send a meaningful amount (50-100+ ALGO) given the ~0.1 ALGO cost per new
+plot NFT, or this will recur soon. No code change needed once funded — the
+existing mint pipeline should just start working again.
+
+### Other owner decisions outstanding (not code, found this session)
+- **`api.frontierprotocol.app` still returns Cloudflare 525** (SSL
+  handshake failure to origin) — confirmed still broken as of this session,
+  same issue found 2026-07-07. DNS/Cloudflare dashboard config, not app
+  code. The app works fine regardless (client falls back to
+  `frontiernext.fly.dev`), but any on-chain metadata `url` pointing at
+  `api.frontierprotocol.app` (existing minted plot NFTs do) won't resolve
+  for external wallets/explorers until this is fixed.
+- **ASCEND ASA (`764083761`) has a dead metadata URL** baked in permanently
+  at creation (an old Replit dev URL) — ASA `url` fields generally can't be
+  edited post-creation. Owner asked about launching a new ASCEND token
+  (same name, new ID) to fix this; the mechanism exists
+  (`FORCE_NEW_ASA`/`getOrCreateAscendAsa` in `server/services/chain/asa.ts`)
+  and would automatically pick up the correct URL now that the
+  `PUBLIC_BASE_URL` scheme bug is fixed — but requires Fly secrets access
+  this session doesn't have, and **orphans every player's current ASCEND
+  balance** from the tracked economy. Owner's call, not a drive-by fix.
+- **Mobile attack-target browsing parity** — desktop's `WarRoomPanel` has a
+  full "attackable parcels" browser (its own query, biome filter, per-target
+  Attack button); mobile's `BattlesPanel` is watch-only. Not a hard blocker
+  (attack is reachable via globe-tap → Commander tab), but real feature
+  work for next session — needs live mobile visual verification before
+  merging, which wasn't available overnight.
+- Low priority: `CommTerminal.tsx:122` hardcodes `z-40` (below the
+  documented `bottomNav` z-50 layer) but is currently saved by a hand-tuned
+  offset — same shape of fragility as the LandSheet z-index bug already
+  fixed, worth hardening to `ZClass` at some point.
+- Economics panel numbers: owner flagged "I don't think any of this
+  information is accurate" — the 50 ASCEND/day testing rate shown IS
+  correct (confirmed live). The Treasury tile showing the same "1000.0M" as
+  Total Supply despite real circulating+burned amounts is very likely just
+  decimal-rounding at the millions-display scale, not a data bug — not
+  investigated further, worth a look at the formatter's precision if it
+  keeps reading as confusing.
+
+---
 
 **#216 (`fix/session-mismatch-recovery`) merged** as `bc874d6` — self-audited PASS
 (diff scope + tests re-verified directly, no independent subagent given the small,
