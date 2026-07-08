@@ -325,9 +325,15 @@ function DesktopPlotPanel({
               </Button>
             )}
 
-            {isEnemyOwned && (
-              <Button size="lg" variant="outline" className="w-full font-display uppercase tracking-widest opacity-50 cursor-not-allowed" disabled>
-                Attack (Coming Soon)
+            {isEnemyOwned && onOpenFullSheet && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full font-display uppercase tracking-widest border-red-500/40 text-red-400 hover:bg-red-500/10"
+                onClick={onOpenFullSheet}
+                data-testid="desktop-panel-attack-btn"
+              >
+                Attack
               </Button>
             )}
           </div>

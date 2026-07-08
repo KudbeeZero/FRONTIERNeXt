@@ -49,7 +49,7 @@ import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
 import { SelectedPlotPanel } from "./SelectedPlotPanel";
-import { sendPaymentTransaction } from "@/lib/algorand";
+import { sendPaymentTransaction, batchOptInToASAs } from "@/lib/algorand";
 import algosdk from "algosdk";
 import { ActivityFeed } from "./ActivityFeed";
 import { DEV_MODE, devSessionActive } from "@/lib/devSession";
@@ -532,13 +532,13 @@ export function GameLayout() {
 
         if (data.success) {
           toast({ title: "Land NFT Delivered!", description: `Plot #${plotId} is now in your wallet. TX: ${data.txId?.slice(0, 8)}...` });
-          queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+          queryClient.invalidateQueries({ queryKey: ["nft-plot", plotId] });
           return true;
         }
 
         if (data.reason === "not_in_custody") {
           toast({ title: "Already In Your Wallet", description: data.message || "NFT has already been delivered." });
-          queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+          queryClient.invalidateQueries({ queryKey: ["nft-plot", plotId] });
           return true;
         }
 
@@ -559,7 +559,7 @@ export function GameLayout() {
             const retryData = await retryRes.json();
             if (retryData.success) {
               toast({ title: "Land NFT Delivered!", description: `Plot #${plotId} is now in your wallet. TX: ${retryData.txId?.slice(0, 8)}...` });
-              queryClient.invalidateQueries({ queryKey: ["nft-plot-notification", plotId] });
+              queryClient.invalidateQueries({ queryKey: ["nft-plot", plotId] });
               return true;
             }
             if (retryData.reason !== "not_opted_in") break;
@@ -610,6 +610,53 @@ export function GameLayout() {
       title: "NFT Still Minting",
       description: `Plot #${plotId}'s NFT is taking longer than usual — claim it from the Commander tab once it's ready.`,
     });
+  };
+
+  const [isClaimingAllPlotNfts, setIsClaimingAllPlotNfts] = useState(false);
+
+  // Claiming N pending plots one at a time means N separate wallet opt-in
+  // popups (owner feedback: "why don't you have a queue system for claiming
+  // NFTs?"). Algorand can't merge distinct opt-ins into one transaction, but
+  // it CAN group them into one atomic group the wallet signs in a SINGLE
+  // approval (batchOptInToASAs, chunked at the 16-txn group cap) — so this
+  // turns N popups into ceil(N/16). Delivery itself is admin-signed (no
+  // wallet needed), so once opted in every plot can be delivered concurrently.
+  const handleClaimAllPlotNfts = async (plots: { plotId: number; assetId: number }[]) => {
+    if (!wallet.address || plots.length === 0) return;
+    setIsClaimingAllPlotNfts(true);
+    try {
+      await batchOptInToASAs(wallet.address, plots.map(p => p.assetId));
+      const results = await Promise.all(
+        plots.map(async (p) => {
+          const res = await fetch(resolveApiUrl(`/api/nft/deliver/${p.plotId}`), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ address: wallet.address }),
+          });
+          const data = await res.json();
+          return { plotId: p.plotId, ok: !!data.success };
+        })
+      );
+      const delivered = results.filter(r => r.ok).length;
+      queryClient.invalidateQueries({ queryKey: ["nft-plot"] });
+      if (delivered === plots.length) {
+        toast({ title: "All Land NFTs Delivered!", description: `${delivered} plot${delivered === 1 ? "" : "s"} now in your wallet.` });
+      } else {
+        toast({
+          title: "Partially Delivered",
+          description: `${delivered}/${plots.length} delivered — retry the rest from the Claim list.`,
+          variant: delivered === 0 ? "destructive" : "default",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Batch Claim Failed",
+        description: err instanceof Error ? err.message : "Opt-in was cancelled or failed — try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClaimingAllPlotNfts(false);
+    }
   };
 
   const handleRetryCommanderMint = async (commanderId: string) => {
@@ -1052,6 +1099,8 @@ export function GameLayout() {
           onClaimCommanderNft={handleClaimCommanderNft}
           onDeliverPlotNft={handleDeliverPlotNft}
           isDeliveringPlotNftId={isDeliveringPlotNftId}
+          onClaimAllPlotNfts={handleClaimAllPlotNfts}
+          isClaimingAllPlotNfts={isClaimingAllPlotNfts}
           onAttack={handleAttackConfirm}
           isMinting={mintAvatarMutation.isPending}
           isDeployingDrone={deployDroneMutation.isPending}
@@ -1331,6 +1380,8 @@ export function GameLayout() {
             onClaimCommanderNft={handleClaimCommanderNft}
           onDeliverPlotNft={handleDeliverPlotNft}
           isDeliveringPlotNftId={isDeliveringPlotNftId}
+          onClaimAllPlotNfts={handleClaimAllPlotNfts}
+          isClaimingAllPlotNfts={isClaimingAllPlotNfts}
             onAttack={handleAttackConfirm}
             isMinting={mintAvatarMutation.isPending}
             isDeployingDrone={deployDroneMutation.isPending}
@@ -1441,6 +1492,8 @@ export function GameLayout() {
               onClaimCommanderNft={handleClaimCommanderNft}
           onDeliverPlotNft={handleDeliverPlotNft}
           isDeliveringPlotNftId={isDeliveringPlotNftId}
+          onClaimAllPlotNfts={handleClaimAllPlotNfts}
+          isClaimingAllPlotNfts={isClaimingAllPlotNfts}
               onAttack={handleAttackConfirm}
               isMinting={mintAvatarMutation.isPending}
               isDeployingDrone={deployDroneMutation.isPending}
@@ -1522,8 +1575,12 @@ export function GameLayout() {
         />
       )}
 
-      {/* ── Full LandSheet — owned plot management (desktop only for now) ───── */}
-      {!isMobile && activeTab === "map" && selectedParcel && showFullLandSheet && (
+      {/* ── Full LandSheet — plot management (mine/upgrade/build/attack) ─────
+          Was desktop-only ("!isMobile" gate) — the layout itself is already
+          responsive (fixed bottom-0 left-0 right-0 on mobile, same pattern
+          as MobilePlotSheet), it was just never enabled on mobile. Owner:
+          "there's like a whole secondary menu that doesn't exist on mobile." */}
+      {activeTab === "map" && selectedParcel && showFullLandSheet && (
         <LandSheet
           parcel={selectedParcel}
           player={player}

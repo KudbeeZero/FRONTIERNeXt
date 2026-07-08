@@ -87,6 +87,18 @@ export function assertChainConfig(): void {
     console.log(`[FRONTIER] PUBLIC_BASE_URL auto-set from REPLIT_DOMAINS: ${process.env.PUBLIC_BASE_URL}`);
   }
 
+  // A scheme-less PUBLIC_BASE_URL (e.g. "frontierprotocol.app" instead of
+  // "https://frontierprotocol.app") silently breaks every NFT/faction/weapon
+  // metadata URL built from it — every call site in routes.ts just does
+  // `${baseUrl}/...`, so wallets end up with an `image`/`external_url` that
+  // has no protocol and won't resolve. Normalize once here, at the single
+  // point every route reads from, rather than patching each call site.
+  if (process.env.PUBLIC_BASE_URL && !/^https?:\/\//i.test(process.env.PUBLIC_BASE_URL)) {
+    const fixed = `https://${process.env.PUBLIC_BASE_URL}`;
+    console.warn(`[FRONTIER] PUBLIC_BASE_URL was missing a scheme ("${process.env.PUBLIC_BASE_URL}") — normalized to "${fixed}".`);
+    process.env.PUBLIC_BASE_URL = fixed;
+  }
+
   const alwaysRequired = ['DATABASE_URL', 'SESSION_SECRET', 'PUBLIC_BASE_URL'];
   const chainRequired = ['ALGORAND_ADMIN_MNEMONIC', 'ALGORAND_ADMIN_ADDRESS'];
 

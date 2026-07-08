@@ -47,12 +47,70 @@ export function hasRegisteredSigner(): boolean {
   return _registeredSigner !== null;
 }
 
+// ---------------------------------------------------------------------------
+// Wallet-sign serialization queue.
+//
+// The wallet SDK (Pera/use-wallet) rejects a second signing request with
+// "another request... in progress" if one is triggered while a prior one is
+// still awaiting the user's approval in the wallet UI. This app has several
+// independent call sites that can each want a signature around the same
+// moment — an auto-claim poll after a purchase, a manual "Claim NFT" click,
+// the batch "Claim All" flow, a commander mint — any two of which firing
+// close together would previously surface that raw wallet error.
+//
+// Fix: every signing call funnels through _registeredSigner via exactly two
+// functions below, so serializing HERE protects every current and future
+// caller at once, with no per-call-site bookkeeping needed. A later call
+// doesn't error — it queues behind the current one and runs once the wallet
+// resolves (approved or rejected), same as if the user had waited to click.
+// State machine: idle (queue empty) -> signing (one link running) -> idle,
+// with every subsequent call simply chaining onto the tail.
+// ---------------------------------------------------------------------------
+// A signer call that never settles (a stuck WalletConnect session, a mobile
+// wallet notification the user never taps) would otherwise wedge this queue
+// forever — every later caller queues behind a promise that's never going to
+// resolve. This timeout guarantees the queue always keeps moving: it doesn't
+// (can't) cancel the underlying wallet request, but it stops waiting on it
+// after WALLET_SIGN_TIMEOUT_MS so the NEXT caller gets their turn instead of
+// hanging indefinitely behind a dead request.
+const WALLET_SIGN_TIMEOUT_MS = 120_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
+let _walletSignQueue: Promise<unknown> = Promise.resolve();
+
+function withWalletSignLock<T>(run: () => Promise<T>): Promise<T> {
+  const guarded = () => withTimeout(
+    run(),
+    WALLET_SIGN_TIMEOUT_MS,
+    "Wallet didn't respond in time — check your wallet app for a pending request (approve or reject it), then try again.",
+  );
+  const result = _walletSignQueue.then(guarded, guarded);
+  // Chain the NEXT caller off this settling regardless of outcome — a
+  // rejected/cancelled/timed-out signature must not wedge the queue for
+  // later callers.
+  _walletSignQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
 export async function signTransactionWithActiveWallet(
   txn: algosdk.Transaction,
   _signerAddress: string
 ): Promise<Uint8Array[]> {
   if (!_registeredSigner) throw new Error("No wallet connected");
-  return await _registeredSigner([txn]);
+  const signer = _registeredSigner;
+  return withWalletSignLock(() => signer([txn]));
 }
 
 export async function signGroupedTransactionsWithActiveWallet(
@@ -61,7 +119,8 @@ export async function signGroupedTransactionsWithActiveWallet(
 ): Promise<Uint8Array[]> {
   dbg(`[BATCH-DEBUG] signGroupedTransactions | txnCount: ${txns.length} | signer: ${signerAddress.slice(0, 8)}... | ts: ${Date.now()}`);
   if (!_registeredSigner) throw new Error("No wallet connected");
-  const result = await _registeredSigner(txns);
+  const signer = _registeredSigner;
+  const result = await withWalletSignLock(() => signer(txns));
   dbg(`[BATCH-DEBUG] signed ${result.length} txns | ts: ${Date.now()}`);
   return result;
 }
@@ -308,6 +367,53 @@ export async function optInToASA(
   dbg(`[TXN-DEBUG] optInToASA confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
   return txId;
+}
+
+/**
+ * Opt into multiple ASAs (e.g. a batch of pending Plot NFTs) with a SINGLE
+ * wallet approval instead of one popup per asset. Algorand can't merge
+ * distinct opt-in transactions into one transaction, but it CAN group them
+ * into one atomic group that the wallet signs in a single action — this is
+ * exactly that, reusing the same grouping/signing plumbing as the game
+ * action batch queue below (assignGroupID + signGroupedTransactionsWithActiveWallet).
+ * Chunks at MAX_GROUP_SIZE (Algorand's 16-txn group cap) — for >16 pending
+ * assets this still means multiple approvals, just far fewer than one-per-asset.
+ */
+export async function batchOptInToASAs(
+  address: string,
+  assetIds: number[]
+): Promise<string[]> {
+  if (assetIds.length === 0) return [];
+  dbg(`[TXN-DEBUG] batchOptInToASAs triggered | count: ${assetIds.length} | address: ${address.slice(0,8)}... | ts: ${Date.now()}`);
+
+  const txIds: string[] = [];
+  for (let i = 0; i < assetIds.length; i += MAX_GROUP_SIZE) {
+    const chunk = assetIds.slice(i, i + MAX_GROUP_SIZE);
+    const suggestedParams = await getTransactionParams();
+    const txns = chunk.map((assetId) =>
+      algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+        sender: address,
+        receiver: address,
+        amount: 0,
+        assetIndex: assetId,
+        suggestedParams,
+      })
+    );
+
+    if (txns.length > 1) algosdk.assignGroupID(txns);
+
+    const signedBlobs = txns.length === 1
+      ? await signTransactionWithActiveWallet(txns[0], address)
+      : await signGroupedTransactionsWithActiveWallet(txns, address);
+
+    const response = await algodClient.sendRawTransaction(signedBlobs).do();
+    const firstTxId = response.txid || txns[0].txID();
+    await algosdk.waitForConfirmation(algodClient, firstTxId, 4);
+    dbg(`[TXN-DEBUG] batchOptInToASAs chunk confirmed | firstTxId: ${firstTxId} | chunkSize: ${chunk.length} | ts: ${Date.now()}`);
+    txIds.push(firstTxId);
+  }
+
+  return txIds;
 }
 
 export async function isOptedInToASA(address: string, assetId: number): Promise<boolean> {

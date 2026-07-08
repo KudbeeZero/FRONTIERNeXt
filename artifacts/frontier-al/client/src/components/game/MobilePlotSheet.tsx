@@ -7,13 +7,14 @@
  */
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, MapPin, Shield, Zap, Flame, Gem, Droplets, Snowflake, Trees, Mountain, AlertTriangle } from "lucide-react";
+import { X, MapPin, Shield, Zap, Flame, Gem, Droplets, Snowflake, Trees, Mountain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { LandParcel, Player, BiomeType } from "@shared/schema";
 import { biomeColors } from "@shared/schema";
 import { ZClass } from "@/lib/uiLayers";
+import { PlotTerminalReadout } from "./PlotTerminalReadout";
 
 // ─── Biome display helpers ──────────────────────────────────────────────────
 
@@ -228,18 +229,11 @@ export function MobilePlotSheet({
                 </div>
               )}
 
-              {/* Enemy territory warning */}
-              {isEnemyOwned && (
-                <div className="rounded-xl p-3 bg-red-500/10 border border-red-500/25 flex items-start gap-2 text-xs text-red-400">
-                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-display uppercase tracking-wider text-[10px] mb-0.5">
-                      {parcel.ownerType === "ai" ? "AI Faction Territory" : "Hostile Territory"}
-                    </p>
-                    <p className="text-muted-foreground text-[11px]">Battle actions available in a future update.</p>
-                  </div>
-                </div>
-              )}
+              {/* Command terminal — live AI briefing. Matches the desktop panel
+                  (SelectedPlotPanel), which replaced these same static
+                  "Your Territory"/"Hostile Territory" hint blocks earlier —
+                  this mobile sheet had been left on the old static copy. */}
+              <PlotTerminalReadout plotId={parcel.plotId} />
 
               {/* Not logged in notice */}
               {!player && (
@@ -282,14 +276,15 @@ export function MobilePlotSheet({
                 </Button>
               )}
 
-              {isEnemyOwned && (
+              {isEnemyOwned && onOpenFullSheet && (
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-full h-12 font-display uppercase tracking-widest text-sm opacity-50 cursor-not-allowed"
-                  disabled
+                  className="w-full h-12 font-display uppercase tracking-widest text-sm border-red-500/40 text-red-400 hover:bg-red-500/10"
+                  onClick={onOpenFullSheet}
+                  data-testid="mobile-sheet-attack-btn"
                 >
-                  Attack (Coming Soon)
+                  Attack
                 </Button>
               )}
 

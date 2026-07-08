@@ -12,6 +12,7 @@ import { SubParcelGrid } from "./land/SubParcelGrid";
 import { CooldownTimer } from "./land/CooldownTimer";
 import type { LandParcel, Player, ImprovementType, SpecialAttackType, DefenseImprovementType, FacilityType, BiomeType } from "@shared/schema";
 import { biomeColors, biomeBonuses, MINE_COOLDOWN_MS, UPGRADE_COSTS, DEFENSE_IMPROVEMENT_INFO, FACILITY_INFO, IMPROVEMENT_INFO, SPECIAL_ATTACK_INFO, BASE_YIELD, TERRAFORM_COSTS, TERRAFORM_BIOME_MAP } from "@shared/schema";
+import { ZClass } from "@/lib/uiLayers";
 
 interface LandSheetProps {
   parcel: LandParcel | null;
@@ -111,7 +112,8 @@ export function LandSheet({
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-0 right-0 md:left-60 md:right-60 lg:left-72 lg:right-72 z-40 transition-all duration-300 ease-out",
+        "fixed bottom-0 left-0 right-0 md:left-60 md:right-60 lg:left-72 lg:right-72 transition-all duration-300 ease-out",
+        ZClass.plotSheet, // was hardcoded z-40 — sat BELOW the mobile bottom nav (z-50), invisible on mobile
         expanded ? "max-h-[75vh]" : "max-h-[280px]"
       )}
       data-testid="land-sheet"
