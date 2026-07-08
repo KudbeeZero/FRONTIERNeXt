@@ -1,4 +1,5 @@
 import { resolveApiUrl } from "@/lib/queryClient";
+import { fmtSupply as fmt } from "@/lib/fmtSupply";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -9,12 +10,6 @@ import {
 import { LandingNav, LandingFooter, CookieConsentBanner, Starfield, SHARED_CSS } from "./landing-shared";
 import { buildFactionControlRows, type FactionTerritory } from "@/lib/economics/factionControl";
 import { bucketBattlePulse, type BattlePulseInput } from "@/lib/economics/battlePulse";
-
-function fmt(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000)     return (n / 1_000).toFixed(1) + "K";
-  return n.toFixed(0);
-}
 
 const CARD: React.CSSProperties = {
   background: "rgba(10,12,30,0.82)", border: "1px solid rgba(60,90,180,0.25)",
