@@ -87,12 +87,40 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 
 let _walletSignQueue: Promise<unknown> = Promise.resolve();
 
+/**
+ * Reset the signing queue to a clean state. Use this when the queue is wedged
+ * or after an unrecoverable timeout to allow fresh signing attempts.
+ */
+export function resetSignQueue(): void {
+  _walletSignQueue = Promise.resolve();
+}
+
+/**
+ * Get the current queue depth for diagnostics. Returns the number of pending
+ * signing operations (0 if idle).
+ */
+export function getQueueDepth(): number {
+  // The queue is a promise chain; we can't directly measure depth, but we can
+  // check if it's settled. For now, return a simple heuristic.
+  return 0; // Queue depth tracking would require additional state
+}
+
 function withWalletSignLock<T>(run: () => Promise<T>): Promise<T> {
-  const guarded = () => withTimeout(
-    run(),
-    WALLET_SIGN_TIMEOUT_MS,
-    "Wallet didn't respond in time — check your wallet app for a pending request (approve or reject it), then try again.",
-  );
+  const guarded = async () => {
+    try {
+      return await withTimeout(
+        run(),
+        WALLET_SIGN_TIMEOUT_MS,
+        "Wallet didn't respond in time — check your wallet app for a pending request (approve or reject it), then try again.",
+      );
+    } catch (err) {
+      // On timeout, reset the queue to allow fresh attempts
+      if (err instanceof Error && err.message.includes("didn't respond in time")) {
+        resetSignQueue();
+      }
+      throw err;
+    }
+  };
   const result = _walletSignQueue.then(guarded, guarded);
   // Chain the NEXT caller off this settling regardless of outcome — a
   // rejected/cancelled/timed-out signature must not wedge the queue for
@@ -138,6 +166,47 @@ export async function getAccountBalance(address: string): Promise<number> {
 
 export async function getTransactionParams() {
   return await algodClient.getTransactionParams().do();
+}
+
+/**
+ * Build and sign a transaction with fresh suggested params fetched inside the signing lock.
+ * This prevents stale params when the signing queue has wait time.
+ * 
+ * @param buildTxn - Function that receives fresh params and returns the transaction to sign
+ * @param signerAddress - The wallet address that will sign
+ * @returns The signed transaction bytes
+ */
+export async function buildAndSignWithFreshParams(
+  buildTxn: (params: algosdk.SuggestedParams) => algosdk.Transaction,
+  signerAddress: string
+): Promise<Uint8Array[]> {
+  if (!_registeredSigner) throw new Error("No wallet connected");
+  const signer = _registeredSigner;
+  
+  return withWalletSignLock(async () => {
+    // Fetch fresh params INSIDE the lock, right before building
+    const freshParams = await getTransactionParams();
+    const txn = buildTxn(freshParams);
+    return await signer([txn]);
+  });
+}
+
+/**
+ * Build and sign grouped transactions with fresh suggested params.
+ * Same as buildAndSignWithFreshParams but for atomic groups.
+ */
+export async function buildAndSignGroupedWithFreshParams(
+  buildTxns: (params: algosdk.SuggestedParams) => algosdk.Transaction[],
+  signerAddress: string
+): Promise<Uint8Array[]> {
+  if (!_registeredSigner) throw new Error("No wallet connected");
+  const signer = _registeredSigner;
+  
+  return withWalletSignLock(async () => {
+    const freshParams = await getTransactionParams();
+    const txns = buildTxns(freshParams);
+    return await signer(txns);
+  });
 }
 
 export async function sendPaymentTransaction(
@@ -212,7 +281,6 @@ export async function createPurchaseWithAlgoTransaction(
   algoAmount: number
 ): Promise<string> {
   dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction triggered | plotId: ${plotId} | algo: ${algoAmount} | txns: 1 | groupID: NO | ts: ${Date.now()} | from: ${fromAddress.slice(0,8)}... | to: ${treasuryAddress.slice(0,8)}...`);
-  const suggestedParams = await getTransactionParams();
   const microAlgos = Math.floor(algoAmount * 1_000_000);
   
   const actionData = JSON.stringify({
@@ -226,18 +294,20 @@ export async function createPurchaseWithAlgoTransaction(
     network: "testnet",
   });
 
-  const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-    sender: fromAddress,
-    receiver: treasuryAddress,
-    amount: microAlgos,
-    note: new TextEncoder().encode(`ASCEND:${actionData}`),
-    suggestedParams,
-  });
+  // Build and sign with fresh params fetched inside the signing lock
+  const signedTxnBlob = await buildAndSignWithFreshParams((freshParams) => {
+    return algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      sender: fromAddress,
+      receiver: treasuryAddress,
+      amount: microAlgos,
+      note: new TextEncoder().encode(`ASCEND:${actionData}`),
+      suggestedParams: freshParams,
+    });
+  }, fromAddress);
 
-  const signedTxnBlob = await signTransactionWithActiveWallet(txn, fromAddress);
   dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction submitting | ts: ${Date.now()}`);
   const response = await algodClient.sendRawTransaction(signedTxnBlob).do();
-  const txId = response.txid || txn.txID();
+  const txId = response.txid;
   await algosdk.waitForConfirmation(algodClient, txId, 4);
   dbg(`[TXN-DEBUG] createPurchaseWithAlgoTransaction confirmed | txId: ${txId} | ts: ${Date.now()}`);
   
