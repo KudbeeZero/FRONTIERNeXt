@@ -57,7 +57,7 @@ import { isRailTab, resolveRailTab, type RailTab } from "@/lib/panelNav";
 
 export function GameLayout() {
   const wallet = useWallet();
-  const { isConnected, balance, walletStatus } = wallet;
+  const { isConnected, balance, walletStatus, requestConnection } = wallet;
   const {
     freePurchases,
     signPurchaseAction,
@@ -428,13 +428,17 @@ export function GameLayout() {
   const handlePurchase = async () => {
     if (!player || !selectedParcelId || !selectedParcel) return;
 
+    // Ensure wallet is connected before proceeding — triggers connect flow if needed
     if (!isWalletConnected) {
-      toast({
-        title: "Wallet Required",
-        description: "Connect your Algorand wallet to purchase territory.",
-        variant: "destructive",
-      });
-      return;
+      const connected = await requestConnection();
+      if (!connected) {
+        toast({
+          title: "Wallet Required",
+          description: "Connect your Algorand wallet to purchase territory.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     const algoAmount = selectedParcel.purchasePriceAlgo;

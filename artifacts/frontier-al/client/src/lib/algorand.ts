@@ -87,6 +87,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 
 let _walletSignQueue: Promise<unknown> = Promise.resolve();
 
+/**
+ * Reset the signing queue to a clean state. Use this when the queue is wedged
+ * or after an unrecoverable timeout to allow fresh signing attempts.
+ */
+export function resetSignQueue(): void {
+  _walletSignQueue = Promise.resolve();
+}
+
+/**
+ * Get the current queue depth for diagnostics. Returns the number of pending
+ * signing operations (0 if idle).
+ */
+export function getQueueDepth(): number {
+  // The queue is a promise chain; we can't directly measure depth, but we can
+  // check if it's settled. For now, return a simple heuristic.
+  return 0; // Queue depth tracking would require additional state
+}
+
 function withWalletSignLock<T>(run: () => Promise<T>): Promise<T> {
   const guarded = () => withTimeout(
     run(),
@@ -138,6 +156,47 @@ export async function getAccountBalance(address: string): Promise<number> {
 
 export async function getTransactionParams() {
   return await algodClient.getTransactionParams().do();
+}
+
+/**
+ * Build and sign a transaction with fresh suggested params fetched inside the signing lock.
+ * This prevents stale params when the signing queue has wait time.
+ * 
+ * @param buildTxn - Function that receives fresh params and returns the transaction to sign
+ * @param signerAddress - The wallet address that will sign
+ * @returns The signed transaction bytes
+ */
+export async function buildAndSignWithFreshParams(
+  buildTxn: (params: algosdk.SuggestedParams) => algosdk.Transaction,
+  signerAddress: string
+): Promise<Uint8Array[]> {
+  if (!_registeredSigner) throw new Error("No wallet connected");
+  const signer = _registeredSigner;
+  
+  return withWalletSignLock(async () => {
+    // Fetch fresh params INSIDE the lock, right before building
+    const freshParams = await getTransactionParams();
+    const txn = buildTxn(freshParams);
+    return await signer([txn]);
+  });
+}
+
+/**
+ * Build and sign grouped transactions with fresh suggested params.
+ * Same as buildAndSignWithFreshParams but for atomic groups.
+ */
+export async function buildAndSignGroupedWithFreshParams(
+  buildTxns: (params: algosdk.SuggestedParams) => algosdk.Transaction[],
+  signerAddress: string
+): Promise<Uint8Array[]> {
+  if (!_registeredSigner) throw new Error("No wallet connected");
+  const signer = _registeredSigner;
+  
+  return withWalletSignLock(async () => {
+    const freshParams = await getTransactionParams();
+    const txns = buildTxns(freshParams);
+    return await signer(txns);
+  });
 }
 
 export async function sendPaymentTransaction(

@@ -115,12 +115,13 @@ export function WalletConnect({ className }: { className?: string }) {
     connect,
     disconnect,
     clearError,
+    isPickerOpen,
+    openPicker,
+    closePicker,
   } = useWallet();
-  const [showPicker, setShowPicker] = useState(false);
 
-  const openPicker = () => {
-    clearError();
-    setShowPicker(true);
+  const handleOpenPicker = () => {
+    openPicker();
   };
 
   // While the provider is resuming a stored session, show a stable placeholder
@@ -210,8 +211,8 @@ export function WalletConnect({ className }: { className?: string }) {
           <TroubleConnectingLink />
         </div>
         <WalletPickerDialog
-          open={showPicker}
-          onOpenChange={setShowPicker}
+          open={isPickerOpen}
+          onOpenChange={(open) => !open && closePicker()}
           wallets={availableWallets}
           onSelect={(walletId) => {
             // Close the picker, THEN start connect on the next frame. Starting
@@ -220,7 +221,7 @@ export function WalletConnect({ className }: { className?: string }) {
             // strands Pera's QR modal: it mounts but is invisible/non-interactive,
             // so the button just spins forever ("Pera keeps spinning, nothing
             // opens"). Deferring past the close lets Radix fully clean up first.
-            setShowPicker(false);
+            closePicker();
             window.setTimeout(() => connect(walletId), 250);
           }}
         />

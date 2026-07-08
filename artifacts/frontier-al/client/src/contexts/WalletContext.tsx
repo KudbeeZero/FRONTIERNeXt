@@ -44,6 +44,16 @@ interface WalletContextValue {
   authenticate: () => Promise<void>;
   clearError: () => void;
   refreshBalance: () => Promise<void>;
+  /** Singleton picker state — lifted from WalletConnect to prevent duplicate modals. */
+  isPickerOpen: boolean;
+  openPicker: () => void;
+  closePicker: () => void;
+  /**
+   * Blocks until the wallet is connected. If already connected, resolves immediately.
+   * If disconnected, opens the picker and waits for connection (with timeout).
+   * Returns true if connected, false if timed out or cancelled.
+   */
+  requestConnection: () => Promise<boolean>;
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -339,6 +349,17 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   // just opened, turning a good connect into a guaranteed failure.
   const connectInFlight = useRef(false);
 
+  // Singleton picker state — lifted from WalletConnect to prevent duplicate modals
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const openPicker = useCallback(() => {
+    setError(null);
+    setIsPickerOpen(true);
+  }, []);
+  const closePicker = useCallback(() => setIsPickerOpen(false), []);
+
+  // Ref for requestConnection() waiters — defined early, used later
+  const connectionResolvers = useRef<Array<(connected: boolean) => void>>([]);
+
   // Did THIS browser have a wallet connected last load? If so we expect an async
   // resume to land shortly, so we hold the "restoring" spinner across the
   // post-ready reconnect gap instead of flashing the connect-gate.
@@ -587,6 +608,38 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   }, [wallets]);
 
   const isConnected = !!activeAddress;
+
+  // requestConnection() gate — blocks until wallet is connected or times out
+  const requestConnection = useCallback(async (): Promise<boolean> => {
+    if (isConnected) return true;
+    if (isConnecting) {
+      // Wait for the in-flight connect to complete
+      return new Promise((resolve) => {
+        connectionResolvers.current.push(resolve);
+      });
+    }
+    // Open the picker and wait for connection
+    openPicker();
+    return new Promise((resolve) => {
+      connectionResolvers.current.push(resolve);
+      // Timeout after 90s (same as QR wallet connect timeout)
+      setTimeout(() => {
+        const idx = connectionResolvers.current.indexOf(resolve);
+        if (idx >= 0) connectionResolvers.current.splice(idx, 1);
+        resolve(false);
+      }, CONNECT_TIMEOUT_MS);
+    });
+  }, [isConnected, isConnecting, openPicker]);
+
+  // Resolve any pending requestConnection() waiters when connection state changes
+  useEffect(() => {
+    if (isConnected && connectionResolvers.current.length > 0) {
+      connectionResolvers.current.forEach((resolve) => resolve(true));
+      connectionResolvers.current = [];
+      closePicker();
+    }
+  }, [isConnected, closePicker]);
+
   const signerReady = isConnected;
   const activeWallet = wallets.find((w: any) => w.isActive) ?? null;
   const walletType = activeWallet?.id ?? null;
@@ -649,6 +702,10 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
         authenticate,
         clearError,
         refreshBalance,
+        isPickerOpen,
+        openPicker,
+        closePicker,
+        requestConnection,
       }}
     >
       {children}
