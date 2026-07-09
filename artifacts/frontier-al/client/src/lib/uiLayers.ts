@@ -24,8 +24,14 @@ export type ZLayer = keyof typeof Z;
 
 /** Tailwind class helpers for common layers */
 export const ZClass = {
+  globe: "z-0",
+  parcels: "z-10",
+  hud: "z-20",
+  panels: "z-30",
+  sidebar: "z-40",
   bottomNav: "z-50",
   plotSheet: "z-[55]",
   selectedPlotPanel: "z-[55]",
+  toast: "z-[60]",
   modal: "z-[100]",
 } as const;
