@@ -1,4 +1,5 @@
 import { resolveApiUrl } from "@/lib/queryClient";
+import { ZClass } from "@/lib/uiLayers";
 import { useEffect, useRef, useState } from "react";
 import { Radio, X, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -119,7 +120,7 @@ export function CommTerminal({ playerId }: { playerId?: string | null }) {
   return (
     <div
       data-testid="comm-terminal"
-      className="fixed bottom-20 left-3 z-40 w-[270px] max-w-[80vw] select-none font-mono"
+      className={`fixed bottom-20 left-3 ${ZClass.toast} w-[270px] max-w-[80vw] select-none font-mono`}
     >
       <audio ref={audioRef} className="hidden" />
       <div className="rounded-lg border border-cyan-400/20 bg-black/80 backdrop-blur-md shadow-[0_0_24px_rgba(0,0,0,0.6)] overflow-hidden">
