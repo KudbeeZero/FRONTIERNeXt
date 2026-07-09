@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { strictLimiter } from "./security";
+import { strictLimiter, createStrictLimiter } from "./security";
 
 describe("strictLimiter middleware (M1-6)", () => {
   it("is exported and is a function", () => {
@@ -25,15 +25,10 @@ describe("strictLimiter middleware (M1-6)", () => {
   });
 
   it("returns 429 after exceeding limit", async () => {
-    // Create a fresh limiter with limit of 2 for testing
-    const { rateLimit } = await import("express-rate-limit");
-    const testLimiter = rateLimit({
-      windowMs: 60_000,
-      limit: 2,
-      standardHeaders: "draft-7",
-      legacyHeaders: false,
-      message: { error: "Too many requests" },
-    });
+    // Use the production factory with a small limit so the test exercises
+    // the real strictLimiter code path (windowMs, headers, message) rather
+    // than re-deriving a parallel rateLimit() config that could drift.
+    const testLimiter = createStrictLimiter({ limit: 2 });
 
     const mockReq = {
       ip: "192.168.1.1",
@@ -50,7 +45,7 @@ describe("strictLimiter middleware (M1-6)", () => {
     // First two requests should pass
     await testLimiter(mockReq, mockRes, next);
     expect(next).toHaveBeenCalledTimes(1);
-    
+
     await testLimiter(mockReq, mockRes, next);
     expect(next).toHaveBeenCalledTimes(2);
 

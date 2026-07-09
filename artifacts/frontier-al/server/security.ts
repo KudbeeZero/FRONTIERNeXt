@@ -161,13 +161,25 @@ export const actionsLimiter = rateLimit({
  * order creation, market position changes, weapon operations, sub-parcel
  * mutations, and faction joins. Tune via STRICT_RATE_LIMIT.
  */
-export const strictLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: Math.max(1, Number(process.env.STRICT_RATE_LIMIT) || 60),
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: { error: "Too many requests — slow down and try again shortly." },
-});
+/**
+ * Factory for the strictLimiter middleware. Exported so tests can build a
+ * smaller-window instance and exercise the actual 429 behavior against the
+ * same code path the production limiter uses (rather than re-deriving a
+ * parallel `rateLimit({...})` config that would silently drift).
+ */
+export function createStrictLimiter(
+  options: { limit?: number; windowMs?: number } = {},
+) {
+  return rateLimit({
+    windowMs: options.windowMs ?? 60_000,
+    limit: options.limit ?? Math.max(1, Number(process.env.STRICT_RATE_LIMIT) || 60),
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { error: "Too many requests — slow down and try again shortly." },
+  });
+}
+
+export const strictLimiter = createStrictLimiter();
 
 /**
  * Per-IP limiter for the terraform advice endpoint — bounds cost when the LLM
