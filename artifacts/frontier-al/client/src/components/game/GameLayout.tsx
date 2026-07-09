@@ -1159,11 +1159,13 @@ export function GameLayout() {
       id: "markets",
       title: "Markets",
       content: (
-        <PredictionMarketsPanel
-          currentPlayerId={player?.id ?? ""}
-          currentPlayerAscend={player?.ascend ?? 0}
-          className="h-full border-0 rounded-none overflow-hidden"
-        />
+        <ErrorBoundary>
+          <PredictionMarketsPanel
+            currentPlayerId={player?.id ?? ""}
+            currentPlayerAscend={player?.ascend ?? 0}
+            className="h-full border-0 rounded-none overflow-hidden"
+          />
+        </ErrorBoundary>
       ),
     },
   ];
@@ -1682,21 +1684,23 @@ export function GameLayout() {
 
       {/* NFT claim notifications — floating cards for minted/failed NFTs */}
       {player && (
-        <NftClaimNotification
-          commanders={player.commanders ?? []}
-          ownedParcels={(gameState?.parcels ?? []).filter(p => player.ownedParcels?.includes(p.id))}
-          walletAddress={wallet?.address ?? null}
-          walletConnected={wallet?.isConnected ?? false}
-          playerId={player.id}
-          onClaimCommander={handleClaimCommanderNft}
-          onRetryCommanderMint={handleRetryCommanderMint}
-          onDeliverPlotNft={handleDeliverPlotNft}
-          onRetryPlotMint={handleRetryPlotMint}
-          isClaimingCommander={isClaimingCommanderNft}
-          isRetryingCommanderMint={isRetryingCommanderMintId}
-          isDeliveringPlotId={isDeliveringPlotNftId}
-          isRetryingPlotMint={isRetryingPlotMintId}
-        />
+        <ErrorBoundary>
+          <NftClaimNotification
+            commanders={player.commanders ?? []}
+            ownedParcels={(gameState?.parcels ?? []).filter(p => player.ownedParcels?.includes(p.id))}
+            walletAddress={wallet?.address ?? null}
+            walletConnected={wallet?.isConnected ?? false}
+            playerId={player.id}
+            onClaimCommander={handleClaimCommanderNft}
+            onRetryCommanderMint={handleRetryCommanderMint}
+            onDeliverPlotNft={handleDeliverPlotNft}
+            onRetryPlotMint={handleRetryPlotMint}
+            isClaimingCommander={isClaimingCommanderNft}
+            isRetryingCommanderMint={isRetryingCommanderMintId}
+            isDeliveringPlotId={isDeliveringPlotNftId}
+            isRetryingPlotMint={isRetryingPlotMintId}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );

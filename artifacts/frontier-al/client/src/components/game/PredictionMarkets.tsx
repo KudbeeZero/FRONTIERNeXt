@@ -10,6 +10,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { PredictionMarket, MarketPosition, ResolutionSource } from "@shared/schema";
+import { normalizeMarkets } from "@/lib/marketHelpers";
+
+async function fetchJson(url: string): Promise<unknown> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${body || res.statusText}`);
+  }
+  return res.json().catch(() => ({}));
+}
 
 interface PredictionMarketsPanelProps {
   currentPlayerId: string;
@@ -70,7 +80,7 @@ function VerifyProof({ marketId }: { marketId: string }) {
   const [open, setOpen] = useState(false);
   const { data, isFetching } = useQuery({
     queryKey: ["/api/markets", marketId, "proof"],
-    queryFn: () => fetch(resolveApiUrl(`/api/markets/${marketId}/proof`)).then(r => r.json()),
+    queryFn: () => fetchJson(resolveApiUrl(`/api/markets/${marketId}/proof`)),
     enabled: open,
   });
 
@@ -114,7 +124,13 @@ function MarketCard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: currentPlayerId, outcome, amount }),
-      }).then(r => r.json()),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const body = await r.text().catch(() => "");
+          throw new Error(`HTTP ${r.status}: ${body || r.statusText}`);
+        }
+        return r.json();
+      }),
     onSuccess: (data) => {
       if (data.error) {
         toast({ title: "Bet Failed", description: data.error, variant: "destructive" });
@@ -134,7 +150,13 @@ function MarketCard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: currentPlayerId }),
-      }).then(r => r.json()),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const body = await r.text().catch(() => "");
+          throw new Error(`HTTP ${r.status}: ${body || r.statusText}`);
+        }
+        return r.json();
+      }),
     onSuccess: (data) => {
       if (data.error) {
         toast({ title: "Claim Failed", description: data.error, variant: "destructive" });
@@ -296,11 +318,13 @@ function MarketCard({
 
 function MarketsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: string; currentPlayerAscend: number }) {
   const queryClient = useQueryClient();
-  const { data: markets = [], isFetching, refetch } = useQuery<PredictionMarket[]>({
+  const { data: rawMarkets, isFetching, refetch } = useQuery<unknown>({
     queryKey: ["/api/markets"],
-    queryFn: () => fetch(resolveApiUrl("/api/markets")).then(r => r.json()),
+    queryFn: () => fetchJson(resolveApiUrl("/api/markets")),
     refetchInterval: 15_000,
   });
+
+  const markets = normalizeMarkets<PredictionMarket>(rawMarkets);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/markets"] });
@@ -326,7 +350,7 @@ function MarketsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId:
           Refresh
         </Button>
       </div>
-      {markets.map(m => (
+      {markets.map((m: PredictionMarket) => (
         <MarketCard
           key={m.id}
           market={m}
@@ -343,11 +367,13 @@ function MarketsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId:
 
 function MyBetsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: string; currentPlayerAscend: number }) {
   const queryClient = useQueryClient();
-  const { data: positions = [], isFetching } = useQuery<(MarketPosition & { market: PredictionMarket })[]>({
+  const { data: rawPositions = [], isFetching } = useQuery<(MarketPosition & { market: PredictionMarket })[]>({
     queryKey: ["/api/markets/player", currentPlayerId],
-    queryFn: () => fetch(resolveApiUrl(`/api/markets/player/${currentPlayerId}`)).then(r => r.json()),
+    queryFn: () => fetchJson(resolveApiUrl(`/api/markets/player/${currentPlayerId}`)) as Promise<(MarketPosition & { market: PredictionMarket })[]>,
     refetchInterval: 15_000,
   });
+
+  const positions = normalizeMarkets<MarketPosition & { market: PredictionMarket }>(rawPositions);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/markets/player", currentPlayerId] });
@@ -364,7 +390,6 @@ function MyBetsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: 
     );
   }
 
-  // Deduplicate by market — show one card per market
   const seen = new Set<string>();
   const uniqueMarkets = positions.reduce<PredictionMarket[]>((acc, p) => {
     if (!seen.has(p.marketId)) {
@@ -400,12 +425,13 @@ function MyBetsTab({ currentPlayerId, currentPlayerAscend }: { currentPlayerId: 
 // ── History Tab ───────────────────────────────────────────────────────────────
 
 function HistoryTab() {
-  const { data: markets = [], isFetching } = useQuery<PredictionMarket[]>({
+  const { data: rawMarkets = [], isFetching } = useQuery<unknown>({
     queryKey: ["/api/markets/history"],
-    queryFn: () => fetch(resolveApiUrl("/api/markets/history")).then(r => r.json()),
+    queryFn: () => fetchJson(resolveApiUrl("/api/markets/history")),
     refetchInterval: 30_000,
   });
 
+  const markets = normalizeMarkets<PredictionMarket>(rawMarkets);
   const resolved = markets.filter(m => m.status === "resolved" || m.status === "cancelled" || m.status === "closed");
 
   if (resolved.length === 0 && !isFetching) {
