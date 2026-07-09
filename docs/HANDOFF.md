@@ -5,24 +5,32 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** `chore/recovery-z-index-hardening-review` — safe parked z-index hardening review.
-- **Branch:** `chore/recovery-z-index-hardening-review` (merged + deleted)
-- **PR:** #234 · **MERGED**
-- **Status:** done — z-index hardening recovery lane **closed**. UI-layer only (`uiLayers.ts`, `CommTerminal.tsx`, `hud/hud.css`) + audit doc; no game/globe/combat behavior changed.
+- **Unit:** `chore/ts7-prep` — TS7 prep only, **not** the TS7 migration.
+- **Branch:** `chore/ts7-prep` (merged + deleted)
+- **PR:** #235 · **MERGED**
+- **Status:** done — TS7 **prep** lane **closed**. Prep change: `artifacts/frontier-al/tsconfig.json` target `ES2020` → `ES2022`. Plus docs: `docs/audits/chore-ts7-prep-scan.md`, `docs/audits/chore-ts7-prep.md`, `docs/audits/kilo-efficiency-notes.md`. No game/globe/combat behavior changed.
 - **Active lane:** none. No open PR/lane.
 
 ## NEXT
-- **Proposed branch:** `chore/ts7-prep-scan` (read-only prep — NOT the migration)
-- **Scope (one line):** scan/inventory what a TS7 migration would touch and surface risks; produce a prep report only. Do **not** start the full TS7 migration.
-- **Open risks:** TS7 migration itself is large/high-blast-radius — keep this lane read-only.
+- **Proposed branch:** `chore/ts7-migration-scan` (read-only dedicated scan — NOT the migration)
+- **Scope (one line):** a dedicated TS7 migration scan that inventories exactly what a TS7 migration would touch and surfaces protected-path risk; produce a scan report only. Do **not** start the full TS7 migration.
+- **Open risks:** TS7 migration itself is large/high-blast-radius — keep this lane read-only until the scan confirms no protected-path risk.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch.
 
 ## Last result (for fast auditor sanity-check)
-- **Shipped:** z-index hardening review — `artifacts/frontier-al/client/src/lib/uiLayers.ts`, `artifacts/frontier-al/client/src/components/game/CommTerminal.tsx`, `artifacts/frontier-al/client/src/components/game/hud/hud.css`, plus audit doc `docs/audits/chore-recovery-z-index-hardening-review.md`.
-- **Verified (from PR #234):** `pnpm install` pass · `check`/`tsc` pass · `vitest` **355 passed**. CI green (Typecheck & server tests, Cloudflare Pages).
-- **Scope:** UI-layer only; the stale `docs/HANDOFF.md` baton edit from the old branch was **excluded** from PR #234. Zero funds/ASA/wallet/on-chain/mainnet/auth/globe/combat files touched.
-- **Self-audit:** `docs/audits/chore-recovery-z-index-hardening-review.md` — no funds/ASA/auth lanes touched, so no independent auditor required.
+- **Shipped:** TS7 prep — `artifacts/frontier-al/tsconfig.json` (target `ES2020` → `ES2022`, single line), plus three audit/efficiency docs.
+- **Verified (from PR #235):** CI green (Typecheck & server tests, Cloudflare Pages). Recorded local tests green: root typecheck clean · `frontier-al run check` clean · `test:server` **480 passed / 24 skipped** · `test` **355 passed**.
+- **Config test that was reverted:** `api-server` `moduleResolution: node16` was trialed and reverted because the `module`/`moduleResolution` pairing would force source import-extension churn. No source import-extension edits landed.
+- **TS7 status:** TS7 stable reported as **7.0.2**; `@typescript/native-preview` still preview-only. **No TS7 installed, no TypeScript upgraded.** This lane is prep only.
+- **Scope:** config + docs only. Zero funds/ASA/wallet/on-chain/mainnet/auth/globe/combat files touched. Protected paths untouched.
+- **Self-audit:** `docs/audits/chore-ts7-prep.md` — no funds/ASA/auth lanes touched, so no independent auditor required.
 - **Parked:** the **auth cleanup branch** remains parked and must NOT be merged without owner approval.
+
+## Kilo Efficiency Profile (post-closeout)
+- prior observed prompt context use: ~16%; current target: ~40%. Use the extra context for **more verification**, not wider scope.
+- best terminal commands: `git status --short` · `gh pr checks <n>` · `gh pr diff <n> --name-only` · `gh run list --limit 5`.
+- strongest future prompt pattern: main task → one same-lane adjacent fix → efficiency notes → terminal verification → **Asked / Done / Needs you**.
+- workflow notes: session folder may be the repo root (normal); `rg` may be missing → use `grep`/`find`; `pnpm install --frozen-lockfile` is allowed when `node_modules` is missing (locks existing deps only, NOT a TS7 install); temp paths may be blocked → workspace edit + revert-on-fail is acceptable for config experiments; terminal verifies PR files/checks as source of truth; use a same-lane adjacent fix only if proven.
 
 ## Definition of done (tightened)
 A session is NOT finished until ALL hold — verify mechanically, don't assume:
