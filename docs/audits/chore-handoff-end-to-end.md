@@ -48,7 +48,7 @@ Not applicable. No funds / ASA / auth / secrets / input-validation code was touc
 
 ## What I could NOT verify (NOT verified)
 
-- **CI check via `gh pr checks`:** will be attempted at PR-open time (step 8 of `/ship`). If `gh`/GitHub MCP is unavailable or errors, I will **not** retry-poll; I will trust the local green recorded above and note it explicitly here: *"CI check unavailable, relying on local green."* This is never silently conflated with a verified CI pass. The exact head-commit SHA will be pinned when claiming green.
+- **CI check — RESOLVED:** `gh pr checks 233` confirms **green** on head `dfa94ae`: `Typecheck & server tests` ✅ (1m38s) and `Cloudflare Pages` ✅. The earlier "pending" state resolved to pass; no local-green fallback needed. Pinned head SHA: `dfa94ae`.
 - **Live behavior of the new relay:** the `/ship` flow has not been proven end-to-end against a real funds-lane unit; for non-funds work it is exercised by this very PR's own execution (read baton → branch → implement → self-verify → self-audit → PR → merge → rewrite baton → push).
 
 ## Audit checklist (mirrors PR body)
