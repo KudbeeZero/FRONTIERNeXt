@@ -26,21 +26,80 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: PR #232 · branch `chore/db-indexes-ratelimit`
+## Current baton — 🟡 AWAITING_AUDIT: none · next unit = M2-1 (weapon damage settlement)
 
-### 2026-07-09 — PR #232 opened: DB indexes + rate limiter extension (M1-6)
+### 2026-07-09 — PR #232 audited + fixed + merged: M1-6 complete; Month 1 done
 
-**#232 (`chore/db-indexes-ratelimit`) — AWAITING_AUDIT.** M1-6 from Phase 25 queue. Adds DB indexes for purchase funnel query performance and extends rate limiter coverage to write-heavy route groups. Migration 0014 adds functional index on `players (lower(address))` for wallet lookup, btree indexes on `players.is_ai` and `players.player_faction_id`, and secondary indexes on `trade_orders.status`, `trade_orders.offerer_id`, `trade_orders.created_at`. Added `strictLimiter` (60/min, memory store, configurable via `STRICT_RATE_LIMIT` env var) bound to `/api/trade/*`, `/api/markets/*`, `/api/weapons/*`, `/api/sub-parcels/*`, `/api/factions/*`. Added `LIMIT 1000` to `queryPurchaseIntents()` in `chainEventStore.ts` to prevent unbounded full-table scans on admin dashboard. Updated `db-schema.ts` with matching index definitions. 3 new unit tests for strictLimiter middleware (export, behavior, rate limiting). All 480 server tests pass, `tsc` clean, build successful.
+**#232 (`chore/db-indexes-ratelimit`) — MERGED as `c0c5e7c`.** Audited CONCERNS → fixed → PASS.
+M1-6 from Phase 25 queue. Migration 0014 adds 6 indexes (`players (lower(address))`, `players.is_ai`,
+`players.player_faction_id`, `trade_orders.status/offerer_id/created_at`); `strictLimiter` (60/min,
+configurable via `STRICT_RATE_LIMIT`) bound to `/api/trade|markets|weapons|sub-parcels|factions`;
+`LIMIT 1000` safety cap on `queryPurchaseIntents()`. 3 new unit tests.
 
-**What this chat did (for the auditor):**
-- Migration 0014 creates 6 new indexes on `players` and `trade_orders` tables
-- `strictLimiter` in `security.ts` provides per-surface 60/min ceiling on write-heavy routes
-- `queryPurchaseIntents()` now capped at 1000 rows (was unbounded `SELECT *`)
-- Middleware binding coverage test verifies strictLimiter export and rate limiting behavior
-- Migration is staged — apply manually: `psql "$DATABASE_URL" -f migrations/0014_db_indexes_purchase_funnel.sql`
-- No mainnet constants hardcoded — this is TestNet-ready, mainnet-gate still required before mainnet
+**Audit finding (the only blocker):** test 3 in `strictLimiter.spec.ts` built a parallel inline
+`rateLimit({...})` config and tested that — it did not exercise the exported `strictLimiter`. Fixed
+in follow-up commit `340ba3c`: refactored `server/security.ts` to expose a `createStrictLimiter
+(options?)` factory (the exported `strictLimiter` is now `createStrictLimiter()` — same production
+behavior); rewrote test 3 to use `createStrictLimiter({ limit: 2 })`, so the test exercises the
+real production code path. Final audit doc: [docs/audits/pr-232-audit.md](./audits/pr-232-audit.md).
 
-**Next unit:** M1-4 (pin ASCEND ASA via env var) — add `ASCEND_ASA_ID` env var + startup assert, update `ENV_VARS.md` + deployment checklist. Branch: `fix/pin-ascend-asa`. Open risks: none. Off-limits: standard hard rules (no mainnet without gates, don't merge `wip/atomic-purchase`, don't reintroduce mock data).
+**Validation:** `pnpm run check` clean, `pnpm run test:server` 480 passed | 24 skipped, CI green on
+`afe5c05` (`Typecheck & server tests` ✅ + `Cloudflare Pages` ✅).
+
+### 2026-07-09 — Month 1 COMPLETE (M1-1 through M1-6 all merged)
+
+| # | Unit | PR | Status |
+|---|---|---|---|
+| M1-1 | `fix/welcome-bonus-double-enqueue` | #208 | MERGED |
+| M1-2 | `fix/placebet-atomicity` | #209 | MERGED |
+| M1-3 | `fix/wallet-popup-vectors-p1-p3` | #210 | MERGED |
+| M1-4 | `fix/pin-ascend-asa` | #230 | MERGED (already on main when this session started) |
+| M1-5 | `feat/mint-retry-delivery` | #231 | MERGED |
+| M1-6 | `chore/db-indexes-ratelimit` | #232 | MERGED (this session) |
+
+**Correction from prior baton:** M1-4 was already completed in PR #230 (`fix(chain): pin ASCEND
+ASA via ASCEND_ASA_ID env var + startup assert`, commit `9086032`) before this session started. The
+baton incorrectly listed M1-4 as "next up" — the actual next unit after M1-6 is **M2-1
+(weapon damage settlement)**, the biggest remaining gameplay gap (W1: weapon fire computes damage
+but never settles it onto plot state).
+
+### ➡️ Next unit — M2-1 (`feat/weapon-damage-settlement`)
+
+The W1 gap from [`artifacts/frontier-al/docs/WEAPONS_SYSTEM_UX_PLAN.md`](../artifacts/frontier-al/docs/WEAPONS_SYSTEM_UX_PLAN.md):
+weapon fire computes damage in `server/weapons/engagementStore.ts:156` but never persists it;
+`"impacted"` is never set; no tick settles damage onto the target plot. This is the largest
+remaining gameplay correctness gap. Branch: `feat/weapon-damage-settlement`. Open risks: none
+identified yet (needs read-through of the engagement store + plot state mutation paths before
+scoping the fix). Off-limits: standard hard rules.
+
+**M2-2 (combat convergence — W3+W4: settled damage feeds plot state; badges credit on impact
+only)** is gated on M2-1 landing first. M2-3 (`feat/armory-loadout-polish`) is already MERGED
+(#211). M2-4 through M2-6 + Month 3 are still queued.
+
+### 2026-07-08 — PR #231 audited and merged
+
+**#231 (`feat/mint-retry-delivery`) — MERGED as `bc84a17`.** Audited FAIL → fixed → PASS.
+M1-5 from Phase 25 queue. Adds persistent retry queue for Plot NFT mints that fail AFTER the
+buyer's ALGO payment has been claimed and land ownership committed. Without this, a failed mint
+left the buyer with land, no NFT, no refund, and no automated recovery. Added `plot_mint_retry_queue`
+table (migration 0013) to track failed mints with retry attempts and refund escalation.
+Implemented `mintRetryQueue.ts` worker service with enqueue/drain/start functions following
+`transferQueue.ts` pattern (Postgres + setInterval, no Redis/BullMQ). Added `refund.ts` primitive
+for admin-signed ALGO refunds to buyers. Updated `routes.ts` to enqueue failed mints in purchase
+flow `.catch` block; added `POST /api/nft/retry-plot/:plotId` endpoint for manual retry; enhanced
+`GET /api/nft/plot/:plotId` to check retry queue for failed/minting states. Wired
+`startPlotMintRetryWorker()` at boot in `server/index.ts`. Updated `NftClaimNotification.tsx` HUD
+to show failed/minting states with retry button. Added `handleRetryPlotMint` to `GameLayout.tsx`
+and wired `NftClaimNotification` component. 6 new unit tests (enqueue, drain, retry, refund
+escalation). All 477 server tests pass, `tsc` clean.
+
+**Audit finding (the only blocker):** a critical dead-code bug in the initial implementation — the
+`mintPlotNft` helper returned `undefined` on the "delivered" path (a `return` was missing after
+`return ok` in the success branch), causing the purchase flow to always treat the mint as failed
+and enqueue it for retry even on success. Fixed in `4db0f2e`. Plus: `GET /api/nft/plot/:plotId`
+was returning `404` for delivered/refunded plots instead of their actual status. Fixed in
+`f6fdbc2`. Final audit doc: [docs/audits/pr-231-audit.md](./audits/pr-231-audit.md).
+
 
 **PR #229 merged:** `feat/wallet-connection-gate` — wallet connection gate + fresh params + singleton modal + queue reset.
 
@@ -501,30 +560,29 @@ Execute in order, one unit per chat. Every claim has file:line evidence in the r
 cited. Funds lanes take full gates (`/security-pass`, TestNet click-test, owner approval);
 no fix without a failing-first test.
 
-**Month 1 — funds safety + wallet truth**
+**Month 1 — funds safety + wallet truth** (COMPLETE)
 1. **M1-1 — DONE, merged #208** `fix/welcome-bonus-double-enqueue` — see baton summary above
    for full detail.
 2. **M1-2 — DONE, merged #209** `fix/placebet-atomicity` — see baton summary above for full
    detail.
-3. **M1-3 — DONE, AWAITING_AUDIT** `fix/wallet-single-provider` — P1+P3 fixed, see baton
+3. **M1-3 — DONE, merged #210** `fix/wallet-popup-vectors-p1-p3` — P1+P3 fixed, see baton
    summary above for full detail. P2 (landing↔game cross-origin second connect) remains an ADR
    + owner decision, not code — still not started.
-4. **M1-4 (NEXT UP, read)** `fix/pin-ascend-asa` — pin ASCEND ASA via `ASCEND_ASA_ID` env + startup
-   assert; today it's name-lookup only (`services/chain/asa.ts:117,128`) with no env-pinned
-   ID — `755818217` appears only as free-text in source/docs (`shared/university/curriculum.ts`
-   + several markdown docs), never as a config value. Update `ENV_VARS.md` + deployment checklist.
-5. **M1-5 (funds)** `feat/mint-retry-delivery` — no atomic delivery/rollback: paid purchase
-   whose background mint fails = ALGO consumed, no NFT, no refund, manual recovery
-   (`routes.ts:2091-2098`); `attemptDelivery` one-shot (`routes.ts:2084`). Build mint-retry
-   worker + refund-or-retry policy + surface custody/claim state in HUD. Full gates.
-6. **M1-6** `chore/db-indexes-ratelimit` — indexes (migration 0013:
-   `players.address`/`player_faction_id`), extend strict action rate-limiter to
-   `/api/trade|markets|weapons|sub-parcels|factions`, middleware-binding coverage test.
+4. **M1-4 — DONE, merged #230** `fix/pin-ascend-asa` — `ASCEND_ASA_ID` env + startup assert
+   shipped (was already on main when this session started; commit `9086032`).
+5. **M1-5 — DONE, merged #231** `feat/mint-retry-delivery` — persistent retry queue for failed
+   Plot NFT mints, admin-signed refund primitive, HUD surfaces failed/minting states.
+6. **M1-6 — DONE, merged #232** `chore/db-indexes-ratelimit` — migration 0014 adds 6 indexes
+   on `players` + `trade_orders`; `strictLimiter` (60/min, configurable via `STRICT_RATE_LIMIT`)
+   bound to `/api/trade|markets|weapons|sub-parcels|factions`; `LIMIT 1000` safety cap on
+   `queryPurchaseIntents()`. Test 3 was fixed in follow-up to actually exercise the production
+   `createStrictLimiter` factory.
 
 **Month 2 — combat convergence + on-chain completeness**
-7. **M2-1 (write)** `feat/weapon-damage-settlement` — W1, the biggest gameplay gap: weapon
-   fire never damages plots; damage computed (`server/weapons/engagementStore.ts:156`) but
-   never settled, `"impacted"` never set, no tick (roadmap Phase 8). 🚫 resolution math.
+7. **M2-1 (NEXT UP, write)** `feat/weapon-damage-settlement` — W1, the biggest gameplay gap:
+   weapon fire never damages plots; damage computed (`server/weapons/engagementStore.ts:156`)
+   but never settled, `"impacted"` never set, no tick (roadmap Phase 8). 🚫 resolution math.
+   **Read the engagement store + plot state mutation paths before scoping.**
 8. **M2-2 (write)** `feat/combat-convergence` — W3+W4: settled damage feeds plot state;
    badges credit on impact only (`service.ts:202-206`).
 9. **M2-3 — DONE, merged #211** `feat/armory-loadout-polish` — W2 loadout wiring (was
