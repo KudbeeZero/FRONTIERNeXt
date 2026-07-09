@@ -88,10 +88,10 @@ export async function queryRecentChainEvents(limit = 50): Promise<ChainEventRow[
   return rows as ChainEventRow[];
 }
 
-/** db-guarded: all purchase_intents (small table; bounded by attempts). */
+/** db-guarded: purchase_intents (capped at 1000 rows for admin dashboard). */
 export async function queryPurchaseIntents(): Promise<PurchaseIntentRow[]> {
   if (!db) return [];
-  const rows = await db.select().from(purchaseIntents);
+  const rows = await db.select().from(purchaseIntents).limit(1000);
   return rows as PurchaseIntentRow[];
 }
 

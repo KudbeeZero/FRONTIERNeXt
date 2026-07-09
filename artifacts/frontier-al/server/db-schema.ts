@@ -18,6 +18,7 @@ import {
   index,
   unique,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { ResolutionSource } from "@shared/schema";
 
 // ─── plot_nfts ─────────────────────────────────────────────────────────────
@@ -187,55 +188,63 @@ export const gameMeta = pgTable("game_meta", {
 // One row per human or AI player.  Complex sub-objects (commanders, drones,
 // specialAttacks) are stored as JSONB columns.
 
-export const players = pgTable("players", {
-  id:                   varchar("id", { length: 36 }).primaryKey(),
-  address:              varchar("address", { length: 100 }).notNull().default("PLAYER_WALLET"),
-  name:                 varchar("name", { length: 100 }).notNull(),
-  iron:                 integer("iron").notNull().default(0),
-  fuel:                 integer("fuel").notNull().default(0),
-  crystal:              integer("crystal").notNull().default(0),
-  ascend:             integer("frontier").notNull().default(0),
-  isAi:                 boolean("is_ai").notNull().default(false),
-  aiBehavior:           varchar("ai_behavior", { length: 20 }),
-  totalIronMined:       integer("total_iron_mined").notNull().default(0),
-  totalFuelMined:       integer("total_fuel_mined").notNull().default(0),
-  totalCrystalMined:    real("total_crystal_mined").notNull().default(0),
-  totalAscendEarned:  real("total_frontier_earned").notNull().default(0),
-  totalAscendBurned:  real("total_frontier_burned").notNull().default(0),
-  attacksWon:           integer("attacks_won").notNull().default(0),
-  attacksLost:          integer("attacks_lost").notNull().default(0),
-  territoriesCaptured:  integer("territories_captured").notNull().default(0),
-  commanders:           jsonb("commanders").$type<object[]>().notNull().default([]),
-  activeCommanderIndex: integer("active_commander_index").notNull().default(0),
-  specialAttacks:       jsonb("special_attacks").$type<object[]>().notNull().default([]),
-  drones:               jsonb("drones").$type<object[]>().notNull().default([]),
-  satellites:           jsonb("satellites").$type<object[]>().notNull().default([]),
-  /** Weapon-system progression (archetype/attributes/badges/loadout/stats). NULL until first built. */
-  weaponProfile:        jsonb("weapon_profile").$type<import("../shared/weapons").PlayerWeaponProfile>(),
-  welcomeBonusReceived: boolean("welcome_bonus_received").notNull().default(false),
-  ascendBalanceMicro:    bigint("frntr_balance_micro", { mode: "number" }).notNull().default(0),
-  ascendReadyMicro:      bigint("frntr_ready_micro",   { mode: "number" }).notNull().default(0),
-  ascendClaimedMicro:    bigint("frntr_claimed_micro",  { mode: "number" }).notNull().default(0),
-  /** Timestamp (ms) until which morale debuff is active — reduces attack power. */
-  moraleDebuffUntil:    bigint("morale_debuff_until", { mode: "number" }).notNull().default(0),
-  /** Timestamp (ms) until which new attacks cannot be launched (cooldown). */
-  attackCooldownUntil:  bigint("attack_cooldown_until", { mode: "number" }).notNull().default(0),
-  /** Running count of consecutive territory losses; resets on a successful defence. */
-  consecutiveLosses:    integer("consecutive_losses").notNull().default(0),
-  testnetProgress:      jsonb("testnet_progress").$type<string[]>().notNull().default([]),
-  /** University module ids the player has PASSED (>=70% quiz). NULL until first pass. */
-  universityPassed:     jsonb("university_passed").$type<string[]>(),
-  treasury:             real("treasury").notNull().default(1000.0),
-  /** Faction the human player has aligned with. NULL = unaligned. */
-  playerFactionId:      varchar("player_faction_id", { length: 20 }),
-  /** Timestamp (ms) when the player last joined/changed faction. */
-  factionJoinedAt:      bigint("faction_joined_at", { mode: "number" }),
-  // ── Phase 2: Rare Mineral Vault (cap: 50 per type) ────────────────────────
-  xenoriteVault:        integer("xenorite_vault").notNull().default(0),
-  voidShardVault:       integer("void_shard_vault").notNull().default(0),
-  plasmaCoreVault:      integer("plasma_core_vault").notNull().default(0),
-  darkMatterVault:      integer("dark_matter_vault").notNull().default(0),
-});
+export const players = pgTable(
+  "players",
+  {
+    id:                   varchar("id", { length: 36 }).primaryKey(),
+    address:              varchar("address", { length: 100 }).notNull().default("PLAYER_WALLET"),
+    name:                 varchar("name", { length: 100 }).notNull(),
+    iron:                 integer("iron").notNull().default(0),
+    fuel:                 integer("fuel").notNull().default(0),
+    crystal:              integer("crystal").notNull().default(0),
+    ascend:             integer("frontier").notNull().default(0),
+    isAi:                 boolean("is_ai").notNull().default(false),
+    aiBehavior:           varchar("ai_behavior", { length: 20 }),
+    totalIronMined:       integer("total_iron_mined").notNull().default(0),
+    totalFuelMined:       integer("total_fuel_mined").notNull().default(0),
+    totalCrystalMined:    real("total_crystal_mined").notNull().default(0),
+    totalAscendEarned:  real("total_frontier_earned").notNull().default(0),
+    totalAscendBurned:  real("total_frontier_burned").notNull().default(0),
+    attacksWon:           integer("attacks_won").notNull().default(0),
+    attacksLost:          integer("attacks_lost").notNull().default(0),
+    territoriesCaptured:  integer("territories_captured").notNull().default(0),
+    commanders:           jsonb("commanders").$type<object[]>().notNull().default([]),
+    activeCommanderIndex: integer("active_commander_index").notNull().default(0),
+    specialAttacks:       jsonb("special_attacks").$type<object[]>().notNull().default([]),
+    drones:               jsonb("drones").$type<object[]>().notNull().default([]),
+    satellites:           jsonb("satellites").$type<object[]>().notNull().default([]),
+    /** Weapon-system progression (archetype/attributes/badges/loadout/stats). NULL until first built. */
+    weaponProfile:        jsonb("weapon_profile").$type<import("../shared/weapons").PlayerWeaponProfile>(),
+    welcomeBonusReceived: boolean("welcome_bonus_received").notNull().default(false),
+    ascendBalanceMicro:    bigint("frntr_balance_micro", { mode: "number" }).notNull().default(0),
+    ascendReadyMicro:      bigint("frntr_ready_micro",   { mode: "number" }).notNull().default(0),
+    ascendClaimedMicro:    bigint("frntr_claimed_micro",  { mode: "number" }).notNull().default(0),
+    /** Timestamp (ms) until which morale debuff is active — reduces attack power. */
+    moraleDebuffUntil:    bigint("morale_debuff_until", { mode: "number" }).notNull().default(0),
+    /** Timestamp (ms) until which new attacks cannot be launched (cooldown). */
+    attackCooldownUntil:  bigint("attack_cooldown_until", { mode: "number" }).notNull().default(0),
+    /** Running count of consecutive territory losses; resets on a successful defence. */
+    consecutiveLosses:    integer("consecutive_losses").notNull().default(0),
+    testnetProgress:      jsonb("testnet_progress").$type<string[]>().notNull().default([]),
+    /** University module ids the player has PASSED (>=70% quiz). NULL until first pass. */
+    universityPassed:     jsonb("university_passed").$type<string[]>(),
+    treasury:             real("treasury").notNull().default(1000.0),
+    /** Faction the human player has aligned with. NULL = unaligned. */
+    playerFactionId:      varchar("player_faction_id", { length: 20 }),
+    /** Timestamp (ms) when the player last joined/changed faction. */
+    factionJoinedAt:      bigint("faction_joined_at", { mode: "number" }),
+    // ── Phase 2: Rare Mineral Vault (cap: 50 per type) ────────────────────────
+    xenoriteVault:        integer("xenorite_vault").notNull().default(0),
+    voidShardVault:       integer("void_shard_vault").notNull().default(0),
+    plasmaCoreVault:      integer("plasma_core_vault").notNull().default(0),
+    darkMatterVault:      integer("dark_matter_vault").notNull().default(0),
+  },
+  (t) => ({
+    lowerAddressIdx: index("idx_players_lower_address").on(sql`lower(${t.address})`),
+    isAiIdx: index("idx_players_is_ai").on(t.isAi),
+    playerFactionIdIdx: index("idx_players_player_faction_id").on(t.playerFactionId),
+  })
+);
 
 // ─── parcels ──────────────────────────────────────────────────────────────────
 // One row per land plot (21,000 total).  x/y/z store the unit-sphere
@@ -394,20 +403,28 @@ export const orbitalEvents = pgTable(
 // Peer-to-peer resource exchange orders.
 // Status lifecycle: open → filled | cancelled
 
-export const tradeOrders = pgTable("trade_orders", {
-  id:           varchar("id", { length: 36 }).primaryKey(),
-  offererId:    varchar("offerer_id", { length: 36 }).notNull(),
-  offererName:  varchar("offerer_name", { length: 100 }).notNull(),
-  giveResource: varchar("give_resource", { length: 20 }).notNull(),
-  giveAmount:   integer("give_amount").notNull(),
-  wantResource: varchar("want_resource", { length: 20 }).notNull(),
-  wantAmount:   integer("want_amount").notNull(),
-  status:       varchar("status", { length: 20 }).notNull().default("open"),
-  createdAt:    bigint("created_at", { mode: "number" }).notNull(),
-  filledById:   varchar("filled_by_id", { length: 36 }),
-  filledByName: varchar("filled_by_name", { length: 100 }),
-  filledAt:     bigint("filled_at", { mode: "number" }),
-});
+export const tradeOrders = pgTable(
+  "trade_orders",
+  {
+    id:           varchar("id", { length: 36 }).primaryKey(),
+    offererId:    varchar("offerer_id", { length: 36 }).notNull(),
+    offererName:  varchar("offerer_name", { length: 100 }).notNull(),
+    giveResource: varchar("give_resource", { length: 20 }).notNull(),
+    giveAmount:   integer("give_amount").notNull(),
+    wantResource: varchar("want_resource", { length: 20 }).notNull(),
+    wantAmount:   integer("want_amount").notNull(),
+    status:       varchar("status", { length: 20 }).notNull().default("open"),
+    createdAt:    bigint("created_at", { mode: "number" }).notNull(),
+    filledById:   varchar("filled_by_id", { length: 36 }),
+    filledByName: varchar("filled_by_name", { length: 100 }),
+    filledAt:     bigint("filled_at", { mode: "number" }),
+  },
+  (t) => ({
+    statusIdx: index("idx_trade_orders_status").on(t.status),
+    offererIdIdx: index("idx_trade_orders_offerer_id").on(t.offererId),
+    createdAtIdx: index("idx_trade_orders_created_at").on(t.createdAt),
+  })
+);
 
 export type TradeOrder = typeof tradeOrders.$inferSelect;
 export type InsertTradeOrder = typeof tradeOrders.$inferInsert;

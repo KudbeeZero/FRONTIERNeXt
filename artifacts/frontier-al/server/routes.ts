@@ -70,7 +70,7 @@ import {
   FREE_PURCHASES,
 } from "../shared/economy-config";
 import { getAlgoUsdPrice, usdToMicroAlgo } from "./services/priceOracle";
-import { requireAdminKey, isAdminRequest, enumerationLimiter, authLimiter, adviceLimiter, waitlistLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, isRealWallet, isRealVerifiedWallet, type PaymentRedemption } from "./security";
+import { requireAdminKey, isAdminRequest, enumerationLimiter, authLimiter, adviceLimiter, waitlistLimiter, strictLimiter, clampLimit, evaluateNftDeliveryClaim, createPaymentReplayGuard, isRealWallet, isRealVerifiedWallet, type PaymentRedemption } from "./security";
 import { redeemedPayments as redeemedPaymentsTable, actionNonces as actionNoncesTable } from "./db-schema";
 import { economicsSnapshots as economicsSnapshotsTable } from "./db-schema";
 import { evaluateOwnership } from "./routeOwnership";
@@ -494,6 +494,20 @@ export async function registerRoutes(
   // Sign-In With Algorand: prove control of the wallet, receive a session token.
   // Tight, Redis-backed per-IP limiter blunts nonce/verify spam across instances.
   app.use("/api/auth", authLimiter);
+
+  // ── Write-heavy route groups (M1-6) ─────────────────────────────────────────
+  // Per-surface 60/min ceiling on trade, markets, weapons, sub-parcels, and
+  // faction operations. These routes previously relied only on the coarse
+  // apiReadLimiter (1000/min). strictLimiter adds a dedicated spam/abuse ceiling.
+  for (const p of [
+    "/api/trade",
+    "/api/markets",
+    "/api/weapons",
+    "/api/sub-parcels",
+    "/api/factions",
+  ]) {
+    app.use(p, strictLimiter);
+  }
 
   app.post("/api/auth/nonce", async (req, res) => {
     try {
