@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-07-09T10:20:42Z",
+  "generatedBy": "KiloCode (read-only GitHub inventory)",
+  "authAccount": "KudbeeZero",
+  "rankingMethod": {
+    "priorityOrder": [
+      "pushedAt (most recent)",
+      "updatedAt (most recent)",
+      "commits in last 90 days",
+      "open PR / issue activity",
+      "project-name relevance to owner work (tie-breaker only)"
+    ],
+    "dataSources": [
+      "gh repo list KudbeeZero --limit 100",
+      "gh api repos/<repo>/commits (latest + since=2026-04-10)",
+      "gh pr list --state open",
+      "gh run list (workflow status)"
+    ],
+    "excludedDespiteRecentTimestamp": [
+      {
+        "repo": "devbiz-worker",
+        "reason": "pushed 2026-07-07 but only 1 commit total (one-time source import) — not actively developed"
+      },
+      {
+        "repo": "kudbee-engine",
+        "reason": "pushed 2026-07-05 but only 2 commits (archive/preserve notice) — dormant by design"
+      }
+    ]
+  },
+  "privateReposVisible": false,
+  "privateReposNote": "All 76 listed repos are PUBLIC. Token is the KudbeeZero account token; no private repos were returned, but private-repo visibility is 'none observed, not positively confirmed'.",
+  "repoCountScanned": 76,
+  "top5": [
+    {
+      "rank": 1,
+      "name": "Kudbee-Quant-Bot-v1.0",
+      "nameWithOwner": "KudbeeZero/Kudbee-Quant-Bot-v1.0",
+      "url": "https://github.com/KudbeeZero/Kudbee-Quant-Bot-v1.0",
+      "description": "Kudbee Quant",
+      "visibility": "PUBLIC",
+      "isPrivate": false,
+      "isFork": false,
+      "isArchived": false,
+      "primaryLanguage": "Python",
+      "createdAt": "2026-06-08T21:43:39Z",
+      "updatedAt": "2026-07-09T10:19:36Z",
+      "pushedAt": "2026-07-09T10:19:21Z",
+      "latestCommit": { "sha": "3b797696ad35", "date": "2026-07-09T10:19:20Z", "message": "paper-trade: update journal [skip ci]" },
+      "commits90d": ">=100",
+      "openPRs": 0,
+      "workflowStatus": "All green; active scheduled workflows (paper-trade ping every 5 min, Telegram notifications)",
+      "readmeSummary": "Honest quantitative trading research toolkit for crypto/prediction markets; no fake Sharpe ratios; Python engine under kudbee_quant/.",
+      "figmaBoardTitle": "Kudbee Quant - Trading Research & Paper-Trade Ops",
+      "figmaSections": ["Current status", "Active lane", "Parked work", "Next owner action", "Risks/protected paths", "Next bigger/better lane"]
+    },
+    {
+      "rank": 2,
+      "name": "FRONTIERNeXt",
+      "nameWithOwner": "KudbeeZero/FRONTIERNeXt",
+      "url": "https://github.com/KudbeeZero/FRONTIERNeXt",
+      "description": "",
+      "visibility": "PUBLIC",
+      "isPrivate": false,
+      "isFork": false,
+      "isArchived": false,
+      "primaryLanguage": "TypeScript",
+      "createdAt": "2026-05-18T00:53:06Z",
+      "updatedAt": "2026-07-09T09:27:30Z",
+      "pushedAt": "2026-07-09T10:06:13Z",
+      "latestCommit": { "sha": "64c22a8cb53e", "date": "2026-07-09T09:27:10Z", "message": "docs: collapse relay into /ship orchestrator + split baton" },
+      "commits90d": ">=100",
+      "openPRs": 0,
+      "workflowStatus": "All green; CI + Deploy to Fly on push/PR",
+      "readmeSummary": "FRONTIERNeXt docs home / Mission Control front door. pnpm monorepo: flagship FRONTIER-AL game (Express+WS server, React+three.js client), Algorand TestNet economy, 21k-plot globe, session-relay dev loop.",
+      "figmaBoardTitle": "FRONTIERNeXt / FRONTIER-AL - Game Build & Mainnet Readiness",
+      "figmaSections": ["Current status", "Active lane", "Parked work", "Next owner action", "Risks/protected paths", "Next bigger/better lane"]
+    },
+    {
+      "rank": 3,
+      "name": "kudbee-music",
+      "nameWithOwner": "KudbeeZero/kudbee-music",
+      "url": "https://github.com/KudbeeZero/kudbee-music",
+      "description": "",
+      "visibility": "PUBLIC",
+      "isPrivate": false,
+      "isFork": false,
+      "isArchived": false,
+      "primaryLanguage": "TypeScript",
+      "createdAt": "2026-05-18T00:53:06Z",
+      "updatedAt": "2026-07-07T22:24:05Z",
+      "pushedAt": "2026-07-07T22:23:59Z",
+      "latestCommit": { "sha": "0cdf1f0e1f20", "date": "2026-07-07T22:23:59Z", "message": "Merge pull request #238 from KudbeeZero/claude/lightning-ai-" },
+      "commits90d": ">=100",
+      "openPRs": 1,
+      "workflowStatus": "ci green after two transient failures at 22:15",
+      "readmeSummary": "Branded HERMES - local deterministic songwriting brain; no API key, $0, no GPU, deterministic; specialized cross-checking agents; MIT.",
+      "figmaBoardTitle": "Kudbee Music / HERMES - Songwriting Brain",
+      "figmaSections": ["Current status", "Active lane", "Parked work", "Next owner action", "Risks/protected paths", "Next bigger/better lane"]
+    },
+    {
+      "rank": 4,
+      "name": "Devbiz",
+      "nameWithOwner": "KudbeeZero/Devbiz",
+      "url": "https://github.com/KudbeeZero/Devbiz",
+      "description": "",
+      "visibility": "PUBLIC",
+      "isPrivate": false,
+      "isFork": false,
+      "isArchived": false,
+      "primaryLanguage": "HTML",
+      "createdAt": "2026-05-21T20:51:16Z",
+      "updatedAt": "2026-07-07T20:22:31Z",
+      "pushedAt": "2026-07-07T20:22:15Z",
+      "latestCommit": { "sha": "acf7dff05b3b", "date": "2026-07-07T20:22:15Z", "message": "Merge pull request #144 from KudbeeZero/claude/darts-pinball" },
+      "commits90d": ">=100",
+      "openPRs": 1,
+      "workflowStatus": "All green; Quality guardrails + Leaderboard shared/coverage on push/PR",
+      "readmeSummary": "Kudbee creative dev studio site (web design, live AI agent training, original game dev); zero-build static site on Cloudflare Pages; includes kudbee-contra 2.5D run-and-gun.",
+      "figmaBoardTitle": "Devbiz / Kudbee Studio - Site & Games",
+      "figmaSections": ["Current status", "Active lane", "Parked work", "Next owner action", "Risks/protected paths", "Next bigger/better lane"]
+    },
+    {
+      "rank": 5,
+      "name": "mainnet-growverse-v2.0",
+      "nameWithOwner": "KudbeeZero/mainnet-growverse-v2.0",
+      "url": "https://github.com/KudbeeZero/mainnet-growverse-v2.0",
+      "description": "",
+      "visibility": "PUBLIC",
+      "isPrivate": false,
+      "isFork": false,
+      "isArchived": false,
+      "primaryLanguage": "TypeScript",
+      "createdAt": "2026-06-17T01:48:32Z",
+      "updatedAt": "2026-07-07T09:13:32Z",
+      "pushedAt": "2026-07-07T10:20:38Z",
+      "latestCommit": { "sha": "83b6bdad9c00", "date": "2026-07-07T09:13:18Z", "message": "fix(chamber): remove the Arcade page's preview-growth scrubber" },
+      "commits90d": ">=100",
+      "openPRs": 1,
+      "workflowStatus": "CI green on latest push/PR; one transient failure self-resolved; Ask Grok workflow skipped",
+      "readmeSummary": "No README present. Code evidence (chamber/Arcade/preview-growth) indicates a GrowVerse growth-chamber/arcade game targeting mainnet.",
+      "figmaBoardTitle": "GrowVerse v2.0 - Growth Chamber & Arcade (Mainnet)",
+      "figmaSections": ["Current status", "Active lane", "Parked work", "Next owner action", "Risks/protected paths", "Next bigger/better lane"]
+    }
+  ],
+  "otherActiveCandidates": [
+    { "rank": 6, "name": "dom-operations-dashboard", "url": "https://github.com/KudbeeZero/dom-operations-dashboard", "language": "JavaScript", "pushedAt": "2026-07-01T22:04:26Z", "commits90d": ">=100", "openPRs": 1, "workflows": "none", "note": "Empire status dashboard / I Got A Dom doc-cleanup site (HERMES vault)." },
+    { "rank": 7, "name": "Live-Now-LLC", "url": "https://github.com/KudbeeZero/Live-Now-LLC", "language": "JavaScript", "pushedAt": "2026-07-01T22:05:38Z", "commits90d": 10, "openPRs": 1, "workflows": "CI green", "note": "Real-time / Live Now Recovery streaming." },
+    { "rank": 8, "name": "devbiz-worker", "url": "https://github.com/KudbeeZero/devbiz-worker", "language": "HTML", "pushedAt": "2026-07-07T13:27:46Z", "commits90d": 1, "openPRs": 0, "workflows": "none", "note": "Excluded: single source-import commit, not active." },
+    { "rank": 9, "name": "kudbee-engine", "url": "https://github.com/KudbeeZero/kudbee-engine", "language": null, "pushedAt": "2026-07-05T19:34:38Z", "commits90d": 2, "openPRs": 0, "workflows": "none", "note": "Excluded: archived/preserved HERMES seed repo, dormant." },
+    { "rank": 10, "name": "chicago-handyman-plumbing-website", "url": "https://github.com/KudbeeZero/chicago-handyman-plumbing-website", "language": "TypeScript", "pushedAt": "2026-06-28T21:14:49Z", "commits90d": null, "openPRs": 0, "workflows": "none", "note": "Below active tier." }
+  ],
+  "notVerified": [
+    "Private repos: 76 repos returned, all PUBLIC. Private-repo visibility not positively confirmed (none observed).",
+    "Exact commit counts >100 capped at API page limit; reported as '>=100'.",
+    "Upstream forks (spark, kirki, vercel, DeepSeek-Coder, frontend, Algorand-dApp template, CnC_Generals, dogecoin-ordinals) excluded from active ranking; available in raw list.",
+    "Issue counts not pulled (only open PR counts).",
+    "README fetched only for top 8 candidates per instructions."
+  ]
+}
