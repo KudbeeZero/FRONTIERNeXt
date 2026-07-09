@@ -54,7 +54,7 @@
 - **target below ES2021**: frontier-al uses ES2020 — safe to upgrade to ES2022
 - **missing explicit types arrays**: none (all packages that need node/vite/client types have them)
 - **ignoreDeprecations**: none present
-- **inherited config risks**: api-server inherits `moduleResolution: "bundler"` from base despite being a Node.js server — changing to `node16` would require adding explicit file extensions to all imports, which is a source-code change outside TS6-safe scope
+  - **inherited config risks**: api-server inherits `moduleResolution: "bundler"` from base despite being a Node.js server — tested and reverted; switching to `node16` requires explicit file extensions on all imports, which is a source-code change outside TS6-safe scope
 
 ## Compiler API/tooling findings
 - ts-morph: not found
@@ -89,13 +89,13 @@ Classification:
 
 ## Recommended prep changes
 1. **frontier-al tsconfig.json**: change `"target": "ES2020"` → `"target": "ES2022"` (aligns with base config; safe upgrade)
-2. No other config changes recommended today:
-   - moduleResolution: all packages correctly use `bundler` for Vite; api-server would need source-code import-extension changes to switch to `node16` — out of scope
-   - baseUrl + paths: Vite resolves these at build time; no TS7 prep change needed
-   - types arrays: all present where needed
-   - ignoreDeprecations: none present
+ 2. No other config changes recommended today:
+    - moduleResolution: all packages correctly use `bundler` for Vite; api-server was tested with `node16` and reverted — requires explicit file extensions on imports, which is a source-code change outside TS6-safe scope
+    - baseUrl + paths: Vite resolves these at build time; no TS7 prep change needed
+    - types arrays: all present where needed
+    - ignoreDeprecations: none present
 
 ## NOT verified
 - Full TS7 migration compatibility not tested (out of scope for this lane)
-- api-server moduleResolution correctness for TS7 not verified (would require source changes)
+- api-server moduleResolution correctness for TS7: tested by temporarily switching to `node16`; failed due to `module`/`moduleResolution` pairing; reverted per scope rules
 - @typescript/native-preview interaction with repo not tested (separate from MS TypeScript)
