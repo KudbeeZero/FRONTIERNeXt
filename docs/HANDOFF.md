@@ -5,25 +5,33 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** `chore/ts7-prep` — TS7 prep only, **not** the TS7 migration.
-- **Branch:** `chore/ts7-prep` (merged + deleted)
-- **PR:** #235 · **MERGED**
-- **Status:** done — TS7 **prep** lane **closed**. Prep change: `artifacts/frontier-al/tsconfig.json` target `ES2020` → `ES2022`. Plus docs: `docs/audits/chore-ts7-prep-scan.md`, `docs/audits/chore-ts7-prep.md`, `docs/audits/kilo-efficiency-notes.md`. No game/globe/combat behavior changed.
+- **Unit:** `chore/ts7-migration-scan` — TS7 migration blast-radius scan only, **not** the TS7 migration.
+- **Branch:** `chore/ts7-migration-scan` (merged + deleted)
+- **PR:** #236 · **MERGED**
+- **Status:** done — TS7 migration **scan** lane **closed**. Scan change: `docs/audits/chore-ts7-migration-scan.md` only. No TS7 installed, no dependencies upgraded, no source files edited.
 - **Active lane:** none. No open PR/lane.
 
 ## NEXT
-- **Proposed branch:** `chore/ts7-migration-scan` (read-only dedicated scan — NOT the migration)
-- **Scope (one line):** a dedicated TS7 migration scan that inventories exactly what a TS7 migration would touch and surfaces protected-path risk; produce a scan report only. Do **not** start the full TS7 migration.
-- **Open risks:** TS7 migration itself is large/high-blast-radius — keep this lane read-only until the scan confirms no protected-path risk.
-- **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch.
+- **Next lane:** **NOT** the full TS7 migration unless owner approves the gates surfaced in the scan.
+- **Owner decisions needed before migration starts:**
+  1. **TypeScript release age:** wait for TS7 package age ≥1440 min or add a TypeScript release-age exception in `minimumReleaseAgeExclude`.
+  2. **Node types alignment:** align `@types/node` across packages or leave each package on its own Node-version-appropriate `@types/node`.
+  3. **esbuild bump:** decide whether `esbuild` bump is allowed given current pin.
+- **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
 ## Last result (for fast auditor sanity-check)
-- **Shipped:** TS7 prep — `artifacts/frontier-al/tsconfig.json` (target `ES2020` → `ES2022`, single line), plus three audit/efficiency docs.
-- **Verified (from PR #235):** CI green (Typecheck & server tests, Cloudflare Pages). Recorded local tests green: root typecheck clean · `frontier-al run check` clean · `test:server` **480 passed / 24 skipped** · `test` **355 passed**.
-- **Config test that was reverted:** `api-server` `moduleResolution: node16` was trialed and reverted because the `module`/`moduleResolution` pairing would force source import-extension churn. No source import-extension edits landed.
-- **TS7 status:** TS7 stable reported as **7.0.2**; `@typescript/native-preview` still preview-only. **No TS7 installed, no TypeScript upgraded.** This lane is prep only.
-- **Scope:** config + docs only. Zero funds/ASA/wallet/on-chain/mainnet/auth/globe/combat files touched. Protected paths untouched.
-- **Self-audit:** `docs/audits/chore-ts7-prep.md` — no funds/ASA/auth lanes touched, so no independent auditor required.
+- **Shipped:** TS7 migration scan — `docs/audits/chore-ts7-migration-scan.md` only. No TS7 installed, no dependencies upgraded, no source files edited. Scan surfaced gates:
+  - `minimumReleaseAge: 1440` / TypeScript not excluded (`minimumReleaseAgeExclude`) → may block fresh TS7 install.
+  - TS version mismatch: root ~5.9.3 vs frontier-al 5.6.3 vs aether-journey 5.6.3.
+  - `@types/node` mismatch: catalog ^25.3.3 vs frontier-al 20.19.33.
+  - `esbuild` pinned 0.27.3 may need a bump decision.
+  - Vite target `es2020` vs tsconfig `ES2022` mismatch noted.
+  - `allowImportingTsExtensions: true` present in frontier-al / aether-journey / mockup-sandbox.
+  - `api-server` `node16` trial from prior lane failed and reverted.
+- **Verified (from PR #236):** CI green (Typecheck & server tests, Cloudflare Pages). Recorded local tests green: root typecheck clean · `frontier-al run check` clean · `test:server` **480 passed / 24 skipped** · `test` **355 passed**.
+- **TS7 status:** TS7 stable reported as **7.0.2**; `@typescript/native-preview` still preview-only. **No TS7 installed, no TypeScript upgraded.** This lane is scan only.
+- **Scope:** docs only. Zero funds/ASA/wallet/on-chain/mainnet/auth/globe/combat files touched. Protected paths untouched.
+- **Self-audit:** `docs/audits/chore-ts7-migration-scan.md` — no funds/ASA/auth lanes touched, so no independent auditor required.
 - **Parked:** the **auth cleanup branch** remains parked and must NOT be merged without owner approval.
 
 ## Kilo Efficiency Profile (post-closeout)
