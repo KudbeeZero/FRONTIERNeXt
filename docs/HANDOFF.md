@@ -26,24 +26,21 @@ A session is NOT finished until all of these hold — check them, don't assume:
    (`pull_request_read` get_check_runs / `actions_*`) — never claim green without reading it.
    If a push or PR call fails, retry with backoff; do not end the session with work only local.
 
-## Current baton — 🟡 AWAITING_AUDIT: PR #231 · branch `feat/mint-retry-delivery`
+## Current baton — 🟡 AWAITING_AUDIT: PR #232 · branch `chore/db-indexes-ratelimit`
 
-### 2026-07-08 — PR #231 opened: persistent retry queue for failed Plot NFT mints (M1-5)
+### 2026-07-09 — PR #232 opened: DB indexes + rate limiter extension (M1-6)
 
-**#231 (`feat/mint-retry-delivery`) — AWAITING_AUDIT.** M1-5 from Phase 25 queue. Adds persistent retry queue for Plot NFT mints that fail AFTER the buyer's ALGO payment has been claimed and land ownership committed. Without this, a failed mint left the buyer with land, no NFT, no refund, and no automated recovery. Added `plot_mint_retry_queue` table (migration 0013) to track failed mints with retry attempts and refund escalation. Implemented `mintRetryQueue.ts` worker service with enqueue/drain/start functions following `transferQueue.ts` pattern (Postgres + setInterval, no Redis/BullMQ). Added `refund.ts` primitive for admin-signed ALGO refunds to buyers. Updated `routes.ts` to enqueue failed mints in purchase flow `.catch` block; added `POST /api/nft/retry-plot/:plotId` endpoint for manual retry; enhanced `GET /api/nft/plot/:plotId` to check retry queue for failed/minting states. Wired `startPlotMintRetryWorker()` at boot in `server/index.ts`. Updated `NftClaimNotification.tsx` HUD to show failed/minting states with retry button. Added `handleRetryPlotMint` to `GameLayout.tsx` and wired `NftClaimNotification` component. 6 new unit tests (enqueue, drain, retry, refund escalation). All 477 server tests pass, `tsc` clean.
+**#232 (`chore/db-indexes-ratelimit`) — AWAITING_AUDIT.** M1-6 from Phase 25 queue. Adds DB indexes for purchase funnel query performance and extends rate limiter coverage to write-heavy route groups. Migration 0014 adds functional index on `players (lower(address))` for wallet lookup, btree indexes on `players.is_ai` and `players.player_faction_id`, and secondary indexes on `trade_orders.status`, `trade_orders.offerer_id`, `trade_orders.created_at`. Added `strictLimiter` (60/min, memory store, configurable via `STRICT_RATE_LIMIT` env var) bound to `/api/trade/*`, `/api/markets/*`, `/api/weapons/*`, `/api/sub-parcels/*`, `/api/factions/*`. Added `LIMIT 1000` to `queryPurchaseIntents()` in `chainEventStore.ts` to prevent unbounded full-table scans on admin dashboard. Updated `db-schema.ts` with matching index definitions. 3 new unit tests for strictLimiter middleware (export, behavior, rate limiting). All 480 server tests pass, `tsc` clean, build successful.
 
 **What this chat did (for the auditor):**
-- Migration 0013 creates `plot_mint_retry_queue` table with status lifecycle: pending → delivered | refund_needed → refunded | refund_failed
-- `mintRetryQueue.ts` worker retries mint up to MAX_ATTEMPTS (5), then escalates to refund via `refundAlgoPayment()`
-- `refund.ts` issues admin-signed ALGO payment back to buyer (follows same pattern as `transferLandNft`)
-- Routes enqueue failed mints in purchase flow `.catch` block (line ~2113)
-- `POST /api/nft/retry-plot/:plotId` allows manual retry (mirrors commander retry endpoint)
-- `GET /api/nft/plot/:plotId` returns failed/minting states from retry queue (mirrors commander GET endpoint)
-- Worker wired at boot in `server/index.ts` (line ~277)
-- HUD shows failed/minting states with retry button (NftClaimNotification.tsx)
+- Migration 0014 creates 6 new indexes on `players` and `trade_orders` tables
+- `strictLimiter` in `security.ts` provides per-surface 60/min ceiling on write-heavy routes
+- `queryPurchaseIntents()` now capped at 1000 rows (was unbounded `SELECT *`)
+- Middleware binding coverage test verifies strictLimiter export and rate limiting behavior
+- Migration is staged — apply manually: `psql "$DATABASE_URL" -f migrations/0014_db_indexes_purchase_funnel.sql`
 - No mainnet constants hardcoded — this is TestNet-ready, mainnet-gate still required before mainnet
 
-**Next unit:** M1-6 (DB indexes for purchase funnel queries) — add indexes to `purchase_intents`, `chain_events`, `plot_mint_retry_queue` for admin dashboard performance. Branch: `fix/db-indexes-purchase-funnel`. Open risks: none. Off-limits: standard hard rules (no mainnet without gates, don't merge `wip/atomic-purchase`, don't reintroduce mock data).
+**Next unit:** M1-4 (pin ASCEND ASA via env var) — add `ASCEND_ASA_ID` env var + startup assert, update `ENV_VARS.md` + deployment checklist. Branch: `fix/pin-ascend-asa`. Open risks: none. Off-limits: standard hard rules (no mainnet without gates, don't merge `wip/atomic-purchase`, don't reintroduce mock data).
 
 **PR #229 merged:** `feat/wallet-connection-gate` — wallet connection gate + fresh params + singleton modal + queue reset.
 

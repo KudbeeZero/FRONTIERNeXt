@@ -154,6 +154,34 @@ export const actionsLimiter = rateLimit({
 });
 
 /**
+ * Per-IP fixed window over write-heavy route groups: /api/trade/*,
+ * /api/markets/*, /api/weapons/*, /api/sub-parcels/*, /api/factions/*.
+ * These surfaces currently rely only on the coarse apiReadLimiter (1000/min).
+ * strictLimiter adds a per-surface 60/min ceiling to blunt abuse of trade
+ * order creation, market position changes, weapon operations, sub-parcel
+ * mutations, and faction joins. Tune via STRICT_RATE_LIMIT.
+ */
+/**
+ * Factory for the strictLimiter middleware. Exported so tests can build a
+ * smaller-window instance and exercise the actual 429 behavior against the
+ * same code path the production limiter uses (rather than re-deriving a
+ * parallel `rateLimit({...})` config that would silently drift).
+ */
+export function createStrictLimiter(
+  options: { limit?: number; windowMs?: number } = {},
+) {
+  return rateLimit({
+    windowMs: options.windowMs ?? 60_000,
+    limit: options.limit ?? Math.max(1, Number(process.env.STRICT_RATE_LIMIT) || 60),
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { error: "Too many requests — slow down and try again shortly." },
+  });
+}
+
+export const strictLimiter = createStrictLimiter();
+
+/**
  * Per-IP limiter for the terraform advice endpoint — bounds cost when the LLM
  * advisor path (ANTHROPIC_API_KEY) is enabled. The heuristic path is cheap.
  * Tune via ADVICE_RATE_LIMIT.
