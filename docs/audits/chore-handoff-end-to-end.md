@@ -1,7 +1,7 @@
 # Audit — chore/handoff-end-to-end
 
 **Verdict:** PASS
-**PR / branch / commit:** PR #<PR> · branch `chore/handoff-end-to-end` · head SHA `<SHA>` (set after commit)
+**PR / branch / commit:** PR #233 · branch `chore/handoff-end-to-end` · head SHA `c78940e` (branch tip before the baton/SHA bookkeeping commit; squash-merged into `main`)
 **Author:** self-audit by the working agent (default path — `/ship` step 5). No funds/ASA/auth lanes touched, so no independent auditor required (`USE_INDEPENDENT_AUDITOR=1` not needed).
 
 ## Claims vs. evidence

@@ -7,7 +7,7 @@
 ## Current baton
 - **Unit:** `chore/handoff-end-to-end` — collapse the inter-chat relay into one `/ship` orchestrator.
 - **Branch:** `chore/handoff-end-to-end`
-- **PR:** #<PR> · **MERGED**
+- **PR:** #233 · **MERGED**
 - **Status:** done — baton split, `/ship` added, `handoff-audit`/`closeout`/`end-session` refactored into the relay; game/chain code untouched.
 
 ## NEXT

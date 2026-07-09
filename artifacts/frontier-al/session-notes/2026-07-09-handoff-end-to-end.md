@@ -1,8 +1,8 @@
 # Session note — 2026-07-09 — handoff-end-to-end
 
 **Branch:** `chore/handoff-end-to-end`
-**Commit (head SHA):** `<SHA>` (recorded after commit)
-**PR:** #<PR> — https://github.com/KudbeeZero/FRONTIERNeXt/pull/<PR>
+**Commit (head SHA):** `c78940e` (branch tip; squash-merged into `main`)
+**PR:** #233 — https://github.com/KudbeeZero/FRONTIERNeXt/pull/233
 **CI status:** local green (CI check via `gh` attempted at PR-open; if unavailable, relying on local green — see audit file)
 
 ## What shipped (test-backed?)
