@@ -12,22 +12,27 @@ artifact, not trust.
 
 ## Every chat
 
-1. **Read first.** Read the baton ([docs/HANDOFF.md](./docs/HANDOFF.md)) and
-   memory before doing anything. The baton is the single source of truth for
-   what's next.
-2. **Start with `/handoff-audit`.** Independently audit the previous chat's PR
-   (diff vs. claims, run the tests, check scope/security) and gate the merge:
-   PASS → merge + start this chat's branch; CONCERNS → ask; FAIL → don't merge.
-3. **Do exactly one unit of work** on this chat's branch.
-4. **End with `/closeout`.** Commit, confirm tests green, open **exactly one** PR
-   into `main` with an Audit checklist, and rewrite the baton. The final baton
-   commit must **not** use `[skip ci]`.
-5. **End-of-day state is non-negotiable** (full checklist in the baton's
-   "Definition of done"): `main` green on its real head commit, the loop closed,
-   and **everything pushed — what the owner sees on github.com must be exactly
-   what you have locally.** The container is ephemeral; unpushed work is lost work.
-   Verify with `git status` + `git log origin/<branch>..HEAD` (must be empty)
-   before ending any session.
+> The Session Relay Protocol is now a **single-agent end-to-end run** via `/ship`
+> — no inter-chat wait, no separate manual audit of a previous chat's PR. The
+> full procedure is in [`.claude/skills/ship/SKILL.md`](./.claude/skills/ship/SKILL.md)
+> and the protocol is documented in [docs/SESSION_PROTOCOL.md](./docs/SESSION_PROTOCOL.md).
+
+1. **Read the concise baton.** Read [docs/HANDOFF.md](./docs/HANDOFF.md) (≤80
+   lines: Current unit · NEXT · Last result · Definition of done · HARD RULES).
+   It is the single source of truth for what's next. Full history is in
+   [docs/HANDOFF_LOG.md](./docs/HANDOFF_LOG.md).
+2. **Run `/ship`.** It reads the baton, branches off clean `origin/main`,
+   implements exactly one unit (failing-first test for any behavior change),
+   self-verifies (`check`/`test:server`/`test`), **self-audits its own diff**
+   before opening the PR, opens **exactly one** PR into `main` with an Audit
+   checklist, confirms green (or notes the local-green fallback), squash-merges,
+   syncs `main`, and rewrites the concise baton (Current → NEXT). No interim
+   manual audit step, no waiting on a second chat.
+3. **End-of-run state is non-negotiable:** `main` green on its real head commit,
+   the loop closed, and **everything pushed — what the owner sees on github.com
+   must be exactly what you have locally.** The container is ephemeral; unpushed
+   work is lost work. Verify with `git status` + `git log origin/<branch>..HEAD`
+   (must be empty) before ending any session.
 
 ## Invariants
 
@@ -43,7 +48,7 @@ End substantive replies with:
 
 ```
 Summary: <what changed — and does it actually work, test-backed or not?>
-Next:    <do I test it now, or what's the next unit / branch?>
+Next:    <merged PR link + pushed + green (or noted local-green fallback)?, or what's the next unit / branch?>
 ```
 
 ## App-specific rules

@@ -1,11 +1,22 @@
 # Audits
 
-One independent audit report per PR, written by the `/handoff-audit` skill at the
-**start** of the chat that reviews the previous chat's PR.
+One audit report per PR. **By default, the audit is performed by the same agent
+that did the work, as an embedded step of `/ship`** (step 5) — it audits its own
+diff and cites `file:line` evidence for every claim before opening the PR, with
+no inter-chat wait and no separate subagent for the normal case.
 
 - **File name:** `docs/audits/<branch>.md` — the branch of the PR being audited.
-- **Author:** an independent auditor subagent that does **not** trust the PR's
-  own claims. It re-derives the truth from the diff, the tests, and the code.
+- **Author (default):** the working agent itself, via `/ship` step 5 (self-audit).
+- **Author (funds/ASA/auth lane only):** an **independent auditor subagent**, used
+  **only** for changes touching the HARD RULES lane (funds / ASA / auth), and
+  gated behind the env flag `USE_INDEPENDENT_AUDITOR=1` (default unset/off). For
+  those lanes the self-audit alone is **not** sufficient to merge — the flag must
+  be set and the second pass must PASS (plus `/mainnet-gate` PASS + `algo-auditor`
+  PASS). A funds-lane unit missing the flag is a **blocker**, not a skip.
+
+> Legacy manual path: the independent-auditor checklist still lives in
+> [`.claude/skills/handoff-audit/SKILL.md`](../.claude/skills/handoff-audit/SKILL.md)
+> for when a human wants to audit an existing PR directly.
 
 ## Required contents
 

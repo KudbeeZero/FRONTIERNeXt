@@ -1,23 +1,31 @@
 ---
 name: closeout
-description: Run at the END of a chat. Ensures the work is committed and the tests are green, asks the handoff questions (what shipped, next priority + branch, open risks, off-limits), updates memory if there is a durable lesson, opens exactly ONE PR into main with an Audit checklist for the next chat, and rewrites the baton (docs/HANDOFF.md) to AWAITING_AUDIT. The final baton commit must NOT use [skip ci], or the PR head has no CI check and the next audit cannot confirm green.
+description: The CLOSE phase of the /ship end-to-end relay (steps 9-11). No longer an interactive standalone command. Derives all handoff fields autonomously from the work done + the self-audit checklist — it does NOT ask the user handoff questions. Escalates to the user ONLY on genuine security/funds ambiguity. Opens exactly one PR into main with an Audit checklist, confirms green, merges, syncs main, rewrites the concise baton (Current -> NEXT), and writes a session note — without pausing for input.
 ---
 
-# /closeout — end-of-chat wrap into one auditable PR
+# /closeout — close phase (invoked by /ship, not interactive)
 
-Implements the END half of the [Session Relay Protocol](../../../docs/SESSION_PROTOCOL.md).
-The output of a chat is **one mergeable, auditable PR** plus a rewritten baton.
+> **This is no longer a standalone interactive command.** It is the close phase
+> of the single-agent end-to-end relay defined in
+> [`/ship`](../ship/SKILL.md) (steps 9-11). It runs autonomously: no handoff
+> questions are asked of the user.
 
-## When to use
-- At the **end of every chat**, once this chat's unit of work is done (or being
-  parked).
+In the old inter-chat protocol, `/closeout` ended a chat by asking the user the
+handoff questions (what shipped, next priority + branch, open risks, off-limits)
+and then opening the PR. That interactive step blocked autonomous runs. The
+baton split ([docs/HANDOFF.md](../../../docs/HANDOFF.md)) plus `/ship` now carry
+the next-unit info, so those fields are **derived, not asked**.
 
-## Steps
+## When /ship invokes this phase
+After step 8 (confirm green) of `/ship`, or any time a unit is fully implemented
+and locally green per `check` / `test:server` / `test`.
+
+## Steps (autonomous — no user pause)
 
 ### 1. Commit the work and confirm tests are GREEN
-- Commit everything for this unit of work to **this chat's branch** (conventional
-  commit messages).
-- Run the suite and confirm it passes — green must mean what CI means:
+- Commit the unit to its branch with conventional messages (include the audit
+  report `docs/audits/<branch>.md` and the session note).
+- Green must mean what CI means:
   ```bash
   pnpm install --frozen-lockfile
   pnpm --filter @workspace/frontier-al run check        # tsc typecheck
@@ -27,49 +35,46 @@ The output of a chat is **one mergeable, auditable PR** plus a rewritten baton.
 - If anything is red, fix it or **say plainly that it is red** — never open a PR
   claiming green when it is not.
 
-### 2. Ask the handoff questions
-Ask the user (or fill in from the chat if unambiguous):
-1. **What shipped** this chat (the one-line scope, and is it test-backed)?
-2. **Next priority + branch** for the following chat.
+### 2. Derive the handoff fields (do NOT ask the user)
+Read the unit's diff, the self-audit checklist (step 5 of `/ship`), and the
+concise baton's NEXT section. From these, derive:
+1. **What shipped** — the one-line scope, and whether it is test-backed.
+2. **Next priority + branch** — from the baton's NEXT / roadmap queue.
 3. **Open risks** — anything unreviewed, unfinished, or dangerous.
-4. **Off-limits** — what the next chat must not touch.
+4. **Off-limits** — what the next unit must not touch (HARD RULES carry forward).
 
-### 3. Update memory if there's a durable lesson
-If this chat produced a lesson that should outlive it (a recurring bug's root
-cause, a confirmed approach, a standing user preference), write it to memory and
-add the one-line pointer to `MEMORY.md`. Skip if nothing durable.
+### 3. Update memory only on a durable lesson
+If the unit produced a lesson that should outlive it, write it to memory +
+`MEMORY.md` pointer. Skip if nothing durable. (No user prompt.)
 
 ### 4. Open exactly ONE PR into main
 ```bash
-git push -u origin <this-chat-branch>
-gh pr create --base main --head <this-chat-branch> --title "<type>: <scope>" --body "<body>"
+git push -u origin <branch>
+gh pr create --base main --head <branch> --title "<type>: <scope>" --body "<body>"
 ```
-The PR body **must** include an **## Audit checklist** — the concrete things the
-next chat's `/handoff-audit` should verify (claim → how to check it). Be honest:
-list what is test-backed and what is not.
+The PR body **must** include an **`## Audit checklist`** mirroring the audit
+file (claim → `file:line` evidence → test backing). One open PR at a time.
 
-> One open PR at a time. If a previous PR is still open and unaudited, do not open
-> a second — finish that relay first.
+### 5. Rewrite the concise baton (Current -> NEXT)
+Update `docs/HANDOFF.md` (≤80 lines): **Current** = this unit (branch + PR# +
+`MERGED`); **Last result** = one screen of what shipped + check counts; **NEXT** =
+the derived following unit; **HARD RULES / off-limits** preserved. This change
+rides in the same PR so it is reviewed. Final baton commit **without `[skip ci]`**.
 
-### 5. Rewrite the baton
-Update `docs/HANDOFF.md`:
-- **Current baton:** this branch + the new PR# + `AWAITING_AUDIT`.
-- **What this chat did (for the auditor):** short, claim-oriented.
-- **NEXT chat:** proposed branch, one-line scope, open risks, off-limits.
-
-Keep it short — a baton, not a log.
-
-### 6. Commit the baton — NO `[skip ci]`
+### 6. Merge + sync (step 9 of /ship)
 ```bash
-git add docs/HANDOFF.md docs/audits/ <other>
-git commit -m "docs: update baton for <branch> (AWAITING_AUDIT)"
-git push
+gh pr merge <PR> --squash --delete-branch
+git fetch origin && git checkout main && git pull
 ```
-**Critical:** the final baton commit must **not** contain `[skip ci]`. If it
-does, the PR head commit has no CI check, and the next chat's `/handoff-audit`
-cannot confirm green — which breaks the gate. Let CI run on the head commit.
+
+## Escalation
+Only escalate to the user for **genuine security/funds/ASA/auth ambiguity** —
+e.g. a funds-lane unit missing `USE_INDEPENDENT_AUDITOR=1` (a hard blocker). All
+other gaps: make the conservative choice yourself and note the assumption in the
+audit file.
 
 ## Invariants enforced here
 - Exactly one PR per chat; one open PR at a time.
-- The baton is rewritten so the next chat knows what's next.
+- The baton is rewritten so the next chat knows what's next (no user ask).
 - Never over-claim — the PR and baton say "untested" where it is untested.
+- The final baton commit never uses `[skip ci]`.
