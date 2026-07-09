@@ -9,6 +9,15 @@
 - **Branch:** `chore/ts7-migration-scan` (merged + deleted)
 - **PR:** #236 · **MERGED**
 - **Status:** done — TS7 migration **scan** lane **closed**. Scan change: `docs/audits/chore-ts7-migration-scan.md` only. No TS7 installed, no dependencies upgraded, no source files edited.
+- **Closeout facts:**
+  - PR #236 merged.
+  - TS7 migration scan complete.
+  - Root TS `~5.9.3`; frontier-al / aether-journey `5.6.3`.
+  - Baseline timing unavailable in scan container because `node_modules` absent.
+  - Protected paths remain untouched.
+  - Auth cleanup branch remains parked.
+  - Migration blocked until owner clears: minimumReleaseAge / TypeScript release-age decision; Node types alignment decision; esbuild bump decision.
+  - Next lane: `chore/ts7-migration` only after owner gate approval.
 - **Active lane:** none. No open PR/lane.
 
 ## NEXT
