@@ -5,22 +5,24 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** `chore/handoff-end-to-end` — collapse the inter-chat relay into one `/ship` orchestrator.
-- **Branch:** `chore/handoff-end-to-end`
-- **PR:** #233 · **MERGED**
-- **Status:** done — baton split, `/ship` added, `handoff-audit`/`closeout`/`end-session` refactored into the relay; game/chain code untouched.
+- **Unit:** `chore/recovery-z-index-hardening-review` — safe parked z-index hardening review.
+- **Branch:** `chore/recovery-z-index-hardening-review` (merged + deleted)
+- **PR:** #234 · **MERGED**
+- **Status:** done — z-index hardening recovery lane **closed**. UI-layer only (`uiLayers.ts`, `CommTerminal.tsx`, `hud/hud.css`) + audit doc; no game/globe/combat behavior changed.
+- **Active lane:** none. No open PR/lane.
 
 ## NEXT
-- **Proposed branch:** `feat/weapon-damage-settlement` (M2-1)
-- **Scope (one line):** W1 — weapon fire computes damage (`server/weapons/engagementStore.ts`) but never settles it onto plot state; add the tick that sets `"impacted"` and applies damage. Read the engagement store + plot mutation paths before scoping.
-- **Open risks:** none identified yet (needs read-through of engagement store + plot state mutation paths).
-- **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, or ASA destinations.
+- **Proposed branch:** `chore/ts7-prep-scan` (read-only prep — NOT the migration)
+- **Scope (one line):** scan/inventory what a TS7 migration would touch and surface risks; produce a prep report only. Do **not** start the full TS7 migration.
+- **Open risks:** TS7 migration itself is large/high-blast-radius — keep this lane read-only.
+- **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch.
 
 ## Last result (for fast auditor sanity-check)
-- **Shipped:** `/ship` skill (single end-to-end orchestrator); concise split baton (`HANDOFF.md` ≤80 lines + `HANDOFF_LOG.md` full history); `handoff-audit`/`closeout`/`end-session` refactored into the relay; `SESSION_PROTOCOL.md`, root `CLAUDE.md`, `docs/audits/README.md` updated to match.
-- **Verified:** `check` clean · `test:server` <N>/<N> · `test` <N>/<N> (pre-existing counts; none deleted or skipped).
-- **Scope:** touches ONLY `docs/**`, `.claude/skills/**`, `CLAUDE.md`, `artifacts/frontier-al/session-notes/**`. Zero `.ts/.tsx`/game/chain files changed.
-- **Self-audit:** `docs/audits/chore-handoff-end-to-end.md` — no funds/ASA/auth lanes touched, so no independent auditor required (`USE_INDEPENDENT_AUDITOR` not needed).
+- **Shipped:** z-index hardening review — `artifacts/frontier-al/client/src/lib/uiLayers.ts`, `artifacts/frontier-al/client/src/components/game/CommTerminal.tsx`, `artifacts/frontier-al/client/src/components/game/hud/hud.css`, plus audit doc `docs/audits/chore-recovery-z-index-hardening-review.md`.
+- **Verified (from PR #234):** `pnpm install` pass · `check`/`tsc` pass · `vitest` **355 passed**. CI green (Typecheck & server tests, Cloudflare Pages).
+- **Scope:** UI-layer only; the stale `docs/HANDOFF.md` baton edit from the old branch was **excluded** from PR #234. Zero funds/ASA/wallet/on-chain/mainnet/auth/globe/combat files touched.
+- **Self-audit:** `docs/audits/chore-recovery-z-index-hardening-review.md` — no funds/ASA/auth lanes touched, so no independent auditor required.
+- **Parked:** the **auth cleanup branch** remains parked and must NOT be merged without owner approval.
 
 ## Definition of done (tightened)
 A session is NOT finished until ALL hold — verify mechanically, don't assume:
