@@ -1481,6 +1481,14 @@ export class MemStorage implements IStorage {
     if (evt) evt.resolved = true;
   }
 
+  async settleWeaponImpact(targetParcelId: string, damage: number): Promise<void> {
+    await this.initialize();
+    const parcel = this.parcels.get(targetParcelId);
+    if (parcel) {
+      parcel.defenseLevel = Math.max(1, parcel.defenseLevel - damage);
+    }
+  }
+
   async triggerOrbitalCheck(): Promise<OrbitalEvent | null> {
     if (Math.random() > ORBITAL_IMPACT_CHANCE) return null;
     return this.createOrbitalImpactEvent("IMPACT_STRIKE");

@@ -198,6 +198,10 @@ export class EngagementStore {
     }
   }
 
+  remove(id: string): void {
+    this.engagements.delete(id);
+  }
+
   // ── Queries & lifecycle ─────────────────────────────────────────────────────
 
   get(id: string): Engagement | undefined {
@@ -210,6 +214,18 @@ export class EngagementStore {
       const endTs = e.status === "intercepted" ? (e.interceptTs ?? e.impactTs) : e.impactTs;
       return now <= endTs + ENGAGEMENT_FADE_MS;
     });
+  }
+
+  /** Resolve engagements whose impact time has arrived and are not intercepted. */
+  resolveImpacts(now: number = Date.now()): Engagement[] {
+    const impacted: Engagement[] = [];
+    for (const e of this.engagements.values()) {
+      if (e.status === "in_flight" && now >= e.impactTs) {
+        e.status = "impacted";
+        impacted.push(e);
+      }
+    }
+    return impacted;
   }
 
   /** Drop engagements whose fade window has fully elapsed. */

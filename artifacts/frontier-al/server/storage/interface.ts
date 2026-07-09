@@ -97,6 +97,8 @@ export interface IStorage {
   persistBattleReplay(record: BattleReplayRecord): Promise<void>;
   /** Read a durably-persisted battle replay record, or null if none. */
   getPersistedBattleReplay(battleId: string): Promise<BattleReplayRecord | null>;
+  /** Apply a settled weapon engagement's damage to the target parcel's defenseLevel (clamped ≥ 1). */
+  settleWeaponImpact(targetParcelId: string, damage: number): Promise<void>;
   /** Whether the player owns a Comm Terminal facility and its max level — gates the whisper feed. */
   getPlayerCommTerminal(playerId: string): Promise<{ owned: boolean; level: number }>;
   runAITurn(): Promise<GameEvent[]>;

@@ -375,6 +375,13 @@ export class DbStorage implements IStorage {
       .where(eq(orbitalEventsTable.id, eventId));
   }
 
+  async settleWeaponImpact(targetParcelId: string, damage: number): Promise<void> {
+    await this.initialize();
+    await this.db.update(parcelsTable)
+      .set({ defenseLevel: sql`MAX(1, ${parcelsTable.defenseLevel} - ${damage})` })
+      .where(eq(parcelsTable.id, targetParcelId));
+  }
+
   async triggerOrbitalCheck(): Promise<OrbitalEvent | null> {
     await this.initialize();
 

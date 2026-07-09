@@ -103,4 +103,44 @@ describe("EngagementStore", () => {
     expect(() => store.deployDefense({ specId: "def_aegis", ownerId: "p3", parcelId: "ok", at: TARGET }))
       .not.toThrow();
   });
+
+  it("resolves impacts when the impact time arrives", () => {
+    const e = launchCruise(store, "p1", 1000);
+    expect(e.status).toBe("in_flight");
+    const impacted = store.resolveImpacts(e.impactTs);
+    expect(impacted).toHaveLength(1);
+    expect(impacted[0].status).toBe("impacted");
+    expect(impacted[0].id).toBe(e.id);
+  });
+
+  it("does not resolve impacts before the impact time", () => {
+    const e = launchCruise(store, "p1", 1000);
+    expect(store.resolveImpacts(e.impactTs - 1)).toHaveLength(0);
+    expect(e.status).toBe("in_flight");
+  });
+
+  it("does not resolve impacts for intercepted engagements", () => {
+    store.deployDefense({ specId: "def_aegis", ownerId: "p2", parcelId: "dst", at: TARGET });
+    const e = launchCruise(store, "p1", 1000);
+    if (e.status === "intercepted") {
+      expect(store.resolveImpacts(e.impactTs + 100)).toHaveLength(0);
+      expect(e.status).toBe("intercepted");
+    }
+  });
+
+  it("is idempotent across repeated resolveImpacts calls", () => {
+    const e = launchCruise(store, "p1", 1000);
+    const first = store.resolveImpacts(e.impactTs);
+    const second = store.resolveImpacts(e.impactTs + 1000);
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(0);
+    expect(e.status).toBe("impacted");
+  });
+
+  it("removes an engagement by id", () => {
+    const e = launchCruise(store, "p1", 1000);
+    expect(store.get(e.id)).toBeDefined();
+    store.remove(e.id);
+    expect(store.get(e.id)).toBeUndefined();
+  });
 });

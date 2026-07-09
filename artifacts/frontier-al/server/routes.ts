@@ -2607,6 +2607,18 @@ export async function registerRoutes(
   // process open (tests / graceful shutdown).
   setInterval(() => engagementStore.prune(), 30_000).unref();
 
+  // Settle weapon engagements that have reached their impact time onto parcel state.
+  setInterval(async () => {
+    try {
+      const impacted = engagementStore.resolveImpacts(Date.now());
+      for (const e of impacted) {
+        await storage.settleWeaponImpact(e.targetParcelId, e.damage);
+      }
+    } catch (err) {
+      console.error("[WEAPONS] settle impacts error:", err);
+    }
+  }, 1000).unref();
+
   // Read a player's armory: full catalog annotated with unlock/own state + costs.
   app.get("/api/weapons/catalog", async (req, res) => {
     try {
