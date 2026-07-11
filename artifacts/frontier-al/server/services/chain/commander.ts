@@ -265,3 +265,58 @@ export async function verifyAlgoPayment(params: {
 
   return { amountMicroAlgo: amount };
 }
+
+// ── Idempotent Mint Orchestration ───────────────────────────────────────────
+
+/**
+ * Single-flight lock keyed by commanderId. Two concurrent retry/mint calls for
+ * the same commander must never both reach the chain and create two ASAs. The
+ * first caller's promise is shared; later callers await the same result.
+ *
+ * No UI imports. No route logic. No game state. Pure (module-scoped Map).
+ */
+const _commanderMintLocks = new Map<string, Promise<unknown>>();
+
+export function withCommanderMintLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const existing = _commanderMintLocks.get(key) as Promise<T> | undefined;
+  if (existing) return existing;
+
+  const promise = fn().finally(() => {
+    if (_commanderMintLocks.get(key) === promise) _commanderMintLocks.delete(key);
+  });
+  _commanderMintLocks.set(key, promise);
+  return promise;
+}
+
+export type CommanderRetryDecision =
+  | { kind: "already_minted"; assetId: number }
+  | { kind: "already_minting" }
+  | { kind: "mint" };
+
+/**
+ * Pure decision for the retry endpoint. Prevents duplicate ASAs (category E)
+ * and parallel in-flight retries (no pending-guard today).
+ *
+ * - An existing `commander_nfts` row with an assetId ⇒ the ASA already exists.
+ * - An idempotency row already 'confirmed' with an assetId ⇒ chain mint
+ *   succeeded but may have been orphaned before the DB row was written
+ *   (category C) — treat as already minted, do NOT mint again.
+ * - An idempotency row still 'pending' ⇒ a mint is in flight; block the retry.
+ * - Otherwise ⇒ safe to mint.
+ */
+export function decideCommanderRetry(input: {
+  existingNftAssetId: number | null | undefined;
+  idempotencyStatus: string | null | undefined;
+  idempotencyAssetId: number | null | undefined;
+}): CommanderRetryDecision {
+  if (input.existingNftAssetId) {
+    return { kind: "already_minted", assetId: Number(input.existingNftAssetId) };
+  }
+  if (input.idempotencyStatus === "confirmed" && input.idempotencyAssetId) {
+    return { kind: "already_minted", assetId: Number(input.idempotencyAssetId) };
+  }
+  if (input.idempotencyStatus === "pending") {
+    return { kind: "already_minting" };
+  }
+  return { kind: "mint" };
+}
