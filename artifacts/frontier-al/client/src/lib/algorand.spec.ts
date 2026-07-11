@@ -11,16 +11,62 @@
  * 2026-07-08: Added coverage for fresh-params signing helpers and queue reset.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import type algosdk from "algosdk";
 import {
   registerWalletSigner,
   signTransactionWithActiveWallet,
   signGroupedTransactionsWithActiveWallet,
   resetSignQueue,
   buildAndSignWithFreshParams,
+  enqueueGameAction,
+  registerTxnQueueAddress,
+  registerBatchStatusCallback,
+  getTxnQueueSize,
+  BATCH_WINDOW_MS,
 } from "./algorand";
 
-const fakeTxn = {} as algosdk.Transaction;
+const fakeTxn = {} as any;
+
+// Mock the algosdk module to avoid ESM import issues
+vi.mock("algosdk", () => {
+  class Algodv2 {
+    getTransactionParams() {
+      return this;
+    }
+    do() {
+      return Promise.resolve({
+        fee: 1000,
+        firstRound: 100,
+        lastRound: 1000,
+        genesisID: "testnet-v1.0",
+        genesisHash: "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=",
+        flatFee: true,
+      });
+    }
+    sendRawTransaction() {
+      return this;
+    }
+  }
+
+  class Indexer {
+    lookupAccountTransactions() {
+      return this;
+    }
+  }
+
+  return {
+    default: {
+      Algodv2,
+      Indexer,
+      makePaymentTxnWithSuggestedParamsFromObject: vi.fn(() => ({
+        txID: () => "MOCK_TX_ID",
+      })),
+      assignGroupID: vi.fn(),
+    },
+  };
+});
+
+// Import algosdk after mocking to get the mocked version
+const algosdk = require("algosdk").default;
 
 describe("wallet-sign serialization lock", () => {
   beforeEach(() => {
@@ -196,5 +242,56 @@ describe("buildAndSignWithFreshParams", () => {
     ]);
 
     expect(maxActive).toBe(1);
+  });
+});
+
+describe("batch transaction queue", () => {
+  beforeEach(() => {
+    registerWalletSigner(null);
+    resetSignQueue();
+  });
+
+  it("does not auto-retry a failed flush, so the wallet never reopens automatically", async () => {
+    vi.useFakeTimers();
+
+    const { algodClient } = await import("./algorand");
+    vi.spyOn(algodClient, "getTransactionParams").mockReturnValue({
+      do: () =>
+        Promise.resolve({
+          fee: 1000,
+          firstRound: 100,
+          lastRound: 1000,
+          genesisID: "testnet-v1.0",
+          genesisHash: "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=",
+          flatFee: true,
+        }),
+    } as any);
+
+    let signCalls = 0;
+    registerWalletSigner(async () => {
+      signCalls++;
+      throw new Error("User rejected the request");
+    });
+
+    const errors: string[] = [];
+    registerBatchStatusCallback((event, detail) => {
+      if (event === "error") errors.push(detail.message ?? "unknown");
+    });
+
+    enqueueGameAction("attack", 123, { troops: 1, iron: 0, fuel: 0 });
+    // Valid Algorand testnet address (generated with valid checksum)
+    const TEST_ADDRESS = "JLYZR6CV5WY3CZYVTU6MS3ICIHWCHHEVEBMXJ76BDVYYMB7JFBT54IJWP4";
+    registerTxnQueueAddress(TEST_ADDRESS);
+
+    // Wait for the flush timer to fire.
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 100);
+
+    // The wallet signer should have been invoked exactly once, never retried.
+    expect(signCalls).toBe(1);
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toMatch(/rejected/);
+    expect(getTxnQueueSize()).toBe(0);
+
+    vi.useRealTimers();
   });
 });

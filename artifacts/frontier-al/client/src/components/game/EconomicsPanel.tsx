@@ -123,7 +123,7 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
   });
 
   const { isConnected } = useWallet();
-  const { signOptInToAscend, isOptedInToAscend, isPending } = useBlockchainActions();
+  const { signOptInToAscend, isOptedInToAscend, isPending, isSigningBusy } = useBlockchainActions();
 
   const algoExplorerUrl = data?.asaId
     ? `https://testnet.explorer.perawallet.app/asset/${data.asaId}/`
@@ -235,11 +235,11 @@ export function EconomicsPanel({ className }: EconomicsPanelProps) {
                         <Button
                           size="sm"
                           className="w-full gap-2 font-display uppercase tracking-wide text-xs"
+                          disabled={isPending || isSigningBusy}
                           onClick={signOptInToAscend}
-                          disabled={isPending}
+                          data-testid="button-opt-in-ascend"
                         >
-                          <Coins className="w-3.5 h-3.5" />
-                          {isPending ? "Signing…" : `Opt-In to ASCEND (ASA #${data.asaId})`}
+                          {isPending || isSigningBusy ? "Signing…" : `Opt-In to ASCEND (ASA #${data.asaId})`}
                         </Button>
                       </div>
                     ) : (

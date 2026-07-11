@@ -58,7 +58,15 @@ import { isRailTab, resolveRailTab, type RailTab } from "@/lib/panelNav";
 
 export function GameLayout() {
   const wallet = useWallet();
-  const { isConnected, balance, walletStatus, requestConnection } = wallet;
+  const {
+    isConnected,
+    balance,
+    walletStatus,
+    requestConnection,
+    isAuthenticated,
+    isAuthenticating,
+    authenticate,
+  } = wallet;
   const {
     freePurchases,
     signPurchaseAction,
@@ -78,6 +86,7 @@ export function GameLayout() {
     ascendAsaId,
     isOptedInToAscend,
     treasuryAddress,
+    isSigningBusy,
   } = useBlockchainActions();
   // Drive the socket off authVersion (bumps on every fresh token) so a re-auth
   // reconnects cleanly; onSessionRejected self-heals a rejected/stale token
@@ -426,6 +435,40 @@ export function GameLayout() {
     );
   };
 
+  /**
+   * Ensure the user has a valid backend session before any mutating action.
+   * A connected Algorand wallet does NOT automatically have a backend session
+   * token — the server requires a signed auth challenge exchange. Returns
+   * true if authenticated (or freshly authenticated here), false otherwise.
+   * Triggers exactly one wallet signature prompt for the auth challenge.
+   */
+  const ensureBackendAuthenticated = async (): Promise<boolean> => {
+    if (isAuthenticated) return true;
+    if (!isConnected || !wallet.address) {
+      const connected = await requestConnection();
+      if (!connected) {
+        toast({
+          title: "Wallet Required",
+          description: "Connect your Algorand wallet to continue.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+    try {
+      await wallet.authenticate();
+      return isAuthenticated;
+    } catch (err) {
+      const msg = (err as Error)?.message ?? String(err);
+      if (msg.includes("cancel") || msg.includes("reject")) {
+        toast({ title: "Authentication Cancelled", description: "Sign the auth challenge in your wallet to continue.", variant: "destructive" });
+      } else {
+        toast({ title: "Authentication Failed", description: msg, variant: "destructive" });
+      }
+      return false;
+    }
+  };
+
   const handlePurchase = async () => {
     if (!player || !selectedParcelId || !selectedParcel) return;
 
@@ -441,6 +484,9 @@ export function GameLayout() {
         return;
       }
     }
+
+    // Ensure backend session exists — a connected wallet alone is insufficient.
+    if (!(await ensureBackendAuthenticated())) return;
 
     const algoAmount = selectedParcel.purchasePriceAlgo;
     if (algoAmount === null || algoAmount === undefined) {
@@ -470,7 +516,32 @@ export function GameLayout() {
           setSelectedParcelId(null);
           void pollAndAutoClaimPlotNft(purchasedPlotId);
         },
-        onError: (error) => toast({ title: "Purchase Failed", description: error.message, variant: "destructive" }),
+        onError: (error) => {
+          // 401 means the backend session is missing or expired — re-auth once
+          // and retry the purchase exactly once. Never auto-retry on other errors.
+          const msg = error?.message ?? String(error);
+          if (/^401:/.test(msg) && !isAuthenticating) {
+            wallet.authenticate()
+              .then(() => {
+                purchaseMutation.mutate(
+                  { playerId: player!.id, parcelId: selectedParcelId!, algoPaymentTxId },
+                  {
+                    onSuccess: () => {
+                      toast({ title: "Territory Acquired", description: "New land is now yours — delivering your Plot NFT..." });
+                      setSelectedParcelId(null);
+                      void pollAndAutoClaimPlotNft(purchasedPlotId);
+                    },
+                    onError: (retryErr) => toast({ title: "Purchase Failed", description: (retryErr as Error)?.message ?? "Purchase failed.", variant: "destructive" }),
+                  },
+                );
+              })
+              .catch(() => {
+                toast({ title: "Session Expired", description: "Reconnect your wallet to continue.", variant: "destructive" });
+              });
+            return;
+          }
+          toast({ title: "Purchase Failed", description: msg, variant: "destructive" });
+        },
       }
     );
   };
@@ -1130,7 +1201,7 @@ export function GameLayout() {
           onClaimAllPlotNfts={handleClaimAllPlotNfts}
           isClaimingAllPlotNfts={isClaimingAllPlotNfts}
           onAttack={handleAttackConfirm}
-          isMinting={mintAvatarMutation.isPending}
+          isMinting={mintAvatarMutation.isPending || isSigningBusy}
           isDeployingDrone={deployDroneMutation.isPending}
           isDeployingSatellite={deploySatelliteMutation.isPending}
           isClaimingCommanderNft={isClaimingCommanderNft}
@@ -1411,7 +1482,7 @@ export function GameLayout() {
           onClaimAllPlotNfts={handleClaimAllPlotNfts}
           isClaimingAllPlotNfts={isClaimingAllPlotNfts}
             onAttack={handleAttackConfirm}
-            isMinting={mintAvatarMutation.isPending}
+            isMinting={mintAvatarMutation.isPending || isSigningBusy}
             isDeployingDrone={deployDroneMutation.isPending}
             isDeployingSatellite={deploySatelliteMutation.isPending}
             isClaimingCommanderNft={isClaimingCommanderNft}
@@ -1523,7 +1594,7 @@ export function GameLayout() {
           onClaimAllPlotNfts={handleClaimAllPlotNfts}
           isClaimingAllPlotNfts={isClaimingAllPlotNfts}
               onAttack={handleAttackConfirm}
-              isMinting={mintAvatarMutation.isPending}
+              isMinting={mintAvatarMutation.isPending || isSigningBusy}
               isDeployingDrone={deployDroneMutation.isPending}
               isDeployingSatellite={deploySatelliteMutation.isPending}
               isClaimingCommanderNft={isClaimingCommanderNft}
@@ -1601,7 +1672,7 @@ export function GameLayout() {
           player={player}
           isOpen={!showFullLandSheet}
           onClaim={handlePurchase}
-          isClaiming={purchaseMutation.isPending}
+          isClaiming={purchaseMutation.isPending || isSigningBusy}
           isWalletConnected={isWalletConnected}
           onOpenFullSheet={() => setShowFullLandSheet(true)}
           onClose={() => setSelectedParcelId(null)}
@@ -1631,7 +1702,7 @@ export function GameLayout() {
           isMining={mineMutation.isPending}
           isUpgrading={upgradeMutation.isPending}
           isBuilding={buildMutation.isPending}
-          isPurchasing={purchaseMutation.isPending}
+          isPurchasing={purchaseMutation.isPending || isSigningBusy}
           isWalletConnected={isWalletConnected}
           isSpecialAttacking={specialAttackMutation.isPending}
           nftInfo={null}

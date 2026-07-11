@@ -18,6 +18,7 @@ import {
 } from "@/lib/algorand";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { withWalletOperation, isWalletOperationInProgress } from "@/lib/walletOperationLock";
 
 type ActionType =
   | "mine"
@@ -45,6 +46,36 @@ export function useBlockchainActions() {
   // TestNet testing toggle: when true, plot/commander purchases skip the wallet
   // ALGO payment entirely (server skips verification too). Server-authoritative.
   const [freePurchases, setFreePurchases] = useState<boolean>(false);
+
+  /**
+   * Wrap a signing action with the application-wide operation lock.
+   * - Same id → same promise (deduplicates rapid clicks).
+   * - Different id while busy → rejects with a user-facing toast.
+   * Always releases the lock in `finally`.
+   */
+  const guardSigningOperation = useCallback(
+    async <T,>(operationId: string, run: () => Promise<T>): Promise<T | null> => {
+      try {
+        return await withWalletOperation(operationId, run);
+      } catch (err) {
+        const msg = (err as Error)?.message ?? "";
+        if (msg.includes("already in progress")) {
+          toast({
+            title: "Wallet Busy",
+            description: "Another wallet operation is still pending. Please finish or cancel it first.",
+            variant: "destructive",
+          });
+          return null;
+        }
+        throw err;
+      }
+    },
+    [toast]
+  );
+
+  // Derived busy flag that reflects the global signing lock, not just this
+  // hook instance's local state. This is what controls should disable on.
+  const isSigningBusy = isWalletOperationInProgress() || isPending;
 
   useEffect(() => {
     fetchBlockchainStatus().then((status) => {
@@ -191,25 +222,29 @@ export function useBlockchainActions() {
         toast({ title: "Wallet Not Ready", description: "Connect your wallet first.", variant: "destructive" });
         return null;
       }
-      setIsPending(true);
-      try {
-        console.log(`[ACTION-DEBUG] signCommanderMintAction | path: direct wallet sign | tier: ${tier} | ascendCost: ${ascendCost} | ts: ${Date.now()}`);
-        const txId = await createCommanderMintTransaction(address, tier, ascendCost);
-        setLastTxId(txId);
-        return txId;
-      } catch (err: unknown) {
-        const msg = (err as Error)?.message ?? String(err);
-        if (msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("reject")) {
-          toast({ title: "Mint Cancelled", description: "Transaction rejected in wallet.", variant: "destructive" });
-          return "cancelled";
+      const result = await guardSigningOperation(`mint-commander:${tier}:${ascendCost}`, async () => {
+        setIsPending(true);
+        try {
+          console.log(`[ACTION-DEBUG] signCommanderMintAction | path: direct wallet sign | tier: ${tier} | ascendCost: ${ascendCost} | ts: ${Date.now()}`);
+          const txId = await createCommanderMintTransaction(address, tier, ascendCost);
+          setLastTxId(txId);
+          return txId;
+        } catch (err: unknown) {
+          const msg = (err as Error)?.message ?? String(err);
+          if (msg.toLowerCase().includes("cancel") || msg.toLowerCase().includes("reject")) {
+            toast({ title: "Mint Cancelled", description: "Transaction rejected in wallet.", variant: "destructive" });
+            return "cancelled";
+          }
+          toast({ title: "Wallet Error", description: msg, variant: "destructive" });
+          return null;
+        } finally {
+          setIsPending(false);
         }
-        toast({ title: "Wallet Error", description: msg, variant: "destructive" });
-        return null;
-      } finally {
-        setIsPending(false);
-      }
+      });
+      // guardSigningOperation returns null on "busy"; preserve "cancelled" sentinel.
+      return result === null ? null : result;
     },
-    [isReady, address, toast]
+    [isReady, address, toast, guardSigningOperation]
   );
 
   const queueSpecialAttackAction = useCallback(
@@ -267,43 +302,45 @@ export function useBlockchainActions() {
         return null;
       }
 
-      setIsPending(true);
-      try {
-        console.log(`[ACTION-DEBUG] signGameAction | path: createGameActionTransaction (single txn) | action: ${actionType} | plotId: ${plotId} | ts: ${Date.now()}`);
-        const txId = await createGameActionTransaction(
-          address,
-          actionType,
-          plotId,
-          metadata
-        );
-        setLastTxId(txId);
-        toast({
-          title: "Transaction Confirmed",
-          description: `Action recorded on Algorand TestNet. TX: ${txId.slice(0, 8)}...`,
-        });
-        return txId;
-      } catch (error: unknown) {
-        const err = error as { message?: string };
-        console.error("Blockchain action failed:", error);
-        
-        if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
+      return guardSigningOperation(`game-action:${actionType}:${plotId}`, async () => {
+        setIsPending(true);
+        try {
+          console.log(`[ACTION-DEBUG] signGameAction | path: createGameActionTransaction (single txn) | action: ${actionType} | plotId: ${plotId} | ts: ${Date.now()}`);
+          const txId = await createGameActionTransaction(
+            address,
+            actionType,
+            plotId,
+            metadata
+          );
+          setLastTxId(txId);
           toast({
-            title: "Transaction Cancelled",
-            description: "You cancelled the transaction in your wallet.",
+            title: "Transaction Confirmed",
+            description: `Action recorded on Algorand TestNet. TX: ${txId.slice(0, 8)}...`,
           });
-        } else {
-          toast({
-            title: "Transaction Failed",
-            description: err?.message || "Failed to sign transaction",
-            variant: "destructive",
-          });
+          return txId;
+        } catch (error: unknown) {
+          const err = error as { message?: string };
+          console.error("Blockchain action failed:", error);
+
+          if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
+            toast({
+              title: "Transaction Cancelled",
+              description: "You cancelled the transaction in your wallet.",
+            });
+          } else {
+            toast({
+              title: "Transaction Failed",
+              description: err?.message || "Failed to sign transaction",
+              variant: "destructive",
+            });
+          }
+          return null;
+        } finally {
+          setIsPending(false);
         }
-        return null;
-      } finally {
-        setIsPending(false);
-      }
+      });
     },
-    [isReady, address, toast]
+    [isReady, address, toast, guardSigningOperation]
   );
 
   const signMineAction = useCallback(
@@ -355,44 +392,47 @@ export function useBlockchainActions() {
         return null;
       }
 
-      setIsPending(true);
-      try {
-        console.log(`[ACTION-DEBUG] signPurchaseAction | path: createPurchaseWithAlgoTransaction (single txn) | plotId: ${plotId} | algo: ${algoAmount} | ts: ${Date.now()}`);
-        let targetAddress = treasuryAddress || getCachedTreasuryAddress();
-        if (!targetAddress) {
-          const fresh = await fetchBlockchainStatus();
-          targetAddress = fresh.adminAddress || "";
-        }
-        if (!targetAddress) {
-          toast({ title: "On-Chain Payment Skipped", description: "Blockchain not initialized yet — land claimed in-game only.", variant: "default" });
-          setIsPending(false);
+      const result = await guardSigningOperation(`purchase:${plotId}:${algoAmount}`, async () => {
+        setIsPending(true);
+        try {
+          console.log(`[ACTION-DEBUG] signPurchaseAction | path: createPurchaseWithAlgoTransaction (single txn) | plotId: ${plotId} | algo: ${algoAmount} | ts: ${Date.now()}`);
+          let targetAddress = treasuryAddress || getCachedTreasuryAddress();
+          if (!targetAddress) {
+            const fresh = await fetchBlockchainStatus();
+            targetAddress = fresh.adminAddress || "";
+          }
+          if (!targetAddress) {
+            toast({ title: "On-Chain Payment Skipped", description: "Blockchain not initialized yet — land claimed in-game only.", variant: "default" });
+            setIsPending(false);
+            return null;
+          }
+          const txId = await createPurchaseWithAlgoTransaction(
+            address,
+            targetAddress,
+            plotId,
+            algoAmount
+          );
+          setLastTxId(txId);
+          toast({
+            title: "Purchase Confirmed",
+            description: `Land purchased for ${algoAmount} ALGO. TX: ${txId.slice(0, 8)}...`,
+          });
+          return txId;
+        } catch (error: unknown) {
+          const err = error as { message?: string };
+          if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
+            toast({ title: "Transaction Cancelled", description: "Purchase cancelled." });
+            return "cancelled";
+          }
+          toast({ title: "On-Chain Payment Failed", description: `${err?.message || "Network error"} — land claimed in-game only.`, variant: "default" });
           return null;
+        } finally {
+          setIsPending(false);
         }
-        const txId = await createPurchaseWithAlgoTransaction(
-          address,
-          targetAddress,
-          plotId,
-          algoAmount
-        );
-        setLastTxId(txId);
-        toast({
-          title: "Purchase Confirmed",
-          description: `Land purchased for ${algoAmount} ALGO. TX: ${txId.slice(0, 8)}...`,
-        });
-        return txId;
-      } catch (error: unknown) {
-        const err = error as { message?: string };
-        if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
-          toast({ title: "Transaction Cancelled", description: "Purchase cancelled." });
-          return "cancelled";
-        }
-        toast({ title: "On-Chain Payment Failed", description: `${err?.message || "Network error"} — land claimed in-game only.`, variant: "default" });
-        return null;
-      } finally {
-        setIsPending(false);
-      }
+      });
+      return result === null ? null : result;
     },
-    [isReady, address, toast, treasuryAddress]
+    [isReady, address, toast, treasuryAddress, guardSigningOperation]
   );
 
   const signClaimAscendAction = useCallback(
@@ -406,29 +446,31 @@ export function useBlockchainActions() {
         return null;
       }
 
-      setIsPending(true);
-      try {
-        console.log(`[ACTION-DEBUG] signClaimAscendAction | path: createClaimAscendTransaction (single txn) | amount: ${ascendAmount} | ts: ${Date.now()}`);
-        const txId = await createClaimAscendTransaction(address, ascendAmount);
-        setLastTxId(txId);
-        toast({
-          title: "ASCEND Claimed",
-          description: `Claimed ${ascendAmount.toFixed(2)} ASCEND tokens. TX: ${txId.slice(0, 8)}...`,
-        });
-        return txId;
-      } catch (error: unknown) {
-        const err = error as { message?: string };
-        if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
-          toast({ title: "Claim Cancelled", description: "Claim cancelled." });
-        } else {
-          toast({ title: "Claim Failed", description: err?.message || "Failed", variant: "destructive" });
+      return guardSigningOperation(`claim-ascend:${ascendAmount}`, async () => {
+        setIsPending(true);
+        try {
+          console.log(`[ACTION-DEBUG] signClaimAscendAction | path: createClaimAscendTransaction (single txn) | amount: ${ascendAmount} | ts: ${Date.now()}`);
+          const txId = await createClaimAscendTransaction(address, ascendAmount);
+          setLastTxId(txId);
+          toast({
+            title: "ASCEND Claimed",
+            description: `Claimed ${ascendAmount.toFixed(2)} ASCEND tokens. TX: ${txId.slice(0, 8)}...`,
+          });
+          return txId;
+        } catch (error: unknown) {
+          const err = error as { message?: string };
+          if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
+            toast({ title: "Claim Cancelled", description: "Claim cancelled." });
+          } else {
+            toast({ title: "Claim Failed", description: err?.message || "Failed", variant: "destructive" });
+          }
+          return null;
+        } finally {
+          setIsPending(false);
         }
-        return null;
-      } finally {
-        setIsPending(false);
-      }
+      });
     },
-    [isReady, address, toast]
+    [isReady, address, toast, guardSigningOperation]
   );
 
   const signOptInToAscend = useCallback(
@@ -446,33 +488,32 @@ export function useBlockchainActions() {
         return null;
       }
 
-      setIsPending(true);
-      try {
-        console.log(`[ACTION-DEBUG] signOptInToAscend | path: optInToASA (single txn) | asaId: ${ascendAsaId} | ts: ${Date.now()}`);
-        const txId = await optInToASA(address, ascendAsaId);
-        setLastTxId(txId);
-        // waitForConfirmation inside optInToASA already confirmed the tx —
-        // optimistically mark as opted-in immediately so the banner disappears.
-        const cacheKey = `frontier_optin_testnet_${address}_${ascendAsaId}`;
-        setIsOptedIn(true);
-        localStorage.setItem(cacheKey, "true");
-        // Refetch game state so the HUD and any balance displays update.
-        queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
-        toast({ title: "Opt-In Confirmed", description: `Opted into ASCEND ASA. TX: ${txId.slice(0, 8)}...` });
-        return txId;
-      } catch (error: unknown) {
-        const err = error as { message?: string };
-        if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
-          toast({ title: "Opt-In Cancelled", description: "You cancelled the opt-in." });
-        } else {
-          toast({ title: "Opt-In Failed", description: err?.message || "Failed", variant: "destructive" });
+      return guardSigningOperation(`optin-ascend:${ascendAsaId}`, async () => {
+        setIsPending(true);
+        try {
+          console.log(`[ACTION-DEBUG] signOptInToAscend | path: optInToASA (single txn) | asaId: ${ascendAsaId} | ts: ${Date.now()}`);
+          const txId = await optInToASA(address, ascendAsaId);
+          setLastTxId(txId);
+          const cacheKey = `frontier_optin_testnet_${address}_${ascendAsaId}`;
+          setIsOptedIn(true);
+          localStorage.setItem(cacheKey, "true");
+          queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
+          toast({ title: "Opt-In Confirmed", description: `Opted into ASCEND ASA. TX: ${txId.slice(0, 8)}...` });
+          return txId;
+        } catch (error: unknown) {
+          const err = error as { message?: string };
+          if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
+            toast({ title: "Opt-In Cancelled", description: "You cancelled the opt-in." });
+          } else {
+            toast({ title: "Opt-In Failed", description: err?.message || "Failed", variant: "destructive" });
+          }
+          return null;
+        } finally {
+          setIsPending(false);
         }
-        return null;
-      } finally {
-        setIsPending(false);
-      }
+      });
     },
-    [isReady, address, ascendAsaId, isOptedIn, toast]
+    [isReady, address, ascendAsaId, isOptedIn, toast, guardSigningOperation]
   );
 
   const signOptInToPlotNft = useCallback(
@@ -481,24 +522,28 @@ export function useBlockchainActions() {
         toast({ title: "Wallet Required", description: "Connect your wallet first.", variant: "destructive" });
         return false;
       }
-      try {
-        await optInToASA(address, assetId);
-        toast({ title: "Opt-In Complete", description: `Opted into ASA ${assetId}. Claiming your NFT...` });
-        return true;
-      } catch (err: any) {
-        if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
-          toast({ title: "Opt-In Cancelled", description: "You cancelled the opt-in." });
-        } else {
-          toast({ title: "Opt-In Failed", description: err instanceof Error ? err.message : "Opt-in failed", variant: "destructive" });
+      const result = await guardSigningOperation(`optin-plot:${assetId}`, async () => {
+        try {
+          await optInToASA(address, assetId);
+          toast({ title: "Opt-In Complete", description: `Opted into ASA ${assetId}. Claiming your NFT...` });
+          return true;
+        } catch (err: any) {
+          if (err?.message?.includes("cancelled") || err?.message?.includes("rejected")) {
+            toast({ title: "Opt-In Cancelled", description: "You cancelled the opt-in." });
+          } else {
+            toast({ title: "Opt-In Failed", description: err instanceof Error ? err.message : "Opt-in failed", variant: "destructive" });
+          }
+          return false;
         }
-        return false;
-      }
+      });
+      return result ?? false;
     },
-    [address, toast]
+    [address, toast, guardSigningOperation]
   );
 
   return {
     isPending,
+    isSigningBusy,
     lastTxId,
     freePurchases,
     signMineAction,
