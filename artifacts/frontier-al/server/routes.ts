@@ -40,7 +40,7 @@ import { getAdminAddress, getAdminBalance, getAlgodClient, getIndexerClient } fr
 import { mintLandNft, transferLandNft, attemptDelivery } from "./services/chain/land";
 import { enqueuePlotMintRetry } from "./services/chain/mintRetryQueue";
 import { recordUpgradeOnChain } from "./services/chain/upgrades";
-import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment, attemptCommanderDelivery } from "./services/chain/commander";
+import { mintCommanderNft, transferCommanderNft, forwardLiquiditySplit, verifyAlgoPayment, attemptCommanderDelivery, withCommanderMintLock, decideCommanderRetry } from "./services/chain/commander";
 import { recordPurchaseTransition, newIntentId, queryRecentChainEvents, queryPurchaseIntents, summarizePurchaseFunnel, summarizeChainHealth } from "./services/chain/chainEventStore";
 import {
   bootstrapFactionIdentities,
@@ -1345,15 +1345,24 @@ export async function registerRoutes(
       const avatar = (player.commanders as any[])?.find((c: any) => c.id === commanderId);
       if (!avatar) return res.status(404).json({ error: "Commander not found for this player" });
 
-      // Check no NFT already exists
+      // Idempotency / in-flight decision — prevents duplicate ASA mints (a
+      // second mint when the first already exists on-chain) and blocks a
+      // concurrent retry while one is already in flight.
       const [existingNft] = await db.select().from(commanderNftsTable).where(eq(commanderNftsTable.commanderId, commanderId));
-      if (existingNft?.assetId) {
-        return res.json({ success: false, reason: "already_minted", assetId: Number(existingNft.assetId) });
-      }
-
-      // Reset idempotency key to "failed" so the mint fires again
       const idempotencyKey = `cmdr:mint:${playerId}:${commanderId}`;
-      await db.delete(commanderMintIdempotencyTable).where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+      const [idempotencyRow] = await db.select().from(commanderMintIdempotencyTable).where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+
+      const decision = decideCommanderRetry({
+        existingNftAssetId: existingNft?.assetId ? Number(existingNft.assetId) : null,
+        idempotencyStatus: idempotencyRow?.status,
+        idempotencyAssetId: idempotencyRow?.assetId ? Number(idempotencyRow.assetId) : null,
+      });
+      if (decision.kind === "already_minted") {
+        return res.json({ success: false, reason: "already_minted", assetId: decision.assetId });
+      }
+      if (decision.kind === "already_minting") {
+        return res.json({ success: false, reason: "already_minting", commanderId, message: "Commander NFT mint already in progress — wait for the badge to update." });
+      }
 
       const now = Date.now();
       const rawBase = process.env.PUBLIC_BASE_URL ||
@@ -1364,35 +1373,51 @@ export async function registerRoutes(
         return res.status(503).json({ error: "PUBLIC_BASE_URL not configured" });
       }
 
-      // Insert fresh pending key
+      // Reset idempotency key to pending so the mint fires once more (single-flight).
+      await db.delete(commanderMintIdempotencyTable).where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
       await db.insert(commanderMintIdempotencyTable).values({
         key: idempotencyKey, status: "pending", assetId: null, txId: null, createdAt: now, updatedAt: now,
       }).onConflictDoNothing();
 
-      // Fire async mint
-      mintCommanderNft({
-        commanderId,
-        tier: avatar.tier as "sentinel" | "phantom" | "reaper",
-        receiverAddress: player.address!,
-        metadataBaseUrl: PUBLIC_BASE_URL,
-      }).then(async (result) => {
-        await db!.insert(commanderNftsTable).values({
-          commanderId, assetId: result.assetId, mintedToAddress: result.mintedToAddress,
-          mintedAt: Date.now(), algoPaymentTxId: null,
-        }).onConflictDoUpdate({
-          target: commanderNftsTable.commanderId,
-          set: { assetId: result.assetId, mintedToAddress: result.mintedToAddress, mintedAt: Date.now(), algoPaymentTxId: null },
-        });
-        await db!.update(commanderMintIdempotencyTable)
-          .set({ status: "confirmed", assetId: result.assetId, txId: result.createTxId, updatedAt: Date.now() })
-          .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
-        console.log(`[retry-commander] commanderId=${commanderId} assetId=${result.assetId} minted`);
-      }).catch(async (err) => {
-        await db!.update(commanderMintIdempotencyTable)
-          .set({ status: "failed", updatedAt: Date.now() })
-          .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
-        console.error(`[retry-commander] commanderId=${commanderId} mint failed:`, err instanceof Error ? err.message : err);
-      });
+      // Fire async mint — single-flight so concurrent retries share ONE chain call.
+      withCommanderMintLock(commanderId, () =>
+        mintCommanderNft({
+          commanderId,
+          tier: avatar.tier as "sentinel" | "phantom" | "reaper",
+          receiverAddress: player.address!,
+          metadataBaseUrl: PUBLIC_BASE_URL,
+        })
+          .then(async (result) => {
+            await db!.insert(commanderNftsTable).values({
+              commanderId, assetId: result.assetId, mintedToAddress: result.mintedToAddress,
+              mintedAt: Date.now(), algoPaymentTxId: null,
+            }).onConflictDoUpdate({
+              target: commanderNftsTable.commanderId,
+              set: { assetId: result.assetId, mintedToAddress: result.mintedToAddress, mintedAt: Date.now(), algoPaymentTxId: null },
+            });
+            await db!.update(commanderMintIdempotencyTable)
+              .set({ status: "confirmed", assetId: result.assetId, txId: result.createTxId, updatedAt: Date.now() })
+              .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+            console.log(`[retry-commander] commanderId=${commanderId} assetId=${result.assetId} minted`);
+          })
+          .catch(async (err) => {
+            // Reconcile: the chain mint may have succeeded but the DB row write
+            // failed (category C). If commander_nfts now has an assetId, recover
+            // the idempotency to confirmed instead of failing. Otherwise mark failed.
+            const [recheck] = await db!.select().from(commanderNftsTable).where(eq(commanderNftsTable.commanderId, commanderId));
+            if (recheck?.assetId) {
+              await db!.update(commanderMintIdempotencyTable)
+                .set({ status: "confirmed", assetId: Number(recheck.assetId), updatedAt: Date.now() })
+                .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+              console.log(`[retry-commander] commanderId=${commanderId} reconciled orphaned on-chain mint assetId=${recheck.assetId}`);
+            } else {
+              await db!.update(commanderMintIdempotencyTable)
+                .set({ status: "failed", updatedAt: Date.now() })
+                .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+              console.error(`[retry-commander] commanderId=${commanderId} mint failed:`, err instanceof Error ? err.message : err);
+            }
+          })
+      );
 
       res.json({ success: true, status: "minting", commanderId, message: "NFT mint restarted — check the badge for updates." });
     } catch (error) {
@@ -2464,60 +2489,71 @@ export async function registerRoutes(
           const PUBLIC_BASE_URL = rawBase.replace(/\/+$/, "");
 
           if (PUBLIC_BASE_URL) {
-            mintCommanderNft({
-              commanderId:     avatar.id,
-              tier:            avatar.tier as "sentinel" | "phantom" | "reaper",
-              receiverAddress: mintPlayer.address,
-              metadataBaseUrl: PUBLIC_BASE_URL,
-            })
-              .then(async (result) => {
-                await db!.insert(commanderNftsTable).values({
-                  commanderId:     avatar.id,
-                  assetId:         result.assetId,
-                  mintedToAddress: result.mintedToAddress,
-                  mintedAt:        Date.now(),
-                  algoPaymentTxId: null,
-                }).onConflictDoUpdate({
-                  target: commanderNftsTable.commanderId,
-                  set: {
+            withCommanderMintLock(avatar.id, () =>
+              mintCommanderNft({
+                commanderId:     avatar.id,
+                tier:            avatar.tier as "sentinel" | "phantom" | "reaper",
+                receiverAddress: mintPlayer.address,
+                metadataBaseUrl: PUBLIC_BASE_URL,
+              })
+                .then(async (result) => {
+                  await db!.insert(commanderNftsTable).values({
+                    commanderId:     avatar.id,
                     assetId:         result.assetId,
                     mintedToAddress: result.mintedToAddress,
                     mintedAt:        Date.now(),
                     algoPaymentTxId: null,
-                  },
-                });
-                await db!.update(commanderMintIdempotencyTable)
-                  .set({ status: "confirmed", assetId: result.assetId, txId: result.createTxId, updatedAt: Date.now() })
-                  .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
-                // Also record algoPaymentTxId now that it's verified
-                if (action.algoPaymentTxId) {
-                  await db!.update(commanderNftsTable)
-                    .set({ algoPaymentTxId: action.algoPaymentTxId })
-                    .where(eq(commanderNftsTable.commanderId, avatar.id));
-                }
-                console.log(`[mint-avatar] Commander NFT minted commanderId=${avatar.id} assetId=${result.assetId}`);
+                  }).onConflictDoUpdate({
+                    target: commanderNftsTable.commanderId,
+                    set: {
+                      assetId:         result.assetId,
+                      mintedToAddress: result.mintedToAddress,
+                      mintedAt:        Date.now(),
+                      algoPaymentTxId: null,
+                    },
+                  });
+                  await db!.update(commanderMintIdempotencyTable)
+                    .set({ status: "confirmed", assetId: result.assetId, txId: result.createTxId, updatedAt: Date.now() })
+                    .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+                  if (action.algoPaymentTxId) {
+                    await db!.update(commanderNftsTable)
+                      .set({ algoPaymentTxId: action.algoPaymentTxId })
+                      .where(eq(commanderNftsTable.commanderId, avatar.id));
+                  }
+                  console.log(`[mint-avatar] Commander NFT minted commanderId=${avatar.id} assetId=${result.assetId}`);
 
-                // ── Attempt immediate delivery (universal pattern) ──────────────
-                const receiverAddr = mintPlayer.address!;
-                const delivery = await attemptCommanderDelivery(result.assetId, receiverAddr, avatar.id);
-                if (delivery.delivered) {
-                  await db!.update(commanderNftsTable)
-                    .set({ mintedToAddress: receiverAddr })
-                    .where(eq(commanderNftsTable.commanderId, avatar.id));
-                  console.log(`[mint-avatar] Commander NFT auto-delivered commanderId=${avatar.id} to ${receiverAddr}`);
-                } else if (delivery.reason === "transfer_failed") {
-                  // CRITICAL: payment received and NFT minted but delivery failed — flag for admin review
-                  console.error(`[CRITICAL] Commander NFT delivery failed after payment. commanderId=${avatar.id} assetId=${result.assetId} buyer=${receiverAddr} reason=${delivery.reason}`);
-                } else {
-                  console.log(`[mint-avatar] Commander NFT in custody (${delivery.reason}) commanderId=${avatar.id} — buyer must opt-in then call /api/nft/deliver-commander/${avatar.id}`);
-                }
-              })
-              .catch(async (err) => {
-                await db!.update(commanderMintIdempotencyTable)
-                  .set({ status: "failed", updatedAt: Date.now() })
-                  .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
-                console.error(`[mint-avatar] Commander NFT mint failed commanderId=${avatar.id}:`, err instanceof Error ? err.message : err);
-              });
+                  // ── Attempt immediate delivery (universal pattern) ──────────────
+                  const receiverAddr = mintPlayer.address!;
+                  const delivery = await attemptCommanderDelivery(result.assetId, receiverAddr, avatar.id);
+                  if (delivery.delivered) {
+                    await db!.update(commanderNftsTable)
+                      .set({ mintedToAddress: receiverAddr })
+                      .where(eq(commanderNftsTable.commanderId, avatar.id));
+                    console.log(`[mint-avatar] Commander NFT auto-delivered commanderId=${avatar.id} to ${receiverAddr}`);
+                  } else if (delivery.reason === "transfer_failed") {
+                    console.error(`[CRITICAL] Commander NFT delivery failed after payment. commanderId=${avatar.id} assetId=${result.assetId} buyer=${receiverAddr} reason=${delivery.reason}`);
+                  } else {
+                    console.log(`[mint-avatar] Commander NFT in custody (${delivery.reason}) commanderId=${avatar.id} — buyer must opt-in then call /api/nft/deliver-commander/${avatar.id}`);
+                  }
+                })
+                .catch(async (err) => {
+                  // Reconcile: chain mint may have succeeded but the DB write
+                  // failed (category C). Recover idempotency to confirmed if the
+                  // NFT row exists; otherwise mark failed (no duplicate mint).
+                  const [recheck] = await db!.select().from(commanderNftsTable).where(eq(commanderNftsTable.commanderId, avatar.id));
+                  if (recheck?.assetId) {
+                    await db!.update(commanderMintIdempotencyTable)
+                      .set({ status: "confirmed", assetId: Number(recheck.assetId), updatedAt: Date.now() })
+                      .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+                    console.log(`[mint-avatar] commanderId=${avatar.id} reconciled orphaned on-chain mint assetId=${recheck.assetId}`);
+                  } else {
+                    await db!.update(commanderMintIdempotencyTable)
+                      .set({ status: "failed", updatedAt: Date.now() })
+                      .where(eq(commanderMintIdempotencyTable.key, idempotencyKey));
+                    console.error(`[mint-avatar] Commander NFT mint failed commanderId=${avatar.id}:`, err instanceof Error ? err.message : err);
+                  }
+                })
+            );
           } else {
             console.warn(`[mint-avatar] PUBLIC_BASE_URL not set — skipping Commander NFT mint for commanderId=${avatar.id}`);
           }

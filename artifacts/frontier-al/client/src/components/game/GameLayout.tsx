@@ -588,6 +588,7 @@ export function GameLayout() {
 
   const [isClaimingCommanderNft, setIsClaimingCommanderNft] = useState(false);
   const [isRetryingCommanderMintId, setIsRetryingCommanderMintId] = useState<string | null>(null);
+  const retryingCommanderRef = useRef<Set<string>>(new Set());
   const [isRetryingPlotMintId, setIsRetryingPlotMintId] = useState<number | null>(null);
   const [isDeliveringPlotNftId, setIsDeliveringPlotNftId] = useState<number | null>(null);
 
@@ -738,6 +739,11 @@ export function GameLayout() {
 
   const handleRetryCommanderMint = async (commanderId: string) => {
     if (!player) return;
+    // Parallel-click guard: rapid "Tap Retry" clicks must not fire duplicate
+    // requests. The server also blocks concurrent mints; this keeps the UI
+    // single-flight and avoids redundant toasts.
+    if (retryingCommanderRef.current.has(commanderId)) return;
+    retryingCommanderRef.current.add(commanderId);
     setIsRetryingCommanderMintId(commanderId);
     try {
       // apiRequest attaches the session (Bearer token + credentials); the
@@ -750,12 +756,21 @@ export function GameLayout() {
       } else if (data.reason === "already_minted") {
         toast({ title: "Already Minted", description: `ASA ${data.assetId} — check your badge to claim.` });
         queryClient.invalidateQueries({ queryKey: ["/api/nft/commander"] });
+      } else if (data.reason === "already_minting") {
+        toast({ title: "Mint In Progress", description: "Your Commander NFT is already minting — the badge will update when it's ready." });
+        queryClient.invalidateQueries({ queryKey: ["/api/nft/commander", commanderId] });
       } else {
         toast({ title: "Retry Failed", description: data.error || "Could not restart mint.", variant: "destructive" });
       }
     } catch (err) {
-      toast({ title: "Retry Failed", description: err instanceof Error ? err.message : "Unexpected error", variant: "destructive" });
+      // Convert raw backend JSON into a clean user-facing status.
+      const raw = err instanceof Error ? err.message : "Unexpected error";
+      const clean = raw.includes("401")
+        ? "Session expired — reconnect your wallet and try again."
+        : "Commander NFT retry failed. The badge will keep polling for updates.";
+      toast({ title: "Retry Failed", description: clean, variant: "destructive" });
     } finally {
+      retryingCommanderRef.current.delete(commanderId);
       setIsRetryingCommanderMintId(null);
     }
   };
@@ -845,7 +860,17 @@ export function GameLayout() {
             queryClient.invalidateQueries({ queryKey: ["/api/nft/commander", data.avatar.id] });
           }
         },
-        onError: (error: unknown) => toast({ title: "Mint Failed", description: (error as Error).message, variant: "destructive" }),
+        onError: (error: unknown) => {
+          // Convert raw backend JSON (e.g. a 401 or validation error) into a
+          // clean user-facing status instead of leaking the raw payload.
+          const raw = error instanceof Error ? error.message : "Unexpected error";
+          const clean = raw.includes("401")
+            ? "Authentication required — reconnect your wallet and try again."
+            : raw.includes("Insufficient ASCEND")
+              ? raw
+              : "Commander mint could not start. The badge will keep polling, or use Retry Mint.";
+          toast({ title: "Mint Failed", description: clean, variant: "destructive" });
+        },
       }
     );
   };
