@@ -129,12 +129,57 @@ The batch queue rejection test uses SDK-compatible Algorand fixtures (address fo
 - No stuck "Signing..." states
 - No duplicate Lute/Pera windows
 
+## Case B — Production 401 Defect (Mobile Safari, Resolved)
+
+### Symptom (Production)
+On https://frontierprotocol.app, mobile Safari, owner with a connected Algorand wallet pressed `PURCHASE FOR 0.1 ALGO` and received:
+`401: {"error":"Authentication required — connect your wallet"}`
+
+### Final Root Cause (Case B)
+- The wallet was connected in frontend state (`isWalletConnected === true`).
+- The backend authentication session (signed challenge) was absent (`isAuthenticated === false`).
+- `handlePurchase` checked `isWalletConnected` but **not** backend `isAuthenticated`, so the purchase request was sent without a Bearer token.
+- The server correctly required the signed challenge flow: `POST /api/auth/nonce` then `POST /api/auth/verify`.
+
+### Fix — Commit `e934508`
+`fix(frontier-al): gate purchase on backend auth, auto-recover from 401`
+- Added `ensureBackendAuthenticated()` — gates on backend `isAuthenticated`, performs the signed auth challenge **once** when needed.
+- `handlePurchase` now requires backend authentication before purchase and aborts cleanly on rejection/cancellation (no purchase API call, no raw 401 toast).
+- On a real `401` in `onError`, performs exactly one controlled re-authentication attempt and one retry.
+- Does **not** auto-retry non-401 failures. Does **not** bypass server authentication. No longer exposes the raw JSON 401 to the player.
+
+### Owner Production Verification (Mobile Safari, Production)
+Public Algorand TestNet wallet: `OC6LXJ5WDGKMINKPWJF7ZZRU6ARWIOVFJMCMXBVOYUGQN3O67PFEL5B74A`
+Owner-confirmed results on the production app:
+- Wallet authentication completed (signed backend challenge succeeded).
+- Purchase transactions completed in the wallet.
+- The old raw `401` did not recur.
+- Plot ownership updated to `OWNED BY YOU`.
+- Plot #11627 displayed `Land NFT Delivered`.
+- ASA `766120466` opt-in completed.
+- Land NFT claim/delivery completed successfully.
+
+### Preserved / Untouched
+- **Backend authentication preserved**: server still requires `POST /api/auth/nonce` + `/api/auth/verify`; only client-side recovery was added. The 401 check on the server was NOT removed or bypassed.
+- **Funds paths, prices, transaction amounts, ASA IDs, treasury/admin addresses, and TestNet configuration were NOT changed.**
+
+## PR #237 Status
+- PR: #237 `fix(frontier-al): prevent duplicate wallet prompts and unsafe resume`
+- Branch: `fix/frontier-wallet-stability`, head `e934508`
+- CI: Typecheck & server tests SUCCESS; Cloudflare Pages preview deploy SUCCESS; MERGEABLE.
+- No unresolved review comments. Contains only expected wallet-stability files plus this memory doc.
+- Closeout objective: confirm the three commits, record owner-verified production flow, add a PR comment, and push — **do not merge in this lane** (CI is green; merge deferred per closeout procedure).
+
+## Next Separate Defect Lane: `fix/frontier-commander-nft-delivery`
+After PR #237 merges, the next focused issue is **Commander NFT delivery** (separate from this wallet/auth fix):
+- Observed: Sentinel #1 / #3 / #4 show `Mint Failed — Tap Retry`; ASA opt-in succeeds; land purchase + land NFT delivery succeed; Commander NFT mint/delivery does not consistently complete.
+- Investigate: Commander NFT creation, delivery API behavior, ASA opt-in timing, transaction confirmation polling, retry idempotency, duplicate-mint prevention, duplicate wallet-prompt prevention, recovery when minting succeeds on-chain but UI/backend status remains failed.
+
 ## Free-Model Handoff
 
 ### Do NOT
 - Redesign or refactor the wallet architecture
 - Change wallet library versions without updating `walletResumeGuard`
-- Merge until owner completes manual Lute TestNet verification
 - Add new wallet operations without wrapping in `withWalletOperation`
 
 ### May Do
@@ -149,6 +194,6 @@ The batch queue rejection test uses SDK-compatible Algorand fixtures (address fo
 - Resume guard: `artifacts/frontier-al/client/src/lib/walletResumeGuard.ts`
 
 ## Next Steps
-1. Owner performs manual Lute TestNet verification
-2. If all tests pass → merge PR
-3. If issues found → open focused fix PR (not on this branch)
+1. Owner production verification **completed** on mobile Safari (production flow passed; see Case B above).
+2. PR #237 closeout: record owner-verified flow above, add PR comment, push branch, **do not merge in this lane**.
+3. Next separate lane: `fix/frontier-commander-nft-delivery` (Commander NFT mint/delivery failures), started only after PR #237 merges.
