@@ -1,4 +1,5 @@
 import { WalletManager, WalletId, NetworkId } from "@txnlab/use-wallet";
+import { suppressInteractiveWalletResume } from "./walletResumeGuard";
 
 const network = import.meta.env.VITE_ALGORAND_NETWORK === "mainnet"
  ? NetworkId.MAINNET
@@ -20,6 +21,14 @@ const network = import.meta.env.VITE_ALGORAND_NETWORK === "mainnet"
  * and show a real message for.
  */
 export function createWalletManager(): WalletManager {
+ // Prevent mobile/QR wallets (Pera, Defly, WalletConnect) from auto-resuming
+ // on app load. Their resume paths surface wallet popups automatically, which
+ // violates the "reload must never open the wallet" guarantee and produced the
+ // owner-reported popup storm. Extension wallets (Lute, Kibisis) are allowed
+ // to passively resume because they can verify `client.isConnected` without
+ // opening UI. This MUST run before `new WalletManager()` reads persisted state.
+ suppressInteractiveWalletResume();
+
  return new WalletManager({
    // Pera = the MOBILE wallet (works in all browsers incl. Safari). Lute = a
    // desktop browser EXTENSION (the owner's funded wallet) and is NOT available

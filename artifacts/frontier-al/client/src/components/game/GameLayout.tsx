@@ -78,6 +78,7 @@ export function GameLayout() {
     ascendAsaId,
     isOptedInToAscend,
     treasuryAddress,
+    isSigningBusy,
   } = useBlockchainActions();
   // Drive the socket off authVersion (bumps on every fresh token) so a re-auth
   // reconnects cleanly; onSessionRejected self-heals a rejected/stale token
@@ -1130,7 +1131,7 @@ export function GameLayout() {
           onClaimAllPlotNfts={handleClaimAllPlotNfts}
           isClaimingAllPlotNfts={isClaimingAllPlotNfts}
           onAttack={handleAttackConfirm}
-          isMinting={mintAvatarMutation.isPending}
+          isMinting={mintAvatarMutation.isPending || isSigningBusy}
           isDeployingDrone={deployDroneMutation.isPending}
           isDeployingSatellite={deploySatelliteMutation.isPending}
           isClaimingCommanderNft={isClaimingCommanderNft}
@@ -1411,7 +1412,7 @@ export function GameLayout() {
           onClaimAllPlotNfts={handleClaimAllPlotNfts}
           isClaimingAllPlotNfts={isClaimingAllPlotNfts}
             onAttack={handleAttackConfirm}
-            isMinting={mintAvatarMutation.isPending}
+            isMinting={mintAvatarMutation.isPending || isSigningBusy}
             isDeployingDrone={deployDroneMutation.isPending}
             isDeployingSatellite={deploySatelliteMutation.isPending}
             isClaimingCommanderNft={isClaimingCommanderNft}
@@ -1523,7 +1524,7 @@ export function GameLayout() {
           onClaimAllPlotNfts={handleClaimAllPlotNfts}
           isClaimingAllPlotNfts={isClaimingAllPlotNfts}
               onAttack={handleAttackConfirm}
-              isMinting={mintAvatarMutation.isPending}
+              isMinting={mintAvatarMutation.isPending || isSigningBusy}
               isDeployingDrone={deployDroneMutation.isPending}
               isDeployingSatellite={deploySatelliteMutation.isPending}
               isClaimingCommanderNft={isClaimingCommanderNft}
@@ -1601,7 +1602,7 @@ export function GameLayout() {
           player={player}
           isOpen={!showFullLandSheet}
           onClaim={handlePurchase}
-          isClaiming={purchaseMutation.isPending}
+          isClaiming={purchaseMutation.isPending || isSigningBusy}
           isWalletConnected={isWalletConnected}
           onOpenFullSheet={() => setShowFullLandSheet(true)}
           onClose={() => setSelectedParcelId(null)}
@@ -1631,7 +1632,7 @@ export function GameLayout() {
           isMining={mineMutation.isPending}
           isUpgrading={upgradeMutation.isPending}
           isBuilding={buildMutation.isPending}
-          isPurchasing={purchaseMutation.isPending}
+          isPurchasing={purchaseMutation.isPending || isSigningBusy}
           isWalletConnected={isWalletConnected}
           isSpecialAttacking={specialAttackMutation.isPending}
           nftInfo={null}

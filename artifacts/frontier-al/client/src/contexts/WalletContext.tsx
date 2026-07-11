@@ -233,6 +233,14 @@ export function shouldPurgeBeforeConnect(
  */
 const autoAuthedAddressesThisLoad = new Set<string>();
 
+/**
+ * Module-level promise lock for wallet connection attempts. A single in-flight
+ * connect() promise is shared across the whole application (and across any
+ * future WalletProvider remount), so rapid clicks from any entry point return
+ * the same promise instead of opening multiple wallet windows.
+ */
+let globalConnectPromise: Promise<void> | null = null;
+
 /** Has `address` already completed auto-auth this page load (any instance)? */
 export function hasAutoAuthed(address: string): boolean {
   return autoAuthedAddressesThisLoad.has(address);
@@ -343,11 +351,6 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const [authVersion, setAuthVersion] = useState(0);
   const authAttemptedFor = useRef<string | null>(null);
   const isReconnecting = useRef(false);
-  // Guards against a second connect() firing while one is already in flight
-  // (e.g. a double-tap re-opening the picker inside the 250ms deferred-open
-  // window) — a re-entrant call would purge the pairing the first attempt
-  // just opened, turning a good connect into a guaranteed failure.
-  const connectInFlight = useRef(false);
 
   // Singleton picker state — lifted from WalletConnect to prevent duplicate modals
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -517,63 +520,77 @@ export function WalletProvider({ children, autoAuth = false }: WalletProviderPro
   const clearError = useCallback(() => setError(null), []);
 
   const connect = useCallback(async (walletId: string) => {
-    if (connectInFlight.current) return;
-    connectInFlight.current = true;
-    setIsConnecting(true);
-    setError(null);
+    // Global application-wide lock: if any connect() is already in flight,
+    // return the same promise. This prevents rapid clicks from opening multiple
+    // wallet windows, and survives provider remounts because the lock lives at
+    // module scope.
+    if (globalConnectPromise) {
+      return globalConnectPromise;
+    }
 
-    const wallet = wallets.find((w: any) => w.id === walletId);
+    const runConnect = async () => {
+      setIsConnecting(true);
+      setError(null);
 
-    const attemptConnect = async () => {
-      if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
-      // A previous session can leave half-open WalletConnect pairings behind
-      // (abandoned tab, crashed connect, the old cross-origin fly.dev hop).
-      // Pera resurfaces EVERY leftover pairing as its own popup on the next
-      // connect — the "12 windows" storm. Purge before dialing, but only when
-      // this wallet isn't currently connected (never drop a live session) AND
-      // isn't still `isActive` (never abort an in-flight session resume —
-      // audit finding P3, see shouldPurgeBeforeConnect's doc comment).
-      if (shouldPurgeBeforeConnect(wallet)) await purgeStaleSession(wallet);
-      // Bound the connect so a modal that never surfaces can't spin forever.
-      // Extension wallets get a tighter budget than QR/mobile wallets.
-      await promiseWithTimeout(wallet.connect(), connectTimeoutFor(walletId));
+      const wallet = wallets.find((w: any) => w.id === walletId);
+
+      const attemptConnect = async () => {
+        if (!wallet) throw new Error(`Wallet ${walletId} not configured`);
+        // A previous session can leave half-open WalletConnect pairings behind
+        // (abandoned tab, crashed connect, the old cross-origin fly.dev hop).
+        // Pera resurfaces EVERY leftover pairing as its own popup on the next
+        // connect — the "12 windows" storm. Purge before dialing, but only when
+        // this wallet isn't currently connected (never drop a live session) AND
+        // isn't still `isActive` (never abort an in-flight session resume —
+        // audit finding P3, see shouldPurgeBeforeConnect's doc comment).
+        if (shouldPurgeBeforeConnect(wallet)) await purgeStaleSession(wallet);
+        // Bound the connect so a modal that never surfaces can't spin forever.
+        // Extension wallets get a tighter budget than QR/mobile wallets.
+        await promiseWithTimeout(wallet.connect(), connectTimeoutFor(walletId));
+      };
+
+      try {
+        try {
+          console.log(`[WALLET] Connecting to ${walletId}...`);
+          await attemptConnect();
+          console.log(`[WALLET] Connected to ${walletId}`);
+        } catch (firstErr: unknown) {
+          const e1 = firstErr as { message?: string; data?: { type?: string }; code?: string };
+          const msg1 = e1?.message || String(firstErr) || "";
+
+          // Failed/aborted connect (including user cancel) can leave a HALF-OPEN
+          // WalletConnect session behind. If it isn't purged it accumulates and
+          // Pera resurfaces every leftover pairing on the next attempt — the
+          // "extra wallets keep popping up" storm. Drop it before we return/throw.
+          await purgeStaleSession(wallet);
+
+          // User cancelled — don't retry, don't show error.
+          if (isUserCancellation(msg1, e1?.data)) return;
+
+          // Do NOT silently retry: a second wallet.connect() opens ANOTHER
+          // deep-link tab (the "trying to open another application" storm on
+          // mobile). Surface the error and let the user retry deliberately via
+          // the "Try Again" button — one tab per intentional attempt.
+          throw firstErr;
+        }
+      } catch (err: unknown) {
+        const e = err as { message?: string; data?: { type?: string }; code?: string };
+        const msg = e?.message || String(err) || "";
+        console.error(`[WALLET] Error connecting to ${walletId}:`, { message: msg, data: e?.data, code: e?.code });
+        if (!isUserCancellation(msg, e?.data)) {
+          setError(friendlyErrorMessage(walletId, msg));
+        }
+      } finally {
+        setIsConnecting(false);
+      }
     };
 
-    try {
-      try {
-        console.log(`[WALLET] Connecting to ${walletId}...`);
-        await attemptConnect();
-        console.log(`[WALLET] Connected to ${walletId}`);
-      } catch (firstErr: unknown) {
-        const e1 = firstErr as { message?: string; data?: { type?: string }; code?: string };
-        const msg1 = e1?.message || String(firstErr) || "";
-
-        // Failed/aborted connect (including user cancel) can leave a HALF-OPEN
-        // WalletConnect session behind. If it isn't purged it accumulates and
-        // Pera resurfaces every leftover pairing on the next attempt — the
-        // "extra wallets keep popping up" storm. Drop it before we return/throw.
-        await purgeStaleSession(wallet);
-
-        // User cancelled — don't retry, don't show error.
-        if (isUserCancellation(msg1, e1?.data)) return;
-
-        // Do NOT silently retry: a second wallet.connect() opens ANOTHER
-        // deep-link tab (the "trying to open another application" storm on
-        // mobile). Surface the error and let the user retry deliberately via
-        // the "Try Again" button — one tab per intentional attempt.
-        throw firstErr;
-      }
-    } catch (err: unknown) {
-      const e = err as { message?: string; data?: { type?: string }; code?: string };
-      const msg = e?.message || String(err) || "";
-      console.error(`[WALLET] Error connecting to ${walletId}:`, { message: msg, data: e?.data, code: e?.code });
-      if (!isUserCancellation(msg, e?.data)) {
-        setError(friendlyErrorMessage(walletId, msg));
-      }
-    } finally {
-      setIsConnecting(false);
-      connectInFlight.current = false;
-    }
+    const promise = runConnect();
+    globalConnectPromise = promise;
+    promise.finally(() => {
+      globalConnectPromise = null;
+    });
+    return promise;
   }, [wallets]);
 
   const disconnect = useCallback(() => {
