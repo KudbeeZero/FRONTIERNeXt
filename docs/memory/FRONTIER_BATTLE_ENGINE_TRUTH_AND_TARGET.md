@@ -5,7 +5,15 @@
 **Governing commit:** `91d183d` (PR #252 merged)
 **Status:** Documentation-only. No runtime behavior changed.
 
-**Phase A status (2026-07-12, PR open):** `feat/frontier-battle-profile-launch-adapter` — server-authoritative launch adapter wired into `deployAttack()`. The adapter wraps the legacy deployAttack() input construction in the CombatProfile/BattleSnapshot contract. It produces an immutable CombatProfile + BattleSnapshot for the live state, the EXACT same EngineBattleInput the legacy path built (so resolveBattle() sees byte-identical inputs), and the legacy persisted battle-row values used by the insert. **No durable snapshot persistence yet (Phase B).** No schema/migration changes. No new combat effects. 23 new focused adapter tests, 643 server tests passing.
+**Phase A status (2026-07-12, PR #253):** MERGED at `3b3db01` — server-authoritative launch adapter wired into `deployAttack()`. The adapter wraps the legacy deployAttack() input construction in the CombatProfile/BattleSnapshot contract. It produces an immutable CombatProfile + BattleSnapshot for the live state, the EXACT same EngineBattleInput the legacy path built (so resolveBattle() sees byte-identical inputs), and the legacy persisted battle-row values used by the insert. No durable snapshot persistence yet (Phase B). No schema/migration changes. No new combat effects. 30 new focused adapter tests, 669 server tests passing.
+
+**Phase B status (2026-07-12, PR open):** `feat/frontier-battle-snapshot-persistence` — durable BattleSnapshot persistence and replay verification:
+- Migration `0016_battles_battle_snapshot.sql` adds nullable JSONB column `battle_snapshot` to the `battles` table
+- `server/engine/battle/snapshotReplay.ts` — pure replay utility: `parseStoredBattleSnapshot()` (Zod-validated strict parsing), `replayBattleInputFromStoredBattle()` (reconstructs exact legacy EngineBattleInput), `replayLegacyPersistedFieldsFromSnapshot()` (reconstructs legacy persisted fields)
+- `deployAttack()` now persists the snapshot alongside the battle row in the same transaction
+- 19 new focused replay tests covering JSONB round-trip, key reordering, identity verification, and parity
+- 669 server tests passing (baseline 650 + 19 new)
+- Live resolver unchanged — snapshot is for evidence and replay verification only
 
 ---
 

@@ -336,6 +336,16 @@ export const battles = pgTable(
     randFactor:       real("rand_factor"),
     commanderId:      varchar("commander_id", { length: 36 }),
     sourceParcelId:   varchar("source_parcel_id", { length: 36 }),
+    /**
+     * Phase B — immutable BattleSnapshot persisted at plot-attack launch.
+     * Nullable: pre-Phase-B battles have NULL (legacy resolution continues
+     * unchanged). Post-Phase-B human + AI plot attacks always have a
+     * JSONB-encoded BattleSnapshot. The snapshot is the server-authoritative
+     * evidence needed to reconstruct the exact legacy EngineBattleInput.
+     * Use `safeParseBattleSnapshot()` (server/engine/battle/snapshotReplay.ts)
+     * to validate before treating as BattleSnapshot.
+     */
+    battleSnapshot:   jsonb("battle_snapshot").$type<unknown>(),
   },
   (t) => ({
     /** Used by resolveBattles() to efficiently find pending battles past their resolveTs. */

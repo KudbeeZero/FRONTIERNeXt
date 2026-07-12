@@ -33,16 +33,24 @@
   - All three documents align with code reality at commit `da35c7e`. No runtime code changes.
 - **Battle-engine memory — DONE & MERGED:** `docs/frontier-battle-engine-truth` → PR #252 (squash-merge `91d183d`). Defines:
   - `docs/memory/FRONTIER_BATTLE_ENGINE_TRUTH_AND_TARGET.md` — current engine truth + target architecture + 12-PR migration sequence (A-L) with crystal/proof/divergence clarifications
-- **Phase A — IMPLEMENTED, PR OPEN:** `feat/frontier-battle-profile-launch-adapter` (PR #253 open). Server-authoritative launch adapter wired into `deployAttack()`:
+- **Phase A — DONE & MERGED:** `feat/frontier-battle-profile-launch-adapter` → PR #253 squash-merged at `3b3db01` (2026-07-12). Server-authoritative launch adapter wired into `deployAttack()`:
   - `server/engine/battle/profileAdapter.ts` — pure adapter that builds CombatProfile + BattleSnapshot at launch, maps to EXACT legacy EngineBattleInput (parity-safe)
-  - 23 new focused adapter tests proving parity (representative, minimum, commander, crystal, radar, biome/defense, unowned, morale)
+  - 30 focused adapter tests proving parity (representative, minimum, commander, crystal, radar, biome/defense, unowned, morale, fixed-point modifier semantics, authoritative origin)
   - Snapshot immutability, determinism, no-new-effects, contract validation, crystal/commander separation
-  - **No durable snapshot persistence yet** (Phase B). No schema/migration changes. No new combat effects.
-  - 643 server tests passing (24 skipped, same as baseline 620 + 23 new = 643)
-  - Recommended first implementation PR per memory document: Phase A. ✅ DONE. Next: Phase B (snapshot persistence + replay verification).
+  - Completed replays do NOT call deployAttack or the adapter (guardClaimOrRespond returns stored response first; verified in attackIdempotency.spec.ts test #8)
+  - 669 server tests passing
+- **Phase B — IMPLEMENTED, PR OPEN:** `feat/frontier-battle-snapshot-persistence` (PR #254 open). Durable BattleSnapshot persistence and replay verification:
+  - Migration `0016_battles_battle_snapshot.sql` adds nullable JSONB column `battle_snapshot` to the `battles` table
+  - `server/engine/battle/snapshotReplay.ts` — pure replay utility: `parseStoredBattleSnapshot()` (Zod-validated strict parsing), `replayBattleInputFromStoredBattle()` (reconstructs exact legacy EngineBattleInput), `replayLegacyPersistedFieldsFromSnapshot()` (reconstructs legacy persisted fields)
+  - `deployAttack()` persists the snapshot alongside the battle row in the same transaction
+  - 19 focused replay tests covering JSONB round-trip, key reordering, identity verification, and parity
+  - 669 server tests passing (baseline 650 + 19 new)
+  - Live resolver unchanged — snapshot is for evidence and replay verification only
+  - Phase C reclassified as verification/cleanup only (human/AI already share deployAttack())
+  - Recommended next PR: Phase C verification, or Phase D (sub-parcel/special-path normalization)
 
 ## NEXT
-- **Next lane:** (1) owner applies migration `0015` to production DB (see P0.1 in roadmap); (2) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (3) **Phase 4B** (`/archetype` + `/build` idempotency) is next, then Phase 5 (weapon integration). Later phases stay one-PR-at-a-time per HARD RULES.
+- **Next lane:** (1) owner applies migration `0015` and `0016` to production DB (see P0.1 in roadmap); (2) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (3) **Phase C verification** (human/AI already unified) or **Phase 4B** (`/archetype` + `/build` idempotency) is next. Later phases stay one-PR-at-a-time per HARD RULES.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
