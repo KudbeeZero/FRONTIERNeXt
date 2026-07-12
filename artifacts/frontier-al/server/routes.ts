@@ -29,6 +29,7 @@ import {
   getWeapon as getWeaponSpec,
 } from "@shared/weapons";
 import { getModule } from "@shared/university";
+import { computeFactionTerritory, type FactionOwnerLike } from "@shared/factionIdentity";
 import { appendWorldEvent, listWorldEvents, getRecentWorldEvents } from "./worldEventStore";
 import { validateWaitlistSignup, waitlistKey } from "@shared/waitlist";
 import { recordWaitlistSignup } from "./waitlistStore";
@@ -1693,54 +1694,56 @@ export async function registerRoutes(
     try {
       const factionAsaIds = getAllFactionAsaIds();
 
-      // Aggregate member counts and territory counts from DB
-      const [allHumanPlayers, allParcels, allAiPlayers] = await Promise.all([
-        db.select({
-          id: playersTable.id,
-          playerFactionId: playersTable.playerFactionId,
-        }).from(playersTable).where(eq(playersTable.isAi, false)),
-        db.select({
-          ownerId: parcelsTable.ownerId,
-        }).from(parcelsTable),
+      // Aggregate member counts and territory counts from DB. We pull ALL players
+      // (not just AI) so a human member's parcels count toward their faction's
+      // territory total. Territory is derived server-side from each parcel's
+      // canonical owner via resolveParcelFaction, never from a client hint.
+      const [allPlayers, allParcels] = await Promise.all([
         db.select({
           id: playersTable.id,
           name: playersTable.name,
+          isAi: playersTable.isAi,
+          playerFactionId: playersTable.playerFactionId,
           iron: playersTable.iron,
           fuel: playersTable.fuel,
           crystal: playersTable.crystal,
           treasury: playersTable.treasury,
-        }).from(playersTable).where(eq(playersTable.isAi, true)),
+        }).from(playersTable),
+        db.select({
+          ownerId: parcelsTable.ownerId,
+        }).from(parcelsTable),
       ]);
 
+      const playersById = new Map<string, FactionOwnerLike>();
       const memberCounts: Record<string, number> = {};
-      for (const p of allHumanPlayers) {
-        if (p.playerFactionId) {
+      // AI faction accounts also expose their public economy per faction name.
+      const aiPlayerByName: Record<string, { id: string; iron: number; fuel: number; crystal: number; treasury: number }> = {};
+      for (const p of allPlayers) {
+        playersById.set(p.id, {
+          isAi: p.isAi,
+          name: p.name,
+          playerFactionId: p.playerFactionId,
+        });
+        if (!p.isAi && p.playerFactionId) {
           memberCounts[p.playerFactionId] = (memberCounts[p.playerFactionId] ?? 0) + 1;
         }
-      }
-
-      const territoryCounts: Record<string, number> = {};
-      for (const parcel of allParcels) {
-        if (parcel.ownerId) {
-          territoryCounts[parcel.ownerId] = (territoryCounts[parcel.ownerId] ?? 0) + 1;
+        if (p.isAi) {
+          aiPlayerByName[p.name] = {
+            id: p.id,
+            iron: p.iron,
+            fuel: p.fuel,
+            crystal: p.crystal ?? 0,
+            treasury: p.treasury ?? 0,
+          };
         }
       }
 
-      // Map AI player IDs to faction names
-      const aiPlayerByName: Record<string, { id: string; iron: number; fuel: number; crystal: number; treasury: number }> = {};
-      for (const ai of allAiPlayers) {
-        aiPlayerByName[ai.name] = {
-          id: ai.id,
-          iron: ai.iron,
-          fuel: ai.fuel,
-          crystal: ai.crystal ?? 0,
-          treasury: ai.treasury ?? 0,
-        };
-      }
+      // Territory totals = every owned parcel attributed to its effective faction.
+      const territoryCounts = computeFactionTerritory(allParcels, playersById);
 
       const factions = FACTION_DEFINITIONS.map((f) => {
         const aiPlayer = aiPlayerByName[f.name];
-        const aiTerritoryCount = aiPlayer ? (territoryCounts[aiPlayer.id] ?? 0) : 0;
+        const aiTerritoryCount = territoryCounts[f.name] ?? 0;
         return {
           name:            f.name,
           unitName:        f.unitName,

@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import type { LandParcel } from "@shared/schema";
+import type { EffectiveFaction } from "@shared/factionIdentity";
+import { factionColor } from "@/lib/battle/factionColor";
 import {
   GLOBE_RADIUS,
   GOLDEN_ANGLE,
@@ -64,11 +66,20 @@ export function tangentFrame(normal: THREE.Vector3): { right: THREE.Vector3; up:
   return { right, up };
 }
 
-/** Per-instance fill colour — biome-tinted for unowned, ownership colours for owned. */
+/**
+ * Per-instance fill colour — biome-tinted for unowned, ownership colours for owned.
+ *
+ * Faction attribution is server-derived (parcel.effectiveFaction); the globe only
+ * consumes it. When a plot's owner belongs to a faction (ally or enemy), the plot
+ * wears that faction's signature colour (via factionColor) so e.g. KRONOS land
+ * reads purple regardless of the viewer. Unaligned owners keep the legacy enemy
+ * tint for backward compatibility.
+ */
 export function getPlotColor(
   parcel: LandParcel | undefined,
   currentPlayerId: string | null,
   colors?: { player: THREE.Color; enemy: THREE.Color },
+  ownerFaction?: EffectiveFaction,
 ): THREE.Color {
   if (!parcel) return new THREE.Color(0x1a2a3a); // fallback dark blue-grey
   if (!parcel.ownerId) {
@@ -78,6 +89,8 @@ export function getPlotColor(
   const playerCol = colors?.player ?? COLOR_PLAYER;
   const enemyCol  = colors?.enemy ?? COLOR_ENEMY;
   if (currentPlayerId && parcel.ownerId === currentPlayerId) return playerCol.clone();
+  if (ownerFaction) return new THREE.Color(factionColor(ownerFaction));
+  // Owned but faction-less (unaligned human) — legacy enemy tint.
   return enemyCol.clone();
 }
 

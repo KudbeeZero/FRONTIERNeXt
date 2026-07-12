@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LAND_DAILY_ASCEND_RATE, LAND_PURCHASE_ALGO_ACTIVE, COMMANDER_MINT_ASCEND_ACTIVE } from "./economy-config";
+import { type PlayerFactionId } from "./waitlist";
 
 // ── Phase 2: Rare Minerals & Loot System ──────────────────────────────────────
 
@@ -275,6 +276,12 @@ export interface LandParcel {
   metadataVersion: number;
   /** Monotonic counter — incremented on biome or visual changes; drives render refresh */
   visualStateRevision: number;
+  /**
+   * Server-derived effective faction for this parcel, resolved from its canonical
+   * owner (AI canonical faction account, or a human's durable playerFactionId).
+   * null = neutral / unowned / unaligned. Derived server-side; never client-supplied.
+   */
+  effectiveFaction?: PlayerFactionId | null;
 }
 
 export interface Player {

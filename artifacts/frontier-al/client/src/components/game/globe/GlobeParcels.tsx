@@ -85,10 +85,11 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   // Prefixed with currentPlayerId so the base-color pass re-runs when the
   // session resolves (own plots must flip from enemy-red to player-green).
+  // effectiveFaction is included so a faction switch repaints faction colours.
   const plotVisualFingerprint = useMemo(() => {
     return (currentPlayerId ?? "") + "|" + prefs.territoryColor + ":" + prefs.enemyColor + ":" + Number(prefs.fogOfWar) + "|" + parcels
       .filter(p => p.ownerId || p.activeBattleId || p.isSubdivided)
-      .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}`)
+      .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}:${p.effectiveFaction ?? ""}`)
       .sort()
       .join("|");
   }, [parcels, currentPlayerId, prefs.territoryColor, prefs.enemyColor, prefs.fogOfWar]);
@@ -242,7 +243,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
-        fillColor = getPlotColor(parcel, currentPlayerId, customColors);
+        fillColor = getPlotColor(parcel, currentPlayerId, customColors, parcel?.effectiveFaction ?? null);
         // Owned territory pops: brighten player tiles (breathing) and faction/enemy tiles.
         if (isOwnedByMe) {
           fillColor.multiplyScalar(1.4 + Math.sin(pulseRef.current + i * 0.1) * 0.12);
@@ -313,7 +314,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       } else if (isSubdivided) {
         fillColor = COLOR_SUBDIVIDED.clone();
       } else {
-        fillColor = getPlotColor(parcel, currentPlayerId, customColors);
+        fillColor = getPlotColor(parcel, currentPlayerId, customColors, parcel?.effectiveFaction ?? null);
         // Owned territory pops (static base pass — faction/enemy tiles aren't animated).
         const isOwnedByMe = !!parcel?.ownerId && parcel.ownerId === currentPlayerId;
         if (isOwnedByMe) fillColor.multiplyScalar(1.4);
