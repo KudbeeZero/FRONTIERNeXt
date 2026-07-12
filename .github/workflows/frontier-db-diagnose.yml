@@ -27,10 +27,10 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Fly app status (read-only)
-        run: fly status -a frontiernext
+        run: flyctl status -a frontiernext
 
       - name: Fly machine list (read-only)
-        run: fly machine list -a frontiernext
+        run: flyctl machine list -a frontiernext
 
       - name: Fly logs (read-only, sanitized)
         # Pipe through a denylist so connection strings, mnemonics, tokens,
@@ -39,7 +39,7 @@ jobs:
         # fly auth/status steps above fail, the job still fails closed.
         run: |
           set -o pipefail
-          fly logs -a frontiernext --no-tail 2>&1 \
+          flyctl logs -a frontiernext --no-tail 2>&1 \
             | grep -viE "DATABASE_URL|postgres://|postgresql://|mnemonic|BEGIN .* END|secret|token|api[_-]?key|password|ALGORAND_ADMIN|Authorization|Bearer " \
             | tee db-diagnose.log \
             || true
