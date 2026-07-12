@@ -5,27 +5,22 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** `chore/ts7-migration-scan` — TS7 migration blast-radius scan only, **not** the TS7 migration.
-- **Branch:** `chore/ts7-migration-scan` (merged + deleted)
-- **PR:** #236 · **MERGED**
-- **Status:** done — TS7 migration **scan** lane **closed**. Scan change: `docs/audits/chore-ts7-migration-scan.md` only. No TS7 installed, no dependencies upgraded, no source files edited.
+- **Unit:** `fix/frontier-background-loop-cost-control` — reduce recurring Neon compute / data-transfer from production background loops.
+- **Branch:** `fix/frontier-background-loop-cost-control` (open, awaiting owner)
+- **PR:** #243 · **OPEN, CI GREEN, mergeStateStatus CLEAN, NOT MERGED** (owner review/merge required)
+- **Status:** done in-session, awaiting owner merge.
 - **Closeout facts:**
-  - PR #236 merged.
-  - TS7 migration scan complete.
-  - Root TS `~5.9.3`; frontier-al / aether-journey `5.6.3`.
-  - Baseline timing unavailable in scan container because `node_modules` absent.
-  - Protected paths remain untouched.
-  - Auth cleanup branch remains parked.
-  - Migration blocked until owner clears: minimumReleaseAge / TypeScript release-age decision; Node types alignment decision; esbuild bump decision.
-  - Next lane: `chore/ts7-migration` only after owner gate approval.
-- **Active lane:** none. No open PR/lane.
+  - PR #242 (gamertag auth + recovery) **merged** (squash `fa5b125`) into `main`.
+  - PR #243 (cost-control) open on `fix/frontier-background-loop-cost-control`, CI green.
+  - Fly health endpoint `https://frontiernext.fly.dev/health` returns 200.
+  - AI scheduler cadence: hardcoded 20s → `AI_TURN_INTERVAL_MS` default 120s (floor 30s). 4,320 → 720 runs/day (−83.3%).
+  - Parcel query: `SELECT *` → 17-field projection.
+  - Debuff cleanup: moved out of 5s resolver to own `DEBUFF_CLEANUP_INTERVAL_MS` default 60s (floor 10s), combined into one bounded UPDATE.
+  - `gameMeta.currentTurn` kept unconditional (proven dependency); documented in `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
+- **Active lane:** PR #243 awaiting owner merge.
 
 ## NEXT
-- **Next lane:** **NOT** the full TS7 migration unless owner approves the gates surfaced in the scan.
-- **Owner decisions needed before migration starts:**
-  1. **TypeScript release age:** wait for TS7 package age ≥1440 min or add a TypeScript release-age exception in `minimumReleaseAgeExclude`.
-  2. **Node types alignment:** align `@types/node` across packages or leave each package on its own Node-version-appropriate `@types/node`.
-  3. **esbuild bump:** decide whether `esbuild` bump is allowed given current pin.
+- **Next lane:** owner review/merge of PR #243, then **Fly env values**: `AI_TURN_INTERVAL_MS=120000`, `DEBUFF_CLEANUP_INTERVAL_MS=60000`, `AI_ENABLED=true`, `AI_MAX_ACTIVE_BATTLES=12`. Then production verification (Fly logs, AI battles still resolve, debuffs still clear) and original-tester gamertag retest.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
 ## Last result (for fast auditor sanity-check)

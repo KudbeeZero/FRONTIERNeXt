@@ -25,14 +25,56 @@ import {
   type AiFactionState,
   type ContestedPlot,
 } from "../engine/ai/reconquest.js";
-import { rowToPlayer, rowToParcel } from "./game-rules";
+import { rowToPlayer } from "./game-rules";
 import { withFactionVoice } from "../engine/narrative/factionVoice.js";
 
 type DB = typeof db;
 type Player = ReturnType<typeof rowToPlayer>;
-// Parcels from db.select() are raw ParcelRow; the loop reads only primitive
-// fields, so we keep these loosely typed to avoid row<->domain mapping churn.
-type Parcel = any;
+
+/**
+ * Minimal parcel projection actually consumed by the AI loop. Excludes
+ * columns the strategies never read (improvements, influence, etc.) so the
+ * full ~21k-row scan transfers far fewer bytes per tick.
+ */
+const PARCEL_PROJECTION = {
+  id: parcelsTable.id,
+  ownerId: parcelsTable.ownerId,
+  ownerType: parcelsTable.ownerType,
+  lat: parcelsTable.lat,
+  lng: parcelsTable.lng,
+  biome: parcelsTable.biome,
+  defenseLevel: parcelsTable.defenseLevel,
+  richness: parcelsTable.richness,
+  ironStored: parcelsTable.ironStored,
+  fuelStored: parcelsTable.fuelStored,
+  crystalStored: parcelsTable.crystalStored,
+  lastMineTs: parcelsTable.lastMineTs,
+  capturedFromFaction: parcelsTable.capturedFromFaction,
+  capturedAt: parcelsTable.capturedAt,
+  handoverCount: parcelsTable.handoverCount,
+  purchasePriceAlgo: parcelsTable.purchasePriceAlgo,
+  plotId: parcelsTable.plotId,
+} as const;
+
+type AiParcelRow = {
+  id: string;
+  ownerId: string | null;
+  ownerType: string | null;
+  lat: number;
+  lng: number;
+  biome: string;
+  defenseLevel: number;
+  richness: number;
+  ironStored: number;
+  fuelStored: number;
+  crystalStored: number;
+  lastMineTs: number;
+  capturedFromFaction: string | null;
+  capturedAt: number | null;
+  handoverCount: number | null;
+  purchasePriceAlgo: number | null;
+  plotId: number;
+};
 
 /** Reasonable cooldown applied to an AI faction after it launches an attack. */
 export const AI_ATTACK_COOLDOWN_MS = 60_000;
@@ -90,10 +132,10 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
 
   const [allAiPlayers, allParcels] = await Promise.all([
     db.select().from(playersTable).where(eq(playersTable.isAi, true)),
-    db.select().from(parcelsTable),
+    db.select(PARCEL_PROJECTION).from(parcelsTable),
   ]);
 
-  const parcelById = new Map(allParcels.map((p) => [p.id, p]));
+  const parcelById = new Map<string, AiParcelRow>(allParcels.map((p) => [p.id, p]));
   const ownerMap: Map<string, string[]> = new Map();
   for (const p of allParcels) {
     if (p.ownerId) {
@@ -116,8 +158,7 @@ export async function runAITurn(db: DB, ops: AiOps): Promise<GameEvent[]> {
     const ai = rowToPlayer(aiRow, ownerMap.get(aiRow.id) ?? []);
     const ownedParcels = ai.ownedParcels
       .map((id) => parcelById.get(id))
-      .filter((p): p is typeof allParcels[0] => !!p)
-      .map(rowToParcel);
+      .filter((p): p is AiParcelRow => !!p);
 
     // ── Passive resource upkeep (not a "turn action") ────────────────────────
     for (const parcel of ownedParcels) {
@@ -263,7 +304,7 @@ async function launchAttack(
   ops: AiOps,
   ctx: AiTurnContext,
   ai: Player,
-  target: Parcel,
+  target: AiParcelRow,
   kind: string,
   reason: string,
   troops: number,
@@ -308,12 +349,12 @@ async function launchAttack(
 /** Enemy-owned parcels within range of any owned parcel, excluding already-battling targets. */
 function enemyPlotsInRange(
   ai: Player,
-  ownedParcels: Parcel[],
-  allParcels: Parcel[],
+  ownedParcels: AiParcelRow[],
+  allParcels: AiParcelRow[],
   range: number,
   battleTargetIds: Set<string>,
-): Parcel[] {
-  const out: Parcel[] = [];
+): AiParcelRow[] {
+  const out: AiParcelRow[] = [];
   for (const owned of ownedParcels) {
     for (const p of allParcels) {
       if (!p.ownerId || p.ownerId === ai.id) continue;
@@ -328,7 +369,7 @@ function enemyPlotsInRange(
 /** NEXUS-7 (expansionist): attack the weakest enemy territory within range. */
 async function actExpansionist(
   db: DB, ops: AiOps, ctx: AiTurnContext,
-  ai: Player, ownedParcels: Parcel[], allParcels: Parcel[],
+  ai: Player, ownedParcels: AiParcelRow[], allParcels: AiParcelRow[],
 ): Promise<boolean> {
   const targets = enemyPlotsInRange(ai, ownedParcels, allParcels, AI_ATTACK_RANGE, ctx.battleTargetIds);
   if (targets.length === 0) return false;
@@ -339,7 +380,7 @@ async function actExpansionist(
 /** VANGUARD (raider): strike the most valuable / vulnerable enemy plot in range. */
 async function actRaider(
   db: DB, ops: AiOps, ctx: AiTurnContext,
-  ai: Player, ownedParcels: Parcel[], allParcels: Parcel[], allAiPlayers: any[],
+  ai: Player, ownedParcels: AiParcelRow[], allParcels: AiParcelRow[], allAiPlayers: any[],
 ): Promise<boolean> {
   const range = AI_ATTACK_RANGE * 1.4; // raiders roam wider
   const targets = enemyPlotsInRange(ai, ownedParcels, allParcels, range, ctx.battleTargetIds);
@@ -355,7 +396,7 @@ async function actRaider(
 /** KRONOS (defensive): fortify home, then counterattack NEXUS-7 when it gets close. */
 async function actDefensive(
   db: DB, ops: AiOps, ctx: AiTurnContext,
-  ai: Player, ownedParcels: Parcel[], allParcels: Parcel[], allAiPlayers: any[],
+  ai: Player, ownedParcels: AiParcelRow[], allParcels: AiParcelRow[], allAiPlayers: any[],
 ): Promise<boolean> {
   const nexus = allAiPlayers.find((p) => p.name === "NEXUS-7");
   if (nexus) {
@@ -396,7 +437,7 @@ async function actDefensive(
 /** SPECTRE (economic): only attack once stockpiled, targeting the richest enemy plot. */
 async function actEconomic(
   db: DB, ops: AiOps, ctx: AiTurnContext,
-  ai: Player, ownedParcels: Parcel[], allParcels: Parcel[],
+  ai: Player, ownedParcels: AiParcelRow[], allParcels: AiParcelRow[],
 ): Promise<boolean> {
   if (ai.iron + ai.fuel < SPECTRE_ATTACK_RESOURCE_MIN) return false; // build first
   const targets = enemyPlotsInRange(ai, ownedParcels, allParcels, AI_ATTACK_RANGE, ctx.battleTargetIds);
@@ -408,7 +449,7 @@ async function actEconomic(
 /** Expand into the cheapest unowned plot within range (non-combat growth). */
 async function tryExpand(
   db: DB, ops: AiOps, ctx: AiTurnContext,
-  ai: Player, ownedParcels: Parcel[], allParcels: Parcel[],
+  ai: Player, ownedParcels: AiParcelRow[], allParcels: AiParcelRow[],
 ): Promise<boolean> {
   for (const owned of ownedParcels) {
     const nearby = allParcels.filter((p) => {

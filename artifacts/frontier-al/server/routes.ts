@@ -13,6 +13,8 @@ import { recommendTerraform, type TerraformGoal } from "./engine/narrative/advis
 import { plotTerminalBrief, type PlotOwnership } from "./engine/narrative/plotTerminal";
 import { broadcastGameState, broadcastRaw, markDirty, wsClientCount } from "./wsServer";
 import { clampIntervalMs } from "./util/intervals";
+import { resolveAiTurnIntervalMs, resolveDebuffCleanupIntervalMs } from "./util/backgroundIntervals";
+import { runDebuffCleanup } from "./util/debuffCleanup";
 import * as weaponService from "./weapons/service";
 import { engagementStore } from "./weapons/engagementStore";
 import { mintWeaponNft, attemptWeaponDelivery } from "./services/chain/weapon";
@@ -3226,21 +3228,26 @@ export async function registerRoutes(
         }
         markDirty();
       }
-
-      // ── Clear expired EMP / Sabotage debuffs ─────────────────────────────
-      try {
-        const nowDebuff = Date.now();
-        await db.update(parcelsTable)
-          .set({ defenseLevel: sql`LEAST(${parcelsTable.defenseLevel} + 2, 10)`, empDebuffUntil: null } as any)
-          .where(sql`${parcelsTable.empDebuffUntil} IS NOT NULL AND ${parcelsTable.empDebuffUntil} < ${nowDebuff}`);
-        await db.update(parcelsTable)
-          .set({ yieldMultiplier: sql`LEAST(${parcelsTable.yieldMultiplier} * 2, 2.0)`, sabotageDebuffUntil: null } as any)
-          .where(sql`${parcelsTable.sabotageDebuffUntil} IS NOT NULL AND ${parcelsTable.sabotageDebuffUntil} < ${nowDebuff}`);
-      } catch { /* non-critical */ }
+      // Debuff cleanup is intentionally NOT done here. It runs on its own
+      // configurable cadence (DEBUFF_CLEANUP_INTERVAL_MS) to avoid hammering
+      // Neon with two unconditional parcel scans every 5 seconds.
     } catch (error) {
       console.warn("Background task (battles):", error instanceof Error ? error.message : error);
     }
   }, BATTLE_RESOLVE_INTERVAL_MS);
+
+  // ── Expired debuff cleanup ──────────────────────────────────────────────
+  // Runs on its own interval (DEBUFF_CLEANUP_INTERVAL_MS, default 60s) instead
+  // of piggybacking on the 5-second battle resolver, so it costs a single
+  // bounded UPDATE only when a debuff is actually expired.
+  const DEBUFF_CLEANUP_INTERVAL_MS_RESOLVED = resolveDebuffCleanupIntervalMs();
+  setInterval(async () => {
+    try {
+      await withDbRetry(() => runDebuffCleanup(db), "runDebuffCleanup");
+    } catch (error) {
+      console.warn("Background task (debuff cleanup):", error instanceof Error ? error.message : error);
+    }
+  }, DEBUFF_CLEANUP_INTERVAL_MS_RESOLVED);
 
   setInterval(async () => {
     try {
@@ -3251,7 +3258,7 @@ export async function registerRoutes(
     } catch (error) {
       console.warn("Background task (AI):", error instanceof Error ? error.message : error);
     }
-  }, 20000);
+  }, resolveAiTurnIntervalMs());
 
   // Orbital check every 5 minutes
   setInterval(async () => {
