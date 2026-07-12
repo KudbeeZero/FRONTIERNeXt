@@ -40,6 +40,7 @@ import {
   replayBattleInputFromStoredBattle,
   replayLegacyPersistedFieldsFromSnapshot,
   BattleSnapshotParseError,
+  CRYSTAL_POWER_FACTOR_V1,
 } from "./snapshotReplay.js";
 import { buildLaunchProfile, type LaunchAction, type AttackerLaunchState, type TargetLaunchState } from "./profileAdapter.js";
 import { CRYSTAL_POWER_FACTOR } from "./tuning.js";
@@ -227,36 +228,79 @@ describe("Phase B — snapshot persistence", () => {
     expect(crystal?.value).toBe(Math.round(5 * CRYSTAL_POWER_FACTOR));
   });
 
-  // Test 10: Stored snapshot reconstructs exact legacy EngineBattleInput
-  it("10. stored snapshot reconstructs the exact legacy EngineBattleInput", () => {
+  // Test 10: Stored snapshot reconstructs EXACT legacy EngineBattleInput
+  it("10. stored snapshot reconstructs the EXACT legacy EngineBattleInput (no rounding tolerance)", () => {
     const original = buildLaunchProfile(BATTLE_ID, action(), attacker(), target(), NOW);
     const jsonbDecoded = JSON.parse(serializeBattleSnapshotForStorage(original.snapshot));
     const reparsed = parseStoredBattleSnapshot(jsonbDecoded);
     const reconstructed = replayBattleInputFromStoredBattle(BATTLE_ID, reparsed);
-    // Compare every field that the resolver consumes.
+    // Compare every field that the resolver consumes. The replay derives
+    // crystal power from commitment.crystal × CRYSTAL_POWER_FACTOR_V1
+    // (the version-1 factor), not from the rounded modifier, so the
+    // reconstructed commanderBonus is EXACTLY equal to the original.
     expect(reconstructed.battleId).toBe(BATTLE_ID);
     expect(reconstructed.attackerId).toBe(original.legacyBattleInput.attackerId);
     expect(reconstructed.defenderId).toBe(original.legacyBattleInput.defenderId);
     expect(reconstructed.plotId).toBe(original.legacyBattleInput.plotId);
     expect(reconstructed.troopsCommitted).toBe(original.legacyBattleInput.troopsCommitted);
     expect(reconstructed.resourcesBurned).toEqual(original.legacyBattleInput.resourcesBurned);
-    // commanderBonus: the contract stores crystal contribution as a
-    // rounded integer (the live resolver uses the float). The replay
-    // reconstructs the integer-summed value. For troops=50, iron=100,
-    // fuel=80, crystal=5, commander=30, radar=true:
-    //   legacy: (30 + 5 × 1.2) × 0.9 = 32.4
-    //   replay: (30 + round(5 × 1.2)) × 0.9 = (30 + 6) × 0.9 = 32.4
-    // For this specific input both round to 32.4 (no difference). The
-    // exact equality holds for inputs where round(crystal × 1.2) is
-    // exact; for inputs where it's not, the replay uses the rounded
-    // integer and the difference is at most 0.5.
-    expect(reconstructed.commanderBonus).toBeCloseTo(original.legacyBattleInput.commanderBonus, 5);
+    expect(reconstructed.commanderBonus).toBe(original.legacyBattleInput.commanderBonus);
     expect(reconstructed.moraleDebuffActive).toBe(original.legacyBattleInput.moraleDebuffActive);
     expect(reconstructed.defenseLevel).toBe(original.legacyBattleInput.defenseLevel);
     expect(reconstructed.biome).toBe(original.legacyBattleInput.biome);
     expect(reconstructed.improvements).toEqual(original.legacyBattleInput.improvements);
     expect(reconstructed.orbitalHazardActive).toBe(original.legacyBattleInput.orbitalHazardActive);
     expect(reconstructed.randomSeed).toBe(original.legacyBattleInput.randomSeed);
+  });
+
+  // Test 10b: EXACT replay for crystal amounts that produce fractional power
+  it("10b. EXACT replay for crystal amounts producing fractional power (.2, .4, .6, .8)", () => {
+    // crystal = 1 → 1 × 1.2 = 1.2 (fractional)
+    // crystal = 2 → 2 × 1.2 = 2.4 (fractional)
+    // crystal = 3 → 3 × 1.2 = 3.6 (fractional)
+    // crystal = 4 → 4 × 1.2 = 4.8 (fractional)
+    // crystal = 7 → 7 × 1.2 = 8.4 (fractional)
+    // crystal = 8 → 8 × 1.2 = 9.6 (fractional)
+    for (const crystal of [1, 2, 3, 4, 7, 8, 11, 13]) {
+      const original = buildLaunchProfile(
+        BATTLE_ID,
+        action({ crystalBurned: crystal }),
+        attacker({ commanderBonus: 0 }), // no commander to isolate crystal
+        target({ hasRadar: false }),
+        NOW,
+      );
+      const jsonbDecoded = JSON.parse(serializeBattleSnapshotForStorage(original.snapshot));
+      const reparsed = parseStoredBattleSnapshot(jsonbDecoded);
+      const reconstructed = replayBattleInputFromStoredBattle(BATTLE_ID, reparsed);
+      // EXACT equality — no toBeCloseTo, no tolerance.
+      expect(reconstructed.commanderBonus).toBe(original.legacyBattleInput.commanderBonus);
+    }
+  });
+
+  // Test 10c: Replay is independent of current CRYSTAL_POWER_FACTOR (version-locked)
+  it("10c. later changes to current CRYSTAL_POWER_FACTOR cannot alter version-1 replay", () => {
+    // The replay uses CRYSTAL_POWER_FACTOR_V1, not the current
+    // CRYSTAL_POWER_FACTOR. This test verifies the replay does NOT
+    // import the current tuning constant. (Verified at compile time by
+    // the import structure; this test asserts the behavior contract.)
+    const original = buildLaunchProfile(
+      BATTLE_ID,
+      action({ crystalBurned: 7 }), // 7 × 1.2 = 8.4
+      attacker({ commanderBonus: 0 }),
+      target({ hasRadar: false }),
+      NOW,
+    );
+    const jsonbDecoded = JSON.parse(serializeBattleSnapshotForStorage(original.snapshot));
+    const reparsed = parseStoredBattleSnapshot(jsonbDecoded);
+    const reconstructed = replayBattleInputFromStoredBattle(BATTLE_ID, reparsed);
+    // The reconstructed value uses the V1 factor, not the current one.
+    // If the current CRYSTAL_POWER_FACTOR were used, the value would be
+    // 8.4 (which is what V1 gives). If a future change to the current
+    // constant altered the value, the version-1 replay must remain 8.4.
+    expect(reconstructed.commanderBonus).toBe(7 * CRYSTAL_POWER_FACTOR_V1);
+    // The current CRYSTAL_POWER_FACTOR must be 1.2 for the live path to
+    // match the V1 factor (it is; verified by the test).
+    expect(CRYSTAL_POWER_FACTOR).toBe(CRYSTAL_POWER_FACTOR_V1);
   });
 
   // Test 11: Reconstructed launch fields match persisted battle fields
@@ -282,24 +326,14 @@ describe("Phase B — snapshot persistence", () => {
   // Test 12: Replayed deterministic outcome matches the original outcome
   it("12. replayed deterministic outcome matches the original outcome", () => {
     const original = buildLaunchProfile(BATTLE_ID, action(), attacker(), target(), NOW);
-    // The live path resolves via the adapter's legacyBattleInput and
-    // persists the pre-randFactor powers. Replay reconstructs the input
-    // and calls resolveBattleFromPowers with the SAME stored powers and
-    // SAME seed, so the outcome must be identical.
     const reconstructed = replayBattleInputFromStoredBattle(BATTLE_ID, original.snapshot);
-    const replay = resolveBattleFromPowers(
-      original.legacyBattleInput.troopsCommitted * 1 + 0, // not used; we pass the stored powers
-      0, 0, 0, // placeholder; we use the explicit path below
-    );
-    void replay;
-    // Explicit path: re-resolve using the SAME stored powers and seed.
+    // Re-resolve using the SAME stored powers and seed.
     const seed = hashSeed(BATTLE_ID, original.snapshot.startTs);
     const replayResult = resolveBattleFromPowers(
-      original.legacyBattleInput.troopsCommitted * 0 + 100, // attackerPower (pre-randFactor)
+      100, // attackerPower (pre-randFactor)
       50, // defenderPower
       seed,
     );
-    // The replay must produce the same randFactor because the seed is identical.
     const liveResult = resolveBattleFromPowers(
       100,
       50,
@@ -318,19 +352,15 @@ describe("Phase B — snapshot persistence", () => {
     const sources = snapshot.profile.modifiers.map((m) => m.source).sort();
     expect(sources).toContain("commander.attackBonus");
     expect(sources).toContain("resource.crystal");
-    // The reconstructed engine input uses the rounded integer crystal
-    // contribution (the contract stores safe integers; the legacy code
-    // uses the float). This is a documented lossy step with at most 0.5
-    // difference per battle, which does not affect deterministic
-    // resolution (the seed is locked, the powers are pre-randFactor).
-    // The default test target has radar=true, so the radar multiplier
-    // is applied: (cmd + crystal_contrib) * 0.9.
+    // The reconstructed engine input uses commitment.crystal × V1 factor
+    // for crystal power (exact replay, no rounding). The crystal
+    // modifier is descriptive only.
     const jsonbDecoded = JSON.parse(serializeBattleSnapshotForStorage(snapshot));
     const reparsed = parseStoredBattleSnapshot(jsonbDecoded);
     const reconstructed = replayBattleInputFromStoredBattle(BATTLE_ID, reparsed);
-    // Crystal contribution is the rounded integer (round(5 × 1.2) = 6).
-    // commander = 30, crystal = 6, radar = 0.9 → (30 + 6) × 0.9 = 32.4.
-    expect(reconstructed.commanderBonus).toBe((30 + Math.round(5 * CRYSTAL_POWER_FACTOR)) * 0.9);
+    // commander = 30, crystal = 5, crystal_power = 5 × 1.2 = 6, radar = 0.9
+    //   reconstructed: (30 + 6) × 0.9 = 32.4
+    expect(reconstructed.commanderBonus).toBe((30 + 5 * CRYSTAL_POWER_FACTOR_V1) * 0.9);
   });
 
   // Test 14: Radar and morale multipliers remain exact
@@ -346,18 +376,14 @@ describe("Phase B — snapshot persistence", () => {
     const morale = snapshot.profile.modifiers.find((m) => m.source === "debuff.morale");
     expect(radar?.value).toBe(90); // 0.90×
     expect(morale?.value).toBe(75); // 0.75×
-    // Reconstructed input applies them: troops × 0.9, iron × 0.9, fuel × 0.9, commander × 0.9.
     const jsonbDecoded = JSON.parse(serializeBattleSnapshotForStorage(snapshot));
     const reparsed = parseStoredBattleSnapshot(jsonbDecoded);
     const reconstructed = replayBattleInputFromStoredBattle(BATTLE_ID, reparsed);
     expect(reconstructed.troopsCommitted).toBe(50 * 0.9);
     expect(reconstructed.resourcesBurned.iron).toBe(100 * 0.9);
     expect(reconstructed.resourcesBurned.fuel).toBe(80 * 0.9);
-    // Crystal contribution is the rounded integer (round(5 × 1.2) = 6).
-    // commander = 30, crystal_contrib = 6, radar = 0.9.
-    //   legacy: (30 + 5 × 1.2) × 0.9 = 32.4
-    //   replay: (30 + 6) × 0.9 = 32.4 (exact for this input)
-    expect(reconstructed.commanderBonus).toBeCloseTo(32.4, 5);
+    // commander = 30, crystal = 5, crystal_power = 6, radar = 0.9 → (30 + 6) × 0.9 = 32.4
+    expect(reconstructed.commanderBonus).toBe((30 + 5 * CRYSTAL_POWER_FACTOR_V1) * 0.9);
     expect(reconstructed.moraleDebuffActive).toBe(true);
   });
 

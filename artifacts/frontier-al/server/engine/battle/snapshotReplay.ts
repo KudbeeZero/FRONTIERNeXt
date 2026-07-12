@@ -48,6 +48,33 @@ import { CRYSTAL_POWER_FACTOR } from "./tuning.js";
 import { hashSeed } from "./random.js";
 
 // ---------------------------------------------------------------------------
+// Version-locked legacy constants
+// ---------------------------------------------------------------------------
+//
+// The replay source of truth for crystal power is the stored crystal
+// commitment multiplied by a version-locked factor. We do NOT rely on the
+// current `CRYSTAL_POWER_FACTOR` export at replay time because a future
+// tuning change to that constant must not alter the result of replaying
+// a version-1 snapshot.
+//
+// For version-1 snapshots, the crystal power factor is the same value
+// that the legacy `deployAttack()` used at launch time: 1.2. This value
+// is locked to the snapshot/profile version so that:
+//
+//   1. Replay is EXACT — `commitment.crystal * 1.2` always reproduces the
+//      legacy `commanderBonus` value, regardless of whether the crystal
+//      burn × 1.2 produces a fractional number (e.g. 5 × 1.2 = 6.0,
+//      7 × 1.2 = 8.4).
+//   2. A future tuning change to the current `CRYSTAL_POWER_FACTOR` does
+//      NOT alter the result of replaying a version-1 snapshot.
+//   3. The `resource.crystal` modifier stored in the profile is treated
+//      as descriptive/semantic (it carries the rounded integer for
+//      UI display), not as the authoritative replay input.
+
+/** Version-1 crystal power factor — the legacy value used at Phase B launch. */
+export const CRYSTAL_POWER_FACTOR_V1 = 1.2;
+
+// ---------------------------------------------------------------------------
 // Zod schema for strict stored-snapshot validation
 // ---------------------------------------------------------------------------
 
@@ -265,27 +292,31 @@ export function replayBattleInputFromSnapshot(snapshot: BattleSnapshot): EngineB
   const { commitment, targetDefense, target, origin, modifiers } = profile;
 
   // ── Extract attacker-side inputs from the profile (parity with the
-  //    legacy `deployAttack()` formula). The Crystal and Commander
-  //    contributions are stored as separate modifiers. The crystal
-  //    modifier's value is the ALREADY-ROUNDED contribution
-  //    (round(crystal × CRYSTAL_POWER_FACTOR)), not the burn amount.
-  //    This is a contract-supported lossy step: the contract requires
-  //    safe-integer modifier values, and the legacy resolver sums these
-  //    rounded integers. The replay therefore adds the integer
-  //    contribution directly without re-multiplying.
-  const crystalContrib = modifierValueOrZero(modifiers, "resource.crystal");
+  //    legacy `deployAttack()` formula).
+  //
+  //    Commander contribution: stored as a `commander.attackBonus` modifier
+  //    (the legacy `cmd.attackBonus` integer percentage value, e.g. 30).
+  //
+  //    Crystal contribution: derived from `commitment.crystal` ×
+  //    `CRYSTAL_POWER_FACTOR_V1` (1.2). The crystal commitment is the
+  //    authoritative replay input — NOT the rounded `resource.crystal`
+  //    modifier. The modifier is kept for descriptive/UI purposes only.
+  //    This ensures exact replay regardless of whether `crystal × 1.2`
+  //    produces a fractional result (e.g. 7 × 1.2 = 8.4).
+  //
+  //    Radar and morale: stored as fixed-point percentage modifiers
+  //    (90 = 0.90×, 75 = 0.75×). These are version-locked semantic
+  //    entries and do not depend on any current tuning constant.
+  const crystalPower = commitment.crystal * CRYSTAL_POWER_FACTOR_V1;
   const commanderContrib = modifierValueOrZero(modifiers, "commander.attackBonus");
   const radarMod = modifierRadarFactor(modifiers);  // 0.9 if present, else 1.0
   const moraleActive = modifiers.some((m) => m.source === "debuff.morale");
-
-  const battleId = snapshot.snapshotId; // snapshotId is a content hash, not a battle UUID, but legacy engine uses the id; we use it here for parity
-  void battleId;
 
   // Re-derive the battle id from the snapshot via the legacy seed
   // construction: `hashSeed(battleId, now)`. We cannot invert hashSeed
   // (it's a djb2 hash, not reversible). Instead, the caller is expected
   // to supply the original battle id alongside the snapshot when calling
-  // this function via `replayBattleInputFromSnapshotWithId`. The default
+  // this function via `replayBattleInputFromStoredBattle`. The default
   // path below uses the snapshotId as a stand-in so callers can verify
   // shape parity; the real replay flow uses the persisted battle row id.
   // (The resolver is deterministic given the same seed, so the battleId
@@ -304,11 +335,13 @@ export function replayBattleInputFromSnapshot(snapshot: BattleSnapshot): EngineB
     plotId:             profile.target.plot.plotId,
     troopsCommitted:    commitment.troops * radarMod,
     resourcesBurned:    { iron: commitment.iron * radarMod, fuel: commitment.fuel * radarMod },
-    // Crystal contribution is already the rounded integer power unit
-    // (e.g. round(5 × 1.2) = 6). The legacy resolver sums this directly
-    // into commanderBonus. We must NOT re-multiply by CRYSTAL_POWER_FACTOR
-    // (that would re-apply the rounding error).
-    commanderBonus:     (commanderContrib + crystalContrib) * radarMod,
+    // EXACT crystal power: `commitment.crystal × CRYSTAL_POWER_FACTOR_V1`.
+    // This is the same formula the legacy `deployAttack()` used at launch:
+    //   `(commanderBonus + crystal * CRYSTAL_POWER_FACTOR) * radarMod`
+    // The replay derives crystal power from the stored commitment
+    // (not the rounded modifier), so a future change to the current
+    // `CRYSTAL_POWER_FACTOR` does not alter version-1 replay.
+    commanderBonus:     (commanderContrib + crystalPower) * radarMod,
     moraleDebuffActive: moraleActive,
     defenseLevel:       targetDefense.defenseLevel,
     biome:              targetDefense.biome as EngineBiomeType,
