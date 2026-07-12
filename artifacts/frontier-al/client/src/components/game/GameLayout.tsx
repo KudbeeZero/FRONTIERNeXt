@@ -45,6 +45,7 @@ import { Coins, Shield, Globe, Trophy, ArrowLeftRight, AlertTriangle, Clock, Fla
 import { cn } from "@/lib/utils";
 import { safeUuid } from "@/lib/safeUuid";
 import { serverNow } from "@/lib/serverClock";
+import { shouldRecoverGamerTag } from "@/lib/gamertag";
 import type { ImprovementType, CommanderTier, SpecialAttackType } from "@shared/schema";
 import { startSpaceAmbience, stopSpaceAmbience } from "@/audio/spaceAmbience";
 import { StreamOverlay } from "./StreamOverlay";
@@ -149,6 +150,11 @@ export function GameLayout() {
   const dashboard = useWidgetLayout(DEFAULT_DASHBOARD);
   const [showGamerTag, setShowGamerTag] = useState(false);
   const [newPlayerId, setNewPlayerId] = useState<string | null>(null);
+  // Set once the player dismisses or saves the tag modal this session, so it is
+  // not re-opened in a loop during the same render/route transition. Resets on a
+  // full page reload, allowing the prompt to return on a future authenticated
+  // visit until a valid gamertag is actually saved.
+  const [gamerTagDismissed, setGamerTagDismissed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [miningParcelIds, setMiningParcelIds] = useState<Set<string>>(new Set());
   const [livePulses, setLivePulses] = useState<LivePulse[]>([]);
@@ -250,6 +256,20 @@ export function GameLayout() {
       })
       .catch((err) => console.error("Failed to initialise player for address:", err));
   }, [wallet.address, wallet.isConnected]);
+
+  // ── Gamertag recovery ──────────────────────────────────────────────────────
+  // The welcome-bonus flow above only opens the tag modal on a player's FIRST
+  // visit. A player whose earlier save failed (or who skipped) keeps the
+  // server-generated default name and would never be prompted again. Once the
+  // canonical player record is loaded, re-open the modal for any human player
+  // still unnamed — no new wallet, no second purchase, no manual DB edit.
+  // `gamerTagDismissed` prevents an immediate reopen loop after a skip/save.
+  useEffect(() => {
+    if (player && shouldRecoverGamerTag({ player, dismissed: gamerTagDismissed, showGamerTag })) {
+      setNewPlayerId(player.id);
+      setShowGamerTag(true);
+    }
+  }, [player, showGamerTag, gamerTagDismissed]);
 
 
   const selectedParcel = gameState?.parcels.find((p) => p.id === selectedParcelId) || null;
@@ -1079,12 +1099,14 @@ export function GameLayout() {
         onComplete={(name) => {
           setShowGamerTag(false);
           setNewPlayerId(null);
+          setGamerTagDismissed(true);
           queryClient.invalidateQueries({ queryKey: ["/api/game/state"] });
           toast({ title: `Welcome, ${name}!`, description: "Your commander tag has been set." });
         }}
         onSkip={() => {
           setShowGamerTag(false);
           setNewPlayerId(null);
+          setGamerTagDismissed(true);
         }}
       />
     );
