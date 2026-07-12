@@ -21,9 +21,10 @@
 - Background-loop cost control (merged, deploy, owner activation): `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
 - **Owner-only Fly activation blocker:** agents cannot set Fly secrets (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Activation + 15-min observation + DB snapshots are owner actions.
 - **Approved parallel-PR rule:** documentation/architecture/recovery PRs (doc-only, no app-code/schema/lockfile changes) may land in parallel without blocking the feature lane; application-code phases stay **one PR at a time** per the standing HARD RULES.
+- **Active lane (Phase 1, catalog-only):** `feat/frontier-subplot-facility-catalog` — canonical facility-archetype + upgrade-tree contract in `shared/subplotArchitecture.ts`. No gameplay effect; see `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md` §12. PR open, awaiting owner review/merge.
 
 ## NEXT
-- **Next lane:** (1) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (2) on owner architecture approval, begin sub-plot combat implementation at **Phase 0/1** of `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md`. Do **not** start implementation phases until approved.
+- **Next lane:** (1) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (2) **Phase 1 PR open** (`feat/frontier-subplot-facility-catalog`, catalog-only, awaiting merge) — after merge, Phase 2 is the energy-grid contract/simulation. Later phases stay one-PR-at-a-time per HARD RULES.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
 ## Last result (for fast auditor sanity-check)

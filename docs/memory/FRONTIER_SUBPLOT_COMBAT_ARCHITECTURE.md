@@ -439,3 +439,68 @@ Future schema changes affecting plots/sub-plots/facilities MUST:
 - Whether weapon archetypes connect to plot attacks or remain a separate interception system.
 - Mobile Battlefront simplification scope (remove Advanced sliders? auto-max troops?).
 - Sub-parcel attack idempotency acceptability for TestNet vs required before mainnet.
+
+---
+
+## 12. Phase 1 Implementation Status (catalog-only)
+
+**Branch:** `feat/frontier-subplot-facility-catalog` · **PR:** (Phase 1 PR into `main`).
+
+### Exact catalog path
+- `artifacts/frontier-al/shared/subplotArchitecture.ts` (contract + catalog + adapters + validation).
+- `artifacts/frontier-al/shared/subplotArchitecture.spec.ts` (18 focused tests).
+
+### Stable facility IDs
+`assault_foundry`, `siege_battery`, `defense_bastion`, `recon_array`, `extraction_complex`, `logistics_nexus`.
+
+### Branch IDs (3 per facility)
+- **assault_foundry:** `mobilization`, `armor_fabrication`, `reinforcement_logistics`
+- **siege_battery:** `range_targeting`, `fortification_breaking`, `firing_cycle`
+- **defense_bastion:** `fortress`, `shield_grid`, `defensive_support`
+- **recon_array:** `sensor_range`, `intelligence_analysis`, `precision_targeting`
+- **extraction_complex:** `iron_operations`, `fuel_refining`, `crystal_processing`
+- **logistics_nexus:** `grid_distribution`, `repair_network`, `resource_mobility`
+
+Each branch has a 3-tier node chain (`<archetype>.<branch>.t1..t3`), node IDs globally
+unique, prerequisites chained (tier *i* requires tier *i−1*), no cycles.
+
+### Effect-key approach
+Intent-only `FacilityEffectKey` set (e.g. `troop_production`, `fortification_penetration`,
+`shield_capacity`, `sensor_range`, `iron_output`, `repair_speed`, `transfer_capacity`).
+**Not consumed by any resolver/route/AI/UI in this phase.**
+
+### Qualitative energy model
+`FacilityEnergyProfile` uses `idleDemand` / `activeDemand` (`low|medium|high`) and
+`burstDemand` (`none|low|medium|high|extreme`) only — **no numeric values**. Profiles match
+the approved expectations (e.g. Siege Battery: low idle / high active / extreme burst).
+
+### Compatibility behavior
+- Alignments reuse the existing `EnergyAlignment` union (`helios|aegis|nexus`); fit is
+  `preferred|compatible|inefficient` (descriptive).
+- Weapon references reuse the **existing** `shared/weapons/archetypes` IDs
+  (`siege_baron`, `artillery_marshal`, `hypersonic_striker`, `ghost_marksman`,
+  `aegis_interceptor`, `swarm_commodore`) — no duplication. Compatibility is descriptive
+  until Phase 5.
+
+### Legacy adapter behavior
+- `SubParcelArchetype` (`resource|trade|fortress|energy`) is a **different axis** (build
+  category) and does **not** map to facility IDs.
+- `isFacilityArchetypeId()`, `normalizeFacilityArchetypeId()`, `resolveLegacySubplotArchetype()`
+  provided. Legacy values are preserved, never silently coerced; unknown values return
+  `undefined`. No data rewritten, no migration, no persistence change.
+
+### Tests
+18 focused unit tests (six-archetype completeness, stable IDs, exactly 3 branches, branch/node
+uniqueness, prerequisite validity + no cycle, alignment compatibility, weapon-reference
+validity, qualitative energy profiles, legacy normalization, unknown-value handling, no live
+effects, deterministic serialized catalog). Full `test:server` suite: 534 passed / 24 skipped.
+`validateFacilityCatalog()` returns zero errors.
+
+### Explicit statement
+**No gameplay effects are active.** DB schema, migrations, routes, attack schema, battle
+resolver, AI, energy simulation, brownout, Armory persistence, Plot/Commander UI, wallet, and
+blockchain behavior are all unchanged by this phase.
+
+### Next phase
+Phase 2 — energy-grid contract/simulation (qualitative profiles from this phase become the
+contract input).
