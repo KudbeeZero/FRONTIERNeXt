@@ -323,3 +323,67 @@ describe("runAITurn — safeguards", () => {
     expect(typeof e.description).toBe("string");
   });
 });
+
+describe("runAITurn — cost-control invariants", () => {
+  it("parcel query uses a bounded projection, not SELECT *", async () => {
+    // Spy on db.select so we can capture the projection object passed in.
+    const seenProjections: any[] = [];
+    const base = makeScenario(
+      [playerRow({ id: "nexus", name: "NEXUS-7", aiBehavior: "expansionist", ownedParcels: ["n_own"] })],
+      [
+        parcelRow({ id: "n_own", ownerId: "nexus", ownerType: "ai", lat: 10, lng: 10 }),
+        parcelRow({ id: "enemy", ownerId: "human", ownerType: "player", lat: 10.05, lng: 10, defenseLevel: 1 }),
+      ],
+    );
+    const proxiedDb = new Proxy(base.db, {
+      get(target, prop) {
+        if (prop === "select") {
+          return (...args: any[]) => {
+            // Record the first argument (the projection or undefined).
+            seenProjections.push(args[0]);
+            return target.select(...args);
+          };
+        }
+        return (target as any)[prop];
+      },
+    });
+    await runAITurn(proxiedDb, base.ops);
+    // Find the select that targeted parcels — it must have a projection (arg[0]),
+    // i.e. NOT a bare `select()` which would mean SELECT *.
+    const parcelSelects = seenProjections.filter((p) => p && typeof p === "object");
+    expect(parcelSelects.length).toBeGreaterThan(0);
+    // The projection must include the load-bearing columns used by the AI.
+    const projection = parcelSelects[parcelSelects.length - 1] as Record<string, unknown>;
+    expect(projection.id).toBe(parcelsTable.id);
+    expect(projection.ownerId).toBe(parcelsTable.ownerId);
+    expect(projection.plotId).toBe(parcelsTable.plotId);
+    // Unused heavy columns must NOT be pulled.
+    expect(projection.improvements).toBeUndefined();
+    expect(projection.ascendAccumulated).toBeUndefined();
+  });
+
+  it("gameMeta.currentTurn advances on every runAITurn (preserved dependency)", async () => {
+    const updates: any[] = [];
+    const s = makeScenario(
+      [playerRow({ id: "nexus", name: "NEXUS-7", aiBehavior: "expansionist", ownedParcels: ["n_own"] })],
+      [
+        parcelRow({ id: "n_own", ownerId: "nexus", ownerType: "ai", lat: 10, lng: 10 }),
+      ],
+    );
+    // Intercept the unconditional gameMeta update.
+    const origUpdate = s.db.update;
+    s.db.update = (...args: any[]) => {
+      const ret = origUpdate(...args);
+      const origSet = ret.set;
+      ret.set = (setObj: any) => {
+        updates.push(setObj);
+        return origSet(setObj);
+      };
+      return ret;
+    };
+    await runAITurn(s.db, s.ops);
+    // The currentTurn +1 update must be present (the proven dependency).
+    const turnUpdate = updates.find((u) => "currentTurn" in u);
+    expect(turnUpdate).toBeDefined();
+  });
+});
