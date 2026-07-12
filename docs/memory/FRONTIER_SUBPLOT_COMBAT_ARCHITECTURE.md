@@ -346,24 +346,74 @@ Strict PR boundaries; one concern per PR. No phase is implemented here.
 
 ### Phase 3 — Server `CombatProfile` and immutable battle snapshot foundation
 - **Goal:** Build `CombatProfile` at launch; freeze snapshot into `battles`; resolver reads snapshot.
-- **Phase 3 (this PR) implemented as a CONTRACT-FOUNDATION lane only:** the canonical
+- **Phase 3 — DONE & MERGED (PR #249, squash-merge `87ee770`):** the canonical
   deterministic, immutable combat-profile + battle-snapshot contract lives in
   `artifacts/frontier-al/shared/combatProfile.ts` (pure, zero gameplay effect, no DB/routes/
   resolver wiring). Later phases wire it into `server/storage/db.ts` (deployAttack) and
-  `server/engine/battle/resolve.ts`.
+  `server/engine/battle/resolve.ts`. **Owner accepted the contract as implemented**
+  (content-addressed profile; snapshot adds `startTs` + `randomSeed`; reject-and-throw
+  validation; deterministic serialization; no silent coercion).
 - **DB impact (deferred):** new nullable `battles` columns. **Migration risk:** low (additive, nullable).
 - **API impact (deferred):** `/attack` returns/accepts doctrine; snapshot stored. **Client impact (deferred):** preview only.
 - **Tests:** snapshot immutability + determinism + validation tests (see §14).
 - **Rollout gate:** replay/fairness preserved. **Rollback:** revert PR.
 - **Depends on:** Phase 1, Phase 2.
 
-### Phase 4 — Server-side idempotency for `/attack`, `/archetype`, and `/build`
-- **Goal:** Replace client-only `isPending` guards with server idempotency (extend `withIdempotency()`).
-- **Files:** `server/routes.ts`, `server/storage/*`, `shared/schema.ts`.
-- **DB impact:** idempotency keys. **Migration risk:** low. **API impact:** idempotency headers.
-- **Client impact:** rely on server guard. **Tests:** concurrency/double-apply tests.
-- **Rollout gate:** no double-apply under burst. **Rollback:** revert PR.
-- **Depends on:** Phase 0 (prerequisite for safe later writes).
+### Phase 4A — Server-side idempotency for the human plot-attack endpoint (THIS PR)
+- **Scope:** ONLY `POST /api/actions/attack`. Reuses the repo's existing DB-backed
+  `action_nonces` idempotency guard (`createActionIdempotencyGuard`). **`/archetype`
+  and `/build` idempotency are deferred to Phase 4B.**
+- **Does NOT:** connect `CombatProfile`/`BattleSnapshot` to the live attack path, change
+  `resolveBattle()`, combat balance, attack formulas, AI behavior, wallet, blockchain,
+  prices, or funds. Battle calculations are unchanged.
+- **Key scope & naming:** reuses the established `idempotencyKey` field (client-generated,
+  UUID; also accepted via `x-idempotency-key` header). Key = `attack:${verifiedPlayerId}:${nonce}`
+  — the actor is the **auth-verified** id, never the client-supplied `attackerId`.
+  Scoped by operation kind `attack`. Different authenticated attackers never collide.
+- **Payload fingerprint:** `attackPayloadFingerprint(verifiedId, action)` (in new
+  `server/attackIdempotency.ts`) deterministically serializes the canonical creation
+  inputs — verified actor, source parcel, target parcel, troops, iron, fuel, crystal,
+  commander — into a stable JSON string. Stored on the `action_nonces` row.
+- **Persistence & transaction:** the guard is DB-backed (`action_nonces`, `key` PRIMARY
+  KEY → atomic claim across instances, survives restart + process crash). A new
+  **additive** column `payload_fingerprint` (migration `0015_action_nonce_fingerprint.sql`,
+  nullable, no row rewrite) carries the fingerprint. All exactly-once side effects
+  (resource deduction, battle insert, conditional parcel-claim, activity/history event)
+  already run inside the single `db.transaction` in `deployAttack`. The action-nonce
+  completion record is written after the transaction commits.
+- **Replay / conflict semantics** (in `server/idempotencyGuard.ts`):
+  - same attacker + same key + same fingerprint → **replay** original 200 (no re-apply).
+  - same attacker + same key + **different** fingerprint → **409 conflict**
+    (`code: idempotency_conflict`), no mutation/battle.
+  - in-flight duplicate (response not yet recorded) → **409** (`idempotency_in_progress`, retry).
+  - pre-commit failure → `release()` the claim, so a same-payload retry is allowed.
+  - post-commit lost response → the retry replays the committed battle.
+  - malformed/short nonce → **400** (`idempotency_invalid_nonce`).
+  - store unavailable → **503** (`idempotency_store_unavailable`, fail-closed).
+- **Compatibility mode (missing key):** `fail-open`. A client that submits NO
+  `idempotencyKey` skips the guard entirely; the atomic `activeBattleId` conditional
+  write inside `deployAttack` still blocks a true double-battle, but legacy nonce-less
+  callers get **no replay guarantee**. The official client always supplies a stable
+  key (one per explicit Launch action, reused across retries). Rationale: client and
+  backend do not deploy atomically, so requiring the key immediately would break
+  cached/older clients. Documented as a transitional behavior.
+- **Client change (minimal):** `handleAttackConfirm` in `GameLayout.tsx` now generates
+  one `idempotencyKey` (`safeUuid()`) per explicit Launch and reuses it for that
+  operation; `useAttack` already forwards `action.idempotencyKey`. No dependency added.
+- **Response contract:** successful body stays `{ success: true, battle }`. On replay the
+  returned body additionally carries `idempotentReplay: true` + `clientRequestId` (the
+  supplied key). A conflict is a clean 409 with a machine-readable `code`.
+- **Tests:** `server/idempotencyGuard.spec.ts` (fingerprint/conflict cases) +
+  `server/attackIdempotency.spec.ts` (fingerprint determinism, exactly-once guard
+  dance, conflict, in-flight, different-actor, pre/post-commit retry, malformed nonce).
+- **Rollout gate:** one user action → at most one battle; no double-spend / no
+  duplicate cooldown / no duplicate event. **Rollback:** revert PR + (optional)
+  `ALTER TABLE action_nonces DROP COLUMN payload_fingerprint;`.
+- **Depends on:** Phase 0, Phase 3.
+
+### Phase 4B — Server-side idempotency for `/archetype` and `/build` (DEFERRED)
+- **Goal:** extend the same guard to the archetype + build write paths.
+- **Scope:** NOT in this PR. **Depends on:** Phase 4A (this PR).
 
 ### Phase 5 — Weapon archetype equipment integration
 - **Goal:** Mount weapon archetype on facilities; consume in snapshot (no plot-attack change yet).

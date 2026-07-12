@@ -37,18 +37,26 @@ export interface ActionNonceRecord {
    * then unchanged.
    */
   target?: string;
+  /**
+   * Optional canonical payload fingerprint. When supplied, a same-key REPLAY
+   * whose stored fingerprint DIFFERS is rejected as a `conflict` (409) rather
+   * than replayed — this is how the plot-attack endpoint enforces
+   * "same key + different parameters → reject" while keeping the key stable
+   * across retries of the SAME logical attack.
+   */
+  fingerprint?: string;
 }
 
 /** Result of the store's atomic claim. */
 export type StoreClaimResult =
   | { inserted: true }
-  | { inserted: false; response: string | null };
+  | { inserted: false; response: string | null; fingerprint: string | null };
 
 /**
  * Store contract — a durable, atomic claim-once ledger with response persistence.
  * - `claim`    inserts the key if absent (→ inserted:true); otherwise returns the
- *              row's persisted response (null while the first request is in-flight).
- * - `complete` persists the success body for later replay.
+ *              row's persisted response + fingerprint (response NULL = in-flight).
+ * - `complete` persists the success body (and optional fingerprint) for later replay.
  * - `remove`   deletes the claim (used when the mutation failed).
  * - `prune`    deletes claims older than `olderThanMs` (TTL housekeeping, ID-004);
  *              reaps both completed rows and crash-orphaned in-flight rows.
@@ -56,7 +64,7 @@ export type StoreClaimResult =
  */
 export interface ActionNonceStore {
   claim(key: string, rec: ActionNonceRecord): Promise<StoreClaimResult>;
-  complete(key: string, responseJson: string): Promise<void>;
+  complete(key: string, responseJson: string, fingerprint?: string): Promise<void>;
   remove(key: string): Promise<void>;
   prune(olderThanMs: number): Promise<number>;
 }
@@ -64,7 +72,7 @@ export interface ActionNonceStore {
 export type ActionClaimResult =
   | { ok: true; replay: false }
   | { ok: true; replay: true; response: string }
-  | { ok: false; reason: "invalid_nonce" | "in_progress" | "store_unavailable" };
+  | { ok: false; reason: "invalid_nonce" | "in_progress" | "store_unavailable" | "conflict" };
 
 // Client-supplied nonce: a bounded, opaque token (UUID/nanoid-shaped). Rejecting
 // anything outside this charset/length keeps the key well-formed and prevents
@@ -81,9 +89,10 @@ export function actionNonceKey(action: string, playerId: string, nonce: string, 
 export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
   // Dev/mem fallback (single-process). Production injects a DB-backed store for
   // cross-instance protection (see routes.ts wiring + the action_nonces table).
-  // Map value: `response` is the persisted body (null while in-flight); `createdAt`
+  // Map value: `response` is the persisted body (null while in-flight);
+  // `fingerprint` is the canonical-payload fingerprint (attacks); `createdAt`
   // is the claim time, used by `prune` for TTL housekeeping (mirrors the DB row).
-  const seen = new Map<string, { response: string | null; createdAt: number }>();
+  const seen = new Map<string, { response: string | null; fingerprint?: string | null; createdAt: number }>();
 
   function keyFor(scope: ActionNonceRecord, nonce: string): string {
     return actionNonceKey(scope.action, scope.playerId, nonce, scope.target);
@@ -98,7 +107,7 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
      * - store error (fail closed) → { ok:false, reason:"store_unavailable" } (caller → 503)
      * - fresh                  → { ok:true,  replay:false }              (caller runs mutation)
      */
-    async claim(scope: ActionNonceRecord, nonce: unknown): Promise<ActionClaimResult> {
+    async claim(scope: ActionNonceRecord, nonce: unknown, fingerprint?: string): Promise<ActionClaimResult> {
       if (typeof nonce !== "string" || !NONCE_RE.test(nonce)) {
         return { ok: false, reason: "invalid_nonce" };
       }
@@ -106,11 +115,23 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
 
       if (store) {
         try {
-          const res = await store.claim(key, { playerId: scope.playerId, action: scope.action, target: scope.target });
+          const res = await store.claim(key, {
+            playerId: scope.playerId,
+            action: scope.action,
+            target: scope.target,
+            fingerprint,
+          });
           if (res.inserted) return { ok: true, replay: false };
-          return res.response != null
-            ? { ok: true, replay: true, response: res.response }
-            : { ok: false, reason: "in_progress" };
+          // Completed row — if a fingerprint was provided and it differs from the
+          // stored one, this is a same-key replay with DIFFERENT parameters:
+          // reject as a conflict (409) instead of replaying the original body.
+          if (res.response != null) {
+            if (fingerprint != null && res.fingerprint != null && res.fingerprint !== fingerprint) {
+              return { ok: false, reason: "conflict" };
+            }
+            return { ok: true, replay: true, response: res.response };
+          }
+          return { ok: false, reason: "in_progress" };
         } catch {
           // Never double-apply on a broken ledger — reject rather than guess.
           return { ok: false, reason: "store_unavailable" };
@@ -119,11 +140,15 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
 
       const existing = seen.get(key);
       if (existing) {
-        return existing.response != null
-          ? { ok: true, replay: true, response: existing.response }
-          : { ok: false, reason: "in_progress" };
+        if (existing.response != null) {
+          if (fingerprint != null && existing.fingerprint != null && existing.fingerprint !== fingerprint) {
+            return { ok: false, reason: "conflict" };
+          }
+          return { ok: true, replay: true, response: existing.response };
+        }
+        return { ok: false, reason: "in_progress" };
       }
-      seen.set(key, { response: null, createdAt: Date.now() });
+      seen.set(key, { response: null, fingerprint: null, createdAt: Date.now() });
       return { ok: true, replay: false };
     },
 
@@ -133,20 +158,24 @@ export function createActionIdempotencyGuard(store: ActionNonceStore | null) {
      * duplicates get "in_progress"), but never throws back to the (already
      * succeeded) caller.
      */
-    async record(scope: ActionNonceRecord, nonce: unknown, responseJson: string): Promise<void> {
+    async record(scope: ActionNonceRecord, nonce: unknown, responseJson: string, fingerprint?: string): Promise<void> {
       if (typeof nonce !== "string" || !NONCE_RE.test(nonce)) return;
       const key = keyFor(scope, nonce);
       if (store) {
         try {
-          await store.complete(key, responseJson);
+          await store.complete(key, responseJson, fingerprint);
         } catch {
           /* best-effort: the original response is still returned to the caller */
         }
         return;
       }
       const existing = seen.get(key);
-      if (existing) existing.response = responseJson;
-      else seen.set(key, { response: responseJson, createdAt: Date.now() });
+      if (existing) {
+        existing.response = responseJson;
+        if (fingerprint != null) existing.fingerprint = fingerprint;
+      } else {
+        seen.set(key, { response: responseJson, fingerprint: fingerprint ?? null, createdAt: Date.now() });
+      }
     },
 
     /**

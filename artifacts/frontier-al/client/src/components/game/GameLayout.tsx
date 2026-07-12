@@ -422,8 +422,12 @@ export function GameLayout() {
       return;
     }
     if (!player || !selectedParcelId || !selectedParcel) return;
+    // One stable idempotency key per explicit Launch action. Reused across any
+    // retry of THIS launch (so the server dedups a lost-response replay into
+    // the original battle); a subsequent user action generates a fresh one.
+    const idempotencyKey = safeUuid();
     attackMutation.mutate(
-      { attackerId: player.id, targetParcelId: selectedParcelId, troopsCommitted: troops, resourcesBurned: { iron, fuel }, crystalBurned: crystal, commanderId, sourceParcelId },
+      { attackerId: player.id, targetParcelId: selectedParcelId, troopsCommitted: troops, resourcesBurned: { iron, fuel }, crystalBurned: crystal, commanderId, sourceParcelId, idempotencyKey },
       {
         onSuccess: (data: any) => {
           queueAttackAction(selectedParcel.plotId, troops, iron, fuel, crystal);
