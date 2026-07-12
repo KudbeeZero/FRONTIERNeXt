@@ -32,215 +32,125 @@ The live battle engine is **operationally correct and deterministic**, but it do
 
 ---
 
-## 2. Current Live Battle Pipeline
-
-### Human Plot Attack (Canonical Path)
+## 2. Current Live Human Plot-Attack Pipeline
 
 **Route:** `POST /api/actions/attack`  
 **Handler:** `server/routes.ts:1952-2009`  
 **Persistence:** `server/storage/db.ts:deployAttack() (line 1414)`  
 **Resolver:** `server/engine/battle/resolve.ts:resolveBattle()`
 
-**Pipeline steps:**
+### Pipeline Steps
 
 1. **Client creates attack intent**  
    - File: `client/src/components/game/CommanderPanel.tsx`  
    - Function: `handleLaunchPlotAttack()`  
    - Payload: `{ attackerId, targetParcelId, troopsCommitted, resourcesBurned: { iron, fuel }, crystalBurned?, commanderId?, sourceParcelId?, idempotencyKey }`
 
-2. **Client payload**  
-   - Schema: `shared/schema.ts:attackActionSchema (line 517)`  
-   - Fields: attackerId, targetParcelId, troopsCommitted, resourcesBurned.iron, resourcesBurned.fuel, crystalBurned (optional), commanderId (optional), sourceParcelId (optional), idempotencyKey (optional)
-
-3. **Authentication and ownership**  
+2. **Authentication and ownership**  
    - File: `server/routes.ts:1954`  
    - Function: `assertPlayerOwnership(req, res, req.body?.attackerId)`  
-   - Verifies: session playerId matches attackerId  
-   - Boundary: pre-validation, no DB transaction yet
+   - Verifies: session playerId matches attackerId
 
-4. **Schema validation**  
+3. **Schema validation**  
    - File: `server/routes.ts:1956`  
    - Function: `attackActionSchema.parse(req.body)`  
-   - Throws: ZodError on invalid input  
-   - Boundary: pre-validation
+   - Schema: `shared/schema.ts:517-530`
 
-5. **Idempotency**  
+4. **Idempotency**  
    - File: `server/routes.ts:1962-1964`  
    - Function: `guardClaimOrRespond(res, scope, nonce)`  
    - Scope: `{ playerId: action.attackerId, action: "attack", target: encodeURIComponent(action.targetParcelId) }`  
-   - Nonce: `actionNonce(req, action)` (body field or header fallback)  
    - Fingerprint: `attackPayloadFingerprint(action)` (actor, source, target, troops, iron, fuel, crystal, commander)  
-   - Behavior: same key + same payload → replay 200; same key + different payload → 409 conflict; missing key → fail-open (legacy compat)  
-   - Boundary: pre-transaction, atomic claim
+   - Behavior: same key + same payload → replay 200; same key + different payload → 409 conflict; missing key → fail-open (legacy compat)
 
-6. **Origin and target lookup**  
+5. **Origin and target lookup**  
    - File: `server/storage/db.ts:1414-1440`  
    - Function: `deployAttack(action)`  
    - Queries: attacker player row, target parcel row  
-   - Validates: target exists, target not already under attack (`activeBattleId` is null), attacker is not targeting self  
-   - Boundary: read-only, no transaction yet
+   - Validates: target exists, target not already under attack (`activeBattleId` is null), attacker is not targeting self
 
-7. **Resource validation**  
+6. **Resource validation**  
    - File: `server/storage/db.ts:1470-1475`  
-   - Checks: `attacker.iron >= iron`, `attacker.fuel >= fuel`, `attacker.crystal >= crystal`  
-   - Throws: "Insufficient resources for attack"  
-   - Boundary: pre-transaction
+   - Checks: `attacker.iron >= iron`, `attacker.fuel >= fuel`, `attacker.crystal >= crystal`
 
-8. **Transactional target claim**  
-   - File: `server/storage/db.ts:1548-1560`  
-   - Function: atomic UPDATE on `parcels` table  
-   - Sets: `activeBattleId = battleId`  
-   - WHERE: `id = target.id AND activeBattleId IS NULL`  
-   - Boundary: transactional, prevents double-claim
+7. **Commander and crystal bonus calculation**  
+   - File: `server/storage/db.ts:1477-1488`  
+   - Commander: validates availability, applies `attackBonus` from `CommanderAvatar.attackBonus`
+   - Crystal: contributes to attack power via `CRYSTAL_POWER_FACTOR` (defined in `db.ts`)
+   - **Note:** Implementation combines commander and crystal into a single `commanderBonus` variable, but they are conceptually distinct:
+     - Commander-derived modifier: `cmd.attackBonus` (percentage-based)
+     - Crystal-derived power contribution: `crystal × CRYSTAL_POWER_FACTOR` (additive)
+     - Implementation variable: `commanderBonus = cmd.attackBonus + (crystal × CRYSTAL_POWER_FACTOR)`
 
-9. **Battle insert**  
-   - File: `server/storage/db.ts:1539-1547`  
-   - Table: `battles`  
-   - Fields: id, attackerId, defenderId, targetParcelId, attackerPower (pre-randFactor), defenderPower, troopsCommitted, resourcesBurned, crystalBurned, startTs, resolveTs (now + BATTLE_DURATION_MS), status="pending", commanderId, sourceParcelId  
-   - Boundary: transactional
+8. **Radar Array modifier**  
+   - File: `server/storage/db.ts:1490-1492`  
+   - If defender has Radar Array improvement: all attacker inputs scaled ×0.9
+   - Applied: `troopsCommitted × 0.9`, `iron × 0.9`, `fuel × 0.9`, `commanderBonus × 0.9`
 
-10. **Resource deduction**  
+9. **Morale debuff check**  
+   - File: `server/storage/db.ts:1493`  
+   - Checks: `attacker.moraleDebuffUntil && now < attacker.moraleDebuffUntil`
+
+10. **Battle input construction**  
+    - File: `server/storage/db.ts:1495-1517`  
+    - Fields: battleId, attackerId, defenderId, plotId, troopsCommitted, resourcesBurned, commanderBonus, moraleDebuffActive, defenseLevel, biome, improvements, orbitalHazardActive, randomSeed
+    - Seed: `hashSeed(battleId, now)`
+
+11. **Resolver invocation**  
+    - File: `server/storage/db.ts:1521`  
+    - Function: `resolveBattle(battleInput)`  
+    - Returns: `{ winner, attackerPower, defenderPower, randFactor, outcome, pillagedIron, pillagedFuel, pillagedCrystal, log }`
+
+12. **Power extraction**  
+    - File: `server/storage/db.ts:1523-1524`  
+    - Extracts pre-randFactor powers: `attackerPower = deployResult.attackerPower / (1 + deployResult.randFactor / 100)`
+
+13. **Battle row insertion**  
+    - File: `server/storage/db.ts:1526-1547`  
+    - Table: `battles`  
+    - Fields: id, attackerId, defenderId, targetParcelId, attackerPower (pre-randFactor), defenderPower, troopsCommitted, resourcesBurned, crystalBurned, startTs, resolveTs (now + BATTLE_DURATION_MS), status="pending", commanderId, sourceParcelId
+
+14. **Resource deduction**  
     - File: `server/storage/db.ts:1547`  
     - Updates: `players` table (iron, fuel, crystal)  
-    - Boundary: transactional, atomic
+    - Transactional, atomic
 
-11. **Activity/history creation**  
+15. **Activity/history creation**  
     - File: `server/storage/db.ts:1560-1580`  
-    - Inserts: `game_events` row (type="battle_started")  
-    - Boundary: transactional
+    - Inserts: `game_events` row (type="battle_started")
 
-12. **Resolver scheduling**  
+16. **Transactional target claim**  
+    - File: `server/storage/db.ts:1548-1560`  
+    - Atomic UPDATE on `parcels` table: `activeBattleId = battleId`  
+    - WHERE: `id = target.id AND activeBattleId IS NULL`  
+    - Prevents double-claim
+
+17. **Resolver scheduling**  
     - File: `server/storage/db.ts:1871`  
     - Function: `resolveBattles()` (runs every 5s via background loop)  
-    - Queries: battles WHERE status="pending" AND resolveTs < now  
-    - Boundary: background scheduler, not request-path
+    - Queries: battles WHERE status="pending" AND resolveTs < now
 
-13. **Resolver inputs**  
+18. **Resolution**  
     - File: `server/storage/db.ts:1896-1902`  
     - Function: `resolveBattleFromPowers(attackerPower, defenderPower, randomSeed)`  
     - Inputs: frozen at launch (stored in battle row)  
-    - Seed: `hashSeed(battle.id, battle.startTs)`  
-    - Boundary: deterministic, no DB reads during resolution
-
-14. **Seed/randomness**  
-    - File: `server/engine/battle/random.ts:hashSeed()`  
-    - Algorithm: djb2-style hash of `battleId|startTs`  
-    - PRNG: `mulberry32(seed)` (fast 32-bit PRNG)  
-    - randFactor: `randInt(rng, -RAND_FACTOR_MAX, RAND_FACTOR_MAX)` where RAND_FACTOR_MAX=10  
-    - Boundary: deterministic, reproducible
-
-15. **Attack calculation**  
-    - File: `server/engine/battle/resolve.ts:31-35`  
-    - Formula: `rawAttackerPower = troops×TROOPS_POWER_FACTOR + iron×IRON_POWER_FACTOR + fuel×FUEL_POWER_FACTOR + commanderBonus`  
-    - Constants: TROOPS_POWER_FACTOR=10, IRON_POWER_FACTOR=0.5, FUEL_POWER_FACTOR=0.8  
-    - Crystal: folded into commanderBonus via CRYSTAL_POWER_FACTOR (see db.ts:1517)  
-    - Radar Array: applies ×0.9 to all attacker inputs (see db.ts:1511-1517)  
-    - Morale debuff: `attackerPower = rawAttackerPower × (1 - MORALE_ATTACK_PENALTY)` where MORALE_ATTACK_PENALTY=0.15  
-    - Boundary: deterministic
-
-16. **Defense calculation**  
-    - File: `server/engine/battle/resolve.ts:55-61`  
-    - Formula: `rawDefenderPower = (defenseLevel×BASE_DEFENSE_POWER + improvementBonus) × biomeMod`  
-    - Constants: BASE_DEFENSE_POWER=15  
-    - improvementBonus: sum of (level×IMPROVEMENT_DEFENSE_PER_LEVEL) for turret, shield_gen, fortress  
-    - biomeMod: BIOME_DEFENSE_MOD[biome] (e.g., mountain=1.4, water=0.5)  
-    - Orbital hazard: `rawDefenderPower × (1 - ORBITAL_HAZARD_DEFENSE_PENALTY)` where ORBITAL_HAZARD_DEFENSE_PENALTY=0.2  
-    - Boundary: deterministic
-
-17. **Casualties**  
-    - File: `server/engine/battle/resolve.ts:141-143`  
-    - Pillage rates: `PILLAGE_RATE = 0.3` (30% of stored resources on attacker win)  
-    - Applied: pillagedIron, pillagedFuel, pillagedCrystal  
-    - Boundary: deterministic
-
-18. **Capture decision**  
-    - File: `server/engine/battle/resolve.ts:131-133`  
-    - Formula: `adjustedAttackerPower = attackerPower × (1 + randFactor/100)`  
-    - Winner: `attackerWins = adjustedAttackerPower > defenderPower`  
-    - Boundary: deterministic
+    - Seed: `hashSeed(battle.id, battle.startTs)`
 
 19. **Persistent updates**  
     - File: `server/storage/db.ts:1902-1970`  
     - On attacker win: transfer ownership, reset defenseLevel to floor(half), apply influence damage, pillage resources  
     - On defender win: apply influence damage, cascade defense penalty to adjacent plots  
-    - Updates: `battles` row (status="resolved", outcome, randFactor), `parcels` row (ownerId, defenseLevel, activeBattleId=null), `players` row (moraleDebuffUntil, attackCooldownUntil, consecutiveLosses)  
-    - Boundary: transactional
+    - Updates: `battles` row (status="resolved", outcome, randFactor), `parcels` row (ownerId, defenseLevel, activeBattleId=null), `players` row (moraleDebuffUntil, attackCooldownUntil, consecutiveLosses)
 
 20. **Proof/history/result**  
     - File: `server/storage/db.ts:1970-2000`  
     - Inserts: `battle_replays` row (full resolution log), `game_events` row (battle_resolved)  
-    - Proof endpoint: `GET /api/battle/:id/proof` returns seed, re-derived result, hash, valid=true  
-    - Boundary: post-resolution, read-only
+    - Proof endpoint: `GET /api/battle/:id/proof` returns seed, re-derived result, hash, valid=true
 
 21. **Client and globe presentation**  
     - File: `client/src/components/game/globe/GlobeBattleSequence.tsx`  
     - Renders: battle arc, impact, capture burst, HUD callout  
-    - Respects: OS reduced-motion, Battle Cinematics toggle  
-    - Boundary: visual-only, no state mutation
-
-### Sub-Parcel Attack (Divergent Path)
-
-**Route:** `POST /api/sub-parcels/:id/attack`  
-**Handler:** `server/routes.ts` (sub-parcel attack endpoint)  
-**Persistence:** `server/storage/db.ts:2720-2760`  
-**Resolver:** `server/engine/battle/resolve.ts:resolveBattle()` (same resolver)
-
-**Differences from plot attack:**
-- No idempotency guard (client-side `isPending` only)
-- No `deployAttack()` wrapper (direct `resolveBattle()` call)
-- No transactional target claim (no `activeBattleId` on sub-parcels)
-- No battle scheduling (immediate resolution)
-- defenseLevel hardcoded to 1 (sub-parcels have base defense of 1)
-- No cooldown applied
-- No morale debuff applied
-- No battle proof/replay log
-- Resources deducted but no battle row persisted
-
-**Verdict:** Sub-parcel attacks bypass the canonical battle pipeline. They use the same resolver but lack idempotency, scheduling, and proof.
-
-### AI Plot Attack (Shared Canonical Path)
-
-**Launcher:** `server/storage/ai-engine.ts:launchAttack()`  
-**Persistence:** `server/storage/db.ts:deployAttack()` (same as human)  
-**Resolver:** `server/engine/battle/resolve.ts:resolveBattle()` (same)
-
-**Behavior:**
-- AI calls `ops.deployAttack()` with the same `AttackAction` schema
-- Same idempotency, resource validation, transactional claim, battle insert, scheduling
-- Same resolver, same proof
-- AI-specific: faction-based troop/resource allocation, cooldown enforcement, active-battle cap
-
-**Verdict:** AI and human attacks are **fully unified** through `deployAttack()`. No divergence.
-
-### Special Attacks (Bypass Resolver)
-
-**Routes:**
-- EMP Blast: `POST /api/actions/special-attack` (type="emp_blast")
-- Sabotage: `POST /api/actions/special-attack` (type="sabotage")
-- Orbital Strike: `POST /api/actions/special-attack` (type="orbital_strike")
-- Siege Barrage: `POST /api/actions/special-attack` (type="siege_barrage")
-
-**Behavior:**
-- Immediate effect (no battle scheduling)
-- No `resolveBattle()` call
-- No battle row persisted
-- No proof/replay log
-- Resources deducted, cooldown applied, but no deterministic resolution
-
-**Verdict:** Special attacks bypass the canonical resolver entirely. They are instant-effect actions, not battles.
-
-### Drones and Satellites (Deployment, Not Attacks)
-
-**Routes:**
-- Deploy drone: `POST /api/actions/deploy-drone`
-- Deploy satellite: `POST /api/actions/deploy-satellite`
-
-**Behavior:**
-- Deployment only (no attack resolution)
-- Resources deducted, duration tracked
-- No battle row, no resolver call
-
-**Verdict:** Drones and satellites are deployment actions, not attack paths.
+    - Respects: OS reduced-motion, Battle Cinematics toggle
 
 ---
 
@@ -249,7 +159,7 @@ The live battle engine is **operationally correct and deterministic**, but it do
 ### Attack Power
 
 ```
-rawAttackerPower = troops×10 + iron×0.5 + fuel×0.8 + commanderBonus
+rawAttackerPower = (troops × 10) + (iron × 0.5) + (fuel × 0.8) + commanderBonus
 ```
 
 **Where:**
@@ -257,8 +167,9 @@ rawAttackerPower = troops×10 + iron×0.5 + fuel×0.8 + commanderBonus
 - `iron` = client-supplied `resourcesBurned.iron`
 - `fuel` = client-supplied `resourcesBurned.fuel`
 - `commanderBonus` = Commander.attackBonus + (crystal × CRYSTAL_POWER_FACTOR)
+  - **Conceptual distinction:** Commander.attackBonus is a percentage-based modifier from the active Commander avatar. Crystal contributes additive power via CRYSTAL_POWER_FACTOR. The implementation combines these into a single variable for convenience, but they are logically separate inputs.
 - `crystal` = client-supplied `crystalBurned`
-- CRYSTAL_POWER_FACTOR = (defined in db.ts, not in tuning.ts)
+- CRYSTAL_POWER_FACTOR = (defined in `server/storage/db.ts`, not in `tuning.ts`)
 
 **Modifiers:**
 - Radar Array (defender improvement): all attacker inputs ×0.9
@@ -267,12 +178,12 @@ rawAttackerPower = troops×10 + iron×0.5 + fuel×0.8 + commanderBonus
 ### Defense Power
 
 ```
-rawDefenderPower = (defenseLevel×15 + improvementBonus) × biomeMod
+rawDefenderPower = (defenseLevel × 15 + improvementBonus) × biomeMod
 ```
 
 **Where:**
 - `defenseLevel` = parcel.defenseLevel (server-derived)
-- `improvementBonus` = sum of (level×5) for turret, shield_gen, fortress improvements
+- `improvementBonus` = sum of (level × 5) for turret, shield_gen, fortress improvements
 - `biomeMod` = BIOME_DEFENSE_MOD[biome] (e.g., mountain=1.4, water=0.5)
 
 **Modifiers:**
@@ -281,7 +192,7 @@ rawDefenderPower = (defenseLevel×15 + improvementBonus) × biomeMod
 ### Resolution
 
 ```
-adjustedAttackerPower = attackerPower × (1 + randFactor/100)
+adjustedAttackerPower = attackerPower × (1 + randFactor / 100)
 winner = adjustedAttackerPower > defenderPower ? "attacker" : "defender"
 ```
 
@@ -314,7 +225,7 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 - commanderId (optional)
 
 **Database-derived:**
-- commanderBonus (from player.commanders[commanderId].attackBonus)
+- commanderBonus (from player.commanders[commanderId].attackBonus + crystal × CRYSTAL_POWER_FACTOR)
 - moraleDebuffActive (from player.moraleDebuffUntil)
 
 **Seeded random:**
@@ -352,76 +263,324 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 
 ---
 
-## 4. Battle-System Connection Matrix
+## 4. Battle-Path Divergence
+
+### A. Human Plot Attacks
+
+**Route:** `POST /api/actions/attack`  
+**Handler:** `server/routes.ts:1952-2009`  
+**Persistence:** `server/storage/db.ts:deployAttack()`  
+**Resolver:** `server/engine/battle/resolve.ts:resolveBattle()`
+
+**Characteristics:**
+- Passes through authenticated attack route
+- Uses attack idempotency (PR #250)
+- Calls `deployAttack()` for full pipeline
+- Later uses `resolveBattle()` via `resolveBattles()` scheduler
+- Creates battle row with frozen powers
+- Generates battle proof and replay log
+- Applies cooldown, morale debuff, capture logic
+- Transactional resource deduction and target claim
+
+### B. AI Plot Attacks
+
+**Launcher:** `server/storage/ai-engine.ts:launchAttack()`  
+**Persistence:** `server/storage/db.ts:deployAttack()` (same as human)  
+**Resolver:** `server/engine/battle/resolve.ts:resolveBattle()` (same)
+
+**Characteristics:**
+- AI calls `ops.deployAttack()` with the same `AttackAction` schema
+- Same idempotency, resource validation, transactional claim, battle insert, scheduling
+- Same resolver, same proof
+- **Differences from human:**
+  - AI-specific troop/resource allocation logic (faction-based)
+  - AI-specific target selection (expansion, defensive, raid, economic strategies)
+  - AI cooldown enforcement (separate from human cooldown)
+  - AI active-battle cap enforcement (global cap across all AI factions)
+  - No client-supplied idempotency key (AI generates internally)
+
+**Verdict:** AI and human attacks are **fully unified** through `deployAttack()`. The only differences are in intent generation and target selection, not in combat-state construction or resolution.
+
+### C. Sub-Parcel Attacks
+
+**Route:** `POST /api/sub-parcels/:id/attack`  
+**Handler:** `server/routes.ts` (sub-parcel attack endpoint)  
+**Persistence:** `server/storage/db.ts:2720-2760`  
+**Resolver:** `server/engine/battle/resolve.ts:resolveBattle()` (same resolver)
+
+**Characteristics:**
+- Calls `resolveBattle()` directly (no `deployAttack()` wrapper)
+- No idempotency guard (client-side `isPending` only)
+- No transactional target claim (no `activeBattleId` on sub-parcels)
+- No battle scheduling (immediate resolution)
+- defenseLevel hardcoded to 1 (sub-parcels have base defense of 1)
+- No cooldown applied
+- No morale debuff applied
+- No battle proof/replay log
+- No battle row persisted
+- Resources deducted but no persistent battle record
+
+**Divergences from plot attacks:**
+- ❌ Bypasses idempotency
+- ❌ Bypasses scheduling
+- ❌ Bypasses proof generation
+- ❌ Bypasses cooldown
+- ❌ Bypasses battle persistence
+- ✅ Uses same resolver formula
+
+**Verdict:** Sub-parcel attacks use the same resolver but lack the full battle pipeline safeguards.
+
+### D. EMP and Sabotage
+
+**Routes:**
+- EMP Blast: `POST /api/actions/special-attack` (type="emp_blast")
+- Sabotage: `POST /api/actions/special-attack` (type="sabotage")
+
+**Characteristics:**
+- Immediate effect (no battle scheduling)
+- No `resolveBattle()` call
+- No battle row persisted
+- No proof/replay log
+- Resources deducted, cooldown applied
+- Direct state mutation (disable improvements, reduce mining yield)
+
+**Divergences from plot attacks:**
+- ❌ Bypasses resolver entirely
+- ❌ Bypasses idempotency (special-attack idempotency is separate)
+- ❌ Bypasses battle persistence
+- ❌ Bypasses proof generation
+- ✅ Uses same resource deduction pattern
+
+**Verdict:** EMP and sabotage are instant-effect strategic actions, not battles. They bypass the canonical battle resolver.
+
+### E. Drones, Satellites, Shields, and Other Special Systems
+
+**Drones:**
+- Route: `POST /api/actions/deploy-drone`
+- Behavior: Deployment only (no attack resolution)
+- Effect: Reveals enemy resource stockpiles and improvement layouts for 15 minutes
+- Classification: **Deployment action**, not an attack
+
+**Satellites:**
+- Route: `POST /api/actions/deploy-satellite`
+- Behavior: Deployment only (no attack resolution)
+- Effect: +25% mining yield on all owned parcels while active (1 hour)
+- Classification: **Deployment action**, not an attack
+
+**Shields:**
+- Implementation: `shield_gen` improvement contributes to `improvementBonus` in defense calculation
+- Effect: Each level adds 5 defense power
+- Classification: **Defense modifier**, not a separate system
+
+**Orbital Strike:**
+- Route: `POST /api/actions/special-attack` (type="orbital_strike")
+- Behavior: Immediate effect (3.0× damage, ignores 50% of target defense)
+- Classification: **Special attack**, bypasses resolver
+
+**Siege Barrage:**
+- Route: `POST /api/actions/special-attack` (type="siege_barrage")
+- Behavior: Immediate effect (2.0× damage, damages up to 3 nearby enemy plots)
+- Classification: **Special attack**, bypasses resolver
+
+---
+
+## 5. Battle-System Connection Matrix
 
 | System | Status | Evidence Path | Current Consumer | Missing Connection | Future Phase |
 |--------|--------|---------------|------------------|-------------------|--------------|
 | main plot | LIVE_AND_CONSUMED | `parcels` table, `deployAttack()` | resolver (defenseLevel, biome, improvements) | — | — |
-| origin subplot | STORED_NOT_CONSUMED | `battles.sourceParcelId` | stored but not used in resolver | wire into CombatProfile | Phase 5 |
-| target subplot | ABSENT | not in schema | — | add to schema, wire into resolver | Phase 5 |
-| legacy subplot category | STORED_NOT_CONSUMED | `subParcels.archetype` | stored but not used in plot attacks | wire into CombatProfile | Phase 7 |
-| facility archetype | CATALOG_ONLY | `shared/subplotArchitecture.ts` | defined but not persisted | persist, wire into resolver | Phase 4 |
-| facility level | ABSENT | not in schema | — | add to schema, wire into resolver | Phase 4 |
-| facility upgrades | CATALOG_ONLY | `shared/subplotArchitecture.ts:FacilityUpgradeBranch` | defined but not persisted | persist, wire into resolver | Phase 4 |
-| facility integrity | ABSENT | not in schema | — | add to schema, wire into resolver | Phase 6 |
-| weapon archetype | DISCONNECTED | `shared/weapons/archetypes.ts`, Armory UI | displayed but not consumed by resolver | wire into CombatProfile, apply effects | Phase 5 |
-| equipped weapon | ABSENT | not in schema | — | add to schema, wire into resolver | Phase 5 |
-| energy alignment | STORED_NOT_CONSUMED | `subParcels.energyAlignment` | stored but not used in resolver | wire into CombatProfile, apply effects | Phase 7 |
-| energy generation/storage | CONTRACT_ONLY | `shared/energyGrid.ts` | simulator exists, not integrated | persist, wire into resolver | Phase 4 |
-| power state/brownout | CONTRACT_ONLY | `shared/energyGrid.ts:EnergyGridResult.brownout` | simulator exists, not integrated | persist, wire into resolver | Phase 4 |
-| attack doctrine | ABSENT | not in schema | — | add to schema, wire into resolver | Phase 6 |
-| CombatProfile | CONTRACT_ONLY | `shared/combatProfile.ts` | contract exists, not integrated | build from live attack, persist | Phase 5 |
-| BattleSnapshot | CONTRACT_ONLY | `shared/combatProfile.ts:BattleSnapshot` | contract exists, not integrated | persist, use for proof | Phase 5 |
+| origin subplot | STORED_NOT_CONSUMED | `battles.sourceParcelId` | stored but not used in resolver | wire into CombatProfile | Phase E |
+| target subplot | ABSENT | not in schema | — | add to schema, wire into resolver | Phase E |
+| legacy subplot category | STORED_NOT_CONSUMED | `subParcels.archetype` | stored but not used in plot attacks | wire into CombatProfile | Phase G |
+| facility archetype | CATALOG_ONLY | `shared/subplotArchitecture.ts` | defined but not persisted | persist, wire into resolver | Phase G |
+| facility level | ABSENT | not in schema | — | add to schema, wire into resolver | Phase G |
+| facility upgrades | CATALOG_ONLY | `shared/subplotArchitecture.ts:FacilityUpgradeBranch` | defined but not persisted | persist, wire into resolver | Phase G |
+| facility integrity | ABSENT | not in schema | — | add to schema, wire into resolver | Phase I |
+| weapon archetype | DISCONNECTED | `shared/weapons/archetypes.ts`, Armory UI | displayed but not consumed by resolver | wire into CombatProfile, apply effects | Phase E |
+| equipped weapon | ABSENT | not in schema | — | add to schema, wire into resolver | Phase E |
+| energy alignment | STORED_NOT_CONSUMED | `subParcels.energyAlignment` | stored but not used in resolver | wire into CombatProfile, apply effects | Phase G |
+| energy generation/storage | CONTRACT_ONLY | `shared/energyGrid.ts` | simulator exists, not integrated | persist, wire into resolver | Phase G |
+| power state/brownout | CONTRACT_ONLY | `shared/energyGrid.ts:EnergyGridResult.brownout` | simulator exists, not integrated | persist, wire into resolver | Phase G |
+| attack doctrine | ABSENT | not in schema | — | add to schema, wire into resolver | Phase F |
+| CombatProfile | CONTRACT_ONLY | `shared/combatProfile.ts` | contract exists, not integrated | build from live attack, persist | Phase A |
+| BattleSnapshot | CONTRACT_ONLY | `shared/combatProfile.ts:BattleSnapshot` | contract exists, not integrated | persist, use for proof | Phase B |
 | Commander | LIVE_AND_CONSUMED | `players.commanders`, `deployAttack()` | resolver (commanderBonus) | — | — |
-| faction | STORED_NOT_CONSUMED | `players.playerFactionId` | stored but not used in resolver | wire into CombatProfile, apply effects | Phase 7 |
+| faction | STORED_NOT_CONSUMED | `players.playerFactionId` | stored but not used in resolver | wire into CombatProfile, apply effects | Phase G |
 | biome | LIVE_AND_CONSUMED | `parcels.biome`, `resolve.ts:BIOME_DEFENSE_MOD` | resolver (biomeMod) | — | — |
-| recon | STORED_NOT_CONSUMED | `players.drones` | deployed but not used in resolver | wire into CombatProfile, apply effects | Phase 7 |
-| shields | PARTIAL | `parcels.improvements` (shield_gen) | contributes to improvementBonus | no separate shield mechanic | Phase 7 |
-| EMP | DISCONNECTED | special attack route | bypasses resolver | integrate into resolver as phased effect | Phase 6 |
-| sabotage | DISCONNECTED | special attack route | bypasses resolver | integrate into resolver as phased effect | Phase 6 |
-| drones | STORED_NOT_CONSUMED | `players.drones` | deployed but not used in resolver | wire into CombatProfile, apply effects | Phase 7 |
-| satellites | STORED_NOT_CONSUMED | `players.satellites` | deployed but not used in resolver | wire into CombatProfile, apply effects | Phase 7 |
+| recon | STORED_NOT_CONSUMED | `players.drones` | deployed but not used in resolver | wire into CombatProfile, apply effects | Phase G |
+| shields | PARTIAL | `parcels.improvements` (shield_gen) | contributes to improvementBonus | no separate shield mechanic | Phase G |
+| EMP | DISCONNECTED | special attack route | bypasses resolver | integrate into resolver as phased effect | Phase D |
+| sabotage | DISCONNECTED | special attack route | bypasses resolver | integrate into resolver as phased effect | Phase D |
+| drones | STORED_NOT_CONSUMED | `players.drones` | deployed but not used in resolver | wire into CombatProfile, apply effects | Phase G |
+| satellites | STORED_NOT_CONSUMED | `players.satellites` | deployed but not used in resolver | wire into CombatProfile, apply effects | Phase G |
 | troops | LIVE_AND_CONSUMED | `battles.troopsCommitted`, `resolve.ts` | resolver (troops×10) | — | — |
 | iron | LIVE_AND_CONSUMED | `battles.resourcesBurned.iron`, `resolve.ts` | resolver (iron×0.5) | — | — |
 | fuel | LIVE_AND_CONSUMED | `battles.resourcesBurned.fuel`, `resolve.ts` | resolver (fuel×0.8) | — | — |
-| crystal | LIVE_AND_CONSUMED | `battles.crystalBurned`, `deployAttack()` | folded into commanderBonus | — | — |
+| crystal | LIVE_AND_CONSUMED | `battles.crystalBurned`, `deployAttack()` | folded into commanderBonus (conceptually distinct) | — | — |
 | cooldown | LIVE_AND_CONSUMED | `players.attackCooldownUntil` | enforced pre-attack | — | — |
-| range | ABSENT | not in schema | — | add to schema, wire into resolver | Phase 6 |
-| persistent damage | ABSENT | not in schema | — | add to schema, wire into resolver | Phase 6 |
-| repair | ABSENT | not in schema | — | add route, wire into resolver | Phase 6 |
+| range | ABSENT | not in schema | — | add to schema, wire into resolver | Phase F |
+| persistent damage | ABSENT | not in schema | — | add to schema, wire into resolver | Phase I |
+| repair | ABSENT | not in schema | — | add route, wire into resolver | Phase I |
 | capture | LIVE_AND_CONSUMED | `deployAttack()`, `resolveBattles()` | ownership transfer on win | — | — |
-| salvage | ABSENT | not in schema | — | add route, wire into resolver | Phase 6 |
-| conversion | ABSENT | not in schema | — | add route, wire into resolver | Phase 6 |
-| proof | LIVE_AND_CONSUMED | `battle_replays` table, `/api/battle/:id/proof` | deterministic verification | — | — |
-| timeline | ABSENT | not in schema | — | add phased resolution, timeline events | Phase 8 |
+| salvage | ABSENT | not in schema | — | add route, wire into resolver | Phase J |
+| conversion | ABSENT | not in schema | — | add route, wire into resolver | Phase J |
+| proof | PARTIAL | `battle_replays` table, `/api/battle/:id/proof` | deterministic verification | does not store full snapshot | Phase B |
+| timeline | ABSENT | not in schema | — | add phased resolution, timeline events | Phase K |
 
 ---
 
-## 5. Battle-Path Divergence
+## 6. Transaction and Persistence Boundaries
 
-| Path | Launch Route | Resolver | Idempotency | Resource Accounting | Cooldown | Proof | CombatProfile | BattleSnapshot | Persistent Consequences |
-|------|--------------|----------|-------------|---------------------|----------|-------|---------------|----------------|------------------------|
-| Human plot attack | `POST /api/actions/attack` | `resolveBattle()` | ✅ (PR #250) | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| AI plot attack | `ai-engine.ts:launchAttack()` → `deployAttack()` | `resolveBattle()` | ✅ (shared) | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Sub-parcel attack | `POST /api/sub-parcels/:id/attack` | `resolveBattle()` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ (immediate) |
-| EMP | `POST /api/actions/special-attack` | ❌ (bypass) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ (immediate) |
-| Sabotage | `POST /api/actions/special-attack` | ❌ (bypass) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ (immediate) |
-| Orbital Strike | `POST /api/actions/special-attack` | ❌ (bypass) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ (immediate) |
-| Siege Barrage | `POST /api/actions/special-attack` | ❌ (bypass) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ (immediate) |
-| Drone deploy | `POST /api/actions/deploy-drone` | ❌ (not attack) | ✅ | ✅ | N/A | ❌ | ❌ | ❌ | ❌ |
-| Satellite deploy | `POST /api/actions/deploy-satellite` | ❌ (not attack) | ✅ | ✅ | N/A | ❌ | ❌ | ❌ | ❌ |
+### deployAttack() Transaction
 
-**Key divergences:**
-- Sub-parcel attacks lack idempotency, scheduling, and proof
-- Special attacks bypass the resolver entirely (instant effect)
-- Drones/satellites are deployment actions, not attacks
-- Only human and AI plot attacks use the full canonical pipeline
+**Boundary:** Single atomic transaction  
+**Operations:**
+1. Read attacker player row
+2. Read target parcel row
+3. Validate resources
+4. Validate commander availability
+5. Calculate commander and crystal bonuses
+6. Apply Radar Array modifier
+7. Check morale debuff
+8. Construct battle input
+9. Invoke resolver (pre-resolution)
+10. Insert battle row
+11. Deduct resources from attacker
+12. Insert game event (battle_started)
+13. Claim target parcel (activeBattleId)
+
+**Atomicity:** All operations succeed or fail together  
+**Isolation:** Prevents double-claim via `activeBattleId IS NULL` check
+
+### resolveBattles() Transaction
+
+**Boundary:** Per-battle transaction  
+**Operations:**
+1. Read battle row (frozen powers)
+2. Invoke resolver (post-resolution)
+3. Update battle row (status, outcome, randFactor)
+4. On attacker win: transfer ownership, reset defenseLevel, pillage resources
+5. On defender win: apply influence damage, cascade defense penalty
+6. Update attacker player (moraleDebuffUntil, attackCooldownUntil, consecutiveLosses)
+7. Insert game event (battle_resolved)
+8. Insert battle replay log
+9. Release target parcel (activeBattleId=null)
+
+**Atomicity:** Per-battle operations succeed or fail together  
+**Isolation:** Each battle resolved independently
 
 ---
 
-## 6. Target Authoritative Pipeline
+## 7. Randomness, Proof, and Replayability
 
-**Target architecture (PLANNED, not implemented):**
+### Random Number Generation
+
+**Algorithm:** mulberry32 (fast 32-bit PRNG)  
+**File:** `server/engine/battle/random.ts:mulberry32()`  
+**Seed construction:** `hashSeed(battleId, startTs)`  
+**File:** `server/engine/battle/random.ts:hashSeed()`  
+**Algorithm:** djb2-style hash of concatenated parts
+
+**Properties:**
+- Deterministic: same seed → same sequence
+- Reproducible: can be re-derived from battleId and startTs
+- No cryptographic security (not suitable for security-critical randomness)
+- Fast: suitable for high-frequency battle resolution
+
+### Battle Proof
+
+**Endpoint:** `GET /api/battle/:id/proof`  
+**File:** `server/routes.ts` (proof endpoint)  
+**Storage:** `battle_replays` table
+
+**What the proof stores:**
+- battleId
+- attackerPower (pre-randFactor)
+- defenderPower
+- randomSeed
+- randFactor
+- outcome
+- pillagedIron, pillagedFuel, pillagedCrystal
+- Full resolution log (BattleLogEntry[])
+
+**What the proof can verify:**
+- That the stored outcome matches the deterministic resolution
+- That the randFactor was correctly derived from the seed
+- That the pillage amounts are correct
+
+**What the proof cannot verify:**
+- Full replay from original inputs (troops, iron, fuel, crystal, commander, biome, defenseLevel, improvements)
+- Verification that the frozen powers were correctly calculated from the original inputs
+- Verification that the seed was correctly constructed from battleId and startTs
+
+**Replayability verdict:** **Partial.** The proof can verify that the resolution was deterministic given the frozen powers, but it cannot verify that the frozen powers were correctly derived from the original battle inputs. Full replay would require storing the complete battle input (all resolver inputs, frozen state values, formula version, and random seed).
+
+### Deterministic Reconstruction
+
+**Current state:** **Partial.** The resolver is deterministic, but the proof does not store enough information to reconstruct the battle from scratch. To achieve full deterministic reconstruction, the proof would need to store:
+- All resolver inputs (troops, iron, fuel, crystal, commanderBonus, moraleDebuffActive, defenseLevel, biome, improvements, orbitalHazardActive)
+- Formula version (to handle future formula changes)
+- Random seed (already stored)
+- Frozen state values (already stored as attackerPower and defenderPower)
+
+---
+
+## 8. Existing Test Coverage and Untested Assumptions
+
+### Test Coverage
+
+**resolve.spec.ts:**
+- Determinism (same inputs → same output)
+- Power calculation (troops, iron, fuel, commanderBonus)
+- Pillage calculation (30% of stored resources)
+- Biome modifiers (mountain=1.4, water=0.5)
+- Morale debuff (15% attack penalty)
+- Orbital hazard (20% defense penalty)
+- Improvement defense contributions (turret, shield_gen, fortress)
+
+**tuning.spec.ts:**
+- Balance invariants (constants are reasonable)
+
+**verify.spec.ts:**
+- Proof verification (re-derive outcome from stored data)
+
+**replayLog.spec.ts:**
+- Replay log serialization
+
+**random.spec.ts:**
+- mulberry32 determinism
+- hashSeed determinism
+
+### Untested Assumptions
+
+1. **Radar Array modifier:** No test verifies that Radar Array correctly scales attacker inputs ×0.9
+2. **Crystal power contribution:** No test verifies that crystal correctly contributes via CRYSTAL_POWER_FACTOR
+3. **Commander availability:** No test verifies that locked commanders are correctly rejected
+4. **Concurrent attacks:** No test verifies that concurrent attacks on the same target are correctly prevented
+5. **Sub-parcel attack divergence:** No test verifies that sub-parcel attacks bypass idempotency, scheduling, and proof
+6. **Special attack divergence:** No test verifies that special attacks bypass the resolver
+7. **AI attack unification:** No test verifies that AI attacks use the same deployAttack() path as human attacks
+
+---
+
+## 9. Critical Architectural Gaps
+
+1. **Weapon archetypes are disconnected:** Displayed in Armory UI but not consumed by resolver
+2. **Energy alignments are placeholders:** Stored on sub-parcels but have zero gameplay effect
+3. **Sub-parcel archetypes are not consumed:** Persisted but not used in plot attacks
+4. **Attack doctrines do not exist:** No schema field, no UI selector, no resolver logic
+5. **CombatProfile and BattleSnapshot are not integrated:** Contracts exist but are not built or persisted
+6. **Facility integrity is absent:** No HP-like state, no damage, no repair
+7. **Tactical timeline is absent:** No phased resolution, no timeline events
+8. **Battle proof is incomplete:** Cannot verify full replay from original inputs
+9. **Sub-parcel attacks lack safeguards:** No idempotency, no scheduling, no proof
+10. **Special attacks bypass resolver:** No unified battle pipeline
+
+---
+
+## 10. Target Authoritative Battle Pipeline
+
+**TARGET (not implemented):**
 
 ```
 BattleIntent (client)
@@ -450,210 +609,513 @@ BattleIntent (client)
 
 ---
 
-## 7. Legacy Resolver Decision
+## 11. Planned Resolution Phases
 
-### KEEP (correct and reusable)
+**PLANNED (not implemented):**
 
-- Deterministic formula (troops×10 + iron×0.5 + fuel×0.8 + commanderBonus)
-- mulberry32 PRNG (fast, reproducible)
-- hashSeed (djb2-style, deterministic)
-- Pillage calculation (30% of stored resources)
-- Biome defense modifiers
-- Improvement defense contributions
-- Morale debuff application
-- Orbital hazard penalty
-- Radar Array attacker scaling
+1. **Intelligence and detection**
+   - Eligible systems: recon, drones, satellites, sensor range
+   - Authoritative inputs: origin facility recon level, target facility stealth level
+   - Outputs: detection probability, target visibility
+   - Deterministic calculation boundary: seeded random for detection rolls
+   - Permitted seeded randomness: detection success/failure
+   - Timeline events: "Recon sweep initiated", "Target detected", "Target hidden"
+   - Persistence timing: immediate
+   - Required tests: detection probability tests, stealth interaction tests
 
-### WRAP (temporarily behind adapters)
+2. **Approach and interception**
+   - Eligible systems: weapon range, interception, shields
+   - Authoritative inputs: origin weapon range, target interception level
+   - Outputs: interception probability, approach success
+   - Deterministic calculation boundary: seeded random for interception rolls
+   - Permitted seeded randomness: interception success/failure
+   - Timeline events: "Attack force launched", "Interception attempt", "Approach successful"
+   - Persistence timing: immediate
+   - Required tests: interception probability tests, range validation tests
 
-- `deployAttack()` input construction (wrap to build CombatProfile)
-- `resolveBattleFromPowers()` (wrap to accept BattleSnapshot)
-- Battle persistence (wrap to store snapshot JSON)
+3. **Long-range / siege engagement**
+   - Eligible systems: siege weapons, artillery, fortification penetration
+   - Authoritative inputs: origin weapon archetype, target fortification level
+   - Outputs: siege damage, fortification reduction
+   - Deterministic calculation boundary: seeded random for damage rolls
+   - Permitted seeded randomness: damage variance
+   - Timeline events: "Siege barrage initiated", "Fortification damaged", "Defenses weakened"
+   - Persistence timing: immediate
+   - Required tests: siege damage tests, fortification interaction tests
 
-### EXTRACT (reusable pure functions)
+4. **Main assault**
+   - Eligible systems: troops, iron, fuel, crystal, commander
+   - Authoritative inputs: committed resources, commander bonus
+   - Outputs: attacker power, defender power, outcome
+   - Deterministic calculation boundary: seeded random for randFactor
+   - Permitted seeded randomness: randFactor ∈ [-10, +10]
+   - Timeline events: "Assault commenced", "Attacker power: X", "Defender power: Y"
+   - Persistence timing: immediate
+   - Required tests: power calculation tests, outcome determination tests
 
-- Power calculation (extract to pure functions for testing)
-- Pillage calculation (extract to pure function)
-- Seed generation (already pure, no change needed)
+5. **Defensive response**
+   - Eligible systems: defenseLevel, improvements, biome, orbital hazard
+   - Authoritative inputs: target defenses, biome modifiers
+   - Outputs: defense power, damage reduction
+   - Deterministic calculation boundary: none (deterministic formula)
+   - Permitted seeded randomness: none
+   - Timeline events: "Defenses activated", "Damage reduced", "Biome advantage applied"
+   - Persistence timing: immediate
+   - Required tests: defense calculation tests, biome modifier tests
 
-### REPLACE (incompatible with target)
+6. **Facility and system damage**
+   - Eligible systems: facility integrity, EMP, sabotage
+   - Authoritative inputs: attack power, target facility integrity
+   - Outputs: facility damage, system disablement
+   - Deterministic calculation boundary: seeded random for damage rolls
+   - Permitted seeded randomness: damage variance, disablement probability
+   - Timeline events: "Facility damaged", "System disabled", "Integrity reduced"
+   - Persistence timing: immediate
+   - Required tests: facility damage tests, disablement tests
 
-- Nothing yet (preserve production behavior during initial migration)
+7. **Retreat, hold, or capture**
+   - Eligible systems: capture logic, morale, cooldown
+   - Authoritative inputs: outcome, defender morale, attacker cooldown
+   - Outputs: capture success, morale debuff, cooldown applied
+   - Deterministic calculation boundary: none (deterministic formula)
+   - Permitted seeded randomness: none
+   - Timeline events: "Territory captured", "Defender retreats", "Morale debuff applied"
+   - Persistence timing: immediate
+   - Required tests: capture logic tests, morale debuff tests
 
-### DEFER (change in later phases)
+8. **Persistent aftermath**
+   - Eligible systems: pillage, influence damage, cascade defense
+   - Authoritative inputs: stored resources, influence level, adjacent plots
+   - Outputs: pillaged resources, influence damage, cascade penalties
+   - Deterministic calculation boundary: none (deterministic formula)
+   - Permitted seeded randomness: none
+   - Timeline events: "Resources pillaged", "Influence damaged", "Adjacent defenses reduced"
+   - Persistence timing: immediate
+   - Required tests: pillage calculation tests, cascade penalty tests
 
-- Weapon archetype effects (Phase 5)
-- Facility archetype effects (Phase 4)
-- Energy alignment effects (Phase 7)
-- Attack doctrine effects (Phase 6)
-- Phased resolution (Phase 8)
-- Persistent damage/repair (Phase 6)
+---
 
-### Recommended First Implementation PR
+## 12. Legacy Resolver KEEP/WRAP/EXTRACT/REPLACE/DEFER Decision
 
-**Goal:** Build CombatProfile from existing live attack, create immutable BattleSnapshot, continue using existing resolver, prove exact legacy output parity, add no weapon/doctrine/facility/alignment effects, allow immediate rollback.
+### KEEP
 
-**Scope:**
-1. In `deployAttack()`, after building `battleInput`, construct `CombatProfile` from the same inputs
-2. Create `BattleSnapshot` from the profile + startTs
-3. Store snapshot JSON in a new nullable `battles.combatProfileJson` column (additive migration)
-4. Continue using existing `resolveBattle()` path (no resolver changes)
-5. Add parity test: verify that snapshot-based resolution produces identical output to legacy path
-6. Add rollback flag: if snapshot construction fails, fall back to legacy path (no snapshot stored)
+- Deterministic seeded resolution (mulberry32 PRNG, hashSeed)
+- Stable random generator and seed construction where sound
+- Current production-tested troop/resource formula during parity migration
+- Existing transactional resource deduction and target-claim safeguards
+- Current result/capture behavior until replacements are independently tested
+
+### WRAP
+
+- Current resolver input construction (wrap to build CombatProfile)
+- Current battle launch flow (wrap to create BattleSnapshot)
+- Legacy battle records that lack CombatProfile/BattleSnapshot data
+- Existing proof generation during the transition
+
+### EXTRACT
+
+- Attack-power calculation (extract to pure function)
+- Defense-power calculation (extract to pure function)
+- Biome modifier (extract to pure function)
+- Casualty calculation (extract to pure function)
+- Pillage/reward calculation (extract to pure function)
+- Capture decision (extract to pure function)
+- Seeded-random adjustment (extract to pure function)
+- Any other formula that can become a pure versioned function
+
+### REPLACE LATER
+
+- Mutable-state reads performed after launch (replace with snapshot-based reads)
+- Divergent sub-parcel resolution assumptions (replace with unified pipeline)
+- Proof records that cannot reproduce the full result (replace with complete snapshot)
+- Overloaded variables that combine conceptually different modifiers (replace with separate fields)
+- Any special-attack behavior that bypasses required accounting or safety rules
+
+### DEFER
+
+- Final numeric weapon effects
+- Doctrine balance
+- Facility bonuses
+- Energy-alignment bonuses
+- Brownout combat penalties
+- Persistent structural damage
+- Salvage and conversion
+- Tactical visualization
+
+---
+
+## 13. PR-Sized Migration Sequence
+
+### PR A — CombatProfile/BattleSnapshot Launch Adapter
+
+**Branch:** `feat/frontier-battle-profile-launch-adapter`  
+**Goal:** Construct a server-authoritative CombatProfile from the existing live attack, create an immutable BattleSnapshot at launch, adapt the snapshot into the existing resolver inputs, keep the existing resolver formula unchanged, prove exact output parity against the legacy path, add no weapon/doctrine/facility/alignment/energy/upgrade effects, preserve an immediate rollback path to the current resolver input builder.
 
 **Files:**
-- `server/storage/db.ts` (deployAttack)
-- `server/db-schema.ts` (add column)
-- `migrations/0016_battles_combat_profile.sql` (additive)
-- `server/storage/db.spec.ts` (parity test)
+- `server/storage/db.ts` (deployAttack: build CombatProfile and BattleSnapshot)
+- `shared/combatProfile.ts` (already exists, no changes needed)
 
 **Forbidden:**
 - No resolver changes
 - No weapon/facility/alignment/doctrine effects
-- No schema changes beyond additive column
+- No schema changes
+- No migration
 - No client changes
 
-**Risk:** LOW (additive, rollback-safe, parity-tested)
+**DB impact:** None (in-memory only, no persistence)
+
+**Tests:**
+- Parity test: verify that snapshot-based resolution produces identical output to legacy path
+- Rollback test: verify that legacy path still works if snapshot construction fails
+
+**Rollout gate:** Parity test green, no production behavior change
+
+**Rollback:** Revert code (no migration to rollback)
+
+**Risk:** LOW (no persistence, no schema changes, immediate rollback)
+
+**Agent mode:** Auto Efficient
 
 ---
 
-## 8. PR-Sized Migration Sequence
+### PR B — Snapshot Persistence and Replay Verification
 
-### A. CombatProfile launch adapter with legacy parity
+**Branch:** `feat/frontier-battle-snapshot-persistence`  
+**Goal:** Persist immutable snapshot data, add formula/profile versioning, verify deterministic replay from stored evidence, add an additive migration only if required, preserve compatibility with battles created before the migration.
 
-**Goal:** Build CombatProfile from live attack, store snapshot, prove parity  
-**Files:** `server/storage/db.ts`, `server/db-schema.ts`, `migrations/0016_*.sql`, `server/storage/db.spec.ts`  
-**DB impact:** additive nullable column  
-**Tests:** parity test (snapshot-based resolution = legacy resolution)  
-**Rollout gate:** parity test green, no production behavior change  
-**Rollback:** drop column, revert code  
-**Risk:** LOW  
+**Files:**
+- `server/db-schema.ts` (add nullable `combatProfileJson` column)
+- `migrations/0016_battles_combat_profile.sql` (additive migration)
+- `server/storage/db.ts` (persist snapshot JSON)
+- `server/engine/battle/resolve.ts` (add replay test)
+
+**Forbidden:**
+- No resolver changes
+- No weapon/facility/alignment/doctrine effects
+- No destructive migration
+
+**DB impact:** Additive nullable column
+
+**Tests:**
+- Replay test: load snapshot, re-derive outcome, verify match
+- Compatibility test: verify that battles created before migration still resolve correctly
+
+**Rollout gate:** Replay test green, compatibility test green
+
+**Rollback:** Drop column, revert code
+
+**Risk:** LOW (additive migration, rollback-safe)
+
 **Agent mode:** Auto Efficient
 
-### B. Snapshot persistence and replay tests
+---
 
-**Goal:** Persist snapshot JSON, add replay tests (re-derive outcome from snapshot + seed)  
-**Files:** `server/storage/db.ts`, `server/engine/battle/resolve.spec.ts`  
-**DB impact:** none (column exists from A)  
-**Tests:** replay test (load snapshot, re-derive outcome, verify match)  
-**Rollout gate:** replay test green  
-**Rollback:** revert code  
-**Risk:** LOW  
+### PR C — Human and AI Launch-Path Unification
+
+**Branch:** `feat/frontier-unified-battle-launch`  
+**Goal:** Make both human and AI attacks use the same authoritative profile builder, keep actor-specific intent and target-selection behavior separate, prevent divergence in combat-state construction.
+
+**Files:**
+- `server/storage/ai-engine.ts` (verify AI uses same CombatProfile builder)
+- `server/storage/db.ts` (verify deployAttack() is shared)
+
+**Forbidden:**
+- No resolver changes
+- No weapon/facility/alignment/doctrine effects
+- No schema changes
+
+**DB impact:** None
+
+**Tests:**
+- Unification test: verify AI attack produces same snapshot structure as human
+
+**Rollout gate:** Unification test green
+
+**Rollback:** Revert code
+
+**Risk:** LOW (verification only, no behavior change)
+
 **Agent mode:** Auto Efficient
 
-### C. Human/AI launch-path unification
+---
 
-**Goal:** Ensure AI uses same CombatProfile builder as human (already unified via deployAttack, verify and document)  
-**Files:** `server/storage/ai-engine.ts`, `server/storage/db.ts`  
-**DB impact:** none  
-**Tests:** verify AI attack produces same snapshot structure as human  
-**Rollout gate:** test green  
-**Rollback:** revert code  
-**Risk:** LOW  
-**Agent mode:** Auto Efficient
+### PR D — Sub-Parcel and Special-Path Normalization
 
-### D. Special-attack normalization
+**Branch:** `feat/frontier-normalized-battle-paths`  
+**Goal:** Decide which paths become normal battles, decide which remain immediate strategic effects, apply compatible authorization, idempotency, accounting, proof, and consequence rules.
 
-**Goal:** Route special attacks through phased resolution (EMP, sabotage, orbital strike, siege barrage)  
-**Files:** `server/routes.ts`, `server/storage/db.ts`, `server/engine/battle/resolve.ts`  
-**DB impact:** additive columns for special-attack effects  
-**Tests:** special-attack resolution tests  
-**Rollout gate:** tests green, no regression in plot attacks  
-**Rollback:** revert code, drop columns  
-**Risk:** MEDIUM  
-**Agent mode:** Auto Balanced
+**Files:**
+- `server/routes.ts` (sub-parcel attack, special attacks)
+- `server/storage/db.ts` (sub-parcel attack persistence)
 
-### E. Weapon-equipment connection with effects disabled
+**Forbidden:**
+- No resolver changes
+- No weapon/facility/alignment/doctrine effects
 
-**Goal:** Persist equipped weapon on facilities, wire into CombatProfile, but apply zero effects (preparation for Phase 5)  
-**Files:** `server/db-schema.ts`, `migrations/0017_*.sql`, `server/storage/db.ts`, `shared/combatProfile.ts`  
-**DB impact:** additive nullable columns  
-**Tests:** verify weapon persisted, CombatProfile includes weapon, resolver ignores it  
-**Rollout gate:** tests green, no behavior change  
-**Rollback:** drop columns, revert code  
-**Risk:** LOW  
-**Agent mode:** Auto Efficient
+**DB impact:** May require additive columns for sub-parcel battles
 
-### F. Doctrine contract and selection
+**Tests:**
+- Normalization test: verify sub-parcel attacks use same pipeline as plot attacks
+- Special-attack test: verify special attacks use compatible consequence rules
 
-**Goal:** Add attack doctrine to schema, add UI selector, wire into CombatProfile, apply effects  
-**Files:** `shared/schema.ts`, `migrations/0018_*.sql`, `server/routes.ts`, `client/src/components/game/CommanderPanel.tsx`, `server/engine/battle/resolve.ts`  
-**DB impact:** additive nullable column  
-**Tests:** doctrine selection tests, resolution tests with doctrine effects  
-**Rollout gate:** tests green, behavior change documented  
-**Rollback:** drop column, revert code  
-**Risk:** MEDIUM  
-**Agent mode:** Auto Balanced
+**Rollout gate:** Normalization test green, special-attack test green
 
-### G. Facility/energy-state consumption
+**Rollback:** Revert code, drop columns
 
-**Goal:** Persist canonical facility archetypes, wire energy grid into CombatProfile, apply brownout effects  
-**Files:** `server/db-schema.ts`, `migrations/0019_*.sql`, `server/storage/db.ts`, `shared/energyGrid.ts`, `server/engine/battle/resolve.ts`  
-**DB impact:** additive columns for facility state  
-**Tests:** facility persistence tests, energy grid integration tests, resolution tests with facility effects  
-**Rollout gate:** tests green, behavior change documented  
-**Rollback:** drop columns, revert code  
-**Risk:** HIGH  
-**Agent mode:** Auto Frontier
+**Risk:** MEDIUM (behavior change for sub-parcel attacks)
 
-### H. Phased resolver introduction
-
-**Goal:** Replace single-step resolution with 8-phase resolution (intelligence, approach, long-range, assault, defense, facility damage, retreat/hold/capture, aftermath)  
-**Files:** `server/engine/battle/resolve.ts`, `server/engine/battle/types.ts`  
-**DB impact:** none  
-**Tests:** phased resolution tests, parity tests (phased = legacy for simple cases)  
-**Rollout gate:** tests green, behavior change documented  
-**Rollback:** revert code  
-**Risk:** HIGH  
-**Agent mode:** Auto Frontier
-
-### I. Persistent facility damage and repair
-
-**Goal:** Add facility integrity, damage on attack, repair route  
-**Files:** `server/db-schema.ts`, `migrations/0020_*.sql`, `server/storage/db.ts`, `server/routes.ts`, `server/engine/battle/resolve.ts`  
-**DB impact:** additive columns for integrity  
-**Tests:** damage tests, repair tests  
-**Rollout gate:** tests green, behavior change documented  
-**Rollback:** drop columns, revert code  
-**Risk:** HIGH  
-**Agent mode:** Auto Frontier
-
-### J. Capture, salvage, and conversion
-
-**Goal:** Add salvage route, conversion route, capture inheritance  
-**Files:** `server/routes.ts`, `server/storage/db.ts`, `server/engine/battle/resolve.ts`  
-**DB impact:** none (use existing columns)  
-**Tests:** salvage tests, conversion tests, capture inheritance tests  
-**Rollout gate:** tests green, behavior change documented  
-**Rollback:** revert code  
-**Risk:** MEDIUM  
-**Agent mode:** Auto Balanced
-
-### K. Tactical timeline/presentation
-
-**Goal:** Add battle timeline events, tactical view rendering  
-**Files:** `server/engine/battle/resolve.ts`, `client/src/components/game/TacticalView.tsx` (new)  
-**DB impact:** additive table for timeline events  
-**Tests:** timeline event tests, tactical view rendering tests  
-**Rollout gate:** tests green, visual acceptance  
-**Rollback:** drop table, revert code  
-**Risk:** MEDIUM  
-**Agent mode:** Auto Balanced
-
-### L. Simulation and balancing harness
-
-**Goal:** Build simulation harness for balance testing, generate balance reports  
-**Files:** `server/engine/battle/sim.ts`  
-**DB impact:** none  
-**Tests:** simulation tests  
-**Rollout gate:** simulation runs, reports generated  
-**Rollback:** revert code  
-**Risk:** LOW  
 **Agent mode:** Auto Balanced
 
 ---
 
-## 9. Explicit Non-Goals
+### PR E — Weapon Equipment Connection with Effects Disabled
+
+**Branch:** `feat/frontier-weapon-equipment`  
+**Goal:** Persist and validate equipped weapon identity, include it in CombatProfile and BattleSnapshot, do not apply numeric weapon effects yet.
+
+**Files:**
+- `server/db-schema.ts` (add `weaponArchetype` column)
+- `migrations/0017_weapon_archetype.sql` (additive migration)
+- `server/storage/db.ts` (persist weapon archetype)
+- `shared/combatProfile.ts` (include weapon in profile)
+
+**Forbidden:**
+- No resolver changes
+- No weapon effects
+- No destructive migration
+
+**DB impact:** Additive nullable column
+
+**Tests:**
+- Persistence test: verify weapon archetype is persisted
+- Profile test: verify weapon is included in CombatProfile
+- No-effect test: verify resolver ignores weapon
+
+**Rollout gate:** Persistence test green, profile test green, no-effect test green
+
+**Rollback:** Drop column, revert code
+
+**Risk:** LOW (additive migration, no behavior change)
+
+**Agent mode:** Auto Efficient
+
+---
+
+### PR F — Attack Doctrine Contract and Selection
+
+**Branch:** `feat/frontier-attack-doctrine`  
+**Goal:** Add server-validated doctrine identity, include it in the immutable snapshot, initially use neutral/no-effect behavior if needed for safe rollout.
+
+**Files:**
+- `shared/schema.ts` (add `attackDoctrine` field)
+- `migrations/0018_attack_doctrine.sql` (additive migration)
+- `server/routes.ts` (accept doctrine in attack request)
+- `shared/combatProfile.ts` (include doctrine in profile)
+
+**Forbidden:**
+- No resolver changes
+- No doctrine effects (initially)
+- No destructive migration
+
+**DB impact:** Additive nullable column
+
+**Tests:**
+- Validation test: verify doctrine is validated
+- Profile test: verify doctrine is included in CombatProfile
+- No-effect test: verify resolver ignores doctrine
+
+**Rollout gate:** Validation test green, profile test green, no-effect test green
+
+**Rollback:** Drop column, revert code
+
+**Risk:** LOW (additive migration, no behavior change)
+
+**Agent mode:** Auto Efficient
+
+---
+
+### PR G — Facility and Energy-State Consumption
+
+**Branch:** `feat/frontier-facility-energy-integration`  
+**Goal:** Read facility archetype, upgrades, alignment, integrity, and power state, apply only documented and tested effects, define brownout behavior explicitly.
+
+**Files:**
+- `server/db-schema.ts` (add facility state columns)
+- `migrations/0019_facility_state.sql` (additive migration)
+- `server/storage/db.ts` (persist facility state)
+- `shared/combatProfile.ts` (include facility state in profile)
+- `server/engine/battle/resolve.ts` (apply facility effects)
+
+**Forbidden:**
+- No destructive migration
+- No undocumented effects
+
+**DB impact:** Additive nullable columns
+
+**Tests:**
+- Facility effect tests: verify facility effects are applied
+- Brownout tests: verify brownout behavior is correct
+- Integration tests: verify facility state is read correctly
+
+**Rollout gate:** Facility effect tests green, brownout tests green
+
+**Rollback:** Drop columns, revert code
+
+**Risk:** HIGH (behavior change, complex integration)
+
+**Agent mode:** Auto Frontier
+
+---
+
+### PR H — Phased Resolver Introduction
+
+**Branch:** `feat/frontier-phased-resolver`  
+**Goal:** Introduce intelligence, approach, siege, assault, defense, damage, capture/retreat, and aftermath phases, preserve deterministic seeded behavior and versioning.
+
+**Files:**
+- `server/engine/battle/resolve.ts` (implement phased resolution)
+- `server/engine/battle/types.ts` (add phase types)
+
+**Forbidden:**
+- No schema changes
+- No persistence changes
+
+**DB impact:** None
+
+**Tests:**
+- Phase tests: verify each phase produces correct output
+- Parity tests: verify phased resolution matches legacy resolution for simple cases
+- Versioning tests: verify formula versioning works
+
+**Rollout gate:** Phase tests green, parity tests green
+
+**Rollback:** Revert code
+
+**Risk:** HIGH (major behavior change, complex implementation)
+
+**Agent mode:** Auto Frontier
+
+---
+
+### PR I — Persistent Facility Damage and Repair
+
+**Branch:** `feat/frontier-facility-damage-repair`  
+**Goal:** Add facility integrity, damage on attack, repair route.
+
+**Files:**
+- `server/db-schema.ts` (add `integrity` column)
+- `migrations/0020_facility_integrity.sql` (additive migration)
+- `server/storage/db.ts` (persist integrity, apply damage)
+- `server/routes.ts` (add repair route)
+- `server/engine/battle/resolve.ts` (apply damage)
+
+**Forbidden:**
+- No destructive migration
+
+**DB impact:** Additive nullable column
+
+**Tests:**
+- Damage tests: verify damage is applied correctly
+- Repair tests: verify repair works correctly
+- Integrity tests: verify integrity is persisted
+
+**Rollout gate:** Damage tests green, repair tests green
+
+**Rollback:** Drop column, revert code
+
+**Risk:** HIGH (behavior change, complex integration)
+
+**Agent mode:** Auto Frontier
+
+---
+
+### PR J — Capture, Salvage, Conversion, and Demolition
+
+**Branch:** `feat/frontier-capture-salvage-conversion`  
+**Goal:** Add salvage route, conversion route, capture inheritance.
+
+**Files:**
+- `server/routes.ts` (add salvage, conversion routes)
+- `server/storage/db.ts` (implement salvage, conversion logic)
+- `server/engine/battle/resolve.ts` (apply capture inheritance)
+
+**Forbidden:**
+- No schema changes (use existing columns)
+
+**DB impact:** None
+
+**Tests:**
+- Salvage tests: verify salvage works correctly
+- Conversion tests: verify conversion works correctly
+- Capture inheritance tests: verify capture inheritance works correctly
+
+**Rollout gate:** Salvage tests green, conversion tests green, capture inheritance tests green
+
+**Rollback:** Revert code
+
+**Risk:** MEDIUM (behavior change, complex logic)
+
+**Agent mode:** Auto Balanced
+
+---
+
+### PR K — Tactical Timeline and Battle Presentation
+
+**Branch:** `feat/frontier-tactical-timeline`  
+**Goal:** Add battle timeline events, tactical view rendering.
+
+**Files:**
+- `server/engine/battle/resolve.ts` (emit timeline events)
+- `client/src/components/game/TacticalView.tsx` (new component)
+
+**Forbidden:**
+- No resolver changes
+
+**DB impact:** Additive table for timeline events
+
+**Tests:**
+- Timeline event tests: verify timeline events are emitted
+- Tactical view tests: verify tactical view renders correctly
+
+**Rollout gate:** Timeline event tests green, tactical view tests green
+
+**Rollback:** Drop table, revert code
+
+**Risk:** MEDIUM (new UI component, complex rendering)
+
+**Agent mode:** Auto Balanced
+
+---
+
+### PR L — Simulation and Balancing Harness
+
+**Branch:** `feat/frontier-simulation-harness`  
+**Goal:** Build simulation harness for balance testing, generate balance reports.
+
+**Files:**
+- `server/engine/battle/sim.ts` (build simulation harness)
+
+**Forbidden:**
+- No resolver changes
+- No schema changes
+
+**DB impact:** None
+
+**Tests:**
+- Simulation tests: verify simulation runs correctly
+- Balance report tests: verify balance reports are generated
+
+**Rollout gate:** Simulation tests green, balance report tests green
+
+**Rollback:** Revert code
+
+**Risk:** LOW (tooling only, no behavior change)
+
+**Agent mode:** Auto Balanced
+
+---
+
+## 14. Explicit Non-Goals
 
 - Do not change the deterministic formula during initial migration (preserve production behavior)
 - Do not add weapon/facility/alignment/doctrine effects until later phases
@@ -665,7 +1127,7 @@ BattleIntent (client)
 
 ---
 
-## 10. Production Safety Rules
+## 15. Production Safety and Compatibility Rules
 
 - One PR at a time (application-code phases)
 - Additive migrations only (no destructive changes)
@@ -678,7 +1140,7 @@ BattleIntent (client)
 
 ---
 
-## 11. Owner Decisions Required
+## 16. Owner Decisions Required
 
 1. **Weapon archetype effects:** Should weapon archetypes connect to plot attacks, or remain a separate interception system?
 2. **Energy alignment effects:** Should helios/aegis/nexus have gameplay effects? If so, what?
@@ -690,7 +1152,7 @@ BattleIntent (client)
 
 ---
 
-## 12. Canonical Source Paths
+## 17. Canonical Source Paths
 
 ### Documentation
 

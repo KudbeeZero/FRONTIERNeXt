@@ -983,6 +983,7 @@ gl_FragColor = vec4(min(boosted, vec3(1.0)), 1.0);
 | Handoff | `docs/HANDOFF.md` | Current baton / next unit |
 | Master Roadmap | `docs/FRONTIER_MASTER_ROADMAP.md` | 26-phase roadmap |
 | Sub-Plot Architecture | `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md` | Canonical vocabulary + phased plan |
+| Battle Engine Truth | `docs/memory/FRONTIER_BATTLE_ENGINE_TRUTH_AND_TARGET.md` | Current engine truth + target architecture |
 | Land/Combat Audit | `artifacts/frontier-al/docs/audit/FRONTIER_LAND_COMBAT_PANEL_AUDIT.md` | End-to-end audit |
 
 ### Shared Contracts
