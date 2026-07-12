@@ -155,3 +155,58 @@ candidate targets** — i.e. the AI factions' currently-held parcels
 bounded candidate set. This is deliberately out of scope for this PR
 and will land in a follow-up unit once the per-faction query
 selectivity is measured.
+
+## Recovery verification — 2026-07-12 (recovery & release agent)
+
+### Verified
+- PR #243 merged into `main` as `729c5ec467de829dffa452c7fcbb2a49d4838eff`
+  (merged 2026-07-12T07:27:41Z). CI green: "Typecheck & server tests"
+  SUCCESS and "Cloudflare Pages" SUCCESS.
+- Auto-deploy: GitHub Actions `Deploy to Fly` run `29184272703` succeeded
+  (3m10s, started 07:27:43Z). New code is live at `https://frontiernext.fly.dev`.
+- `GET /health` returns HTTP **200** (`OK`).
+- Implementation matches the documented decision (verified by reading the
+  merged source on `main`):
+  - AI cadence `resolveAiTurnIntervalMs()` default **120000 ms**, floor
+    **30000 ms** (`server/util/backgroundIntervals.ts`).
+  - Debuff cleanup `resolveDebuffCleanupIntervalMs()` default **60000 ms**,
+    floor **10000 ms**; single combined bounded UPDATE
+    (`server/util/debuffCleanup.ts`).
+  - Parcel query uses the bounded 17-field `PARCEL_PROJECTION`
+    (`server/storage/ai-engine.ts`).
+  - Battle resolver cadence unchanged (`BATTLE_RESOLVE_INTERVAL_MS` default
+    **5000 ms**); debuff cleanup removed from the 5 s loop.
+  - `gameMeta.currentTurn` / `lastUpdateTs` still updated inside
+    `runAITurn` (unconditional) — not removed (`ai-engine.ts:294-296`).
+  - No schema migration; no lockfile/dependency change; no wallet/auth/
+    gamertag/NFT/funds change in the merge commit (10 files, server code +
+    docs only).
+- Tests (run in recovery environment after `pnpm install`):
+  - focused cost-control specs — **27/27 pass**;
+  - full server suite — **516 passed / 24 skipped** (skips are
+    DB-dependent);
+  - `pnpm run check` (`tsc`) — clean;
+  - `pnpm run build` — succeeds.
+
+### NOT verified by recovery agent (owner action required)
+- Production Fly secrets were **not** set by the recovery agent (no
+  `flyctl` / `FLY_API_TOKEN` in the recovery environment): `AI_ENABLED=true`,
+  `AI_TURN_INTERVAL_MS=120000`, `DEBUFF_CLEANUP_INTERVAL_MS=60000`,
+  `AI_MAX_ACTIVE_BATTLES=12`.
+- Live AI cadence (~120 s) and debuff cadence (~60 s) were **not observed**;
+  production was running with `AI_ENABLED=false` at recovery time.
+- DB deltas (`pg_stat_user_tables`, two snapshots 10 min apart) were **not
+  measured** (no `DATABASE_URL` in the recovery environment).
+
+### Rollback status
+- Not exercised: merge is clean and the deploy is healthy (HTTP 200). The
+  revert procedure in "Rollback" above remains valid.
+
+### Remaining owner action
+1. Set the four Fly secrets (production environment table) and restart.
+2. After restart confirm `/health` 200, then observe 12–15 min:
+   ~120 s AI / ~60 s debuff cadence, active AI battles ≤ 12, DB pool
+   errors = 0, no runaway scheduler.
+3. Run the two `pg_stat_user_tables` snapshots 10 min apart and compute
+   deltas (expect parcel seq-scan growth to decouple from the old ~20 s
+   cadence).
