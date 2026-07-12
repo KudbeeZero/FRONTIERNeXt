@@ -109,6 +109,7 @@ export const actionNonces = pgTable("action_nonces", {
   createdAt:    bigint("created_at", { mode: "number" }).notNull(),
   responseJson: text("response_json"),                          // success body for replay; NULL while in-flight
   completedAt:  bigint("completed_at", { mode: "number" }),     // when the success body was persisted
+  payloadFingerprint: text("payload_fingerprint"),                // canonical payload fingerprint (attacks); NULL for target-scoped legacy rows
 }, (t) => ({
   // Supports the ID-004 TTL prune (DELETE WHERE created_at < cutoff).
   createdIdx: index("action_nonces_created_idx").on(t.createdAt),

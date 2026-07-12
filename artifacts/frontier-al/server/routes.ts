@@ -77,6 +77,7 @@ import { redeemedPayments as redeemedPaymentsTable, actionNonces as actionNonces
 import { economicsSnapshots as economicsSnapshotsTable } from "./db-schema";
 import { evaluateOwnership } from "./routeOwnership";
 import { createActionIdempotencyGuard } from "./idempotencyGuard";
+import { attackIdempotencyScope, attackPayloadFingerprint } from "./attackIdempotency";
 
 // Shared error responder for action routes: zod validation failures map to a
 // generic 400, everything else surfaces the error message (or the per-route
@@ -123,21 +124,22 @@ const actionIdempotencyGuard = createActionIdempotencyGuard(
         async claim(key, rec) {
           const inserted = await db
             .insert(actionNoncesTable)
-            .values({ key, playerId: rec.playerId, action: rec.action, createdAt: Date.now() })
+            .values({ key, playerId: rec.playerId, action: rec.action, createdAt: Date.now(), payloadFingerprint: rec.fingerprint ?? null })
             .onConflictDoNothing()
             .returning({ key: actionNoncesTable.key });
           if (inserted.length > 0) return { inserted: true };
-          // Key already claimed — surface the persisted response (NULL = in-flight).
+          // Key already claimed — surface the persisted response + fingerprint
+          // (response NULL = still in-flight; fingerprint NULL = legacy row).
           const [row] = await db
-            .select({ response: actionNoncesTable.responseJson })
+            .select({ response: actionNoncesTable.responseJson, fingerprint: actionNoncesTable.payloadFingerprint })
             .from(actionNoncesTable)
             .where(eq(actionNoncesTable.key, key));
-          return { inserted: false, response: row?.response ?? null };
+          return { inserted: false, response: row?.response ?? null, fingerprint: row?.fingerprint ?? null };
         },
-        async complete(key, responseJson) {
+        async complete(key, responseJson, fingerprint?: string) {
           await db
             .update(actionNoncesTable)
-            .set({ responseJson, completedAt: Date.now() })
+            .set(fingerprint != null ? { responseJson, completedAt: Date.now(), payloadFingerprint: fingerprint } : { responseJson, completedAt: Date.now() })
             .where(eq(actionNoncesTable.key, key));
         },
         async remove(key) {
@@ -185,17 +187,20 @@ export function pruneActionNonces(olderThanMs: number = ACTION_NONCE_TTL_MS): Pr
 
 // Map an idempotency-guard rejection to a safe HTTP status + generic message.
 // Never echoes the nonce/key/playerId (fail-closed, no internals leaked).
-function idempotencyRejection(reason: "invalid_nonce" | "in_progress" | "store_unavailable"): {
+function idempotencyRejection(reason: "invalid_nonce" | "in_progress" | "store_unavailable" | "conflict"): {
   status: number;
   error: string;
+  code: string;
 } {
   switch (reason) {
     case "in_progress":
-      return { status: 409, error: "Duplicate request — still being processed, please retry" };
+      return { status: 409, error: "Duplicate request — still being processed, please retry", code: "idempotency_in_progress" };
+    case "conflict":
+      return { status: 409, error: "This request was already submitted with different parameters — conflicting replay rejected", code: "idempotency_conflict" };
     case "store_unavailable":
-      return { status: 503, error: "Service temporarily unavailable" };
+      return { status: 503, error: "Service temporarily unavailable", code: "idempotency_store_unavailable" };
     default:
-      return { status: 400, error: "Missing or invalid idempotency key" };
+      return { status: 400, error: "Missing or invalid idempotency key", code: "idempotency_invalid_nonce" };
   }
 }
 
@@ -203,19 +208,25 @@ function idempotencyRejection(reason: "invalid_nonce" | "in_progress" | "store_u
 // response was already sent (a 200 REPLAY of the original body, or a 400/409/503
 // rejection) and the handler must stop; false if it should run the mutation, then
 // `actionIdempotencyGuard.record(...)` on success / `.release(...)` on failure.
+// `fingerprint` (optional) enables same-key/different-payload conflict detection
+// (used by the plot-attack route). On a REPLAY the original stored body is
+// returned with `idempotentReplay: true` added (bounded metadata).
 async function guardClaimOrRespond(
   res: Response,
   scope: { playerId: string; action: string; target?: string },
   nonce: unknown,
+  fingerprint?: string,
 ): Promise<boolean> {
-  const idem = await actionIdempotencyGuard.claim(scope, nonce);
+  const idem = await actionIdempotencyGuard.claim(scope, nonce, fingerprint);
   if (!idem.ok) {
-    const { status, error } = idempotencyRejection(idem.reason);
-    res.status(status).json({ error });
+    const { status, error, code } = idempotencyRejection(idem.reason);
+    res.status(status).json({ error, code });
     return true;
   }
   if (idem.replay) {
-    res.json(JSON.parse(idem.response));
+    const body = JSON.parse(idem.response);
+    if (body && typeof body === "object") (body as Record<string, unknown>).idempotentReplay = true;
+    res.json(body);
     return true;
   }
   return false;
@@ -1954,14 +1965,23 @@ export async function registerRoutes(
       const verifiedId = await assertPlayerOwnership(req, res, req.body?.attackerId);
       if (!verifiedId) return;
       const action = attackActionSchema.parse(req.body);
-      // Idempotency (nonce-optional): when the client sends an idempotencyKey,
-      // dedup double-submit/replay (replay → original 200, in-flight → 409). An
-      // absent nonce falls back to the atomic activeBattleId claim in deployAttack,
-      // so nonce-less callers are never broken (fail-open on missing nonce here,
-      // unlike the other mutations which require one).
-      const scope = { playerId: action.attackerId, action: "attack", target: encodeURIComponent(action.targetParcelId) };
+      // Idempotency (Phase 4A): key on the auth-verified actor ONLY
+      // (`attack:${playerId}:${nonce}`), with a canonical payload fingerprint
+      // carrying the target + all committed parameters. A duplicate with the SAME
+      // key + SAME payload REPLAYS the original 200 (no re-apply); a duplicate
+      // with the same key but DIFFERENT payload is rejected 409 (conflict); an
+      // in-flight duplicate gets 409 (retry). The guard is DB-backed
+      // (action_nonces, PRIMARY KEY on `key`) so it survives restarts and
+      // concurrent requests, and `deployAttack` itself runs every side effect
+      // (deduct, battle insert, parcel claim, event) inside one transaction.
+      // Missing nonce is FAIL-OPEN (legacy compat): the atomic activeBattleId
+      // claim inside deployAttack still blocks a true double-battle, and no
+      // replay guarantee is claimed for nonce-less callers. The official client
+      // always supplies a stable idempotencyKey per explicit Launch action.
+      const scope = attackIdempotencyScope(verifiedId);
       const nonce = actionNonce(req, action);
-      if (nonce && (await guardClaimOrRespond(res, scope, nonce))) return;
+      const fingerprint = attackPayloadFingerprint(verifiedId, action);
+      if (nonce && (await guardClaimOrRespond(res, scope, nonce, fingerprint))) return;
 
       let battle;
       try {
@@ -1970,7 +1990,7 @@ export async function registerRoutes(
         if (nonce) await actionIdempotencyGuard.release(scope, nonce); // failed → allow retry
         throw mutErr;
       }
-      if (nonce) await actionIdempotencyGuard.record(scope, nonce, JSON.stringify({ success: true, battle }));
+      if (nonce) await actionIdempotencyGuard.record(scope, nonce, JSON.stringify({ success: true, battle, clientRequestId: nonce, idempotentReplay: false }), fingerprint);
       if (action.crystalBurned && action.crystalBurned > 0) {
         const attackPlayer = await storage.getPlayer(action.attackerId);
         if (attackPlayer) fireBurn(attackPlayer.address, action.crystalBurned, `Crystal burn battleId=${battle.id}`);

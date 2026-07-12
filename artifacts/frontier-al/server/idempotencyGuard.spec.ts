@@ -26,22 +26,25 @@ import {
 
 const NONCE = "550e8400-e29b-41d4-a716-446655440000"; // UUID-shaped, valid
 
-/** In-memory store mirroring the `key` PK + `response_json` + `created_at` columns. */
+/** In-memory store mirroring the `key` PK + `response_json` + `payload_fingerprint` + `created_at` columns. */
 function fakeStore(): ActionNonceStore & {
-  rows: Map<string, { rec: ActionNonceRecord; response: string | null; createdAt: number }>;
+  rows: Map<string, { rec: ActionNonceRecord; response: string | null; fingerprint: string | null; createdAt: number }>;
 } {
-  const rows = new Map<string, { rec: ActionNonceRecord; response: string | null; createdAt: number }>();
+  const rows = new Map<string, { rec: ActionNonceRecord; response: string | null; fingerprint: string | null; createdAt: number }>();
   return {
     rows,
     async claim(key, rec) {
       const existing = rows.get(key);
-      if (existing) return { inserted: false, response: existing.response };
-      rows.set(key, { rec, response: null, createdAt: Date.now() });
+      if (existing) return { inserted: false, response: existing.response, fingerprint: existing.fingerprint };
+      rows.set(key, { rec, response: null, fingerprint: rec.fingerprint ?? null, createdAt: Date.now() });
       return { inserted: true };
     },
-    async complete(key, responseJson) {
+    async complete(key, responseJson, fingerprint?: string) {
       const row = rows.get(key);
-      if (row) row.response = responseJson;
+      if (row) {
+        row.response = responseJson;
+        if (fingerprint != null) row.fingerprint = fingerprint;
+      }
     },
     async remove(key) {
       rows.delete(key);
@@ -298,5 +301,90 @@ describe("createActionIdempotencyGuard — build/upgrade target scoping (two-pha
     expect(actionNonceKey("build", "alice", NONCE)).toBe(`build:alice:${NONCE}`);
     expect(actionNonceKey("build", "alice", NONCE, "plot-1:turret"))
       .not.toBe(actionNonceKey("build", "alice", NONCE, "plot-2:turret"));
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4A — plot-attack idempotency with canonical payload fingerprinting.
+//
+// Attacks key on (player, action="attack", nonce) ONLY (no target in the key).
+// The target + all committed parameters are folded into a deterministic
+// `payloadFingerprint`. The contract:
+//   • same key + same fingerprint        → replay original 200
+//   • same key + DIFFERENT fingerprint  → 409 conflict (no re-apply, no new battle)
+//   • different attacker (same nonce str)→ distinct key, no collision
+// ─────────────────────────────────────────────────────────────────────────────
+describe("createActionIdempotencyGuard — attack payload fingerprint (Phase 4A)", () => {
+  const ATTACK = { playerId: "alice", action: "attack" };
+  const FP_A = JSON.stringify({ actor: "alice", source: null, target: "p-1", troops: 5, iron: 10, fuel: 8, crystal: 0, commander: null });
+  const FP_B = JSON.stringify({ actor: "alice", source: null, target: "p-2", troops: 5, iron: 10, fuel: 8, crystal: 0, commander: null });
+  const BODY_A = JSON.stringify({ success: true, battle: { id: "b-a" } });
+  const BODY_B = JSON.stringify({ success: true, battle: { id: "b-b" } });
+
+  it("1. fresh claim + record, then same-key/same-fingerprint REPLAYS (no re-apply)", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    expect(await guard.claim(ATTACK, NONCE, FP_A)).toEqual({ ok: true, replay: false });
+    await guard.record(ATTACK, NONCE, BODY_A, FP_A);
+    expect(await guard.claim(ATTACK, NONCE, FP_A)).toEqual({ ok: true, replay: true, response: BODY_A });
+    expect(await guard.claim(ATTACK, NONCE, FP_A)).toEqual({ ok: true, replay: true, response: BODY_A });
+  });
+
+  it("2. same key + DIFFERENT fingerprint → 409 conflict (no replay, no new battle)", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    await guard.claim(ATTACK, NONCE, FP_A);
+    await guard.record(ATTACK, NONCE, BODY_A, FP_A);
+    // A second submission reusing the same nonce but with a different target
+    // (different fingerprint) must be rejected, NOT replayed or applied.
+    const dup = await guard.claim(ATTACK, NONCE, FP_B);
+    expect(dup).toEqual({ ok: false, reason: "conflict" });
+  });
+
+  it("3. conflict is also enforced in the storeless (dev/mem) fallback", async () => {
+    const guard = createActionIdempotencyGuard(null);
+    await guard.claim(ATTACK, NONCE, FP_A);
+    await guard.record(ATTACK, NONCE, BODY_A, FP_A);
+    expect(await guard.claim(ATTACK, NONCE, FP_B)).toEqual({ ok: false, reason: "conflict" });
+  });
+
+  it("4. same key + different COMMITTED amount → conflict (double-spend guard)", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    const fpFew = JSON.stringify({ actor: "alice", source: null, target: "p-1", troops: 5, iron: 10, fuel: 8, crystal: 0, commander: null });
+    const fpMany = JSON.stringify({ actor: "alice", source: null, target: "p-1", troops: 9, iron: 10, fuel: 8, crystal: 0, commander: null });
+    await guard.claim(ATTACK, NONCE, fpFew);
+    await guard.record(ATTACK, NONCE, BODY_A, fpFew);
+    expect(await guard.claim(ATTACK, NONCE, fpMany)).toEqual({ ok: false, reason: "conflict" });
+  });
+
+  it("5. same key IN-FLIGHT (no fingerprint recorded yet) → in_progress, not conflict", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    expect(await guard.claim(ATTACK, NONCE, FP_A)).toEqual({ ok: true, replay: false });
+    // Different fingerprint while in-flight can't be compared yet → retry (409).
+    expect(await guard.claim(ATTACK, NONCE, FP_B)).toEqual({ ok: false, reason: "in_progress" });
+  });
+
+  it("6. different attacker with the SAME nonce string → distinct key, no collision", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    expect(await guard.claim(ATTACK, NONCE, FP_A)).toEqual({ ok: true, replay: false });
+    expect(await guard.claim({ playerId: "bob", action: "attack" }, NONCE, FP_A)).toEqual({ ok: true, replay: false });
+  });
+
+  it("7. a completed attack (with fingerprint) still RELEASES on failure so a same-fp retry is fresh", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    await guard.claim(ATTACK, NONCE, FP_A);
+    await guard.release(ATTACK, NONCE); // mutation failed before record
+    expect(await guard.claim(ATTACK, NONCE, FP_A)).toEqual({ ok: true, replay: false });
+  });
+
+  it("8. malformed/short nonce still rejected even with a valid fingerprint", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    expect(await guard.claim(ATTACK, "short", FP_A)).toEqual({ ok: false, reason: "invalid_nonce" });
+  });
+
+  it("9. a call WITHOUT a fingerprint still replays a fingerprinted row (legacy compat, no false conflict)", async () => {
+    const guard = createActionIdempotencyGuard(fakeStore());
+    await guard.claim(ATTACK, NONCE, FP_A);
+    await guard.record(ATTACK, NONCE, BODY_A, FP_A);
+    // A legacy caller that omits the fingerprint must NOT be flagged as a conflict.
+    expect(await guard.claim(ATTACK, NONCE)).toEqual({ ok: true, replay: true, response: BODY_A });
   });
 });
