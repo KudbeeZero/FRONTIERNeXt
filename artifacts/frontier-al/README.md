@@ -35,6 +35,18 @@ Players and AI factions compete for control of a shared 21,000-plot world map re
 
 ---
 
+## 📚 Canonical Documentation
+
+**For future agents and developers:**
+
+- **[FRONTIER_MASTER_GAME_SPEC.md](./FRONTIER_MASTER_GAME_SPEC.md)** — Canonical game-design truth (29 sections, status labels for all systems)
+- **[PRODUCTION_READINESS_ROADMAP.md](./PRODUCTION_READINESS_ROADMAP.md)** — 9-lane implementation plan (P0-P9, 45 tasks)
+- **[docs/DOC_RECONCILIATION_LEDGER.md](./docs/DOC_RECONCILIATION_LEDGER.md)** — Doc-vs-code mismatch tracker (19 entries)
+
+All future implementation must align with the master game spec. Status labels (LIVE/PARTIAL/CONTRACT_ONLY/PLANNED/etc.) are enforced.
+
+---
+
 ## What's New — Battle Theater & Fairness
 
 - **Battle Theater (cinematics).** A resolved battle now plays as one *connected*
