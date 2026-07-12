@@ -67,15 +67,11 @@ import {
 } from "@shared/schema";
 import type { FacilityType, DefenseImprovementType, ImprovementType } from "@shared/schema";
 import { resolveBattle, resolveBattleFromPowers } from "../engine/battle/resolve.js";
+import { buildLaunchProfile } from "../engine/battle/profileAdapter.js";
 import { buildReplayLog } from "../engine/battle/replayLog.js";
 import { hashSeed } from "../engine/battle/random.js";
 import { commTerminalLevel } from "../engine/narrative/whispers.js";
 import { CRYSTAL_POWER_FACTOR } from "../engine/battle/tuning.js";
-import type {
-  BattleInput as EngineBattleInput,
-  BiomeType as EngineBiomeType,
-  ImprovementType as EngineImprovementType,
-} from "../engine/battle/types.js";
 import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP, isImprovementAllowedForArchetype } from "@shared/schema";
 import type { RareMineralType } from "@shared/schema";
 import { sphereDistance } from "../sphereUtils";
@@ -1488,36 +1484,51 @@ export class DbStorage implements IStorage {
 
       const battleId = randomUUID();
 
-      // ── Battle power via the deterministic battle engine ──────────────────
-      // resolveBattle() is the single source of truth for all battle math.
-      // Two attacker-side modifiers that the engine does not model directly are
-      // folded into its inputs so the result is identical to the legacy formula:
-      //   • crystal burned contributes attacker power at CRYSTAL_POWER_FACTOR —
-      //     folded additively into commanderBonus (same position in the sum).
-      //   • a defender Radar Array scales the whole attacker contribution ×0.9 —
-      //     pre-scaling every attacker input by radarMod is mathematically
-      //     equivalent to scaling the summed attacker power.
+      // ── Battle launch adapter (Phase A) ────────────────────────────────────
+      // The adapter wraps the legacy deployAttack() input construction in the
+      // CombatProfile/BattleSnapshot contract. It produces:
+      //   - an immutable CombatProfile + BattleSnapshot for the live state,
+      //   - the EXACT same EngineBattleInput the legacy path built below
+      //     (so resolveBattle() sees byte-identical inputs and the battle
+      //     row written by this transaction is parity-safe), and
+      //   - the legacy persisted battle-row values used by the insert below.
+      // If the contract validation ever fails, we fall through to the legacy
+      // inline path (preserves the immediate rollback contract).
       const hasRadar     = target.improvements.some(i => i.type === "radar");
-      const radarMod     = hasRadar ? 0.9 : 1.0;
       const moraleActive = !!(attacker.moraleDebuffUntil && now < attacker.moraleDebuffUntil);
 
-      const battleInput: EngineBattleInput = {
+      const launchProfile = buildLaunchProfile(
         battleId,
-        attackerId:         attacker.id,
-        defenderId:         target.ownerId ?? null,
-        plotId:             target.plotId,
-        troopsCommitted:    action.troopsCommitted * radarMod,
-        resourcesBurned:    { iron: iron * radarMod, fuel: fuel * radarMod },
-        commanderBonus:     (commanderBonus + crystal * CRYSTAL_POWER_FACTOR) * radarMod,
-        moraleDebuffActive: moraleActive,
-        defenseLevel:       target.defenseLevel,
-        biome:              target.biome as EngineBiomeType,
-        improvements:       target.improvements
-          .filter((i) => ["turret", "shield_gen", "fortress"].includes(i.type))
-          .map((i) => ({ type: i.type as EngineImprovementType, level: i.level })),
-        orbitalHazardActive: false,
-        randomSeed:         hashSeed(battleId, now),
-      };
+        {
+          attackerId:       action.attackerId,
+          targetParcelId:   action.targetParcelId,
+          troopsCommitted:  action.troopsCommitted,
+          resourcesBurned:  { iron, fuel },
+          crystalBurned:    crystal,
+          sourceParcelId:   action.sourceParcelId ?? null,
+          commanderId:      commanderId ?? null,
+        },
+        {
+          id:                 attacker.id,
+          name:               attacker.name,
+          isAI:               !!attackerRow.isAi,
+          commanderBonus:     commanderBonus,
+          commanderId:        commanderId ?? null,
+          moraleDebuffActive: moraleActive,
+          factionLabel:       null,
+        },
+        {
+          parcelId:     target.id,
+          plotId:       target.plotId,
+          biome:        target.biome,
+          defenseLevel: target.defenseLevel,
+          ownerId:      target.ownerId,
+          improvements: target.improvements,
+          hasRadar:     hasRadar,
+        },
+        now,
+      );
+      const battleInput = launchProfile.legacyBattleInput;
       const deployResult = resolveBattle(battleInput);
       // Persist the pre-randFactor base power; resolveBattles applies the
       // deterministic randFactor exactly once at resolution time.
@@ -1525,21 +1536,21 @@ export class DbStorage implements IStorage {
       const defenderPower = deployResult.defenderPower;
 
       const battleValues = {
-        id:               battleId,
-        attackerId:       attacker.id,
-        defenderId:       target.ownerId ?? null,
-        targetParcelId:   target.id,
+        id:               launchProfile.legacyPersistedFields.id,
+        attackerId:       launchProfile.legacyPersistedFields.attackerId,
+        defenderId:       launchProfile.legacyPersistedFields.defenderId,
+        targetParcelId:   launchProfile.legacyPersistedFields.targetParcelId,
         attackerPower,
         defenderPower,
-        troopsCommitted:  action.troopsCommitted,
-        resourcesBurned:  { iron, fuel },
-        crystalBurned:    crystal,
+        troopsCommitted:  launchProfile.legacyPersistedFields.troopsCommitted,
+        resourcesBurned:  launchProfile.legacyPersistedFields.resourcesBurned,
+        crystalBurned:    launchProfile.legacyPersistedFields.crystalBurned,
         influenceDamage:  0,
-        startTs:          now,
-        resolveTs:        now + BATTLE_DURATION_MS,
+        startTs:          launchProfile.legacyPersistedFields.startTs,
+        resolveTs:        launchProfile.legacyPersistedFields.resolveTs,
         status:           "pending" as const,
-        commanderId:      commanderId ?? null,
-        sourceParcelId:   action.sourceParcelId ?? null,
+        commanderId:      launchProfile.legacyPersistedFields.commanderId,
+        sourceParcelId:   launchProfile.legacyPersistedFields.sourceParcelId,
       };
 
       const playerUpdates: Record<string, any> = { iron: attackerRow.iron - iron, fuel: attackerRow.fuel - fuel, crystal: attackerRow.crystal - crystal };
