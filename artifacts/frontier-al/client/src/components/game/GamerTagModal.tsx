@@ -1,5 +1,5 @@
-import { resolveApiUrl } from "@/lib/queryClient";
-import { useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { User } from "lucide-react";
 
@@ -10,10 +10,33 @@ interface GamerTagModalProps {
   onSkip: () => void;
 }
 
+/**
+ * `apiRequest` rejects non-ok responses with a message shaped like
+ * `"<status>: <response-body>"`. Pull the server's human-readable `error` field
+ * out of that so the modal can show it instead of a raw "401: {...}" string.
+ */
+function extractErrorMessage(err: unknown, fallback: string): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const match = raw.match(/^\d+:\s*(\{.*\})\s*$/s);
+  if (match) {
+    try {
+      const body = JSON.parse(match[1]) as { error?: string };
+      if (typeof body.error === "string" && body.error.length > 0) return body.error;
+    } catch {
+      /* not JSON — fall through to raw */
+    }
+  }
+  return raw || fallback;
+}
+
 export function GamerTagModal({ playerId, walletAddress, onComplete, onSkip }: GamerTagModalProps) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Synchronous single-flight guard. React state updates are async, so two
+  // clicks dispatched in the same tick would both read `submitting === false`;
+  // the ref catches that race so we never issue a duplicate write.
+  const inFlightRef = useRef(false);
 
   const handleSubmit = async () => {
     const trimmed = name.trim();
@@ -26,25 +49,32 @@ export function GamerTagModal({ playerId, walletAddress, onComplete, onSkip }: G
       return;
     }
 
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
     setSubmitting(true);
     setError("");
 
     try {
-      const res = await fetch(resolveApiUrl("/api/actions/set-name"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId, name: trimmed, address: walletAddress }),
+      // apiRequest attaches the wallet session (credentials + Authorization
+      // Bearer token) — required because /api/actions/* is gated by the global
+      // mutation ownership guard on the server. A bare fetch here previously
+      // hit that guard with no session and failed with 401.
+      const res = await apiRequest("POST", "/api/actions/set-name", {
+        playerId,
+        name: trimmed,
+        address: walletAddress,
       });
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Failed to set name");
-        setSubmitting(false);
-        return;
-      }
       onComplete(data.name);
-    } catch {
-      setError("Network error. Try again.");
+    } catch (err) {
+      // Surface the server's readable message (e.g. "Authentication required",
+      // "That tag is already taken", "Name must be 2-20 characters") instead of
+      // a generic error — but never leak raw stack traces.
+      setError(extractErrorMessage(err, "Failed to set name"));
       setSubmitting(false);
+    } finally {
+      inFlightRef.current = false;
     }
   };
 
