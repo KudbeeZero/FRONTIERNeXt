@@ -346,10 +346,14 @@ Strict PR boundaries; one concern per PR. No phase is implemented here.
 
 ### Phase 3 — Server `CombatProfile` and immutable battle snapshot foundation
 - **Goal:** Build `CombatProfile` at launch; freeze snapshot into `battles`; resolver reads snapshot.
-- **Files:** `server/storage/db.ts` (deployAttack), `server/engine/battle/resolve.ts`, `shared/schema.ts`.
-- **DB impact:** new nullable `battles` columns. **Migration risk:** low (additive, nullable).
-- **API impact:** `/attack` returns/accepts doctrine; snapshot stored. **Client impact:** preview only.
-- **Tests:** snapshot immutability test (resolve ignores post-launch loadout change); replay parity.
+- **Phase 3 (this PR) implemented as a CONTRACT-FOUNDATION lane only:** the canonical
+  deterministic, immutable combat-profile + battle-snapshot contract lives in
+  `artifacts/frontier-al/shared/combatProfile.ts` (pure, zero gameplay effect, no DB/routes/
+  resolver wiring). Later phases wire it into `server/storage/db.ts` (deployAttack) and
+  `server/engine/battle/resolve.ts`.
+- **DB impact (deferred):** new nullable `battles` columns. **Migration risk:** low (additive, nullable).
+- **API impact (deferred):** `/attack` returns/accepts doctrine; snapshot stored. **Client impact (deferred):** preview only.
+- **Tests:** snapshot immutability + determinism + validation tests (see §14).
 - **Rollout gate:** replay/fairness preserved. **Rollback:** revert PR.
 - **Depends on:** Phase 1, Phase 2.
 
@@ -589,3 +593,56 @@ untouched.
 `resolveBattle()`/attack schema, battle snapshots, AI/background loops, plot/sub-parcel
 persistence, UI, wallets, blockchain/NFTs, prices/funds, dependencies/lockfile, and Fly config
 are all unchanged by this phase. The simulator is a standalone contract.
+
+## 14. Phase 3 Implementation Status (immutable CombatProfile / battle-snapshot contract)
+
+**Branch:** `feat/frontier-combat-profile` · **PR:** (Phase 3 PR into `main`).
+
+### Contract path
+- `artifacts/frontier-al/shared/combatProfile.ts` — pure, deterministic, dependency-free
+  (reuses shared `BiomeType`/`ImprovementType`/`EnergyAlignment` and `FacilityArchetypeId`/
+  `FacilityEffectKey`; mirrors `stableStringify` + `hashSeed` locally so `shared/` does not
+  import `server/`).
+- `artifacts/frontier-al/shared/combatProfile.spec.ts` — 60 focused unit tests (all green).
+
+### Exported API
+- Types/consts: `CombatProfileVersion` (`1`), `COMBAT_PROFILE_VERSION`, `CombatActorRef`,
+  `CombatPlotRef`, `CombatSubplotRef`, `CombatOrigin`, `CombatTarget`,
+  `CombatResourceCommitment`, `CombatFacilityEntry`, `CombatFacilityContext`,
+  `CombatEnergyContext`, `CombatUpgradeEntry`, `CombatUpgradeContext`, `CombatModifier`,
+  `CombatTargetDefense`, `CombatProfileDraft`, `CombatProfile`, `BattleSnapshot`,
+  `CombatProfileValidationError`.
+- Functions: `validateCombatProfileDraft()`, `buildCombatProfile()`, `createBattleSnapshot()`,
+  `serializeBattleSnapshot()`, `stableStringify()`.
+
+### Validation policy (reject, never guess)
+`validateCombatProfileDraft()` throws `CombatProfileValidationError` (field-level `issues`) on:
+non-object draft; invalid actor refs (playerId/factionId/isAI); non-integer/negative plot id;
+invalid sub-parcel index (not 0..8); negative/fractional/unsafe commitment numbers; unknown
+facility archetype; duplicate facility instance ids; unsupported alignment/biome/improvement;
+invalid modifier (empty source / bad kind / bad scope / non-finite value); empty `seedParts`;
+non-integer `randomSeed`; non-integer `startTs`. Reuses `isFacilityArchetypeId()`.
+
+### Determinism & immutability
+- `buildCombatProfile()` produces a `readonly` `CombatProfile`, content-addressed by
+  `profileId` (`cp_<hash>` of the stable serialization) — identical drafts → identical id.
+- `createBattleSnapshot()` freezes the profile at a caller-supplied `startTs` (no clock read),
+  locks `randomSeed`, and carries a deterministic `hash` (`bs_<hash>` id).
+- `serializeBattleSnapshot()` is order-independent (`stableStringify` sorts keys); identical
+  snapshots serialize identically.
+
+### Existing battle types reused (NOT modified)
+- `resolveBattle()` — `server/engine/battle/resolve.ts:27`.
+- Attack validation — `shared/schema.ts:517` (`attackActionSchema`), used at `server/routes.ts:1956`.
+- Battle schema/table — `shared/schema.ts:328` (`Battle` interface); `battlesTable` in
+  `server/db-schema.ts` (written at `server/storage/db.ts:1565`; routes `server/routes.ts:1952`
+  and `server/routes.ts:3879`).
+- Serialization helper — `server/engine/markets/resolve.ts:100` (`stableStringify`);
+  `server/engine/battle/random.ts:33` (`hashSeed`).
+
+### Explicit statement
+**No production gameplay or infrastructure changed.** Attack routes, DB persistence,
+`resolveBattle()`, AI, Commander/Armory/Plot UI, sub-plot construction, live energy calculations,
+schema, migrations, dependencies/lockfile, and Fly config are all untouched. The contract is a
+standalone foundation; later phases (4 idempotency, 5 weapon integration, 6 doctrines, 7
+facility/energy effects) will wire it into the resolver via an immutable snapshot.
