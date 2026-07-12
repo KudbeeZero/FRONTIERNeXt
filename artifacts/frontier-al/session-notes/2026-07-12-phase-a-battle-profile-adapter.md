@@ -198,7 +198,7 @@ The following are **guaranteed unchanged** by this PR:
 - Response shape (rowToBattle)
 - Attack idempotency (PR #250 — payload_fingerprint)
 - Transaction boundary (single tx, rollback on failure)
-- Idempotency preservation (no profile/snapshot rebuild on replay)
+- **Idempotency preservation — completed replays do NOT call `deployAttack` and do NOT call the adapter** (`guardClaimOrRespond` returns the stored response with `idempotentReplay: true` before the deploy step; verified in `server/attackIdempotency.spec.ts` test #8)
 - Failure preservation (validation/resource/target-claim errors throw before any side effect)
 
 ### Explicitly NOT Added (Deferred to Later Phases)

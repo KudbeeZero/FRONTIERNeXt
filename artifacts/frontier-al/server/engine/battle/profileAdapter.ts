@@ -212,12 +212,14 @@ function buildLaunchDraft(
       factionId: attacker.factionLabel,
       isAI:      attacker.isAI,
     },
-    // origin = home plot of the attacker. The legacy deployAttack() does
-    // not yet encode the attacker's home parcel id, so the contract
-    // accepts a sentinel "unknown_origin" here. Phase C can replace
-    // this with the real `action.sourceParcelId` once both human and
-    // AI launch paths uniformly provide it.
-    plot:    { plotId: 0, parcelId: "unknown_origin" },
+    // origin = home plot of the attacker. When the launch action carries an
+    // authoritative `sourceParcelId`, the adapter uses it exactly (preserved
+    // by the snapshot). When it is absent, the contract requires a non-empty
+    // `parcelId`, so we use the explicit sentinel "unknown_origin". A future
+    // replay path can detect this sentinel and treat the origin as unknown.
+    plot:    action.sourceParcelId
+      ? { plotId: 0, parcelId: action.sourceParcelId }
+      : { plotId: 0, parcelId: "unknown_origin" },
     subPlot: null,
   };
   const targetCombat: CombatTarget = {

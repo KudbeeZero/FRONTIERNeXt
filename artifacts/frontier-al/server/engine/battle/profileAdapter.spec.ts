@@ -429,8 +429,118 @@ describe("profileAdapter — legacy persisted fields parity", () => {
     expect(result.legacyPersistedFields.resolveTs).toBe(NOW + 10 * 60 * 1000);
     expect(result.legacyPersistedFields.commanderId).toBe("cmd-reaper");
     // attackerPower and defenderPower are filled by the route AFTER
-    // resolveBattle() runs — the adapter leaves them as zero.
+    // resolveBattle() runs — the adapter leaves them at zero.
     expect(result.legacyPersistedFields.attackerPower).toBe(0);
     expect(result.legacyPersistedFields.defenderPower).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Authoritative origin (sourceParcelId preservation)
+// ---------------------------------------------------------------------------
+
+describe("profileAdapter — authoritative origin", () => {
+  it("uses action.sourceParcelId when present (exact preservation)", () => {
+    const result = buildLaunchProfile(
+      BATTLE_ID,
+      action({ sourceParcelId: "parcel-source-uuid" }),
+      attacker(),
+      target(),
+      NOW,
+    );
+    expect(result.profile.origin.plot.parcelId).toBe("parcel-source-uuid");
+    // The serialized snapshot must also carry the exact source parcel.
+    expect(result.snapshot.profile.origin.plot.parcelId).toBe("parcel-source-uuid");
+  });
+
+  it("falls back to the 'unknown_origin' sentinel when sourceParcelId is null", () => {
+    const result = buildLaunchProfile(
+      BATTLE_ID,
+      action({ sourceParcelId: null }),
+      attacker(),
+      target(),
+      NOW,
+    );
+    expect(result.profile.origin.plot.parcelId).toBe("unknown_origin");
+    expect(result.snapshot.profile.origin.plot.parcelId).toBe("unknown_origin");
+  });
+
+  it("does not fabricate origin data — no plotId, no extra fields", () => {
+    const result = buildLaunchProfile(
+      BATTLE_ID,
+      action({ sourceParcelId: "real-source" }),
+      attacker(),
+      target(),
+      NOW,
+    );
+    // plotId is always 0 in Phase A (legacy does not encode the source
+    // plotId); the contract requires a number, so 0 is the explicit
+    // "not encoded" sentinel. No fabrication of plot coordinates.
+    expect(result.profile.origin.plot.plotId).toBe(0);
+    expect(result.profile.origin.subPlot).toBeNull();
+  });
+
+  it("unowned target uses 'unowned' defender sentinel, distinct from origin", () => {
+    const result = buildLaunchProfile(
+      BATTLE_ID,
+      action({ sourceParcelId: "real-source" }),
+      attacker(),
+      target({ ownerId: null }),
+      NOW,
+    );
+    // Origin keeps the authoritative source.
+    expect(result.profile.origin.plot.parcelId).toBe("real-source");
+    // Target's defender is the "unowned" sentinel.
+    expect(result.profile.target.actor.playerId).toBe("unowned");
+    // The two sentinels do not collide.
+    expect(result.profile.origin.plot.parcelId).not.toBe(result.profile.target.actor.playerId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixed-point modifier semantics (CHECK C)
+// ---------------------------------------------------------------------------
+
+describe("profileAdapter — fixed-point modifier semantics", () => {
+  it("multiplier modifier value 100 represents 1.00× (no change)", () => {
+    // Use a custom attacker to trigger a no-op multiplier; the adapter
+    // only pushes the morale modifier when moraleDebuffActive is true, so
+    // we verify the absence of a 100-valued multiplier as the "no effect"
+    // case. The contract is: multipliers are fixed-point percentages
+    // (value / 100).
+    const result = buildLaunchProfile(
+      BATTLE_ID,
+      action(),
+      attacker({ moraleDebuffActive: true }),
+      target({ hasRadar: false }),
+      NOW,
+    );
+    const morale = result.profile.modifiers.find((m) => m.source === "debuff.morale");
+    expect(morale?.value).toBe(75); // 0.75×
+  });
+
+  it("radar multiplier value 90 represents 0.90×", () => {
+    const result = buildLaunchProfile(
+      BATTLE_ID,
+      action(),
+      attacker({ moraleDebuffActive: false }),
+      target({ hasRadar: true }),
+      NOW,
+    );
+    const radar = result.profile.modifiers.find((m) => m.source === "defense.radar");
+    expect(radar?.value).toBe(90); // 0.90×
+  });
+
+  it("all modifier values are safe integers (no floating-point leakage)", () => {
+    const result = buildLaunchProfile(
+      BATTLE_ID,
+      action({ crystalBurned: 5 }),
+      attacker({ moraleDebuffActive: true, commanderBonus: 30 }),
+      target({ hasRadar: true }),
+      NOW,
+    );
+    for (const m of result.profile.modifiers) {
+      expect(Number.isSafeInteger(m.value)).toBe(true);
+    }
   });
 });

@@ -172,8 +172,11 @@ export interface CombatTargetDefense {
 
 /**
  * Caller-supplied, pre-validation input. Numbers must be non-negative safe
- * integers (except modifier `value`, which may be any finite number); strings
- * are non-empty where required. `version` is forced to `1` on build.
+ * integers. Modifier `value` must also be a safe integer: multiplier-kind
+ * modifiers are encoded as fixed-point percentages where `100` means
+ * `1.00×`, `90` means `0.90×`, and `75` means `0.75×`; additive-kind
+ * modifiers carry integer legacy power units. `version` is forced to `1`
+ * on build.
  */
 export interface CombatProfileDraft {
   origin: CombatOrigin;
