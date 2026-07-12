@@ -1734,7 +1734,14 @@ export function GameLayout() {
           Was desktop-only ("!isMobile" gate) — the layout itself is already
           responsive (fixed bottom-0 left-0 right-0 on mobile, same pattern
           as MobilePlotSheet), it was just never enabled on mobile. Owner:
-          "there's like a whole secondary menu that doesn't exist on mobile." */}
+          "there's like a whole secondary menu that doesn't exist on mobile."
+
+          FIX (mobile overlay state): onClose only dismisses the full sheet
+          (showFullLandSheet = false). The selected parcel state is preserved
+          so the user returns to the plot details view (SelectedPlotPanel /
+          MobilePlotSheet). Previously, closing the full sheet also cleared
+          the selected parcel, which caused a double-close effect: one tap
+          on the X closed both the full sheet AND the underlying plot card. */}
       {activeTab === "map" && selectedParcel && showFullLandSheet && (
         <LandSheet
           parcel={selectedParcel}
@@ -1747,7 +1754,10 @@ export function GameLayout() {
           onSpecialAttack={handleSpecialAttack}
           onClose={() => {
             setShowFullLandSheet(false);
-            setSelectedParcelId(null);
+            // Intentionally do NOT clear selectedParcelId here — the
+            // user should return to the plot details view, not the
+            // globe. The X on the plot details card is the explicit
+            // "back to globe" action.
           }}
           onNavigateToPlot={selectedParcel ? () => flyToParcelOnMap(selectedParcel.id) : undefined}
           isMining={mineMutation.isPending}
