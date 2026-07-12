@@ -5,22 +5,25 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** `fix/frontier-background-loop-cost-control` — reduce recurring Neon compute / data-transfer from production background loops.
-- **Branch:** `fix/frontier-background-loop-cost-control` (open, awaiting owner)
-- **PR:** #243 · **OPEN, CI GREEN, mergeStateStatus CLEAN, NOT MERGED** (owner review/merge required)
-- **Status:** done in-session, awaiting owner merge.
-- **Closeout facts:**
-  - PR #242 (gamertag auth + recovery) **merged** (squash `fa5b125`) into `main`.
-  - PR #243 (cost-control) open on `fix/frontier-background-loop-cost-control`, CI green.
-  - Fly health endpoint `https://frontiernext.fly.dev/health` returns 200.
-  - AI scheduler cadence: hardcoded 20s → `AI_TURN_INTERVAL_MS` default 120s (floor 30s). 4,320 → 720 runs/day (−83.3%).
-  - Parcel query: `SELECT *` → 17-field projection.
-  - Debuff cleanup: moved out of 5s resolver to own `DEBUFF_CLEANUP_INTERVAL_MS` default 60s (floor 10s), combined into one bounded UPDATE.
-  - `gameMeta.currentTurn` kept unconditional (proven dependency); documented in `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
-- **Active lane:** PR #243 awaiting owner merge.
+- **Unit:** background-loop cost-control — **DONE & MERGED** (all three doc PRs closed).
+  - PR #243 `729c5ec` merged → auto-deployed; `/health` 200.
+  - PR #244 `f13d9f5` merged (recovery verification doc).
+  - PR #245 `e5b423b` merged (prod-verification limits; activation blocked on owner Fly/Neon access).
+- **Owner-only blocker:** production activation was **not** performed by agents (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Owner must run:
+  `flyctl secrets set -a frontiernext AI_ENABLED=true AI_TURN_INTERVAL_MS=120000 DEBUFF_CLEANUP_INTERVAL_MS=60000 AI_MAX_ACTIVE_BATTLES=12`
+  then confirm `/health` 200 and observe 15 min (AI ~120 s, debuff ~60 s, active battles ≤ 12). See `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
+- **Closeout facts (PR #243):** AI scheduler 20s → `AI_TURN_INTERVAL_MS` default 120s (floor 30s); parcel query `SELECT *` → 17-field projection; debuff cleanup moved to own `DEBUFF_CLEANUP_INTERVAL_MS` default 60s (floor 10s), one combined bounded UPDATE; `gameMeta.currentTurn` kept unconditional. Documented in `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
+- **Next lane (documentation complete):** sub-plot combat architecture — see `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md`. Implementation is phased (Phases 0–11) and requires owner architecture approval before any application-code PR.
+
+## 📚 Recovery & architecture docs (pointer)
+- Recovered land/combat/panel audit: `artifacts/frontier-al/docs/audit/FRONTIER_LAND_COMBAT_PANEL_AUDIT.md` (originally `fa5b125`, re-verified at `e5b423b`).
+- Sub-plot combat architecture (canonical vocabulary + phased plan): `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md`.
+- Background-loop cost control (merged, deploy, owner activation): `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
+- **Owner-only Fly activation blocker:** agents cannot set Fly secrets (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Activation + 15-min observation + DB snapshots are owner actions.
+- **Approved parallel-PR rule:** documentation/architecture/recovery PRs (doc-only, no app-code/schema/lockfile changes) may land in parallel without blocking the feature lane; application-code phases stay **one PR at a time** per the standing HARD RULES.
 
 ## NEXT
-- **Next lane:** owner review/merge of PR #243, then **Fly env values**: `AI_TURN_INTERVAL_MS=120000`, `DEBUFF_CLEANUP_INTERVAL_MS=60000`, `AI_ENABLED=true`, `AI_MAX_ACTIVE_BATTLES=12`. Then production verification (Fly logs, AI battles still resolve, debuffs still clear) and original-tester gamertag retest.
+- **Next lane:** (1) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (2) on owner architecture approval, begin sub-plot combat implementation at **Phase 0/1** of `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md`. Do **not** start implementation phases until approved.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
 ## Last result (for fast auditor sanity-check)
