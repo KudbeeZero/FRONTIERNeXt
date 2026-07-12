@@ -210,3 +210,65 @@ selectivity is measured.
 3. Run the two `pg_stat_user_tables` snapshots 10 min apart and compute
    deltas (expect parcel seq-scan growth to decouple from the old ~20 s
    cadence).
+
+## Production verification — 2026-07-12 (production-verification agent)
+
+### Closed
+- **PR #244 merged** into `main` as `f13d9f5` (squash; CI green: Typecheck &
+  server tests, Cloudflare Pages). It is documentation-only (no app code
+  change).
+- **HTTP regression checks pass** against the live build
+  (`https://frontiernext.fly.dev`, health 200 at activation-check time):
+  - `GET /health` → HTTP 200 (`OK`).
+  - `GET /api/factions` → 200 (NEXUS-7, KRONOS, SPECTRE, VANGUARD present).
+  - `GET /api/game/state` → 200; payload includes `battles` (8 active/
+    recent), `currentTurn`, `lastUpdateTs`, `currentSeason` — battle
+    resolution path is live.
+  - `GET /api/battles/history` → 200. (Bare `/api/battles` is not a route;
+    the correct path is `/api/battles/history` — not a regression.)
+  - Gamertag recovery (PR #242) and wallet/auth code are present in the
+    deployed build (server healthy); not exercised with paid transactions.
+
+### NOT performed by the agent (owner action required)
+The agent had **no Fly secret-setting access**: `flyctl` is not installed in
+the recovery environment, `FLY_API_TOKEN` is not exported, and neither
+existing workflow sets secrets — `fly-deploy.yml` only deploys, and
+`frontier-db-diagnose.yml` is explicitly read-only ("never changes Fly
+secrets"). There is therefore **no safe path** to activate the configuration,
+so production was **NOT changed** and the following were not measured:
+
+- **Activation** of `AI_ENABLED=true`, `AI_TURN_INTERVAL_MS=120000`,
+  `DEBUFF_CLEANUP_INTERVAL_MS=60000`, `AI_MAX_ACTIVE_BATTLES=12`.
+- **15-minute live observation** of AI (~120 s) and debuff (~60 s) cadence,
+  `ai_action` growth, active-battle cap, DB pool errors.
+- **Read-only DB measurement** (`pg_stat_user_tables` at T0 and T+10, and
+  `pg_stat_activity` connection counts): no `DATABASE_URL` in the environment
+  and no SQL-capable workflow exists (the diagnose workflow only reads
+  `fly status` / `machine list` / `logs`).
+
+### Owner action (exact command)
+Run locally where `flyctl` is authenticated:
+
+```
+flyctl secrets set -a frontiernext \
+  AI_ENABLED=true \
+  AI_TURN_INTERVAL_MS=120000 \
+  DEBUFF_CLEANUP_INTERVAL_MS=60000 \
+  AI_MAX_ACTIVE_BATTLES=12
+```
+
+Then confirm `/health` 200, observe 15 min, and capture the two
+`pg_stat_user_tables` snapshots 10 min apart. If health does not recover,
+set `AI_ENABLED=false` and preserve logs.
+
+### Rollback status
+- Not required: no production change was made by the agent. The revert
+  procedure (`git revert -m 1 729c5ec…`, redeploy) remains valid if a future
+  activation proves unstable.
+
+### Unresolved limitations
+- Live cadence, `ai_action` growth, DB deltas, and connection counts are
+  **unverified** pending the owner's secret activation + DB snapshots.
+- Debuff-cleanup behavior in production is evidenced only by unit tests
+  (`server/util/debuffCleanup.spec.ts`); no live debuff clears were observed
+  because AI/debuff loops were idle (`AI_ENABLED=false`).
