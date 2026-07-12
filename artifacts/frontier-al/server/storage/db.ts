@@ -68,6 +68,7 @@ import {
 import type { FacilityType, DefenseImprovementType, ImprovementType } from "@shared/schema";
 import { resolveBattle, resolveBattleFromPowers } from "../engine/battle/resolve.js";
 import { buildLaunchProfile } from "../engine/battle/profileAdapter.js";
+import { serializeBattleSnapshotForStorage } from "../engine/battle/snapshotReplay.js";
 import { buildReplayLog } from "../engine/battle/replayLog.js";
 import { hashSeed } from "../engine/battle/random.js";
 import { commTerminalLevel } from "../engine/narrative/whispers.js";
@@ -1551,6 +1552,13 @@ export class DbStorage implements IStorage {
         status:           "pending" as const,
         commanderId:      launchProfile.legacyPersistedFields.commanderId,
         sourceParcelId:   launchProfile.legacyPersistedFields.sourceParcelId,
+        // Phase B — persist the immutable BattleSnapshot alongside the
+        // battle row in the same transaction. JSONB-typed column. The
+        // snapshot is the server-authoritative evidence for replay
+        // verification. It is written INSIDE the existing transaction so
+        // the battle row and snapshot commit together or roll back
+        // together.
+        battleSnapshot:   JSON.parse(serializeBattleSnapshotForStorage(launchProfile.snapshot)) as unknown,
       };
 
       const playerUpdates: Record<string, any> = { iron: attackerRow.iron - iron, fuel: attackerRow.fuel - fuel, crystal: attackerRow.crystal - crystal };
