@@ -26,11 +26,20 @@
 - **Phase 2 — DONE & MERGED:** `feat/frontier-energy-grid-simulation` → PR #248 `2ea4cae` (deterministic, pure energy-grid simulator in `shared/energyGrid.ts` + `shared/energyGrid.spec.ts`, 53 tests green). No production integration; `computeGridPowerDependency()` untouched. Policies owner-approved: priority critical→high→normal→low; sub-minimum facilities return energy to pool; reserve floor enforced by default.
 - **Phase 3 — DONE & MERGED:** `feat/frontier-combat-profile` → PR #249 (squash-merge `87ee770`; 4-file scope: `shared/combatProfile.ts` + spec + memory + baton; CI green). Pure, deterministic, immutable `CombatProfile` + battle-snapshot contract. Zero gameplay effect; no attack route / DB / `resolveBattle()` / AI / UI wiring. Owner accepted the contract as implemented. See `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md` §Phase 3.
 - **Phase 4A — DONE & MERGED:** `fix/frontier-plot-attack-idempotency` → PR #250 squash-merged at `da35c7e` (2026-07-12T12:32:02Z). Reuses existing DB-backed `action_nonces` guard; adds additive `payload_fingerprint` column (migration `0015`). Same-key/same-payload replays original 200; same-key/different-payload returns 409; missing key fails open (legacy compat). Scope limited to `POST /api/actions/attack`; `/archetype` + `/build` deferred to Phase 4B. Battle math/`resolveBattle()`/AI/wallet/chain untouched. Migration deployment pending (owner action). See `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md` §Phase 4A.
-- **Canonical documentation — DONE & MERGED:** `docs/frontier-master-game-spec` → PR #251 (pending merge). Three canonical documents established:
+- **Canonical documentation — DONE & MERGED:** `docs/frontier-master-game-spec` → PR #251 (squash-merge `2139865`). Three canonical documents established:
   - `artifacts/frontier-al/FRONTIER_MASTER_GAME_SPEC.md` — canonical game-design truth (29 sections, status labels for all systems)
   - `artifacts/frontier-al/PRODUCTION_READINESS_ROADMAP.md` — 9-lane implementation plan (P0-P9, 45 tasks)
   - `artifacts/frontier-al/docs/DOC_RECONCILIATION_LEDGER.md` — doc-vs-code mismatch tracker (19 entries)
   - All three documents align with code reality at commit `da35c7e`. No runtime code changes.
+- **Battle-engine memory — DONE & MERGED:** `docs/frontier-battle-engine-truth` → PR #252 (squash-merge `91d183d`). Defines:
+  - `docs/memory/FRONTIER_BATTLE_ENGINE_TRUTH_AND_TARGET.md` — current engine truth + target architecture + 12-PR migration sequence (A-L) with crystal/proof/divergence clarifications
+- **Phase A — IMPLEMENTED, PR OPEN:** `feat/frontier-battle-profile-launch-adapter` (PR #253 open). Server-authoritative launch adapter wired into `deployAttack()`:
+  - `server/engine/battle/profileAdapter.ts` — pure adapter that builds CombatProfile + BattleSnapshot at launch, maps to EXACT legacy EngineBattleInput (parity-safe)
+  - 23 new focused adapter tests proving parity (representative, minimum, commander, crystal, radar, biome/defense, unowned, morale)
+  - Snapshot immutability, determinism, no-new-effects, contract validation, crystal/commander separation
+  - **No durable snapshot persistence yet** (Phase B). No schema/migration changes. No new combat effects.
+  - 643 server tests passing (24 skipped, same as baseline 620 + 23 new = 643)
+  - Recommended first implementation PR per memory document: Phase A. ✅ DONE. Next: Phase B (snapshot persistence + replay verification).
 
 ## NEXT
 - **Next lane:** (1) owner applies migration `0015` to production DB (see P0.1 in roadmap); (2) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (3) **Phase 4B** (`/archetype` + `/build` idempotency) is next, then Phase 5 (weapon integration). Later phases stay one-PR-at-a-time per HARD RULES.

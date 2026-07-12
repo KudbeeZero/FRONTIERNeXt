@@ -1,9 +1,11 @@
 # FRONTIER Battle Engine Truth and Target Architecture
 
-**Authority:** This document is the canonical battle-engine truth for FRONTIER-AL.  
-**Evidence date:** 2026-07-12  
-**Governing commit:** `2139865` (PR #251 merged)  
+**Authority:** This document is the canonical battle-engine truth for FRONTIER-AL.
+**Evidence date:** 2026-07-12
+**Governing commit:** `91d183d` (PR #252 merged)
 **Status:** Documentation-only. No runtime behavior changed.
+
+**Phase A status (2026-07-12, PR open):** `feat/frontier-battle-profile-launch-adapter` — server-authoritative launch adapter wired into `deployAttack()`. The adapter wraps the legacy deployAttack() input construction in the CombatProfile/BattleSnapshot contract. It produces an immutable CombatProfile + BattleSnapshot for the live state, the EXACT same EngineBattleInput the legacy path built (so resolveBattle() sees byte-identical inputs), and the legacy persisted battle-row values used by the insert. **No durable snapshot persistence yet (Phase B).** No schema/migration changes. No new combat effects. 23 new focused adapter tests, 643 server tests passing.
 
 ---
 
@@ -34,47 +36,47 @@ The live battle engine is **operationally correct and deterministic**, but it do
 
 ## 2. Current Live Human Plot-Attack Pipeline
 
-**Route:** `POST /api/actions/attack`  
-**Handler:** `server/routes.ts:1952-2009`  
-**Persistence:** `server/storage/db.ts:deployAttack() (line 1414)`  
+**Route:** `POST /api/actions/attack`
+**Handler:** `server/routes.ts:1952-2009`
+**Persistence:** `server/storage/db.ts:deployAttack() (line 1414)`
 **Resolver:** `server/engine/battle/resolve.ts:resolveBattle()`
 
 ### Pipeline Steps
 
-1. **Client creates attack intent**  
-   - File: `client/src/components/game/CommanderPanel.tsx`  
-   - Function: `handleLaunchPlotAttack()`  
+1. **Client creates attack intent**
+   - File: `client/src/components/game/CommanderPanel.tsx`
+   - Function: `handleLaunchPlotAttack()`
    - Payload: `{ attackerId, targetParcelId, troopsCommitted, resourcesBurned: { iron, fuel }, crystalBurned?, commanderId?, sourceParcelId?, idempotencyKey }`
 
-2. **Authentication and ownership**  
-   - File: `server/routes.ts:1954`  
-   - Function: `assertPlayerOwnership(req, res, req.body?.attackerId)`  
+2. **Authentication and ownership**
+   - File: `server/routes.ts:1954`
+   - Function: `assertPlayerOwnership(req, res, req.body?.attackerId)`
    - Verifies: session playerId matches attackerId
 
-3. **Schema validation**  
-   - File: `server/routes.ts:1956`  
-   - Function: `attackActionSchema.parse(req.body)`  
+3. **Schema validation**
+   - File: `server/routes.ts:1956`
+   - Function: `attackActionSchema.parse(req.body)`
    - Schema: `shared/schema.ts:517-530`
 
-4. **Idempotency**  
-   - File: `server/routes.ts:1962-1964`  
-   - Function: `guardClaimOrRespond(res, scope, nonce)`  
-   - Scope: `{ playerId: action.attackerId, action: "attack", target: encodeURIComponent(action.targetParcelId) }`  
-   - Fingerprint: `attackPayloadFingerprint(action)` (actor, source, target, troops, iron, fuel, crystal, commander)  
+4. **Idempotency**
+   - File: `server/routes.ts:1962-1964`
+   - Function: `guardClaimOrRespond(res, scope, nonce)`
+   - Scope: `{ playerId: action.attackerId, action: "attack", target: encodeURIComponent(action.targetParcelId) }`
+   - Fingerprint: `attackPayloadFingerprint(action)` (actor, source, target, troops, iron, fuel, crystal, commander)
    - Behavior: same key + same payload → replay 200; same key + different payload → 409 conflict; missing key → fail-open (legacy compat)
 
-5. **Origin and target lookup**  
-   - File: `server/storage/db.ts:1414-1440`  
-   - Function: `deployAttack(action)`  
-   - Queries: attacker player row, target parcel row  
+5. **Origin and target lookup**
+   - File: `server/storage/db.ts:1414-1440`
+   - Function: `deployAttack(action)`
+   - Queries: attacker player row, target parcel row
    - Validates: target exists, target not already under attack (`activeBattleId` is null), attacker is not targeting self
 
-6. **Resource validation**  
-   - File: `server/storage/db.ts:1470-1475`  
+6. **Resource validation**
+   - File: `server/storage/db.ts:1470-1475`
    - Checks: `attacker.iron >= iron`, `attacker.fuel >= fuel`, `attacker.crystal >= crystal`
 
-7. **Commander and crystal bonus calculation**  
-   - File: `server/storage/db.ts:1477-1488`  
+7. **Commander and crystal bonus calculation**
+   - File: `server/storage/db.ts:1477-1488`
    - Commander: validates availability, applies `attackBonus` from `CommanderAvatar.attackBonus`
    - Crystal: contributes to attack power via `CRYSTAL_POWER_FACTOR` (defined in `db.ts`)
    - **Note:** Implementation combines commander and crystal into a single `commanderBonus` variable, but they are conceptually distinct:
@@ -82,74 +84,74 @@ The live battle engine is **operationally correct and deterministic**, but it do
      - Crystal-derived power contribution: `crystal × CRYSTAL_POWER_FACTOR` (additive)
      - Implementation variable: `commanderBonus = cmd.attackBonus + (crystal × CRYSTAL_POWER_FACTOR)`
 
-8. **Radar Array modifier**  
-   - File: `server/storage/db.ts:1490-1492`  
+8. **Radar Array modifier**
+   - File: `server/storage/db.ts:1490-1492`
    - If defender has Radar Array improvement: all attacker inputs scaled ×0.9
    - Applied: `troopsCommitted × 0.9`, `iron × 0.9`, `fuel × 0.9`, `commanderBonus × 0.9`
 
-9. **Morale debuff check**  
-   - File: `server/storage/db.ts:1493`  
+9. **Morale debuff check**
+   - File: `server/storage/db.ts:1493`
    - Checks: `attacker.moraleDebuffUntil && now < attacker.moraleDebuffUntil`
 
-10. **Battle input construction**  
-    - File: `server/storage/db.ts:1495-1517`  
+10. **Battle input construction**
+    - File: `server/storage/db.ts:1495-1517`
     - Fields: battleId, attackerId, defenderId, plotId, troopsCommitted, resourcesBurned, commanderBonus, moraleDebuffActive, defenseLevel, biome, improvements, orbitalHazardActive, randomSeed
     - Seed: `hashSeed(battleId, now)`
 
-11. **Resolver invocation**  
-    - File: `server/storage/db.ts:1521`  
-    - Function: `resolveBattle(battleInput)`  
+11. **Resolver invocation**
+    - File: `server/storage/db.ts:1521`
+    - Function: `resolveBattle(battleInput)`
     - Returns: `{ winner, attackerPower, defenderPower, randFactor, outcome, pillagedIron, pillagedFuel, pillagedCrystal, log }`
 
-12. **Power extraction**  
-    - File: `server/storage/db.ts:1523-1524`  
+12. **Power extraction**
+    - File: `server/storage/db.ts:1523-1524`
     - Extracts pre-randFactor powers: `attackerPower = deployResult.attackerPower / (1 + deployResult.randFactor / 100)`
 
-13. **Battle row insertion**  
-    - File: `server/storage/db.ts:1526-1547`  
-    - Table: `battles`  
+13. **Battle row insertion**
+    - File: `server/storage/db.ts:1526-1547`
+    - Table: `battles`
     - Fields: id, attackerId, defenderId, targetParcelId, attackerPower (pre-randFactor), defenderPower, troopsCommitted, resourcesBurned, crystalBurned, startTs, resolveTs (now + BATTLE_DURATION_MS), status="pending", commanderId, sourceParcelId
 
-14. **Resource deduction**  
-    - File: `server/storage/db.ts:1547`  
-    - Updates: `players` table (iron, fuel, crystal)  
+14. **Resource deduction**
+    - File: `server/storage/db.ts:1547`
+    - Updates: `players` table (iron, fuel, crystal)
     - Transactional, atomic
 
-15. **Activity/history creation**  
-    - File: `server/storage/db.ts:1560-1580`  
+15. **Activity/history creation**
+    - File: `server/storage/db.ts:1560-1580`
     - Inserts: `game_events` row (type="battle_started")
 
-16. **Transactional target claim**  
-    - File: `server/storage/db.ts:1548-1560`  
-    - Atomic UPDATE on `parcels` table: `activeBattleId = battleId`  
-    - WHERE: `id = target.id AND activeBattleId IS NULL`  
+16. **Transactional target claim**
+    - File: `server/storage/db.ts:1548-1560`
+    - Atomic UPDATE on `parcels` table: `activeBattleId = battleId`
+    - WHERE: `id = target.id AND activeBattleId IS NULL`
     - Prevents double-claim
 
-17. **Resolver scheduling**  
-    - File: `server/storage/db.ts:1871`  
-    - Function: `resolveBattles()` (runs every 5s via background loop)  
+17. **Resolver scheduling**
+    - File: `server/storage/db.ts:1871`
+    - Function: `resolveBattles()` (runs every 5s via background loop)
     - Queries: battles WHERE status="pending" AND resolveTs < now
 
-18. **Resolution**  
-    - File: `server/storage/db.ts:1896-1902`  
-    - Function: `resolveBattleFromPowers(attackerPower, defenderPower, randomSeed)`  
-    - Inputs: frozen at launch (stored in battle row)  
+18. **Resolution**
+    - File: `server/storage/db.ts:1896-1902`
+    - Function: `resolveBattleFromPowers(attackerPower, defenderPower, randomSeed)`
+    - Inputs: frozen at launch (stored in battle row)
     - Seed: `hashSeed(battle.id, battle.startTs)`
 
-19. **Persistent updates**  
-    - File: `server/storage/db.ts:1902-1970`  
-    - On attacker win: transfer ownership, reset defenseLevel to floor(half), apply influence damage, pillage resources  
-    - On defender win: apply influence damage, cascade defense penalty to adjacent plots  
+19. **Persistent updates**
+    - File: `server/storage/db.ts:1902-1970`
+    - On attacker win: transfer ownership, reset defenseLevel to floor(half), apply influence damage, pillage resources
+    - On defender win: apply influence damage, cascade defense penalty to adjacent plots
     - Updates: `battles` row (status="resolved", outcome, randFactor), `parcels` row (ownerId, defenseLevel, activeBattleId=null), `players` row (moraleDebuffUntil, attackCooldownUntil, consecutiveLosses)
 
-20. **Proof/history/result**  
-    - File: `server/storage/db.ts:1970-2000`  
-    - Inserts: `battle_replays` row (full resolution log), `game_events` row (battle_resolved)  
+20. **Proof/history/result**
+    - File: `server/storage/db.ts:1970-2000`
+    - Inserts: `battle_replays` row (full resolution log), `game_events` row (battle_resolved)
     - Proof endpoint: `GET /api/battle/:id/proof` returns seed, re-derived result, hash, valid=true
 
-21. **Client and globe presentation**  
-    - File: `client/src/components/game/globe/GlobeBattleSequence.tsx`  
-    - Renders: battle arc, impact, capture burst, HUD callout  
+21. **Client and globe presentation**
+    - File: `client/src/components/game/globe/GlobeBattleSequence.tsx`
+    - Renders: battle arc, impact, capture burst, HUD callout
     - Respects: OS reduced-motion, Battle Cinematics toggle
 
 ---
@@ -267,9 +269,9 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 
 ### A. Human Plot Attacks
 
-**Route:** `POST /api/actions/attack`  
-**Handler:** `server/routes.ts:1952-2009`  
-**Persistence:** `server/storage/db.ts:deployAttack()`  
+**Route:** `POST /api/actions/attack`
+**Handler:** `server/routes.ts:1952-2009`
+**Persistence:** `server/storage/db.ts:deployAttack()`
 **Resolver:** `server/engine/battle/resolve.ts:resolveBattle()`
 
 **Characteristics:**
@@ -284,8 +286,8 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 
 ### B. AI Plot Attacks
 
-**Launcher:** `server/storage/ai-engine.ts:launchAttack()`  
-**Persistence:** `server/storage/db.ts:deployAttack()` (same as human)  
+**Launcher:** `server/storage/ai-engine.ts:launchAttack()`
+**Persistence:** `server/storage/db.ts:deployAttack()` (same as human)
 **Resolver:** `server/engine/battle/resolve.ts:resolveBattle()` (same)
 
 **Characteristics:**
@@ -303,9 +305,9 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 
 ### C. Sub-Parcel Attacks
 
-**Route:** `POST /api/sub-parcels/:id/attack`  
-**Handler:** `server/routes.ts` (sub-parcel attack endpoint)  
-**Persistence:** `server/storage/db.ts:2720-2760`  
+**Route:** `POST /api/sub-parcels/:id/attack`
+**Handler:** `server/routes.ts` (sub-parcel attack endpoint)
+**Persistence:** `server/storage/db.ts:2720-2760`
 **Resolver:** `server/engine/battle/resolve.ts:resolveBattle()` (same resolver)
 
 **Characteristics:**
@@ -433,7 +435,7 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 
 ### deployAttack() Transaction
 
-**Boundary:** Single atomic transaction  
+**Boundary:** Single atomic transaction
 **Operations:**
 1. Read attacker player row
 2. Read target parcel row
@@ -449,12 +451,12 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 12. Insert game event (battle_started)
 13. Claim target parcel (activeBattleId)
 
-**Atomicity:** All operations succeed or fail together  
+**Atomicity:** All operations succeed or fail together
 **Isolation:** Prevents double-claim via `activeBattleId IS NULL` check
 
 ### resolveBattles() Transaction
 
-**Boundary:** Per-battle transaction  
+**Boundary:** Per-battle transaction
 **Operations:**
 1. Read battle row (frozen powers)
 2. Invoke resolver (post-resolution)
@@ -466,7 +468,7 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 8. Insert battle replay log
 9. Release target parcel (activeBattleId=null)
 
-**Atomicity:** Per-battle operations succeed or fail together  
+**Atomicity:** Per-battle operations succeed or fail together
 **Isolation:** Each battle resolved independently
 
 ---
@@ -475,10 +477,10 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 
 ### Random Number Generation
 
-**Algorithm:** mulberry32 (fast 32-bit PRNG)  
-**File:** `server/engine/battle/random.ts:mulberry32()`  
-**Seed construction:** `hashSeed(battleId, startTs)`  
-**File:** `server/engine/battle/random.ts:hashSeed()`  
+**Algorithm:** mulberry32 (fast 32-bit PRNG)
+**File:** `server/engine/battle/random.ts:mulberry32()`
+**Seed construction:** `hashSeed(battleId, startTs)`
+**File:** `server/engine/battle/random.ts:hashSeed()`
 **Algorithm:** djb2-style hash of concatenated parts
 
 **Properties:**
@@ -489,8 +491,8 @@ pillagedCrystal = attackerWins ? floor(parcel.crystalStored × 0.3) : 0
 
 ### Battle Proof
 
-**Endpoint:** `GET /api/battle/:id/proof`  
-**File:** `server/routes.ts` (proof endpoint)  
+**Endpoint:** `GET /api/battle/:id/proof`
+**File:** `server/routes.ts` (proof endpoint)
 **Storage:** `battle_replays` table
 
 **What the proof stores:**
@@ -748,7 +750,7 @@ BattleIntent (client)
 
 ### PR A — CombatProfile/BattleSnapshot Launch Adapter
 
-**Branch:** `feat/frontier-battle-profile-launch-adapter`  
+**Branch:** `feat/frontier-battle-profile-launch-adapter`
 **Goal:** Construct a server-authoritative CombatProfile from the existing live attack, create an immutable BattleSnapshot at launch, adapt the snapshot into the existing resolver inputs, keep the existing resolver formula unchanged, prove exact output parity against the legacy path, add no weapon/doctrine/facility/alignment/energy/upgrade effects, preserve an immediate rollback path to the current resolver input builder.
 
 **Files:**
@@ -780,7 +782,7 @@ BattleIntent (client)
 
 ### PR B — Snapshot Persistence and Replay Verification
 
-**Branch:** `feat/frontier-battle-snapshot-persistence`  
+**Branch:** `feat/frontier-battle-snapshot-persistence`
 **Goal:** Persist immutable snapshot data, add formula/profile versioning, verify deterministic replay from stored evidence, add an additive migration only if required, preserve compatibility with battles created before the migration.
 
 **Files:**
@@ -812,7 +814,7 @@ BattleIntent (client)
 
 ### PR C — Human and AI Launch-Path Unification
 
-**Branch:** `feat/frontier-unified-battle-launch`  
+**Branch:** `feat/frontier-unified-battle-launch`
 **Goal:** Make both human and AI attacks use the same authoritative profile builder, keep actor-specific intent and target-selection behavior separate, prevent divergence in combat-state construction.
 
 **Files:**
@@ -841,7 +843,7 @@ BattleIntent (client)
 
 ### PR D — Sub-Parcel and Special-Path Normalization
 
-**Branch:** `feat/frontier-normalized-battle-paths`  
+**Branch:** `feat/frontier-normalized-battle-paths`
 **Goal:** Decide which paths become normal battles, decide which remain immediate strategic effects, apply compatible authorization, idempotency, accounting, proof, and consequence rules.
 
 **Files:**
@@ -870,7 +872,7 @@ BattleIntent (client)
 
 ### PR E — Weapon Equipment Connection with Effects Disabled
 
-**Branch:** `feat/frontier-weapon-equipment`  
+**Branch:** `feat/frontier-weapon-equipment`
 **Goal:** Persist and validate equipped weapon identity, include it in CombatProfile and BattleSnapshot, do not apply numeric weapon effects yet.
 
 **Files:**
@@ -903,7 +905,7 @@ BattleIntent (client)
 
 ### PR F — Attack Doctrine Contract and Selection
 
-**Branch:** `feat/frontier-attack-doctrine`  
+**Branch:** `feat/frontier-attack-doctrine`
 **Goal:** Add server-validated doctrine identity, include it in the immutable snapshot, initially use neutral/no-effect behavior if needed for safe rollout.
 
 **Files:**
@@ -936,7 +938,7 @@ BattleIntent (client)
 
 ### PR G — Facility and Energy-State Consumption
 
-**Branch:** `feat/frontier-facility-energy-integration`  
+**Branch:** `feat/frontier-facility-energy-integration`
 **Goal:** Read facility archetype, upgrades, alignment, integrity, and power state, apply only documented and tested effects, define brownout behavior explicitly.
 
 **Files:**
@@ -969,7 +971,7 @@ BattleIntent (client)
 
 ### PR H — Phased Resolver Introduction
 
-**Branch:** `feat/frontier-phased-resolver`  
+**Branch:** `feat/frontier-phased-resolver`
 **Goal:** Introduce intelligence, approach, siege, assault, defense, damage, capture/retreat, and aftermath phases, preserve deterministic seeded behavior and versioning.
 
 **Files:**
@@ -999,7 +1001,7 @@ BattleIntent (client)
 
 ### PR I — Persistent Facility Damage and Repair
 
-**Branch:** `feat/frontier-facility-damage-repair`  
+**Branch:** `feat/frontier-facility-damage-repair`
 **Goal:** Add facility integrity, damage on attack, repair route.
 
 **Files:**
@@ -1031,7 +1033,7 @@ BattleIntent (client)
 
 ### PR J — Capture, Salvage, Conversion, and Demolition
 
-**Branch:** `feat/frontier-capture-salvage-conversion`  
+**Branch:** `feat/frontier-capture-salvage-conversion`
 **Goal:** Add salvage route, conversion route, capture inheritance.
 
 **Files:**
@@ -1061,7 +1063,7 @@ BattleIntent (client)
 
 ### PR K — Tactical Timeline and Battle Presentation
 
-**Branch:** `feat/frontier-tactical-timeline`  
+**Branch:** `feat/frontier-tactical-timeline`
 **Goal:** Add battle timeline events, tactical view rendering.
 
 **Files:**
@@ -1089,7 +1091,7 @@ BattleIntent (client)
 
 ### PR L — Simulation and Balancing Harness
 
-**Branch:** `feat/frontier-simulation-harness`  
+**Branch:** `feat/frontier-simulation-harness`
 **Goal:** Build simulation harness for balance testing, generate balance reports.
 
 **Files:**
