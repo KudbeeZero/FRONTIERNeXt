@@ -30,7 +30,7 @@ later, separately-reviewed PRs per the phase boundaries below.
 - **`computeArchetypeFactionBonus()` is not called from the resolver.** It is only invoked inside the archetype-assignment mutation to return a display bonus.
 - **`computeGridPowerDependency()` is never called.** Fortress offline penalties and resource power requirements are unenforced.
 - **Sub-parcel archetype battle effects are not consumed by the resolver.** Only sub-parcel *attacks* read stored sub-parcel improvements; plot attacks ignore them.
-- **`/attack`, `/archetype`, and `/build` idempotency is weaker than plot attacks.** Sub-parcel operations rely on client-side `isPending` only; rapid concurrent calls can double-apply.
+- **`/archetype` and `/build` idempotency is weaker than plot attacks.** Sub-parcel operations rely on client-side `isPending` only; rapid concurrent calls can double-apply. **Plot attack idempotency is LIVE** (PR #250 merged at `da35c7e`, Phase 4A complete).
 
 ### 1.3 Approved future design
 - Six canonical **facility archetypes** (Section 4).
