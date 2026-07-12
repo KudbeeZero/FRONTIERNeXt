@@ -83,6 +83,7 @@ import { hashSeed } from "../engine/battle/random.js";
 import { commTerminalLevel } from "../engine/narrative/whispers.js";
 import { resolveLootBoxOpen, rollLootBoxAward, MINERAL_TO_VAULT_FIELD } from "../engine/lootbox/open.js";
 import type { IStorage } from "./interface";
+import { resolveParcelFaction, type FactionOwnerLike } from "@shared/factionIdentity";
 import { createDefaultProfile, recomputeDerived, type PlayerWeaponProfile } from "@shared/weapons";
 
 const AI_NAMES = ["NEXUS-7", "KRONOS", "VANGUARD", "SPECTRE"];
@@ -272,8 +273,18 @@ export class MemStorage implements IStorage {
 
     const claimedPlots = Array.from(this.parcels.values()).filter((p) => p.ownerId !== null).length;
 
+    // Canonical effective-faction map, keyed by owner id. Territory attribution
+    // for every parcel is derived from this — never from the client.
+    const playerFactionMap = new Map<string, FactionOwnerLike>();
+    for (const p of this.players.values()) {
+      playerFactionMap.set(p.id, { isAi: p.isAI, name: p.name, playerFactionId: p.playerFactionId });
+    }
+
     return {
-      parcels: Array.from(this.parcels.values()),
+      parcels: Array.from(this.parcels.values()).map((p) => ({
+        ...p,
+        effectiveFaction: resolveParcelFaction(p, p.ownerId ? (playerFactionMap.get(p.ownerId) ?? null) : null),
+      })),
       players: Array.from(this.players.values()),
       battles: Array.from(this.battles.values()),
       events: this.events.slice(-50).reverse(),

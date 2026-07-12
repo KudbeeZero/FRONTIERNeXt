@@ -75,6 +75,7 @@ import { commTerminalLevel } from "../engine/narrative/whispers.js";
 import { CRYSTAL_POWER_FACTOR } from "../engine/battle/tuning.js";
 import { SUB_PARCEL_FACILITY_COSTS, SUB_PARCEL_DEFENSE_COSTS, getBiomeUpgradeMultiplier, RARE_MINERAL_DROP_RATES, RARE_MINERAL_VAULT_CAP, isImprovementAllowedForArchetype } from "@shared/schema";
 import type { RareMineralType } from "@shared/schema";
+import { resolveParcelFaction, type FactionOwnerLike } from "@shared/factionIdentity";
 import { sphereDistance } from "../sphereUtils";
 import {
   evaluateReconquest,
@@ -486,6 +487,13 @@ export class DbStorage implements IStorage {
       }
     }
 
+    // Canonical effective-faction map, keyed by owner id. Territory attribution
+    // for every parcel is derived from this — never from the client.
+    const playerFactionMap = new Map<string, FactionOwnerLike>();
+    for (const p of allPlayers) {
+      playerFactionMap.set(p.id, { isAi: p.isAi, name: p.name, playerFactionId: p.playerFactionId });
+    }
+
     const claimedPlots = allParcels.filter((p) => p.ownerId !== null).length;
     const ascendCirculating = allPlayers.reduce((sum, p) => sum + fromMicroASCEND(p.ascendBalanceMicro), 0);
     const now = Date.now();
@@ -497,6 +505,8 @@ export class DbStorage implements IStorage {
         // stale (see computeLiveAscendAccrued's doc comment) and would
         // otherwise make the client's "Claim ASCEND" button never appear.
         parcel.ascendAccumulated = computeLiveAscendAccrued(parcel, now);
+        // Server-derived faction attribution from the parcel's canonical owner.
+        parcel.effectiveFaction = resolveParcelFaction(parcel, playerFactionMap.get(r.ownerId ?? "") ?? null);
         const ownerIds = subParcelMap.get(r.plotId);
         if (ownerIds) {
           parcel.isSubdivided = true;
