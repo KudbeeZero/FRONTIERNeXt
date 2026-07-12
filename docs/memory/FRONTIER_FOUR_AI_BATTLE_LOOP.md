@@ -121,3 +121,33 @@ the secret flip is the only thing that unblocks it. Verify after deploy:
 
 `fly secrets unset -a frontiernext AI_ENABLED` (loop returns to no-op; no code change
 needed). The behavior code stays inert until re-enabled.
+
+---
+
+## Release log
+
+- **PR:** #241 → merged into `main` as merge commit **`643b06e`**
+  (`643b06eb25c1249002966bb7df860288e242887e`). CI green (`Typecheck & server tests`
+  + `Cloudflare Pages` both SUCCESS); no unresolved review comments; PR based on current
+  `origin/main` (`df034e3`).
+- **Deploy:** Fly `Deploy to Fly` run `29176331757` → **SUCCESS** (~165 s). New image
+  serving; `https://frontiernext.fly.dev/health` returns HTTP 200 `OK`.
+- **Activation:** `AI_ENABLED` is still **NOT** set in production. The owner must run
+  `fly secrets set -a frontiernext AI_ENABLED=true` (requires `flyctl` + `FLY_API_TOKEN`,
+  which are NOT available in the audit sandbox). Code/merge/deploy are complete; the
+  secret flip is the only remaining owner step.
+- **Pre-activation baseline** (`GET /api/factions` on the live origin): NEXUS-7
+  (expansionist) territoryCount=1, KRONOS (defensive) =1, VANGUARD (raider) =0, SPECTRE
+  (economic) =1. These are expected to start changing once AI is enabled.
+- **Known environment note:** the Cloudflare front `api.frontierprotocol.app` currently
+  returns HTTP 525 (Cloudflare cannot reach the Fly origin), while the origin
+  `frontiernext.fly.dev` is healthy. Owner should verify AI activity via the direct Fly
+  domain / `fly logs` until that proxy is resolved. Out of scope for this change.
+
+## Owner verification checklist (post `fly secrets set AI_ENABLED=true`)
+1. `curl -H "x-admin-key: $ADMIN_KEY" https://frontiernext.fly.dev/api/admin/ai-activity`
+   → `aiEnabled: true`, non-zero `activeBattleCount`, all four factions show a recent
+   `lastAction`.
+2. Watch `GET /api/factions` — NEXUS-7/KRONOS/VANGUARD/SPECTRE `territoryCount` change.
+3. `fly logs -a frontiernext` — no repeated errors / no runaway loop.
+4. Confirm wallet, land purchase, and NFT flows unaffected.
