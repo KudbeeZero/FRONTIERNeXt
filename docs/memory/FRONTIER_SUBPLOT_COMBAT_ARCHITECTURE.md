@@ -334,10 +334,13 @@ Strict PR boundaries; one concern per PR. No phase is implemented here.
 
 ### Phase 2 — Energy grid, demand, priority, and brownout simulation
 - **Goal:** Model grid generation/storage/draw, priority shedding, brownout states.
-- **Files:** `server/storage/*` (grid sim), `shared/economy-config.ts`.
-- **DB impact:** energy columns on `subParcels`/plot. **Migration risk:** medium (new state).
-- **API impact:** energy read in game-state. **Client impact:** energy HUD.
-- **Tests:** grid sim unit tests (demand > supply → shed order).
+- **Files:** `artifacts/frontier-al/shared/energyGrid.ts` (pure deterministic simulator) and
+  `artifacts/frontier-al/shared/energyGrid.spec.ts`. Implemented as a **contract-only** module
+  with **zero production integration** (no DB columns, no routes, no client, no resolver wiring).
+  The original plan's `server/storage/*` + `shared/economy-config.ts` + migration paths are
+  **deferred** to later phases that actually integrate the simulator into gameplay.
+- **Tests:** grid sim unit tests (exact supply, storage charge/discharge, reserve floor, priority
+  order, reduced/offline, sub-minimum pool return, brownout/blackout, multi-tick).
 - **Rollout gate:** sim deterministic, covered. **Rollback:** revert PR.
 - **Depends on:** Phase 1.
 
@@ -504,3 +507,85 @@ blockchain behavior are all unchanged by this phase.
 ### Next phase
 Phase 2 — energy-grid contract/simulation (qualitative profiles from this phase become the
 contract input).
+
+## 13. Phase 2 Implementation Status (energy-grid simulation contract)
+
+**Branch:** `feat/frontier-energy-grid-simulation` · **PR:** (Phase 2 PR into `main`).
+
+### Simulator path
+- `artifacts/frontier-al/shared/energyGrid.ts` — pure, deterministic, side-effect-free
+  simulator. No timers, no `Math.random`, no DB, no clock reads, no production wiring.
+- `artifacts/frontier-al/shared/energyGrid.spec.ts` — 53 focused unit tests (all green).
+
+### Exported API
+- Types: `EnergyUnits`, `EnergyPriority` (`critical|high|normal|low`),
+  `FacilityOperatingMode` (`standby|operational|active|burst`),
+  `FacilityPowerState` (`fully_powered|reduced|offline`),
+  `NumericFacilityEnergyProfile`, `EnergyProducerInput`, `EnergyConsumerInput`,
+  `EnergyStorageInput`, `BrownoutPolicy`, `EnergyGridInput`, `FacilityEnergyResult`,
+  `EnergyGridResult`, `EnergyGridValidationError`.
+- Functions: `validateEnergyGridInput()`, `createFacilityEnergyRequest()`,
+  `simulateEnergyGrid()`, `simulateEnergyTicks()`.
+- Reuses `EnergyAlignment` from `shared/schema.ts` and `FacilityArchetypeId` +
+  `isFacilityArchetypeId()` from `shared/subplotArchitecture.ts`.
+
+### Validation policy (reject, never guess)
+`validateEnergyGridInput()` throws `EnergyGridValidationError` (with field-level `issues`)
+on: negative/fractional/unsafe-integer numbers; duplicate facility `instanceId`; duplicate
+explicit `allocationOrder`; unknown archetype ID; unsupported `priority`/`operatingMode`/
+`alignment`; requested demand below `minimumSustainableDemand` for the chosen mode; stored
+energy above `capacity`; `reserveFloor` above `capacity`; invalid charge/discharge limits
+(negative / fractional / unsafe). `createFacilityEnergyRequest()` applies the same rejections
+and selects the requested demand from the operating mode — it does **not** convert Phase 1
+qualitative labels (`low|medium|high|extreme`) into numbers; the caller supplies explicit
+numeric demands via `NumericFacilityEnergyProfile`.
+
+### Allocation order (deterministic)
+1. `priority` (critical → high → normal → low)
+2. explicit `allocationOrder` (ascending; undefined sorts last)
+3. `instanceId` (ascending) as final tiebreak
+
+### Minimum sustainable rule
+Per facility, `requested` = the mode-selected demand. During allocation, if the remaining
+energy pool is **below** a facility's `minimumSustainableDemand`, it receives **zero** and the
+energy is left in the pool so a later facility with a smaller minimum can still use it.
+Otherwise it receives `min(pool, requested)`.
+- `allocated >= requested` → `fully_powered`
+- `allocated >= minimumSustainableDemand` but `< requested` → `reduced`
+- `allocated < minimumSustainableDemand` → `offline`
+
+### Storage behavior
+- Generation is summed; deficit draws from storage **above the reserve floor** (by
+  `maxDischargeRate`, available-above-reserve, and remaining deficit).
+- Surplus charges storage up to `capacity` by `maxChargeRate` (and the unconsumed surplus is
+  `curtailedGeneration`).
+- Storage is **never** negative or above `capacity`.
+- **Charge and discharge never happen in the same tick.** Discharge only occurs under deficit;
+  if discharge occurs, no charge is applied that tick.
+- `simulateEnergyTicks()` threads `endingStorage` into the next tick's `initialStored`.
+
+### Brownout / blackout definitions
+- **Brownout:** at least one requesting facility (requested > 0) is `reduced` or `offline`.
+- **Blackout:** at least one facility requested power AND **no** requesting facility received
+  its `minimumSustainableDemand`.
+- Returned status also includes `totalGeneration`, `totalRequested`, `totalAllocated`,
+  `totalUnmet`, `startingStorage`, `charged`, `discharged`, `endingStorage`,
+  `curtailedGeneration`, and per-facility results (with echoed `alignment`).
+
+### Alignment currently has no effect
+`helios | aegis | nexus` is validated and echoed into each facility result, but it does **not**
+alter any numeric computation in Phase 2. Identical numeric inputs with different alignments
+produce identical allocations (only the echoed `alignment` differs) — covered by a test.
+
+### Relationship to `computeGridPowerDependency()`
+`computeGridPowerDependency()` lives at `artifacts/frontier-al/server/storage/game-rules.ts`
+(line ~324) and is the **production** power-dependency path (fortress/resource online checks).
+It is **NOT modified** by Phase 2 and remains uncalled. A later phase may adapt it to this
+simulator or replace it after integration — Phase 2 deliberately leaves production gameplay
+untouched.
+
+### Explicit statement
+**No production gameplay or infrastructure changed.** DB schema, migrations, routes,
+`resolveBattle()`/attack schema, battle snapshots, AI/background loops, plot/sub-parcel
+persistence, UI, wallets, blockchain/NFTs, prices/funds, dependencies/lockfile, and Fly config
+are all unchanged by this phase. The simulator is a standalone contract.

@@ -21,10 +21,11 @@
 - Background-loop cost control (merged, deploy, owner activation): `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
 - **Owner-only Fly activation blocker:** agents cannot set Fly secrets (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Activation + 15-min observation + DB snapshots are owner actions.
 - **Approved parallel-PR rule:** documentation/architecture/recovery PRs (doc-only, no app-code/schema/lockfile changes) may land in parallel without blocking the feature lane; application-code phases stay **one PR at a time** per the standing HARD RULES.
-- **Active lane (Phase 1, catalog-only):** `feat/frontier-subplot-facility-catalog` — canonical facility-archetype + upgrade-tree contract in `shared/subplotArchitecture.ts`. No gameplay effect; see `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md` §12. PR open, awaiting owner review/merge.
+- **Phase 1 — DONE & MERGED:** `feat/frontier-subplot-facility-catalog` → PR #247 `a737ba8` (canonical facility-archetype + upgrade-tree contract in `shared/subplotArchitecture.ts`). No gameplay effect.
+- **Active lane (Phase 2, simulation contract):** `feat/frontier-energy-grid-simulation` — deterministic, pure energy-grid simulator in `shared/energyGrid.ts` (+ `shared/energyGrid.spec.ts`, 53 tests green). No production integration; `computeGridPowerDependency()` untouched. PR open to `main`, awaiting owner review/merge. See `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md` §Phase 2.
 
 ## NEXT
-- **Next lane:** (1) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (2) **Phase 1 PR open** (`feat/frontier-subplot-facility-catalog`, catalog-only, awaiting merge) — after merge, Phase 2 is the energy-grid contract/simulation. Later phases stay one-PR-at-a-time per HARD RULES.
+- **Next lane:** (1) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (2) **Phase 2 PR open** (`feat/frontier-energy-grid-simulation`, pure simulator, awaiting merge) — after merge, Phase 3 (CombatProfile / integration) is next, pending owner architecture approval. Later phases stay one-PR-at-a-time per HARD RULES.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
 ## Last result (for fast auditor sanity-check)
