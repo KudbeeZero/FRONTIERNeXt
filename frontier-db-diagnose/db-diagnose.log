@@ -1,0 +1,99 @@
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][ws] WebSocket server attached to /ws (flush every 1500ms)
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 1)
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m](Use `node --trace-deprecation ...` to show where the warning was created)
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Slow query "warmup": 221ms (attempt 1)
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Connection warm-up OK
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][startup] Season manager initialised ✓
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][transferQueue] worker started (interval=30000ms)
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][mintRetryQueue] worker started (interval=60000ms)
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][startup] Plot NFT mint retry worker started ✓
+[2m2026-07-12T14:53:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Pool stats: {"totalCount":1,"idleCount":1,"waitingCount":0,"connectCount":1,"removeCount":0,"errorCount":0,"queryCount":1,"avgQueryTimeMs":221,"maxQueryTimeMs":221,"slowQueryCount":1}
+[2m2026-07-12T14:53:44Z[0m health[e82e020b619158] [32mord[0m [[34minfo[0m]Health check 'servicecheck-00-http-5000' on port 5000 is now passing.
+[2m2026-07-12T14:53:44Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][chain/asa] FRONTIER ASA ID set to: 764083761
+[2m2026-07-12T14:53:44Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][routes] Blockchain ready: ASA=764083761, Admin=ZK55X7SGIGMLGORVNJHHPTYZMZOGSQNVROBHX7N27X6ZEQRHAZ2UPKOXQU, ALGO=102.9481
+[2m2026-07-12T14:53:44Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][chain/factions] Bootstrapping faction identity ASAs...
+[2m2026-07-12T14:53:44Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][chain/factions] KRONOS already minted: assetId=756388636
+[2m2026-07-12T14:53:44Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][chain/factions] SPECTRE already minted: assetId=756388648
+[2m2026-07-12T14:53:49Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 1)
+[2m2026-07-12T14:53:53Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 2)
+[2m2026-07-12T14:53:53Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:53:53Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 2)
+[2m2026-07-12T14:53:58Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 3)
+[2m2026-07-12T14:54:03Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 4)
+[2m2026-07-12T14:54:03Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 4)
+[2m2026-07-12T14:54:08Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 5)
+[2m2026-07-12T14:54:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 7)
+[2m2026-07-12T14:54:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:18Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:18Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 7)
+[2m2026-07-12T14:54:23Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:23Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 8)
+[2m2026-07-12T14:54:28Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:28Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 9)
+[2m2026-07-12T14:54:33Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:33Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 10)
+[2m2026-07-12T14:54:38Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 11)
+[2m2026-07-12T14:54:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][memory] {"source":"periodic","rss":"102.9 MB","heapTotal":"24.5 MB","heapUsed":"22.5 MB","external":"4.3 MB","arrayBuffers":"0.8 MB"}
+[2m2026-07-12T14:54:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 14)
+[2m2026-07-12T14:54:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 16)
+[2m2026-07-12T14:54:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 17)
+[2m2026-07-12T14:54:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 12)
+[2m2026-07-12T14:54:53Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:53Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 14)
+[2m2026-07-12T14:54:58Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:54:58Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 15)
+[2m2026-07-12T14:55:08Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:55:08Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 17)
+[2m2026-07-12T14:55:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 18)
+[2m2026-07-12T14:55:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:55:18Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:55:18Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 19)
+[2m2026-07-12T14:55:23Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 20)
+[2m2026-07-12T14:55:23Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:55:23Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 20)
+[2m2026-07-12T14:55:28Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 21)
+[2m2026-07-12T14:55:28Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 21)
+[2m2026-07-12T14:55:33Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 22)
+[2m2026-07-12T14:55:38Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 23)
+[2m2026-07-12T14:55:38Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:55:38Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 23)
+[2m2026-07-12T14:55:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][algorand] RPC timing stats:
+[2m2026-07-12T14:55:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]  accountInformation: calls=1, avg=169ms, max=169ms, errors=0
+[2m2026-07-12T14:55:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 25)
+[2m2026-07-12T14:55:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 26)
+[2m2026-07-12T14:55:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 29)
+[2m2026-07-12T14:55:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:55:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 24)
+[2m2026-07-12T14:55:48Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:55:48Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 25)
+[2m2026-07-12T14:55:58Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:56:08Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:56:08Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 29)
+[2m2026-07-12T14:56:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:56:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 30)
+[2m2026-07-12T14:56:18Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]Background task (battles): column "battle_snapshot" does not exist
+[2m2026-07-12T14:56:18Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 31)
+[2m2026-07-12T14:56:23Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 32)
+[2m2026-07-12T14:56:23Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 32)
+[2m2026-07-12T14:56:28Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 33)
+[2m2026-07-12T14:56:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 35)
+[2m2026-07-12T14:56:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 36)
+[2m2026-07-12T14:56:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 38)
+[2m2026-07-12T14:57:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 35)
+[2m2026-07-12T14:57:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 36)
+[2m2026-07-12T14:57:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 37)
+[2m2026-07-12T14:57:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][algorand] RPC timing stats:
+[2m2026-07-12T14:57:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]  accountInformation: calls=1, avg=169ms, max=169ms, errors=0
+[2m2026-07-12T14:57:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Pool stats: {"totalCount":1,"idleCount":1,"waitingCount":0,"connectCount":38,"removeCount":37,"errorCount":0,"queryCount":57,"avgQueryTimeMs":60.5,"maxQueryTimeMs":221,"slowQueryCount":1}
+[2m2026-07-12T14:57:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][memory] {"source":"periodic","rss":"103.8 MB","heapTotal":"25.0 MB","heapUsed":"23.5 MB","external":"4.3 MB","arrayBuffers":"0.8 MB"}
+[2m2026-07-12T14:57:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 41)
+[2m2026-07-12T14:58:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 40)
+[2m2026-07-12T14:58:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 41)
+[2m2026-07-12T14:58:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 45)
+[2m2026-07-12T14:59:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 42)
+[2m2026-07-12T14:59:13Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] Client removed (total removed: 43)
+[2m2026-07-12T14:59:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m]  accountInformation: calls=1, avg=169ms, max=169ms, errors=0
+[2m2026-07-12T14:59:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][memory] {"source":"periodic","rss":"103.2 MB","heapTotal":"23.6 MB","heapUsed":"18.6 MB","external":"3.5 MB","arrayBuffers":"0.1 MB"}
+[2m2026-07-12T14:59:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 47)
+[2m2026-07-12T14:59:43Z[0m app[e82e020b619158] [32mord[0m [[34minfo[0m][db] New client connected (total connections: 50)
