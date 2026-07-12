@@ -39,18 +39,19 @@
   - Snapshot immutability, determinism, no-new-effects, contract validation, crystal/commander separation
   - Completed replays do NOT call deployAttack or the adapter (guardClaimOrRespond returns stored response first; verified in attackIdempotency.spec.ts test #8)
   - 669 server tests passing
-- **Phase B — IMPLEMENTED, PR OPEN:** `feat/frontier-battle-snapshot-persistence` (PR #254 open). Durable BattleSnapshot persistence and replay verification:
-  - Migration `0016_battles_battle_snapshot.sql` adds nullable JSONB column `battle_snapshot` to the `battles` table
-  - `server/engine/battle/snapshotReplay.ts` — pure replay utility: `parseStoredBattleSnapshot()` (Zod-validated strict parsing), `replayBattleInputFromStoredBattle()` (reconstructs exact legacy EngineBattleInput), `replayLegacyPersistedFieldsFromSnapshot()` (reconstructs legacy persisted fields)
-  - `deployAttack()` persists the snapshot alongside the battle row in the same transaction
-  - 19 focused replay tests covering JSONB round-trip, key reordering, identity verification, and parity
-  - 669 server tests passing (baseline 650 + 19 new)
-  - Live resolver unchanged — snapshot is for evidence and replay verification only
-  - Phase C reclassified as verification/cleanup only (human/AI already share deployAttack())
-  - Recommended next PR: Phase C verification, or Phase D (sub-parcel/special-path normalization)
+- **Phase B — DONE & MERGED:** `feat/frontier-battle-snapshot-persistence` → PR #254 (squash-merged). Durable BattleSnapshot persistence and replay verification: migration `0016_battles_battle_snapshot.sql` (nullable JSONB `battle_snapshot`), `server/engine/battle/snapshotReplay.ts` (`parseStoredBattleSnapshot`/`replayBattleInputFromStoredBattle`/`replayLegacyPersistedFieldsFromSnapshot`), `deployAttack()` persists the snapshot in the same transaction, 19 replay tests, 669 server tests passing. Live resolver unchanged.
+- **Phase 1 — Faction-identity / economy foundation — DONE & MERGED:** `feat/frontier-faction-identity-territory` → PR #256 (squash-merged `5f0989a`, 2026-07-12T16:34:02Z). An authenticated human's persisted faction (`players.playerFactionId`) now server-authoritatively drives:
+  - `shared/factionIdentity.ts` — `resolvePlayerFaction` / `resolveParcelFaction` / `classifyRelationship` (ally/enemy/neutral) / `computeFactionTerritory`. Canonical design rule: no owner → neutral; AI canonical faction account (name===faction id) → that faction; human with `playerFactionId` → that faction; human w/o → neutral. **Human faction is NEVER inferred from display name.**
+  - `/api/factions` territory totals now count human members' parcels (defects #1/#5 fixed; AI territory still counted — verified live: KRONOS/VANGUARD include human members; NEXUS-7 360 / SPECTRE 338 AI-held).
+  - `LandParcel.effectiveFaction` (nullable) exposed by BOTH `DbStorage` and `MemStorage` `getGameState()` (defect #3). Verified live in `/api/game/state` payloads (759 attributed: NEXUS-7 360 / KRONOS 54 / SPECTRE 338 / VANGUARD 7; 20,241 neutral).
+  - Globe colors owned plots by server-derived faction via `factionColor` (defect #2) — human KRONOS member land reads KRONOS purple, not enemy red/neutral.
+  - Tests: `shared/factionIdentity.spec.ts` (16), `server/storage/factionTerritory.mem.spec.ts` (2), `client/tests/globe-faction-color.spec.ts` (5). `pnpm run check` clean; `pnpm run build` clean; CI green (Typecheck & server tests + Cloudflare Pages).
+  - Deployed: Fly `Deploy to Fly` run #29200366134 green; `/health` 200, `/readiness` 200; no startup/serialization/faction-route/DB errors observed.
+  - **No migrations, no funds/ASA/chain/mainnet, no battle-resolver, no AI-behavior, no faction-treasury changes.** Exposed `effectiveFaction` is computed at serialization, not stored.
+  - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## NEXT
-- **Next lane:** (1) owner applies migration `0015` and `0016` to production DB (see P0.1 in roadmap); (2) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (3) **Phase C verification** (human/AI already unified) or **Phase 4B** (`/archetype` + `/build` idempotency) is next. Later phases stay one-PR-at-a-time per HARD RULES.
+- **Next lane:** (1) owner applies migration `0015` and `0016` to production DB (see P0.1 in roadmap); (2) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (3) **Battle Target Selector** (Battle Planner pre-cursor) is the next permitted feature lane after owner verifies the faction-identity UI (persisted faction, human-owned parcel faction color, territory reflecting human land) — faction economy / treasury / equity / contribution-ledger remain future work. Human mining/building/combat/finance faction-aggregation is a separate future lane. Later phases stay one-PR-at-a-time per HARD RULES.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
