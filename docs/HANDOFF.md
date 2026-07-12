@@ -18,6 +18,7 @@
 ## 📚 Recovery & architecture docs (pointer)
 - Recovered land/combat/panel audit: `artifacts/frontier-al/docs/audit/FRONTIER_LAND_COMBAT_PANEL_AUDIT.md` (originally `fa5b125`, re-verified at `e5b423b`).
 - Sub-plot combat architecture (canonical vocabulary + phased plan): `docs/memory/FRONTIER_SUBPLOT_COMBAT_ARCHITECTURE.md`.
+- **Battle-engine truth and target architecture (documentation-only, no runtime changes):** `docs/memory/FRONTIER_BATTLE_ENGINE_TRUTH_AND_TARGET.md`. Verdict: live engine is operationally correct but minimal; weapon archetypes/energy alignments/sub-parcel archetypes are stored but not consumed; CombatProfile/BattleSnapshot contracts exist but are not integrated. Recommended first implementation PR: Phase A (CombatProfile launch adapter with legacy parity). See document for full connection matrix, divergence analysis, and PR-sized migration sequence.
 - Background-loop cost control (merged, deploy, owner activation): `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
 - **Owner-only Fly activation blocker:** agents cannot set Fly secrets (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Activation + 15-min observation + DB snapshots are owner actions.
 - **Approved parallel-PR rule:** documentation/architecture/recovery PRs (doc-only, no app-code/schema/lockfile changes) may land in parallel without blocking the feature lane; application-code phases stay **one PR at a time** per the standing HARD RULES.
