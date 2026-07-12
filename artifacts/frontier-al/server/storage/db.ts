@@ -2203,6 +2203,7 @@ export class DbStorage implements IStorage {
       deployAttack:   (a) => this.deployAttack(a),
       upgradeBase:    (a) => this.upgradeBase(a),
       addEvent:       (e) => this.addEvent(e),
+      getActiveBattles: () => this.getActiveBattles(),
     });
   }
 

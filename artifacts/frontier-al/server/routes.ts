@@ -4283,6 +4283,7 @@ export async function registerRoutes(
         factions: result,
         aiEnabled: process.env.AI_ENABLED === "true",
         tickIntervalSecs: 20,
+        activeBattleCount: (await storage.getActiveBattles()).length,
       });
     } catch (err) {
       console.error("[admin/ai-activity]", err);
