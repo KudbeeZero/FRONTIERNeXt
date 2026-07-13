@@ -5,12 +5,12 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Battle Target Selector — **DONE & MERGED** (PR #258 `c42c2f3`).
-  - Replaced manual Parcel ID textbox in Commander Battlefront with 5-tab visual selector.
-  - Tabs: Recommended (scored), Nearby Enemies (distance), Mission Targets (rival faction), Search (Plot #/Owner/Faction), Globe (tap-to-select).
-  - `selectedParcelId` remains canonical target state; memoization caps at 20 results.
-  - Added 18 tests (5 SSR smoke + 13 pure logic). CI green: typecheck + server 699/26 + client 420.
-- **Next lane:** Battle Planner (Battle Target Selector pre-cursor shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
+- **Unit:** NFT metadata proxy (production-domain `frontierprotocol.app/nft/metadata/*` → Fly backend) — **DONE & MERGED** (PR #260 `36fbf6c`).
+  - Added `artifacts/frontier-al/client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200 (transparent proxy, not 3xx).
+  - Rules ordered BEFORE the `/*` SPA fallback; `/nft/biomes/*` and `/api/*` deliberately NOT proxied.
+  - Added 8-case regression spec (`client/tests/cloudflare-redirects.spec.ts`); full client suite 466/466 + typecheck clean + CI green (Typecheck & server tests + Cloudflare Pages).
+  - No application code, no chain/ASA, no auth, no idempotency, no marketing copy, no archetype/energy changes.
+- **Next lane:** Battle Planner (Battle Target Selector pre-cursor shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work. The ASCEND ASA `764083761` on-chain URL reconfiguration is a separate OWNER-SIGNED ON-CHAIN ACTION, not an app-code PR (verified in the Perplexity launch-blocker audit, separate lane).
 - **Owner-only blocker:** production activation was **not** performed by agents (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Owner must run:
   `flyctl secrets set -a frontiernext AI_ENABLED=true AI_TURN_INTERVAL_MS=120000 DEBUFF_CLEANUP_INTERVAL_MS=60000 AI_MAX_ACTIVE_BATTLES=12`
   then confirm `/health` 200 and observe 15 min (AI ~120 s, debuff ~60 s, active battles ≤ 12). See `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
@@ -53,11 +53,12 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
-- **Shipped:** Battle Target Selector — PR #258 `c42c2f3` (2026-07-13). Replaced manual Parcel ID textbox in Commander Battlefront with a 5-tab visual selector (Recommended, Nearby Enemies, Mission Targets, Search, Choose on Globe). `selectedParcelId` remains canonical target state; memoization caps at 20 results. CI green: typecheck clean · `test:server` 699 passed / 26 skipped · `test` 420 passed.
-- **Verified:** 21 new test cases added (5 SSR smoke + 13 pure logic + 3 existing smoke). No server, battle-engine, or ownership code modified.
+- **Shipped:** NFT metadata proxy — PR #260 `36fbf6c` (2026-07-13). Added `client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200. Wallets now resolve ARC-3 JSON from the branded domain. No application code, no chain, no auth, no idempotency, no marketing copy, no archetype/energy changes. CI green: typecheck clean · full client 466/466.
+- **Verified:** 8 new test cases for the redirects file. Production curl post-deploy is the owner's responsibility (see PR body).
 
 ## NEXT
 - **Next lane:** Battle Planner (Battle Target Selector shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
+- **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
 
