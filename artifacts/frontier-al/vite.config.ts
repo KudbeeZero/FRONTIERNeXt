@@ -14,6 +14,25 @@ export default defineConfig({
       include: ["buffer", "crypto", "stream", "events", "util", "process"],
       globals: { Buffer: true, global: true, process: true },
     }),
+    // Copy Cloudflare Pages Functions from client/functions/ into the build
+    // output (dist/public/functions/) so the Pages project root ships the
+    // function sources alongside the static build. Vite only copies
+    // client/public/* automatically; the functions tree must be wired in
+    // explicitly. Production-only — the dev server uses Vite's own dev
+    // middleware, not Pages Functions.
+    {
+      name: "frontier-al:copy-pages-functions",
+      apply: "build",
+      async closeBundle() {
+        const { cp, mkdir } = await import("fs/promises");
+        const { existsSync } = await import("fs");
+        const src = path.resolve(__dirname, "client", "functions");
+        const dest = path.resolve(__dirname, "dist", "public", "functions");
+        if (!existsSync(src)) return;
+        await mkdir(dest, { recursive: true });
+        await cp(src, dest, { recursive: true });
+      },
+    },
   ],
   root: path.resolve(__dirname, "client"),
   // Load .env from the package root (same file the server reads) rather than
