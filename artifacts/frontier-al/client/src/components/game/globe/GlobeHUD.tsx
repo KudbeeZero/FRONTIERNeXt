@@ -186,7 +186,7 @@ export function GlobeCompass({ controlsRef }: { controlsRef: { current: OrbitCon
 
 export function PlayerLegend() {
   return (
-    <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5">
+    <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5 pointer-events-none select-none">
       <div className="flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md"
         style={{ background: "#00ff6a12", border: "1px solid #00ff6a30" }}>
         <div className="w-2 h-2 rounded-full" style={{ background: "#00ff6a", boxShadow: "0 0 6px #00ff6a" }} />

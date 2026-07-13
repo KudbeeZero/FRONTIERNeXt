@@ -97,13 +97,17 @@
   background: linear-gradient(0deg, rgba(7, 12, 18, .92), rgba(6, 10, 15, .6));
   border-top: 1px solid var(--hud-edge);
   transition: transform .42s var(--hud-ease), opacity .3s ease;
+  /* The dock bar sits over the canvas on mobile. Make the bar itself pass
+     pointer events through; only the actual dock buttons consume touches.
+     This prevents empty space in the bottom bar from blocking globe zoom/pan. */
+  pointer-events: none;
 }
 .hud-dock.is-collapsed { transform: translateY(100%); opacity: 0; pointer-events: none; }
-.hud-dock-line { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(77, 255, 192, .18) 20%, rgba(77, 255, 192, .18) 80%, transparent); }
-.hud-dock-ind { position: absolute; top: -1px; height: 2px; width: 60px; border-radius: 2px; background: var(--hud-mint); box-shadow: 0 0 14px rgba(77, 255, 192, .7), 0 0 4px rgba(77, 255, 192, 1); transition: transform .55s var(--hud-ease), width .55s var(--hud-ease); }
+.hud-dock-line { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(77, 255, 192, .18) 20%, rgba(77, 255, 192, .18) 80%, transparent); pointer-events: none; }
+.hud-dock-ind { position: absolute; top: -1px; height: 2px; width: 60px; border-radius: 2px; background: var(--hud-mint); box-shadow: 0 0 14px rgba(77, 255, 192, .7), 0 0 4px rgba(77, 255, 192, 1); transition: transform .55s var(--hud-ease), width .55s var(--hud-ease); pointer-events: none; }
 .hud-dock-ind::before { content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 120%; height: 34px; background: radial-gradient(ellipse at top, rgba(77, 255, 192, .22), transparent 70%); pointer-events: none; }
 .hud-dock-items { height: 100%; display: flex; align-items: stretch; }
-.hud-di { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; color: var(--hud-lo); background: transparent; border: none; font: inherit; position: relative; transition: color .25s; }
+.hud-di { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; color: var(--hud-lo); background: transparent; border: none; font: inherit; position: relative; transition: color .25s; pointer-events: auto; }
 .hud-di svg { width: 22px; height: 22px; transition: transform .35s var(--hud-ease), filter .25s; }
 .hud-di span { font-family: var(--hud-f-display); font-size: 9.5px; letter-spacing: .18em; font-weight: 500; }
 .hud-di:hover { color: var(--hud-hi); }

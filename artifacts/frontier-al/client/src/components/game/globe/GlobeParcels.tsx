@@ -61,6 +61,11 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   // so pointer-move doesn't spam re-renders).
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const hoveredPlotRef = useRef<number | null>(null);
+  // Track active pointers so we can ignore clicks that are part of a multi-touch
+  // gesture (e.g. pinch-zoom). Without this, lifting one finger during a pinch
+  // can synthesise an `onClick` on the globe, opening plot sheets unexpectedly.
+  const activePointerCount = useRef(0);
+  const sawMultiTouch = useRef(false);
 
   const plotCoords = useMemo(() => generateFibonacciSphere(PLOT_COUNT), []);
 
@@ -365,7 +370,8 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   const handleClick = useCallback((e: any) => {
     e.stopPropagation();
-    if ((e.delta as number) > 6) return;
+    // Ignore drags and any gesture that involved more than one pointer (pinch-zoom).
+    if ((e.delta as number) > 6 || sawMultiTouch.current) return;
     const p = e.point as THREE.Vector3;
     const len = p.length();
     const scale = len > 0 ? GLOBE_RADIUS / len : 1;
@@ -376,12 +382,26 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     if (parcel) onPlotSelect(parcel.id);
   }, [nearestPlot, plotCoords, plotIdToParcel, onPlotSelect]);
 
+  const handlePointerDown = useCallback((e: any) => {
+    // A new pointer gesture is starting: reset the multi-touch flag only when
+    // the first pointer of a fresh gesture goes down.
+    if (activePointerCount.current === 0) sawMultiTouch.current = false;
+    activePointerCount.current += 1;
+    if (activePointerCount.current > 1) sawMultiTouch.current = true;
+  }, []);
+
+  const handlePointerUp = useCallback((e: any) => {
+    activePointerCount.current = Math.max(0, activePointerCount.current - 1);
+  }, []);
+
   return (
     <>
       {/* Invisible coverage sphere — catches every pointer event reliably */}
       <mesh
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
         onClick={handleClick}
       >
         <sphereGeometry args={[GLOBE_RADIUS * 1.01, 48, 24]} />
