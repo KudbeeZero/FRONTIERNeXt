@@ -24,6 +24,7 @@ import { SubParcelGridPicker } from "./commander/SubParcelGridPicker";
 import { BattleResultCard, type BattleResult } from "./commander/BattleResultCard";
 import { GameTerminal } from "./GameTerminal";
 import { BattleTargetSelector } from "./BattleTargetSelector";
+import { BattlePlanner } from "./BattlePlanner";
 import type { TerminalCommand } from "@/lib/terminalCommands";
 import { COMPANION, COMMANDER_IMAGES, TIER_COLORS, formatCountdown } from "./commander/shared";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel, Battle } from "@shared/schema";
@@ -76,6 +77,7 @@ export interface CommanderPanelProps {
   isClaimingAllPlotNfts?: boolean;
   battles?: Battle[];
   onSelectTarget?: (parcelId: string) => void;
+  onOpenMap?: () => void;
 }
 
 export function CommanderPanel({
@@ -83,8 +85,9 @@ export function CommanderPanel({
   onClaimCommanderNft, onAttack, isMinting, isDeployingDrone, isDeployingSatellite,
   isClaimingCommanderNft, isAttacking, openBattlefrontSignal, selectedParcel, ownedParcels = [],
   allParcels = [], wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
-  onClaimAllPlotNfts, isClaimingAllPlotNfts, battles = [],
+  onClaimAllPlotNfts, isClaimingAllPlotNfts,   battles = [],
   onSelectTarget,
+  onOpenMap,
 }: CommanderPanelProps) {
   const queryClient = useQueryClient();
   const [selectedTier, setSelectedTier] = useState<CommanderTier>("sentinel");
@@ -239,11 +242,6 @@ export function CommanderPanel({
   const maxConcurrent = activeCommander ? (COMMANDER_INFO[activeCommander.tier]?.maxConcurrentAttacks ?? 1) : 0;
   const atMaxCapacity = activeBattleCount >= maxConcurrent;
   const targetEngaged = selectedParcel?.activeBattleId != null;
-
-  const handleLaunchPlotAttack = () => {
-    if (!onAttack || !targetParcelId) return;
-    onAttack(troops, totalIron, totalFuel, extraCrystal, activeCommander?.id, sourceParcelId ?? undefined);
-  };
 
   const handleTargetSelect = (parcel: LandParcel) => {
     setTargetParcelId(parcel.id);
@@ -631,199 +629,209 @@ export function CommanderPanel({
                   >Sub-Parcel</button>
                 </div>
 
-                {/* Target selector */}
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-display uppercase text-muted-foreground">Select Target</p>
-                  <BattleTargetSelector
+                {attackMode === "sub-parcel" ? (
+                  <>
+                    {/* Target selector (sub-parcel picks the parent plot) */}
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-display uppercase text-muted-foreground">Select Target</p>
+                      <BattleTargetSelector
+                        allParcels={allParcels}
+                        ownedParcels={ownedParcels}
+                        playerFactionId={player.playerFactionId}
+                        selectedParcelId={targetParcelId}
+                        onSelect={handleTargetSelect}
+                        sourceParcelId={sourceParcelId}
+                        currentCommanderName={activeCommander?.name}
+                        currentTroops={troops}
+                        baseCostIron={ATTACK_BASE_COST.iron}
+                        baseCostFuel={ATTACK_BASE_COST.fuel}
+                      />
+                    </div>
+
+                    {/* Sub-parcel grid picker */}
+                    {targetPlotId && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-display uppercase text-muted-foreground">Pick Sub-Parcel (orange = enemy)</p>
+                        {subParcelsData?.subParcels?.length ? (
+                          <SubParcelGridPicker
+                            subParcels={subParcelsData.subParcels}
+                            selectedIdx={selectedSubIdx}
+                            onSelect={(idx, id) => { setSelectedSubIdx(idx); setSelectedSubParcelId(id); }}
+                            currentPlayerId={player.id}
+                          />
+                        ) : (
+                          <p className="text-[9px] text-muted-foreground">No sub-parcels found for this plot.</p>
+                        )}
+                        {selectedSubIdx !== null && (
+                          <p className="text-[9px] text-orange-400 font-mono">Selected: Cell #{selectedSubIdx + 1}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Source parcel */}
+                    {ownedParcels.length > 1 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-display uppercase text-muted-foreground">Launch From</p>
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          {ownedParcels.slice(0, 6).map(p => (
+                            <button key={p.id} onClick={() => setSourceParcelId(p.id)} className={cn(
+                              "flex-shrink-0 w-14 h-12 rounded border flex flex-col items-center justify-center text-[8px] font-mono gap-0.5 transition-colors",
+                              sourceParcelId === p.id ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/10 hover:border-muted-foreground text-muted-foreground"
+                            )}>
+                              <MapPin className="w-2.5 h-2.5" />
+                              <span>#{p.plotId}</span>
+                              <span className="capitalize text-[7px]">{p.biome}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Active commander display */}
+                    {activeCommander && (
+                      <div className="flex items-center gap-2 p-2 rounded-md bg-muted/20 border border-border/40">
+                        <span className="text-base">{COMPANION[activeCommander.tier as CommanderTier]?.emoji}</span>
+                        <div className="text-[9px]">
+                          <p className="font-display uppercase font-bold" style={{ color: TIER_COLORS[activeCommander.tier as CommanderTier] }}>{activeCommander.name}</p>
+                          <p className="text-muted-foreground">+{activeCommander.attackBonus} ATK · {COMPANION[activeCommander.tier as CommanderTier]?.name}</p>
+                        </div>
+                        <ChevronsRight className="w-3 h-3 text-muted-foreground ml-auto" />
+                      </div>
+                    )}
+
+                    {/* Resources — Troops always visible; extras tucked behind Advanced ▾ */}
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-display uppercase text-muted-foreground">Troops</span>
+                          <div className="flex items-center gap-1.5">
+                            <Button variant="outline" size="icon" className="h-5 w-5" onClick={() => setTroops(Math.max(1, troops - 1))} disabled={troops <= 1}><ChevronDown className="w-2.5 h-2.5" /></Button>
+                            <span className="font-mono text-sm w-5 text-center">{troops}</span>
+                            <Button variant="outline" size="icon" className="h-5 w-5" onClick={() => setTroops(Math.min(maxTroops, troops + 1))} disabled={troops >= maxTroops}><ChevronUp className="w-2.5 h-2.5" /></Button>
+                          </div>
+                        </div>
+                        <Slider value={[troops]} onValueChange={([v]) => setTroops(v)} min={1} max={Math.max(1, maxTroops)} step={1} className="w-full" />
+                      </div>
+
+                      {/* Advanced ▾ — Extra Iron / Fuel / Crystal, hidden by default */}
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvanced(v => !v)}
+                        className="flex items-center gap-1 text-[10px] font-display uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid="button-toggle-advanced-attack"
+                      >
+                        {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        Advanced
+                        {!showAdvanced && (extraIron > 0 || extraFuel > 0 || extraCrystal > 0) && (
+                          <span className="text-cyan-400 normal-case">· boosted</span>
+                        )}
+                      </button>
+
+                      {showAdvanced && (
+                        <div className="space-y-2 pl-2 border-l border-border/40">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Pickaxe className="w-2.5 h-2.5 text-iron" /> Extra Iron</span>
+                              <span className="font-mono text-[10px]">{extraIron}</span>
+                            </div>
+                            <Slider value={[extraIron]} onValueChange={([v]) => setExtraIron(v)} min={0} max={Math.max(0, player.iron - baseCostIron)} step={10} className="w-full" />
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Fuel className="w-2.5 h-2.5 text-fuel" /> Extra Fuel</span>
+                              <span className="font-mono text-[10px]">{extraFuel}</span>
+                            </div>
+                            <Slider value={[extraFuel]} onValueChange={([v]) => setExtraFuel(v)} min={0} max={Math.max(0, player.fuel - baseCostFuel)} step={10} className="w-full" />
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" /> Crystal</span>
+                              <span className="font-mono text-[10px] text-cyan-400">{extraCrystal}</span>
+                            </div>
+                            <Slider value={[extraCrystal]} onValueChange={([v]) => setExtraCrystal(v)} min={0} max={Math.max(0, player.crystal)} step={1} className="w-full" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Power display */}
+                    <div className="grid grid-cols-2 gap-2 p-2.5 bg-card border border-border rounded-md">
+                      <div><p className="text-[9px] text-muted-foreground uppercase font-display">Your Power</p><p className="font-mono text-lg font-bold text-primary">{Math.round(attackerPower)}</p></div>
+                      <div><p className="text-[9px] text-muted-foreground uppercase font-display">Defender</p><p className="font-mono text-lg font-bold text-destructive">{defenderPower > 0 ? Math.round(defenderPower) : "?"}</p></div>
+                    </div>
+                    {defenderPower > 0 && (
+                      <div className="flex items-center justify-between text-xs px-1">
+                        <span className="text-muted-foreground font-display uppercase">Win Chance</span>
+                        <Badge variant={winChance > 60 ? "default" : winChance > 40 ? "secondary" : "destructive"} className="font-mono">{Math.round(winChance)}%</Badge>
+                      </div>
+                    )}
+
+                    {/* Battle status */}
+                    <div className="flex items-center justify-between text-[9px] font-mono px-1">
+                      <span className="text-muted-foreground font-display uppercase">
+                        Battles Active · {activeBattleCount}/{maxConcurrent}
+                      </span>
+                      {activeCommander && activeCommander.lockedUntil && serverNow() < activeCommander.lockedUntil && (
+                        <span className="text-warning flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Commander Locked · {formatCountdown(activeCommander.lockedUntil - serverNow())}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Warnings */}
+                    {(!canAfford || !hasCommander || allCommandersLocked || isOnCooldown || atMaxCapacity || targetEngaged) && (
+                      <div className="p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-md space-y-1 text-[9px] text-yellow-400">
+                        {!canAfford && <p className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Insufficient resources</p>}
+                        {!hasCommander && <p className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Mint a Commander to attack</p>}
+                        {allCommandersLocked && hasCommander && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> All commanders on cooldown</p>}
+                        {isOnCooldown && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Attack cooldown active</p>}
+                        {atMaxCapacity && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Maximum active battles reached</p>}
+                        {targetEngaged && <p className="flex items-center gap-1"><Target className="w-3 h-3" /> Target already engaged</p>}
+                      </div>
+                    )}
+
+                    {/* Combat warning */}
+                    <p className="text-[9px] text-muted-foreground flex items-center gap-1.5" data-testid="commander-combat-warning">
+                      <Clock className="w-3 h-3 shrink-0 text-destructive" />
+                      Battle resolves in {Math.round(BATTLE_DURATION_MS / 60000)} min · resources spent now.
+                    </p>
+
+                    {/* Launch sub-parcel */}
+                    <Button
+                      variant="destructive"
+                      className="w-full font-display uppercase tracking-wide bg-orange-600 hover:bg-orange-700 border-orange-500"
+                      onClick={handleLaunchSubParcelAttack}
+                      disabled={!canAfford || !hasCommander || allCommandersLocked || !selectedSubParcelId || subParcelAttackMutation.isPending}
+                    >
+                      <Target className="w-4 h-4 mr-2" />
+                      {subParcelAttackMutation.isPending ? "Attacking…" : "Launch Sub-Parcel Strike"}
+                    </Button>
+                  </>
+                ) : (
+                  <BattlePlanner
+                    player={player}
                     allParcels={allParcels}
                     ownedParcels={ownedParcels}
-                    playerFactionId={player.playerFactionId}
-                    selectedParcelId={targetParcelId}
-                    onSelect={handleTargetSelect}
+                    selectedParcel={selectedParcel}
+                    onSelectTarget={onSelectTarget ?? (() => {})}
                     sourceParcelId={sourceParcelId}
-                    currentCommanderName={activeCommander?.name}
-                    currentTroops={troops}
-                    baseCostIron={ATTACK_BASE_COST.iron}
-                    baseCostFuel={ATTACK_BASE_COST.fuel}
+                    onSourceParcelChange={(id) => setSourceParcelId(id)}
+                    troops={troops}
+                    onTroopsChange={setTroops}
+                    extraIron={extraIron}
+                    onExtraIronChange={setExtraIron}
+                    extraFuel={extraFuel}
+                    onExtraFuelChange={setExtraFuel}
+                    extraCrystal={extraCrystal}
+                    onExtraCrystalChange={setExtraCrystal}
+                    battles={battles}
+                    onAttack={onAttack ?? (() => {})}
+                    isAttacking={isAttacking}
+                    onOpenMap={onOpenMap}
                   />
-                </div>
-
-                {/* Sub-parcel grid picker */}
-                {attackMode === "sub-parcel" && targetPlotId && (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-display uppercase text-muted-foreground">Pick Sub-Parcel (orange = enemy)</p>
-                    {subParcelsData?.subParcels?.length ? (
-                      <SubParcelGridPicker
-                        subParcels={subParcelsData.subParcels}
-                        selectedIdx={selectedSubIdx}
-                        onSelect={(idx, id) => { setSelectedSubIdx(idx); setSelectedSubParcelId(id); }}
-                        currentPlayerId={player.id}
-                      />
-                    ) : (
-                      <p className="text-[9px] text-muted-foreground">No sub-parcels found for this plot.</p>
-                    )}
-                    {selectedSubIdx !== null && (
-                      <p className="text-[9px] text-orange-400 font-mono">Selected: Cell #{selectedSubIdx + 1}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Source parcel */}
-                {ownedParcels.length > 1 && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-display uppercase text-muted-foreground">Launch From</p>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1">
-                      {ownedParcels.slice(0, 6).map(p => (
-                        <button key={p.id} onClick={() => setSourceParcelId(p.id)} className={cn(
-                          "flex-shrink-0 w-14 h-12 rounded border flex flex-col items-center justify-center text-[8px] font-mono gap-0.5 transition-colors",
-                          sourceParcelId === p.id ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/10 hover:border-muted-foreground text-muted-foreground"
-                        )}>
-                          <MapPin className="w-2.5 h-2.5" />
-                          <span>#{p.plotId}</span>
-                          <span className="capitalize text-[7px]">{p.biome}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Active commander display */}
-                {activeCommander && (
-                  <div className="flex items-center gap-2 p-2 rounded-md bg-muted/20 border border-border/40">
-                    <span className="text-base">{COMPANION[activeCommander.tier as CommanderTier]?.emoji}</span>
-                    <div className="text-[9px]">
-                      <p className="font-display uppercase font-bold" style={{ color: TIER_COLORS[activeCommander.tier as CommanderTier] }}>{activeCommander.name}</p>
-                      <p className="text-muted-foreground">+{activeCommander.attackBonus} ATK · {COMPANION[activeCommander.tier as CommanderTier]?.name}</p>
-                    </div>
-                    <ChevronsRight className="w-3 h-3 text-muted-foreground ml-auto" />
-                  </div>
-                )}
-
-                {/* Resources — Troops always visible; extras tucked behind Advanced ▾ */}
-                <div className="space-y-2">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-display uppercase text-muted-foreground">Troops</span>
-                      <div className="flex items-center gap-1.5">
-                        <Button variant="outline" size="icon" className="h-5 w-5" onClick={() => setTroops(Math.max(1, troops - 1))} disabled={troops <= 1}><ChevronDown className="w-2.5 h-2.5" /></Button>
-                        <span className="font-mono text-sm w-5 text-center">{troops}</span>
-                        <Button variant="outline" size="icon" className="h-5 w-5" onClick={() => setTroops(Math.min(maxTroops, troops + 1))} disabled={troops >= maxTroops}><ChevronUp className="w-2.5 h-2.5" /></Button>
-                      </div>
-                    </div>
-                    <Slider value={[troops]} onValueChange={([v]) => setTroops(v)} min={1} max={Math.max(1, maxTroops)} step={1} className="w-full" />
-                  </div>
-
-                  {/* Advanced ▾ — Extra Iron / Fuel / Crystal, hidden by default */}
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvanced(v => !v)}
-                    className="flex items-center gap-1 text-[10px] font-display uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
-                    data-testid="button-toggle-advanced-attack"
-                  >
-                    {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    Advanced
-                    {!showAdvanced && (extraIron > 0 || extraFuel > 0 || extraCrystal > 0) && (
-                      <span className="text-cyan-400 normal-case">· boosted</span>
-                    )}
-                  </button>
-
-                  {showAdvanced && (
-                    <div className="space-y-2 pl-2 border-l border-border/40">
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Pickaxe className="w-2.5 h-2.5 text-iron" /> Extra Iron</span>
-                          <span className="font-mono text-[10px]">{extraIron}</span>
-                        </div>
-                        <Slider value={[extraIron]} onValueChange={([v]) => setExtraIron(v)} min={0} max={Math.max(0, player.iron - baseCostIron)} step={10} className="w-full" />
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><Fuel className="w-2.5 h-2.5 text-fuel" /> Extra Fuel</span>
-                          <span className="font-mono text-[10px]">{extraFuel}</span>
-                        </div>
-                        <Slider value={[extraFuel]} onValueChange={([v]) => setExtraFuel(v)} min={0} max={Math.max(0, player.fuel - baseCostFuel)} step={10} className="w-full" />
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-display uppercase flex items-center gap-1 text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" /> Crystal</span>
-                          <span className="font-mono text-[10px] text-cyan-400">{extraCrystal}</span>
-                        </div>
-                        <Slider value={[extraCrystal]} onValueChange={([v]) => setExtraCrystal(v)} min={0} max={Math.max(0, player.crystal)} step={1} className="w-full" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Power display */}
-                <div className="grid grid-cols-2 gap-2 p-2.5 bg-card border border-border rounded-md">
-                  <div><p className="text-[9px] text-muted-foreground uppercase font-display">Your Power</p><p className="font-mono text-lg font-bold text-primary">{Math.round(attackerPower)}</p></div>
-                  <div><p className="text-[9px] text-muted-foreground uppercase font-display">Defender</p><p className="font-mono text-lg font-bold text-destructive">{defenderPower > 0 ? Math.round(defenderPower) : "?"}</p></div>
-                </div>
-                {defenderPower > 0 && (
-                  <div className="flex items-center justify-between text-xs px-1">
-                    <span className="text-muted-foreground font-display uppercase">Win Chance</span>
-                    <Badge variant={winChance > 60 ? "default" : winChance > 40 ? "secondary" : "destructive"} className="font-mono">{Math.round(winChance)}%</Badge>
-                  </div>
-                )}
-
-                {/* Battle status */}
-                {attackMode === "plot" && (
-                  <div className="flex items-center justify-between text-[9px] font-mono px-1">
-                    <span className="text-muted-foreground font-display uppercase">
-                      Battles Active · {activeBattleCount}/{maxConcurrent}
-                    </span>
-                    {activeCommander && activeCommander.lockedUntil && serverNow() < activeCommander.lockedUntil && (
-                      <span className="text-warning flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        Commander Locked · {formatCountdown(activeCommander.lockedUntil - serverNow())}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Warnings */}
-                {(!canAfford || !hasCommander || allCommandersLocked || isOnCooldown || atMaxCapacity || targetEngaged) && (
-                  <div className="p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-md space-y-1 text-[9px] text-yellow-400">
-                    {!canAfford && <p className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Insufficient resources</p>}
-                    {!hasCommander && <p className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Mint a Commander to attack</p>}
-                    {allCommandersLocked && hasCommander && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> All commanders on cooldown</p>}
-                    {isOnCooldown && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Attack cooldown active</p>}
-                    {atMaxCapacity && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Maximum active battles reached</p>}
-                    {targetEngaged && <p className="flex items-center gap-1"><Target className="w-3 h-3" /> Target already engaged</p>}
-                  </div>
-                )}
-
-                {/* Combat warning — single line above Confirm */}
-                {attackMode === "plot" && (
-                  <p className="text-[9px] text-muted-foreground flex items-center gap-1.5" data-testid="commander-combat-warning">
-                    <Clock className="w-3 h-3 shrink-0 text-destructive" />
-                    Battle resolves in {Math.round(BATTLE_DURATION_MS / 60000)} min · resources spent now.
-                  </p>
-                )}
-
-                {/* Launch button */}
-                {attackMode === "plot" ? (
-                  <Button
-                    variant="destructive"
-                    className="w-full font-display uppercase tracking-wide"
-                    onClick={handleLaunchPlotAttack}
-                    disabled={!canAfford || !hasCommander || allCommandersLocked || !!isOnCooldown || isAttacking || !targetParcelId || atMaxCapacity || targetEngaged}
-                  >
-                    <Swords className="w-4 h-4 mr-2" />
-                    {isAttacking ? "Deploying…" : "Launch Plot Attack"}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="destructive"
-                    className="w-full font-display uppercase tracking-wide bg-orange-600 hover:bg-orange-700 border-orange-500"
-                    onClick={handleLaunchSubParcelAttack}
-                    disabled={!canAfford || !hasCommander || allCommandersLocked || !selectedSubParcelId || subParcelAttackMutation.isPending}
-                  >
-                    <Target className="w-4 h-4 mr-2" />
-                    {subParcelAttackMutation.isPending ? "Attacking…" : "Launch Sub-Parcel Strike"}
-                  </Button>
                 )}
 
                 {/* Sub-parcel attack error */}
