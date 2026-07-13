@@ -25,7 +25,7 @@ import { BattleResultCard, type BattleResult } from "./commander/BattleResultCar
 import { GameTerminal } from "./GameTerminal";
 import type { TerminalCommand } from "@/lib/terminalCommands";
 import { COMPANION, COMMANDER_IMAGES, TIER_COLORS, formatCountdown } from "./commander/shared";
-import type { Player, CommanderTier, SpecialAttackType, LandParcel } from "@shared/schema";
+import type { Player, CommanderTier, SpecialAttackType, LandParcel, Battle } from "@shared/schema";
 import {
   COMMANDER_INFO, SPECIAL_ATTACK_INFO, DRONE_MINT_COST_ASCEND, MAX_DRONES,
   DRONE_SCOUT_DURATION_MS, SATELLITE_DEPLOY_COST_ASCEND, MAX_SATELLITES,
@@ -72,6 +72,7 @@ export interface CommanderPanelProps {
   isDeliveringPlotNftId?: number | null;
   onClaimAllPlotNfts?: (plots: { plotId: number; assetId: number }[]) => void;
   isClaimingAllPlotNfts?: boolean;
+  battles?: Battle[];
 }
 
 export function CommanderPanel({
@@ -79,7 +80,7 @@ export function CommanderPanel({
   onClaimCommanderNft, onAttack, isMinting, isDeployingDrone, isDeployingSatellite,
   isClaimingCommanderNft, isAttacking, openBattlefrontSignal, selectedParcel, ownedParcels = [],
   wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
-  onClaimAllPlotNfts, isClaimingAllPlotNfts,
+  onClaimAllPlotNfts, isClaimingAllPlotNfts, battles = [],
 }: CommanderPanelProps) {
   const queryClient = useQueryClient();
   const [selectedTier, setSelectedTier] = useState<CommanderTier>("sentinel");
@@ -228,6 +229,12 @@ export function CommanderPanel({
   const maxTroops = Math.min(10, Math.floor(player.iron / ATTACK_BASE_COST.iron), Math.floor(player.fuel / ATTACK_BASE_COST.fuel));
   const isOnCooldown = player.attackCooldownUntil && serverNow() < player.attackCooldownUntil;
   const allCommandersLocked = commanders.every(c => c.lockedUntil && serverNow() < c.lockedUntil);
+
+  const pendingBattles = battles.filter(b => b.attackerId === player?.id && b.status === "pending");
+  const activeBattleCount = pendingBattles.length;
+  const maxConcurrent = activeCommander ? (COMMANDER_INFO[activeCommander.tier]?.maxConcurrentAttacks ?? 1) : 0;
+  const atMaxCapacity = activeBattleCount >= maxConcurrent;
+  const targetEngaged = selectedParcel?.activeBattleId != null;
 
   const handleLaunchPlotAttack = () => {
     if (!onAttack || !targetParcelId) return;
@@ -756,13 +763,30 @@ export function CommanderPanel({
                   </div>
                 )}
 
+                {/* Battle status */}
+                {attackMode === "plot" && (
+                  <div className="flex items-center justify-between text-[9px] font-mono px-1">
+                    <span className="text-muted-foreground font-display uppercase">
+                      Battles Active · {activeBattleCount}/{maxConcurrent}
+                    </span>
+                    {activeCommander && activeCommander.lockedUntil && serverNow() < activeCommander.lockedUntil && (
+                      <span className="text-warning flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Commander Locked · {formatCountdown(activeCommander.lockedUntil - serverNow())}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Warnings */}
-                {(!canAfford || !hasCommander || allCommandersLocked || isOnCooldown) && (
+                {(!canAfford || !hasCommander || allCommandersLocked || isOnCooldown || atMaxCapacity || targetEngaged) && (
                   <div className="p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-md space-y-1 text-[9px] text-yellow-400">
                     {!canAfford && <p className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Insufficient resources</p>}
                     {!hasCommander && <p className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Mint a Commander to attack</p>}
                     {allCommandersLocked && hasCommander && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> All commanders on cooldown</p>}
                     {isOnCooldown && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Attack cooldown active</p>}
+                    {atMaxCapacity && <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Maximum active battles reached</p>}
+                    {targetEngaged && <p className="flex items-center gap-1"><Target className="w-3 h-3" /> Target already engaged</p>}
                   </div>
                 )}
 
@@ -780,7 +804,7 @@ export function CommanderPanel({
                     variant="destructive"
                     className="w-full font-display uppercase tracking-wide"
                     onClick={handleLaunchPlotAttack}
-                    disabled={!canAfford || !hasCommander || allCommandersLocked || !!isOnCooldown || isAttacking || !targetParcelId}
+                    disabled={!canAfford || !hasCommander || allCommandersLocked || !!isOnCooldown || isAttacking || !targetParcelId || atMaxCapacity || targetEngaged}
                   >
                     <Swords className="w-4 h-4 mr-2" />
                     {isAttacking ? "Deploying…" : "Launch Plot Attack"}

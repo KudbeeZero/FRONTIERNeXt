@@ -473,9 +473,9 @@ export function BattleWatchModal({ open, onOpenChange, battle, players, targetPa
                 </p>
               </div>
               <p className="text-sm text-muted-foreground">
-                {attackerWins
-                  ? `${attackerName} has captured the territory`
-                  : `${defenderName} repelled the attack`}
+                 {attackerWins
+                   ? `${attackerName} defeated the defenses`
+                   : `${defenderName} repelled the attack`}
               </p>
             </div>
           )}
