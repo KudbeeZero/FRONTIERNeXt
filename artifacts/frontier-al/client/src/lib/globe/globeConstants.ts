@@ -97,3 +97,28 @@ export const SUB_PARCEL_LOD_DISTANCE = GLOBE_RADIUS * 2.6;
 
 /** Fog of war: reveal radius around each owned plot (euclidean, globe units). */
 export const FOG_REVEAL_RADIUS = GLOBE_RADIUS * 0.085;
+
+// ── Terraform visual stages ───────────────────────────────────────────────────
+// 5 stages driven by parcel.terraformLevel (cumulative action count).
+// Stage 0 = raw land, Stage 4 = fully ascended floating-island tech.
+export const TERRAFORM_STAGE_MAX = 4;
+// Per-stage altitude multiplier above the globe surface (replaces the static 1.018).
+export const TERRAFORM_ALTITUDE = [1.018, 1.020, 1.023, 1.027, 1.032];
+// Per-stage fill scale (subtle size growth as the plot "develops").
+export const TERRAFORM_SCALE = [1.0, 1.02, 1.05, 1.08, 1.12];
+// Per-stage glow/emissive intensity multiplier (applied to base color).
+export const TERRAFORM_GLOW = [0.0, 0.12, 0.25, 0.42, 0.65];
+// Per-stage border opacity boost (energy halo thickness).
+export const TERRAFORM_BORDER_BOOST = [0.0, 0.05, 0.12, 0.22, 0.35];
+// Per-stage border glow color — neutral cool tech by default.
+export const TERRAFORM_BORDER_COLOR = new THREE.Color("#7fd4ff");
+// Per-stage center color (used for stage 3-4 inner accent) — bright tech cyan.
+export const TERRAFORM_ACCENT_COLOR = new THREE.Color("#a8eaff");
+
+// Hazard/stability visual thresholds.
+export const HAZARD_DIM_THRESHOLD = 50;   // hazardLevel above this starts darkening the tile
+export const HAZARD_DEGRADE_THRESHOLD = 60; // hazardLevel above this triggers degraded treatment
+export const STABILITY_DIM_THRESHOLD = 30; // stability below this starts dimming the tile
+// Hazard contamination color — warm amber/red overlay.
+export const HAZARD_TINT = new THREE.Color("#ff4a1a");
+export const DEGRADED_TINT = new THREE.Color("#5a1a0a");

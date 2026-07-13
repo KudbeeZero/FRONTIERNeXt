@@ -27,6 +27,16 @@ import {
   MAX_SUB_TILES,
   SUB_PARCEL_LOD_DISTANCE,
   FOG_REVEAL_RADIUS,
+  TERRAFORM_ALTITUDE,
+  TERRAFORM_SCALE,
+  TERRAFORM_GLOW,
+  TERRAFORM_BORDER_BOOST,
+  TERRAFORM_BORDER_COLOR,
+  TERRAFORM_ACCENT_COLOR,
+  HAZARD_TINT,
+  DEGRADED_TINT,
+  STABILITY_DIM_THRESHOLD,
+  HAZARD_DEGRADE_THRESHOLD,
 } from "@/lib/globe/globeConstants";
 import { computeVisiblePlotIndices, FOG_DIM_HIDDEN } from "@shared/fog";
 import {
@@ -34,6 +44,9 @@ import {
   latLngToVec3,
   getPlotColor,
   getPlotSizeVariant,
+  getTerraformStage,
+  getTerraformHealth,
+  isParcelDegraded,
   tangentFrame,
 } from "@/lib/globe/globeUtils";
 import { buildPickIndex } from "@/lib/globe/pickIndex";
@@ -86,10 +99,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   // Prefixed with currentPlayerId so the base-color pass re-runs when the
   // session resolves (own plots must flip from enemy-red to player-green).
   // effectiveFaction is included so a faction switch repaints faction colours.
+  // Terraform fields (level/revision/hazard/stability) are included so the stage
+  // visuals re-render when a plot is terraformed or its health changes.
   const plotVisualFingerprint = useMemo(() => {
     return (currentPlayerId ?? "") + "|" + prefs.territoryColor + ":" + prefs.enemyColor + ":" + Number(prefs.fogOfWar) + "|" + parcels
-      .filter(p => p.ownerId || p.activeBattleId || p.isSubdivided)
-      .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}:${p.effectiveFaction ?? ""}`)
+      .filter(p => p.ownerId || p.activeBattleId || p.isSubdivided || (p.terraformLevel ?? 0) > 0 || p.visualStateRevision || p.hazardLevel || p.stability < 100)
+      .map(p => `${p.plotId}:${p.ownerId ?? ""}:${p.activeBattleId ?? ""}:${Number(!!p.isSubdivided)}:${p.effectiveFaction ?? ""}:${p.terraformLevel ?? 0}:${p.visualStateRevision ?? 0}:${p.hazardLevel ?? 0}:${p.stability ?? 100}:${p.terraformStatus ?? "none"}`)
       .sort()
       .join("|");
   }, [parcels, currentPlayerId, prefs.territoryColor, prefs.enemyColor, prefs.fogOfWar]);
@@ -160,6 +175,9 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
+  // Per-plot fill/border positions. Base altitude is GLOBE_RADIUS * 1.018 (fill)
+  // and * 1.012 (border); terraform stage lifts the fill further off the surface.
+  // Border stays at the base layer so the grid frame remains readable.
   const fillPositions3D = useMemo(() => {
     return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.018));
   }, [plotCoords]);
@@ -167,6 +185,19 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   const borderPositions3D = useMemo(() => {
     return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.012));
   }, [plotCoords]);
+
+  // Per-plot fill positions lifted to the parcel's terraform-stage altitude.
+  // Stable per plotId/level — recomputed only when the parcel set changes.
+  const terraformFillPositions3D = useMemo(() => {
+    const plotIdToParcel2 = plotIdToParcelRef.current ?? new Map<number, LandParcel>();
+    return plotCoords.map(c => {
+      const parcel = plotIdToParcel2.get(c.plotId);
+      const stage = getTerraformStage(parcel);
+      const altitude = TERRAFORM_ALTITUDE[stage];
+      return latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * altitude);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parcels, plotCoords]);
 
   const applyInstance = (
     mesh: THREE.InstancedMesh,
@@ -224,7 +255,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       const isOwnedByMe = !!parcel?.ownerId && parcel.ownerId === currentPlayerId;
       const isSubdivided = !!(parcel as LandParcel)?.isSubdivided;
 
-      const fillPos   = fillPositions3D[i];
+      // Terraform stage + health read from parcel — cheap pure functions, see globeUtils.
+      const stage = getTerraformStage(parcel);
+      const health = getTerraformHealth(parcel);
+      const degraded = isParcelDegraded(parcel);
+
+      const fillPos   = terraformFillPositions3D[i];
       const borderPos = borderPositions3D[i];
 
       let fillColor: THREE.Color;
@@ -252,6 +288,27 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         }
       }
 
+      // ── Terraform stage color/glow modulation ──────────────────────────────
+      // Stages 1-4 lift color toward bright accent cyan (additive) and pulse
+      // with a slow breathing wave. Degraded plots (high hazard / low stability)
+      // are suppressed — hazard tint is added instead and the accent is dimmed.
+      if (stage > 0) {
+        const stageGlow = TERRAFORM_GLOW[stage];
+        if (degraded) {
+          // Degraded: pull toward degraded brown + add hazard amber.
+          fillColor.lerp(DEGRADED_TINT, 0.35);
+          fillColor.lerp(HAZARD_TINT, 0.25);
+          // Dim glow proportional to poor health.
+          fillColor.multiplyScalar(0.55 + 0.45 * health);
+        } else {
+          const pulse = 0.85 + 0.15 * Math.sin(pulseRef.current * 1.5 + i * 0.13);
+          // Mix toward tech accent proportional to stage glow.
+          fillColor.lerp(TERRAFORM_ACCENT_COLOR, stageGlow * 0.5 * pulse);
+          // Brighten the base color so the glow reads as energy, not just hue shift.
+          fillColor.multiplyScalar(1 + stageGlow * pulse);
+        }
+      }
+
       // Your own plots get a breathing border-glow so ownership reads as motion,
       // not just color. Enemy-owned plots keep a static white border.
       const ownPulse = 0.55 + 0.45 * Math.sin(pulseRef.current * 2.2);
@@ -265,16 +322,29 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
               ? COLOR_BORDER_OWNED.clone()
               : COLOR_BORDER_UNOWNED.clone();
 
+      // Terraform border halo — stage 2+ adds a soft tech glow to the border
+      // (additive on top of ownership/selection colors).
+      if (stage >= 2) {
+        const boost = TERRAFORM_BORDER_BOOST[stage];
+        if (!degraded) {
+          borderColor.lerp(TERRAFORM_BORDER_COLOR, boost);
+        } else {
+          // Degraded border shifts toward hazard tint instead of tech glow.
+          borderColor.lerp(HAZARD_TINT, boost * 0.5);
+        }
+      }
+
       // Fog of war: dim hidden plots (but never the active selection/hover).
       if (fogVisibleSet && !isSelected && !isHovered && !fogVisibleSet.has(i)) {
         fillColor.multiplyScalar(FOG_DIM_HIDDEN);
         borderColor.multiplyScalar(FOG_DIM_HIDDEN);
       }
 
+      const terraformScale = TERRAFORM_SCALE[stage];
       const fillScale   = isSelected ? 1.12 : isHovered ? 1.06 : isOwned ? 1.0 : 0.85;
       const borderScale = isSelected ? 1.15 : isHovered ? 1.08 : isOwned ? 1.0 : 0.85;
 
-      applyInstance(fillMeshRef.current,   i, fillPos,   FILL_SIZE   * sizeVar * fillScale,   fillColor);
+      applyInstance(fillMeshRef.current,   i, fillPos,   FILL_SIZE   * sizeVar * fillScale * terraformScale,   fillColor);
       applyInstance(borderMeshRef.current, i, borderPos, BORDER_SIZE * sizeVar * borderScale, borderColor);
 
       colorDirty  = true;
@@ -301,7 +371,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
       const parcel = idToParcel.get(coord.plotId);
       const sizeVar = getPlotSizeVariant(coord.plotId);
 
-      const fillPos   = fillPositions3D[i];
+      const fillPos   = terraformFillPositions3D[i];
       const borderPos = borderPositions3D[i];
 
       const isOwned      = !!parcel?.ownerId;
@@ -321,7 +391,33 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         else if (isOwned) fillColor.multiplyScalar(1.25);
       }
 
+      // Terraform stage color modulation (static base — animated breathing happens in useFrame).
+      const stage = getTerraformStage(parcel);
+      const degraded = isParcelDegraded(parcel);
+      const health = getTerraformHealth(parcel);
+      if (stage > 0) {
+        const stageGlow = TERRAFORM_GLOW[stage];
+        if (degraded) {
+          fillColor.lerp(DEGRADED_TINT, 0.35);
+          fillColor.lerp(HAZARD_TINT, 0.25);
+          fillColor.multiplyScalar(0.55 + 0.45 * health);
+        } else {
+          fillColor.lerp(TERRAFORM_ACCENT_COLOR, stageGlow * 0.5);
+          fillColor.multiplyScalar(1 + stageGlow);
+        }
+      }
+
       const borderColor = isOwned ? COLOR_BORDER_OWNED.clone() : COLOR_BORDER_UNOWNED.clone();
+
+      // Terraform border halo (stage 2+).
+      if (stage >= 2) {
+        const boost = TERRAFORM_BORDER_BOOST[stage];
+        if (!degraded) {
+          borderColor.lerp(TERRAFORM_BORDER_COLOR, boost);
+        } else {
+          borderColor.lerp(HAZARD_TINT, boost * 0.5);
+        }
+      }
 
       // Fog of war: dim plots outside your revealed area.
       if (fogVisibleSet && !fogVisibleSet.has(i)) {
@@ -329,9 +425,10 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
         borderColor.multiplyScalar(FOG_DIM_HIDDEN);
       }
 
+      const terraformScale = TERRAFORM_SCALE[stage];
       const fillScale   = isOwned ? 1.0 : 0.85;
       const borderScale = isOwned ? 1.0 : 0.85;
-      applyInstance(fillMeshRef.current,   i, fillPos,   FILL_SIZE   * sizeVar * fillScale,   fillColor);
+      applyInstance(fillMeshRef.current,   i, fillPos,   FILL_SIZE   * sizeVar * fillScale * terraformScale,   fillColor);
       applyInstance(borderMeshRef.current, i, borderPos, BORDER_SIZE * sizeVar * borderScale, borderColor);
     }
 
@@ -342,7 +439,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
     if (idToParcel.size > 0) readyRef.current = true;
   }, [plotVisualFingerprint, currentPlayerId, plotCoords,
-      fillPositions3D, borderPositions3D, fogVisibleSet]);
+      fillPositions3D, borderPositions3D, fogVisibleSet, terraformFillPositions3D]);
 
   const handlePointerMove = useCallback((e: any) => {
     const p = e.point as THREE.Vector3;

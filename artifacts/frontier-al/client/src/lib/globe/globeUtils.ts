@@ -99,6 +99,37 @@ export function getPlotSizeVariant(plotId: number): number {
   return SIZE_VARIANTS[plotId % SIZE_VARIANTS.length];
 }
 
+/**
+ * Map a parcel's cumulative terraformLevel to a 5-stage integer 0..4.
+ * Stage 0 = raw biome, stage 4 = fully ascended (floating island + tech).
+ * Clamps terraformLevel/null/undefined safely to 0.
+ */
+export function getTerraformStage(parcel: LandParcel | undefined): number {
+  const lvl = Math.max(0, Math.floor(parcel?.terraformLevel ?? 0));
+  return Math.min(lvl, 4);
+}
+
+/**
+ * Health score in [0,1] from stability (0..100, higher = better) and
+ * hazardLevel (0..100, higher = worse). Used to modulate terraform visuals:
+ * low health dims the tile and adds hazard tint even at high stages.
+ */
+export function getTerraformHealth(parcel: LandParcel | undefined): number {
+  const stability = Math.max(0, Math.min(100, parcel?.stability ?? 100));
+  const hazard = Math.max(0, Math.min(100, parcel?.hazardLevel ?? 0));
+  return Math.max(0, Math.min(1, (stability - hazard + 100) / 200));
+}
+
+/**
+ * True if the parcel is in a degraded state — high hazard or low stability.
+ * Used to suppress the "ascended" glow on damaged plots.
+ */
+export function isParcelDegraded(parcel: LandParcel | undefined): boolean {
+  if (!parcel) return false;
+  if (parcel.terraformStatus === "degraded") return true;
+  return (parcel.hazardLevel ?? 0) >= 60 || (parcel.stability ?? 100) < 30;
+}
+
 /** Deterministic float in [0,1] from a string id and a numeric offset. */
 export function satHashFloat(id: string, offset: number): number {
   let h = (offset + 1) * 2654435761;
