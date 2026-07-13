@@ -38,8 +38,23 @@
 - `artifacts/frontier-al/server/storage/battle-cap.spec.ts` (new)
 - `docs/HANDOFF.md`
 
-## Parked / not done
-- Permanent Capture system (explicit, confirmed, server-authorized flow) — future lane.
-- Battle Target Selector — parked until this PR is merged and verified.
-- Special Attack idempotency (`POST /api/actions/special-attack`) — recorded as separate future lane `fix/frontier-special-attack-idempotency`.
-- No migrations, no production schema changes, no funds/ASA/chain changes.
+## Merge and deployment
+- PR #257 squash-merged into `main` as commit `6ca9f15`.
+- CI green: Typecheck & server tests SUCCESS, Cloudflare Pages SUCCESS.
+- Deployment verified: `/health` 200, `/readiness` 200.
+- `/api/game/state` and `/api/factions` respond successfully.
+- No production errors detected in public endpoints.
+
+## Owner gameplay gate (pending owner verification)
+1. Reload FRONTIER after deployment.
+2. Open Commander Battlefront.
+3. Confirm `BATTLES ACTIVE · N/3` appears for Reaper.
+4. Confirm the launch button greys out at maximum capacity.
+5. Confirm a locked Commander shows a countdown.
+6. Confirm a target already engaged cannot be launched against again.
+7. After a normal battle victory:
+   - the original legal owner still owns the parcel;
+   - sub-parcel legal ownership remains unchanged;
+   - land NFT ownership remains unchanged;
+   - defense/resource/influence battle effects still occur;
+   - battle history says victory, not legal capture.
