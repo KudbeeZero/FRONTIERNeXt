@@ -18,6 +18,7 @@ import { runDebuffCleanup } from "./util/debuffCleanup";
 import * as weaponService from "./weapons/service";
 import { engagementStore } from "./weapons/engagementStore";
 import { mintWeaponNft, attemptWeaponDelivery } from "./services/chain/weapon";
+import { ascendMetadataHandler } from "./routes/ascendMetadata";
 import {
   buildWeaponProfileActionSchema,
   unlockWeaponActionSchema,
@@ -892,6 +893,28 @@ export async function registerRoutes(
       },
     });
   });
+
+  // ── ASCEND Fungible Token Metadata ───────────────────────────────────────────
+  // Public endpoint referenced as the on-chain `url` field of ASCEND ASA
+  // 764083761. Wallets and indexers resolve this URL when displaying the
+  // fungible token (not the per-plot / per-commander / per-weapon ARC-3
+  // NFT metadata, which lives under /nft/metadata/:plotId and friends).
+  //
+  // This is NOT ARC-3: ARC-3 is a per-unit NFT metadata standard. A fungible
+  // token's asset-level metadata is a plain JSON document with the on-chain
+  // identity fields (name, unit-name, decimals, total) plus display fields
+  // (description, image, external_url). The schema below matches what Pera,
+  // Defly, Lute, and the major TestNet explorers (allo.info, explorer
+  // perawallet) render for an ASA without a per-unit metadata hash.
+  //
+  // MUST be registered BEFORE the /nft/metadata/:plotId route below —
+  // Express matches in registration order, and `ascend` would otherwise be
+  // parsed as a (non-integer) plotId and return 400.
+  //
+  // BASE_URL must come from PUBLIC_BASE_URL — never the request Host header,
+  // because this JSON becomes a permanent on-chain assetURL and a spoofed
+  // Host would let an attacker poison the metadata URLs.
+  app.get("/nft/metadata/ascend", ascendMetadataHandler);
 
   // ── NFT Metadata (ARC-3) ────────────────────────────────────────────────────
   // Public endpoint used by Algorand NFT marketplaces and wallets.
