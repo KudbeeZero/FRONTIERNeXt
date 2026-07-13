@@ -1262,9 +1262,10 @@ export function GameLayout() {
           allParcels={gameState?.parcels ?? []}
           ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
           battles={gameState?.battles ?? []}
-          onSelectTarget={setSelectedParcelId}
-          wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
-          className="h-full border-0 rounded-none overflow-auto"
+            onSelectTarget={setSelectedParcelId}
+            onOpenMap={() => setActiveTab("map")}
+            wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
+            className="h-full border-0 rounded-none overflow-auto"
         />
       ),
     },
@@ -1544,9 +1545,11 @@ export function GameLayout() {
             openBattlefrontSignal={attackIntent}
             selectedParcel={selectedParcel}
             ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
-            battles={gameState?.battles ?? []}
-            wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
-            className="flex-1 border-0 rounded-none overflow-auto"
+              battles={gameState?.battles ?? []}
+              onSelectTarget={setSelectedParcelId}
+              onOpenMap={() => setActiveTab("map")}
+              wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
+              className="flex-1 border-0 rounded-none overflow-auto"
           />
         ) : desktopRightTab === "inventory" && gameState ? (
           <InventoryPanel
@@ -1658,6 +1661,8 @@ export function GameLayout() {
               selectedParcel={selectedParcel}
               ownedParcels={gameState.parcels.filter(p => p.ownerId === player?.id)}
               battles={gameState?.battles ?? []}
+              onSelectTarget={setSelectedParcelId}
+              onOpenMap={() => setActiveTab("map")}
               wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
             />
           )}
