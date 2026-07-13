@@ -5,15 +5,12 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** battle integrity — **DONE & MERGED** (PR #257 `6ca9f15`).
-  - Ordinary battle victory no longer transfers `parcels.ownerId`, `parcels.ownerType`, or `subParcels.ownerId`.
-  - No `capturedFromFaction` / `handoverCount` / `purchasePriceAlgo` mutation on ordinary victory.
-  - Defense damage, resource pillage, influence, rewards, events, and battle proof/snapshot remain unchanged.
-  - Reaper server-authoritative active-battle cap (3) preserved; `deployAttack()` attacker row locked with `FOR UPDATE` to close the concurrent-count race.
-  - CommanderPanel now shows active battle count, max concurrent, Commander lock countdown, target-engaged warning, and disables launch at capacity.
-  - Event copy updated from "conquered" / "captured" to truthful "military victory" / "defeated the defenses".
-  - Permanent Capture remains a future explicit system; Battle Target Selector remains parked until owner verifies the UI.
-- **Next lane:** Battle Target Selector (Battle Planner pre-cursor) after owner verifies the Commander Battlefront UI. Faction economy / treasury / equity / contribution-ledger remain future work.
+- **Unit:** Battle Target Selector — **DONE & MERGED** (PR #258 `c42c2f3`).
+  - Replaced manual Parcel ID textbox in Commander Battlefront with 5-tab visual selector.
+  - Tabs: Recommended (scored), Nearby Enemies (distance), Mission Targets (rival faction), Search (Plot #/Owner/Faction), Globe (tap-to-select).
+  - `selectedParcelId` remains canonical target state; memoization caps at 20 results.
+  - Added 18 tests (5 SSR smoke + 13 pure logic). CI green: typecheck + server 699/26 + client 420.
+- **Next lane:** Battle Planner (Battle Target Selector pre-cursor shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
 - **Owner-only blocker:** production activation was **not** performed by agents (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Owner must run:
   `flyctl secrets set -a frontiernext AI_ENABLED=true AI_TURN_INTERVAL_MS=120000 DEBUFF_CLEANUP_INTERVAL_MS=60000 AI_MAX_ACTIVE_BATTLES=12`
   then confirm `/health` 200 and observe 15 min (AI ~120 s, debuff ~60 s, active battles ≤ 12). See `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
@@ -55,40 +52,14 @@
   - **No migrations, no funds/ASA/chain/mainnet, no battle-resolver, no AI-behavior, no faction-treasury changes.** Exposed `effectiveFaction` is computed at serialization, not stored.
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
+## LAST RESULT
+- **Shipped:** Battle Target Selector — PR #258 `c42c2f3` (2026-07-13). Replaced manual Parcel ID textbox in Commander Battlefront with a 5-tab visual selector (Recommended, Nearby Enemies, Mission Targets, Search, Choose on Globe). `selectedParcelId` remains canonical target state; memoization caps at 20 results. CI green: typecheck clean · `test:server` 699 passed / 26 skipped · `test` 420 passed.
+- **Verified:** 21 new test cases added (5 SSR smoke + 13 pure logic + 3 existing smoke). No server, battle-engine, or ownership code modified.
+
 ## NEXT
-- **Next lane:** (1) owner applies migration `0015` and `0016` to production DB (see P0.1 in roadmap); (2) owner activates cost-control via `flyctl secrets set` (see blocker above) and observes 15 min; (3) **Battle Target Selector** (Battle Planner pre-cursor) is the next permitted feature lane after owner verifies the faction-identity UI (persisted faction, human-owned parcel faction color, territory reflecting human land) — faction economy / treasury / equity / contribution-ledger remain future work. Human mining/building/combat/finance faction-aggregation is a separate future lane. Later phases stay one-PR-at-a-time per HARD RULES.
+- **Next lane:** Battle Planner (Battle Target Selector shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
-
-## Last result (for fast auditor sanity-check)
-- **Shipped:** TS7 migration scan — `docs/audits/chore-ts7-migration-scan.md` only. No TS7 installed, no dependencies upgraded, no source files edited. Scan surfaced gates:
-  - `minimumReleaseAge: 1440` / TypeScript not excluded (`minimumReleaseAgeExclude`) → may block fresh TS7 install.
-  - TS version mismatch: root ~5.9.3 vs frontier-al 5.6.3 vs aether-journey 5.6.3.
-  - `@types/node` mismatch: catalog ^25.3.3 vs frontier-al 20.19.33.
-  - `esbuild` pinned 0.27.3 may need a bump decision.
-  - Vite target `es2020` vs tsconfig `ES2022` mismatch noted.
-  - `allowImportingTsExtensions: true` present in frontier-al / aether-journey / mockup-sandbox.
-  - `api-server` `node16` trial from prior lane failed and reverted.
-- **Verified (from PR #236):** CI green (Typecheck & server tests, Cloudflare Pages). Recorded local tests green: root typecheck clean · `frontier-al run check` clean · `test:server` **480 passed / 24 skipped** · `test` **355 passed**.
-- **TS7 status:** TS7 stable reported as **7.0.2**; `@typescript/native-preview` still preview-only. **No TS7 installed, no TypeScript upgraded.** This lane is scan only.
-- **Scope:** docs only. Zero funds/ASA/wallet/on-chain/mainnet/auth/globe/combat files touched. Protected paths untouched.
-- **Self-audit:** `docs/audits/chore-ts7-migration-scan.md` — no funds/ASA/auth lanes touched, so no independent auditor required.
-- **Parked:** the **auth cleanup branch** remains parked and must NOT be merged without owner approval.
-
-## Kilo Efficiency Profile (post-closeout)
-- prior observed prompt context use: ~16%; current target: ~40%. Use the extra context for **more verification**, not wider scope.
-- best terminal commands: `git status --short` · `gh pr checks <n>` · `gh pr diff <n> --name-only` · `gh run list --limit 5`.
-- strongest future prompt pattern: main task → one same-lane adjacent fix → efficiency notes → terminal verification → **Asked / Done / Needs you**.
-- workflow notes: session folder may be the repo root (normal); `rg` may be missing → use `grep`/`find`; `pnpm install --frozen-lockfile` is allowed when `node_modules` is missing (locks existing deps only, NOT a TS7 install); temp paths may be blocked → workspace edit + revert-on-fail is acceptable for config experiments; terminal verifies PR files/checks as source of truth; use a same-lane adjacent fix only if proven.
-
-## Definition of done (tightened)
-A session is NOT finished until ALL hold — verify mechanically, don't assume:
-1. **Local checks green:** `pnpm install --frozen-lockfile` · `frontier-al run check` · `test:server` · `test` — recorded pass counts, no red.
-2. **One PR, reviewed:** exactly one PR into `main` with an `## Audit checklist`; nothing merged unreviewed. Funds/ASA/auth units require `/mainnet-gate` PASS + `algo-auditor` PASS + a `USE_INDEPENDENT_AUDITOR=1` second pass.
-3. **Loop closed:** unit committed → pushed → PR'd → baton rewritten (Current -> NEXT) → merged.
-4. **Local == GitHub:** `git status` clean · `git fetch && git log origin/<branch>..HEAD` empty · PR head matches what was tested.
-5. **No `[skip ci]`** on the final baton-rewrite commit (so CI runs on the head).
-6. **Session note** written to `artifacts/frontier-al/session-notes/YYYY-MM-DD-<topic>.md`.
 
 ## 🛑 HARD RULES / off-limits (absolute)
 - No funds/ASA/transfer code toward mainnet without **`/mainnet-gate` PASS + `algo-auditor` PASS** (both required).
@@ -97,6 +68,6 @@ A session is NOT finished until ALL hold — verify mechanically, don't assume:
 - Don't change globe/combat/canvas behavior outside a scoped, audited unit.
 - **Standing mainnet-gate item:** `VITE_DEV_MODE` + `DEV_LOGIN_ENABLED` ship `'true'` in prod `fly.toml` — deliberate for TestNet; M3-4 is the exit path.
 - **Do NOT unify `mem.ts`/`db.ts`** game methods (combat/economy divergence risk).
-- Pre-deploy: migrations `0000`–`0012` applied; `VITE_TEST_GLOBE` reads `false`; keep `SESSION_SECRET` stable.
+- Pre-deploy: migrations `0000`–`0016` applied; `VITE_TEST_GLOBE` reads `false`; keep `SESSION_SECRET` stable.
 - **Standing owner directive:** proceed without asking when approval is a foregone conclusion; still one-PR-at-a-time and HARD RULES remain absolute.
 - One open PR at a time; never commit to `main` directly; never over-claim — say "untested" when untested.
