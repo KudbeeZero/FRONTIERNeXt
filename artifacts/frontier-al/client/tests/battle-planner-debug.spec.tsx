@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import TestRenderer from "react-test-renderer";
 
 // Polyfills for Radix primitives
@@ -125,6 +125,9 @@ describe("debug duplicates", () => {
     console.log("counts:", allIds.reduce((acc, id) => { acc[id] = (acc[id] || 0) + 1; return acc; }, {} as Record<string, number>));
 
     expect(battlePlannerEls.length).toBe(1);
-    expect(ctaEls.length).toBe(1);
+    // findAllByProps matches the React component instance AND the underlying
+    // DOM element that received the data-testid prop, so a forwardRef Button
+    // reports 2 here. The DOM-level count (traversing toJSON) is the real one.
+    expect(ctaEls.length).toBe(2);
   });
 });
