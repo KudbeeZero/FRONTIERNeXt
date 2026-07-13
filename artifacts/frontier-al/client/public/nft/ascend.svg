@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" role="img" aria-label="ASCEND token">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#1a2b6b"/>
+      <stop offset="55%" stop-color="#0a1230"/>
+      <stop offset="100%" stop-color="#02030a"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7adfff"/>
+      <stop offset="50%" stop-color="#4a8bff"/>
+      <stop offset="100%" stop-color="#1a2b6b"/>
+    </linearGradient>
+    <linearGradient id="chevron" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#7adfff"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <circle cx="200" cy="200" r="170" fill="none" stroke="url(#ring)" stroke-width="3" opacity="0.6"/>
+  <circle cx="200" cy="200" r="140" fill="none" stroke="url(#ring)" stroke-width="1.5" opacity="0.4"/>
+  <g transform="translate(200,200)">
+    <polygon points="0,-90 70,30 -20,30 50,130 -50,130 20,30 -70,30" fill="url(#chevron)" stroke="#7adfff" stroke-width="2" stroke-linejoin="round"/>
+  </g>
+  <text x="200" y="355" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="32" font-weight="700" fill="#7adfff" letter-spacing="6">ASCEND</text>
+</svg>
