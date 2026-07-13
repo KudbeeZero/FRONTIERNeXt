@@ -98,10 +98,6 @@ export function GameLayout() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { events: orbitalEvents, impactEvents } = useOrbitalEngine();
-  const handleParcelSelect = useCallback((id: string) => {
-    setSelectedParcelId(id);
-    setShowFullLandSheet(false); // Always open lightweight panel first
-  }, []);
 
   const initializedAddressRef = useRef<string | null>(null);
   const ambienceStartedRef = useRef(false);
@@ -122,6 +118,36 @@ export function GameLayout() {
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
   /** Controls whether the full LandSheet is open (vs. the lightweight SelectedPlotPanel) */
   const [showFullLandSheet, setShowFullLandSheet] = useState(false);
+  /** Controls whether the mobile bottom sheet (MobilePlotSheet) is open.
+   *  Kept separate from selectedParcelId so the sheet can be dismissed while the
+   *  globe peek card remains visible, and vice versa. */
+  const [showMobileSheet, setShowMobileSheet] = useState(false);
+
+  const handleParcelSelect = useCallback((id: string) => {
+    const nextId = id || null;
+    setSelectedParcelId(nextId);
+    setShowMobileSheet(!!nextId);
+    setShowFullLandSheet(false); // Always open lightweight panel first
+  }, []);
+
+  /** Close the bottom sheet only. Keeps selectedParcelId so the globe peek card
+   *  (ParcelHUD) stays visible and the user can reopen the sheet. */
+  const handleMobileSheetClose = useCallback(() => {
+    setShowMobileSheet(false);
+  }, []);
+
+  /** Full dismiss of the selected plot UI — both the desktop panel and the
+   *  mobile bottom sheet / peek card. */
+  const handleSelectedPlotPanelClose = useCallback(() => {
+    setSelectedParcelId(null);
+    setShowMobileSheet(false);
+    setShowFullLandSheet(false);
+  }, []);
+
+  // Desktop shows the panel whenever a parcel is selected and the full sheet
+  // is not open. Mobile only shows the sheet while showMobileSheet is true.
+  const showSelectedPlotPanel = !showFullLandSheet && (!isMobile || showMobileSheet);
+
   /** Bumped each time the player requests an attack — signals the Commander
    *  Battlefront to open (replaces the retired global AttackModal). */
   const [attackIntent, setAttackIntent] = useState(0);
@@ -1727,16 +1753,17 @@ export function GameLayout() {
           delegates to MobilePlotSheet internally on mobile (see its own
           isMobile switch), so enabling it here is what actually makes the
           mobile terminal-readout and LandSheet fixes (above) reachable. */}
-      {activeTab === "map" && selectedParcel && (
+      {activeTab === "map" && selectedParcel && showSelectedPlotPanel && (
         <SelectedPlotPanel
           parcel={selectedParcel}
           player={player}
-          isOpen={!showFullLandSheet}
+          isOpen={showSelectedPlotPanel}
           onClaim={handlePurchase}
           isClaiming={purchaseMutation.isPending || isSigningBusy}
           isWalletConnected={isWalletConnected}
           onOpenFullSheet={() => setShowFullLandSheet(true)}
-          onClose={() => setSelectedParcelId(null)}
+          onClose={handleSelectedPlotPanelClose}
+          onSheetClose={handleMobileSheetClose}
         />
       )}
 
