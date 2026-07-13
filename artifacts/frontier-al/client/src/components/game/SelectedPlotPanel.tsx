@@ -71,6 +71,12 @@ export interface SelectedPlotPanelProps {
   onClose: () => void;
 
   /**
+   * Mobile-only: close the bottom sheet without clearing the selected parcel.
+   * Falls back to `onClose` for desktop or when not provided.
+   */
+  onSheetClose?: () => void;
+
+  /**
    * Optional hint for smart desktop panel positioning.
    * Pass normalised (0–1) plot screen-space coordinates.
    */
@@ -353,6 +359,9 @@ function DesktopPlotPanel({
  */
 export function SelectedPlotPanel(props: SelectedPlotPanelProps) {
   const isMobile = useIsMobile();
+  // Mobile bottom sheet uses the sheet-only close handler so tapping its X
+  // or backdrop dismisses the sheet while keeping the globe peek card.
+  const sheetOnClose = props.onSheetClose ?? props.onClose;
 
   if (isMobile) {
     return (
@@ -364,7 +373,7 @@ export function SelectedPlotPanel(props: SelectedPlotPanelProps) {
         isClaiming={props.isClaiming}
         isWalletConnected={props.isWalletConnected}
         onOpenFullSheet={props.onOpenFullSheet}
-        onClose={props.onClose}
+        onClose={sheetOnClose}
       />
     );
   }
