@@ -1259,8 +1259,10 @@ export function GameLayout() {
           isAttacking={attackMutation.isPending}
           openBattlefrontSignal={attackIntent}
           selectedParcel={selectedParcel}
+          allParcels={gameState?.parcels ?? []}
           ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
           battles={gameState?.battles ?? []}
+          onSelectTarget={setSelectedParcelId}
           wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
           className="h-full border-0 rounded-none overflow-auto"
         />
