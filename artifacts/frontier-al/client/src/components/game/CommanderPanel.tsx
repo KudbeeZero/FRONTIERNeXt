@@ -23,6 +23,7 @@ import { AvatarCard } from "./commander/AvatarCard";
 import { SubParcelGridPicker } from "./commander/SubParcelGridPicker";
 import { BattleResultCard, type BattleResult } from "./commander/BattleResultCard";
 import { GameTerminal } from "./GameTerminal";
+import { BattleTargetSelector } from "./BattleTargetSelector";
 import type { TerminalCommand } from "@/lib/terminalCommands";
 import { COMPANION, COMMANDER_IMAGES, TIER_COLORS, formatCountdown } from "./commander/shared";
 import type { Player, CommanderTier, SpecialAttackType, LandParcel, Battle } from "@shared/schema";
@@ -66,6 +67,7 @@ export interface CommanderPanelProps {
   openBattlefrontSignal?: number;
   selectedParcel?: LandParcel | null;
   ownedParcels?: LandParcel[];
+  allParcels?: LandParcel[];
   wallet?: { isConnected: boolean; address: string | null };
   className?: string;
   onDeliverPlotNft?: (plotId: number, assetId: number) => void;
@@ -73,14 +75,16 @@ export interface CommanderPanelProps {
   onClaimAllPlotNfts?: (plots: { plotId: number; assetId: number }[]) => void;
   isClaimingAllPlotNfts?: boolean;
   battles?: Battle[];
+  onSelectTarget?: (parcelId: string) => void;
 }
 
 export function CommanderPanel({
   player, onMintAvatar, onDeployDrone, onDeploySatellite, onSwitchCommander,
   onClaimCommanderNft, onAttack, isMinting, isDeployingDrone, isDeployingSatellite,
   isClaimingCommanderNft, isAttacking, openBattlefrontSignal, selectedParcel, ownedParcels = [],
-  wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
+  allParcels = [], wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
   onClaimAllPlotNfts, isClaimingAllPlotNfts, battles = [],
+  onSelectTarget,
 }: CommanderPanelProps) {
   const queryClient = useQueryClient();
   const [selectedTier, setSelectedTier] = useState<CommanderTier>("sentinel");
@@ -239,6 +243,12 @@ export function CommanderPanel({
   const handleLaunchPlotAttack = () => {
     if (!onAttack || !targetParcelId) return;
     onAttack(troops, totalIron, totalFuel, extraCrystal, activeCommander?.id, sourceParcelId ?? undefined);
+  };
+
+  const handleTargetSelect = (parcel: LandParcel) => {
+    setTargetParcelId(parcel.id);
+    setTargetPlotId(String(parcel.plotId));
+    onSelectTarget?.(parcel.id);
   };
 
   const handleLaunchSubParcelAttack = () => {
@@ -621,26 +631,21 @@ export function CommanderPanel({
                   >Sub-Parcel</button>
                 </div>
 
-                {/* Target input */}
-                <div className="space-y-1">
-                  <p className="text-[10px] font-display uppercase text-muted-foreground">Target</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={attackMode === "plot" ? targetParcelId : targetPlotId}
-                      onChange={e => attackMode === "plot" ? setTargetParcelId(e.target.value) : setTargetPlotId(e.target.value)}
-                      placeholder={attackMode === "plot" ? "Parcel ID…" : "Plot #…"}
-                      className="flex-1 bg-muted/30 border border-border rounded-md px-2 py-1 text-xs font-mono focus:outline-none focus:border-primary"
-                    />
-                    {selectedParcel && (
-                      <Button size="sm" variant="outline" className="h-7 px-2 text-[9px]" onClick={() => { setTargetParcelId(selectedParcel.id); setTargetPlotId(String(selectedParcel.plotId)); }}>
-                        <MapPin className="w-3 h-3 mr-1" />Use Selected
-                      </Button>
-                    )}
-                  </div>
-                  {targetForCalc && (
-                    <p className="text-[9px] text-muted-foreground font-mono">Plot #{targetForCalc.plotId} · {targetForCalc.biome} · Def {targetForCalc.defenseLevel}</p>
-                  )}
+                {/* Target selector */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-display uppercase text-muted-foreground">Select Target</p>
+                  <BattleTargetSelector
+                    allParcels={allParcels}
+                    ownedParcels={ownedParcels}
+                    playerFactionId={player.playerFactionId}
+                    selectedParcelId={targetParcelId}
+                    onSelect={handleTargetSelect}
+                    sourceParcelId={sourceParcelId}
+                    currentCommanderName={activeCommander?.name}
+                    currentTroops={troops}
+                    baseCostIron={ATTACK_BASE_COST.iron}
+                    baseCostFuel={ATTACK_BASE_COST.fuel}
+                  />
                 </div>
 
                 {/* Sub-parcel grid picker */}
