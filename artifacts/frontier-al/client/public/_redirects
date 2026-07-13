@@ -4,34 +4,39 @@
 # the static Vite build. Plot NFT ASAs carry a URL of the form
 #   https://frontierprotocol.app/nft/metadata/<plotId>#arc3
 # (see server/services/chain/land.ts:54), so wallets and indexers resolve the
-# branded-domain URL — which currently falls through to the SPA shell because
-# nothing in client/public/ claims the path. Proxy the path to the Fly backend
-# so wallets get a real ARC-3 JSON body.
+# branded-domain URL — which used to fall through to the SPA shell because
+# nothing in client/public/ claimed the path.
 #
-# The static Vite build still owns:
+# PR #260 added external-origin 200 proxy rules to this file. Those rules are
+# UNSUPPORTED by Cloudflare Pages: `_redirects` only accepts `200` rewrites
+# whose destination is a relative same-site URL, so the absolute Fly URLs
+# were silently ignored at the edge and the SPA fallback below still served
+# the Vite index.html.
+#
+# The supported mechanism is now a Pages Function — see
+#   client/functions/nft/metadata/[[path]].ts
+# which is scoped to /nft/metadata/* only by client/public/_routes.json.
+# This file therefore retains only the catch-all SPA fallback, listed LAST
+# so it never shadows a static asset (Pages prefers a real file on disk
+# over a `_redirects` rule for any URL that resolves on the CDN).
+#
+# Static Vite build still owns:
 #   /nft/biomes/*        → static PNG/SVG biome art (client/public/nft/biomes/)
 #   /assets/*, /images/*, /textures/*, /story/*, /favicon.png, /robots.txt,
 #     /sitemap.xml, /globe-rebuild-preview.html
 #   and every SPA route (/*) → index.html (the SPA fallback below)
-#
-# ORDER MATTERS in Cloudflare Pages: each request matches the FIRST rule whose
-# source pattern matches. The /nft/metadata/* proxy is therefore listed
-# BEFORE the /* SPA fallback so the catch-all never shadows it.
 #
 # Non-goals:
 #   - does not change NFT URL construction in server/services/chain/* (URLs
 #     stay on frontierprotocol.app — that's what minted ASAs already point at).
 #   - does not change the Express route or the server build.
 #   - does not touch /api/* (the client bundles VITE_API_URL to Fly directly).
-#   - does not touch /nft/biomes/* (static assets remain on the CDN).
+#   - does not touch /nft/biomes/* (static assets remain on the CDN; also
+#     explicitly excluded from the Pages Function in _routes.json).
+#   - does not introduce an external-origin `_redirects` rule (unsupported —
+#     see the comment above).
 
-# Proxy plot/commander/weapon NFT metadata to the Fly backend (no redirect — the
-# wallet sees the branded-domain URL but the body is the backend's JSON).
-# Cloudflare Pages's static-asset serving wins for paths that exist on the CDN,
-# so /nft/biomes/* is unaffected.
-/nft/metadata/commander/:commanderId  https://frontiernext.fly.dev/nft/metadata/commander/:commanderId  200
-/nft/metadata/weapon/:weaponId       https://frontiernext.fly.dev/nft/metadata/weapon/:weaponId       200
-/nft/metadata/:plotId                 https://frontiernext.fly.dev/nft/metadata/:plotId                 200
-
-# SPA fallback — deep client routes (wouter) get the index.html shell.
+# SPA fallback — deep client routes (wouter) get the index.html shell. Listed
+# last on purpose: Pages tries static assets first, then the Pages Function
+# (per _routes.json include), and only then this rewrite.
 /*                                  /index.html                                                         200
