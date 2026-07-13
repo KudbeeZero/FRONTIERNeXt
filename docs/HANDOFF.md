@@ -5,7 +5,15 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** NFT metadata proxy (production-domain `frontierprotocol.app/nft/metadata/*` → Fly backend) — **DONE & MERGED** (PR #260 `36fbf6c`).
+- **Unit:** Mobile globe touch interaction — **DONE & MERGED** (PR #263 `18da3b9`).
+  - Fixed three diagnosed bugs: pinch-zoom synthesising plot selection, pinch-zoom rotating the camera, and the bottom HUD dock blocking canvas touches.
+  - `GlobeParcels.tsx`: pointer-count tracking (`activePointerCount`, `sawMultiTouch`) guards `onClick` so pinch gestures do not select plots.
+  - `PlanetGlobe.tsx`: `OrbitControls` touch config changed from `TWO: THREE.TOUCH.DOLLY_ROTATE` to `TWO: THREE.TOUCH.DOLLY_PAN`; with `enablePan={false}` this is pure pinch-to-zoom.
+  - `hud.css`: `.hud-dock` is `pointer-events: none`; `.hud-di` buttons remain `pointer-events: auto` so empty dock gaps pass through to the canvas.
+  - `GlobeHUD.tsx`: `PlayerLegend` wrapper now has `pointer-events-none` so it no longer blocks globe touches.
+  - `client/index.html`: viewport meta updated with `user-scalable=no, maximum-scale=1.0` to prevent browser page-level zoom competing with the canvas.
+  - No server, API, DB, auth, wallet, chain, or archetype changes. No new dependencies.
+- **Previous unit:** NFT metadata proxy (production-domain `frontierprotocol.app/nft/metadata/*` → Fly backend) — **DONE & MERGED** (PR #260 `36fbf6c`).
   - Added `artifacts/frontier-al/client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200 (transparent proxy, not 3xx).
   - Rules ordered BEFORE the `/*` SPA fallback; `/nft/biomes/*` and `/api/*` deliberately NOT proxied.
   - Added 8-case regression spec (`client/tests/cloudflare-redirects.spec.ts`); full client suite 466/466 + typecheck clean + CI green (Typecheck & server tests + Cloudflare Pages).
@@ -53,8 +61,8 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
-- **Shipped:** NFT metadata proxy — PR #260 `36fbf6c` (2026-07-13). Added `client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200. Wallets now resolve ARC-3 JSON from the branded domain. No application code, no chain, no auth, no idempotency, no marketing copy, no archetype/energy changes. CI green: typecheck clean · full client 466/466.
-- **Verified:** 8 new test cases for the redirects file. Production curl post-deploy is the owner's responsibility (see PR body).
+- **Shipped:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. `GlobeParcels.tsx` pointer-count guard, `OrbitControls` `DOLLY_PAN` config, HUD dock pointer-events passthrough, `PlayerLegend` pointer-events-none, and viewport `user-scalable=no`. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
+- **Previous result:** NFT metadata proxy — PR #260 `36fbf6c` (2026-07-13). Added `client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200. Wallets now resolve ARC-3 JSON from the branded domain. No application code, no chain, no auth, no idempotency, no marketing copy, no archetype/energy changes. CI green: typecheck clean · full client 466/466.
 
 ## NEXT
 - **Next lane:** Battle Planner (Battle Target Selector shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
