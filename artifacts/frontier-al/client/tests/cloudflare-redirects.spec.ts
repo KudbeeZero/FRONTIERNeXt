@@ -28,7 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PUBLIC_DIR = resolve(__dirname, "..", "public");
-const FUNCTIONS_DIR = resolve(__dirname, "..", "functions");
+const FUNCTIONS_DIR = resolve(__dirname, "..", "..", "functions");
 const REDIRECTS = resolve(PUBLIC_DIR, "_redirects");
 const ROUTES_JSON = resolve(PUBLIC_DIR, "_routes.json");
 const FUNCTION_ENTRY = resolve(FUNCTIONS_DIR, "nft", "metadata", "[[path]].ts");

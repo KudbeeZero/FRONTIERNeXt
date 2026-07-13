@@ -4,9 +4,11 @@
 // to the Fly backend (frontiernext.fly.dev).
 //
 // The function is split into two source files:
-//   * client/functions/nft/metadata/[[path]].ts   — Pages Function entrypoint
-//     (filename with [[ ]] is a Cloudflare routing convention).
-//   * client/functions/nft-metadata-proxy.ts      — the proxy logic, imported
+//   * functions/nft/metadata/[[path]].ts       — Pages Function entrypoint
+//     (filename with [[ ]] is a Cloudflare routing convention; the `functions/`
+//     directory lives at the Cloudflare Pages project root, not inside the
+//     Vite build output).
+//   * functions/nft-metadata-proxy.ts          — the proxy logic, imported
 //     by the function entrypoint AND exercised by this test (mocked fetch).
 //
 // `fetch` is mocked; the tests never contact the real Fly backend.
@@ -23,7 +25,7 @@ import {
   handleNftMetadataRequest,
   UPSTREAM_BASE,
   ALLOWED_METHODS,
-} from "../functions/nft-metadata-proxy";
+} from "../../functions/nft-metadata-proxy";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,7 +33,7 @@ const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = resolve(__dirname, "..", "public");
 const REDIRECTS_PATH = resolve(PUBLIC_DIR, "_redirects");
 const ROUTES_PATH = resolve(PUBLIC_DIR, "_routes.json");
-const FUNCTIONS_DIR = resolve(__dirname, "..", "functions");
+const FUNCTIONS_DIR = resolve(__dirname, "..", "..", "functions");
 const PROXY_PATH = resolve(FUNCTIONS_DIR, "nft-metadata-proxy.ts");
 const FUNCTION_ENTRY_PATH = resolve(FUNCTIONS_DIR, "nft", "metadata", "[[path]].ts");
 
@@ -353,13 +355,21 @@ describe("client/public/_routes.json — Pages Function scope", () => {
   });
 });
 
-describe("client/functions — Pages Function source layout", () => {
-  it("ships the shared proxy module at client/functions/nft-metadata-proxy.ts", () => {
+describe("functions — Pages Function source layout", () => {
+  it("ships the shared proxy module at functions/nft-metadata-proxy.ts (project root, not build output)", () => {
     expect(existsSync(PROXY_PATH), `expected ${PROXY_PATH} to exist`).toBe(true);
   });
 
-  it("ships the Pages Function entrypoint at client/functions/nft/metadata/[[path]].ts", () => {
+  it("ships the Pages Function entrypoint at functions/nft/metadata/[[path]].ts (project root, not build output)", () => {
     expect(existsSync(FUNCTION_ENTRY_PATH), `expected ${FUNCTION_ENTRY_PATH} to exist`).toBe(true);
+  });
+
+  it("does NOT copy the functions directory into the Vite build output (Cloudflare deploys it from the project root)", () => {
+    const buildOutputFunctions = resolve(__dirname, "..", "..", "dist", "public", "functions");
+    expect(
+      existsSync(buildOutputFunctions),
+      `expected ${buildOutputFunctions} to NOT exist — Cloudflare Pages deploys functions from the project root, not the build output`,
+    ).toBe(false);
   });
 
   it("entrypoint imports the shared proxy module (not a re-implementation)", () => {
