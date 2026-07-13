@@ -186,7 +186,12 @@ function Scene({
         zoomSpeed={0.9}
         minDistance={GLOBE_RADIUS * 1.8}
         maxDistance={GLOBE_RADIUS * 6.0}
-        touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }}
+        // TWO-finger pinch should zoom only (dolly). DOLLY_ROTATE made the globe
+        // spin unexpectedly during pinch gestures, and the rotation often moved
+        // the user’s finger onto UI elements (dock, buttons) which then opened
+        // menus/sheets. With enablePan={false}, DOLLY_PAN is effectively a
+        // pure zoom, matching mobile user expectations.
+        touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
         makeDefault
       />
     </>
