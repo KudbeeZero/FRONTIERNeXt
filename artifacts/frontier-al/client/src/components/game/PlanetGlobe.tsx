@@ -17,7 +17,8 @@ import { GLOBE_RADIUS } from "@/lib/globe/globeConstants";
 import { resolveApiUrl } from "@/lib/queryClient";
 import { StarField }           from "./globe/StarField";
 import { GlobeTerrain }        from "./globe/GlobeTerrain";
-import { PlotOverlay, SubParcelOverlay } from "./globe/GlobeParcels";
+import { PlotOverlay, SubParcelOverlay, useGlobePlotData } from "./globe/GlobeParcels";
+import { TerraformSparkleLayer } from "./globe/TerraformSparkleLayer";
 import { ObserverLayer } from "./globe/ObserverLayer";
 import { useVisualPrefs } from "@/hooks/useVisualPrefs";
 import { BattleArcs, MiningPulseLayer, OrbitalZoneLayer, SatelliteOrbitLayer } from "./globe/GlobeEvents";
@@ -111,6 +112,11 @@ function Scene({
   onObserverOffset, battleScarSeed,
 }: SceneProps) {
   const prefs = useVisualPrefs();
+  // Hover index is shared between PlotOverlay (pointer handlers) and TerraformSparkleLayer
+  // (consumes it to prioritise the effect population). null = nothing hovered.
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  // Shared geometry/position data so both layers see the same terraform altitudes.
+  const { plotCoords, plotIdToIndex, terraformFillPositions3D } = useGlobePlotData(parcels, currentPlayerId);
   const battleHotspots = useMemo(() => {
     if (!streamMode) return [];
     const parcelMap = new Map(parcels.map(p => [p.id, p]));
@@ -144,6 +150,17 @@ function Scene({
           currentPlayerId={currentPlayerId}
           selectedPlotId={selectedPlotId}
           onPlotSelect={onPlotSelect}
+          onHoverChange={setHoveredIndex}
+        />
+        {/* Stage 3-4 sparkle/halo layer — sparse, LOD-gated, additive-blended */}
+        <TerraformSparkleLayer
+          parcels={parcels}
+          currentPlayerId={currentPlayerId}
+          selectedPlotId={selectedPlotId}
+          hoveredIndex={hoveredIndex}
+          plotCoords={plotCoords}
+          plotIdToIndex={plotIdToIndex}
+          terraformFillPositions3D={terraformFillPositions3D}
         />
         {/* Sub-parcel 3×3 grids — archetype-colored, LOD-gated (only visible when zoomed in) */}
         {!streamMode && (

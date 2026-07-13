@@ -51,6 +51,20 @@ import {
 } from "@/lib/globe/globeUtils";
 import { buildPickIndex } from "@/lib/globe/pickIndex";
 import { useVisualPrefs } from "@/hooks/useVisualPrefs";
+import { useGlobePlotData } from "./useGlobePlotData";
+
+export { useGlobePlotData };
+
+/**
+ * Hook that exposes the data the TerraformSparkleLayer needs from PlotOverlay
+ * without coupling the two components. Returns:
+ *   - the same plotCoords / plotIdToIndex / terraformFillPositions3D memo
+ *   - the currently-hovered plot index (or null) — only changes on hover transition
+ */
+export function useTerraformSharedData(parcels: LandParcel[], currentPlayerId: string | null) {
+  const data = useGlobePlotData(parcels, currentPlayerId);
+  return data;
+}
 
 // ── PlotOverlay ────────────────────────────────────────────────────────────────
 
@@ -60,9 +74,11 @@ interface PlotOverlayProps {
   currentPlayerId: string | null;
   selectedPlotId: string | null;
   onPlotSelect: (parcelId: string) => void;
+  /** Optional callback fired with the current hovered plot index (or null on leave) */
+  onHoverChange?: (hoveredIndex: number | null) => void;
 }
 
-export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSelect }: PlotOverlayProps) {
+export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSelect, onHoverChange }: PlotOverlayProps) {
   const fillMeshRef   = useRef<THREE.InstancedMesh>(null!);
   const borderMeshRef = useRef<THREE.InstancedMesh>(null!);
   const readyRef      = useRef(false);
@@ -75,7 +91,7 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const hoveredPlotRef = useRef<number | null>(null);
 
-  const plotCoords = useMemo(() => generateFibonacciSphere(PLOT_COUNT), []);
+  const { plotCoords, plotIdToIndex, terraformFillPositions3D } = useGlobePlotData(parcels, currentPlayerId);
 
   // Player-customisable territory / enemy colours (localStorage-backed).
   const prefs = useVisualPrefs();
@@ -128,12 +144,8 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     [pickIndex],
   );
 
-  // O(1) reverse-lookup: plotId → index in plotCoords array — built once, never changes
-  const plotIdToIndex = useMemo(() => {
-    const m = new Map<number, number>();
-    plotCoords.forEach((c, i) => m.set(c.plotId, i));
-    return m;
-  }, [plotCoords]);
+  // plotIdToIndex is now provided by useGlobePlotData (shared with TerraformSparkleLayer).
+  // terraformFillPositions3D is likewise shared.
 
   // Fog of war (opt-in): set of plot indices visible to the current player —
   // owned plots + anything within FOG_REVEAL_RADIUS of them. null = fog off.
@@ -175,9 +187,9 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
-  // Per-plot fill/border positions. Base altitude is GLOBE_RADIUS * 1.018 (fill)
-  // and * 1.012 (border); terraform stage lifts the fill further off the surface.
-  // Border stays at the base layer so the grid frame remains readable.
+  // Per-plot fill/border positions. Border stays at the base layer so the grid frame
+  // remains readable. terraformFillPositions3D is now provided by useGlobePlotData
+  // (shared with TerraformSparkleLayer) and already incorporates stage altitude.
   const fillPositions3D = useMemo(() => {
     return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.018));
   }, [plotCoords]);
@@ -185,19 +197,6 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   const borderPositions3D = useMemo(() => {
     return plotCoords.map(c => latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * 1.012));
   }, [plotCoords]);
-
-  // Per-plot fill positions lifted to the parcel's terraform-stage altitude.
-  // Stable per plotId/level — recomputed only when the parcel set changes.
-  const terraformFillPositions3D = useMemo(() => {
-    const plotIdToParcel2 = plotIdToParcelRef.current ?? new Map<number, LandParcel>();
-    return plotCoords.map(c => {
-      const parcel = plotIdToParcel2.get(c.plotId);
-      const stage = getTerraformStage(parcel);
-      const altitude = TERRAFORM_ALTITUDE[stage];
-      return latLngToVec3(c.lat, c.lng, GLOBE_RADIUS * altitude);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parcels, plotCoords]);
 
   const applyInstance = (
     mesh: THREE.InstancedMesh,
@@ -451,14 +450,16 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
     if (idx !== hoveredPlotRef.current) {
       hoveredPlotRef.current = idx;
       setHoveredIdx(idx >= 0 ? idx : null);
+      onHoverChange?.(idx >= 0 ? idx : null);
     }
-  }, [nearestPlot]);
+  }, [nearestPlot, onHoverChange]);
 
   const handlePointerLeave = useCallback(() => {
     hoveredIndexRef.current = null;
     hoveredPlotRef.current = null;
     setHoveredIdx(null);
-  }, []);
+    onHoverChange?.(null);
+  }, [onHoverChange]);
 
   const handleClick = useCallback((e: any) => {
     e.stopPropagation();

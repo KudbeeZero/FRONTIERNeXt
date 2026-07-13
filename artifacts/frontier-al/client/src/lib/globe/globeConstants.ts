@@ -122,3 +122,19 @@ export const STABILITY_DIM_THRESHOLD = 30; // stability below this starts dimmin
 // Hazard contamination color — warm amber/red overlay.
 export const HAZARD_TINT = new THREE.Color("#ff4a1a");
 export const DEGRADED_TINT = new THREE.Color("#5a1a0a");
+
+// ── Terraform stage 3-4 particle/halo layer ───────────────────────────────────
+// Maximum number of plots that can simultaneously show the sparkle/halo effect.
+// Selected/hovered plots are prioritised first, then owned-by-me plots.
+export const MAX_TERRAFORM_EFFECTS = 1000;
+// Per-stage sparkle count (0 = no effect, 3-4 only).
+export const TERRAFORM_SPARKLE_COUNT_BY_STAGE = [0, 0, 0, 4, 10];
+// Halo (large soft disc) is rendered only on stage 3-4 plots at the population cap.
+export const TERRAFORM_HALO_RADIUS = GLOBE_RADIUS * 0.035;   // soft disc around tile
+export const TERRAFORM_SPARKLE_RADIUS = GLOBE_RADIUS * 0.005; // small sparkle dot
+// Sprite base colors (additive blending, so the base color is the bloom source).
+export const TERRAFORM_HALO_COLOR = new THREE.Color("#7fd4ff");
+export const TERRAFORM_SPARKLE_COLOR = new THREE.Color("#e8f8ff");
+// LOD: hide the entire sparkle/halo layer when the camera is farther than this.
+// Stays visible at sub-continent zoom (~ GLOBE_RADIUS * 2.6) and hides at planet view.
+export const TERRAFORM_FX_LOD_DISTANCE = GLOBE_RADIUS * 3.0;
