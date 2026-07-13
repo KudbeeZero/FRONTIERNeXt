@@ -1242,7 +1242,6 @@ export class MemStorage implements IStorage {
             attacker.crystal += pillagedCrystal;
 
             if (defender) {
-              defender.ownedParcels = defender.ownedParcels.filter((id) => id !== targetParcel.id);
               defender.attacksLost++;
 
               // ── Morale debuff: scales with consecutive losses ─────────────
@@ -1262,15 +1261,8 @@ export class MemStorage implements IStorage {
               }
             }
 
-            targetParcel.ownerId = attacker.id;
-            targetParcel.ownerType = attacker.isAI ? "ai" : "player";
             targetParcel.defenseLevel = Math.max(1, Math.floor(targetParcel.defenseLevel / 2));
-            targetParcel.purchasePriceAlgo = null;
-            targetParcel.lastAscendClaimTs = now;
-            attacker.ownedParcels.push(targetParcel.id);
             attacker.attacksWon++;
-            attacker.territoriesCaptured++;
-            // Reset attacker's consecutive losses on a win
             attacker.consecutiveLosses = 0;
 
             const pillageMsg = (pillagedIron > 0 || pillagedFuel > 0 || pillagedCrystal > 0)
@@ -1286,7 +1278,7 @@ export class MemStorage implements IStorage {
               playerId: attacker.id,
               parcelId: targetParcel.id,
               battleId: battle.id,
-              description: `${attacker.name} conquered plot #${targetParcel.plotId}!${pillageMsg}${penaltyMsg}`,
+              description: `Military victory at plot #${targetParcel.plotId}.${pillageMsg}${penaltyMsg}`,
               timestamp: now,
             });
           } else {

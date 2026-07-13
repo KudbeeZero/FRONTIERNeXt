@@ -1422,7 +1422,7 @@ export class DbStorage implements IStorage {
     await this.initialize();
     return this.db.transaction(async (tx) => {
       const [[attackerRow], [targetRow]] = await Promise.all([
-        tx.select().from(playersTable).where(eq(playersTable.id, action.attackerId)),
+        tx.select().from(playersTable).where(eq(playersTable.id, action.attackerId)).for("update"),
         tx.select().from(parcelsTable).where(eq(parcelsTable.id, action.targetParcelId)),
       ]);
       if (!attackerRow || !targetRow) throw new Error("Invalid attacker or target");
@@ -2016,30 +2016,6 @@ export class DbStorage implements IStorage {
             }
           }
 
-          // ── Reconquest tracking ──────────────────────────────────────
-          const isHumanCapturingAI = !attackerRow.isAi && (targetRow.ownerType === "ai");
-          const isAIReconquering   = attackerRow.isAi  && (targetRow.ownerType === "player");
-          const existingHandovers  = (targetRow as any).handoverCount ?? 0;
-
-          // Look up the AI faction name for the defender (for reconquest tracking)
-          const defenderFactionName = isHumanCapturingAI && battleRow.defenderId
-            ? (() => {
-                const defRow = allAiPlayers.find((ai: any) => ai.id === battleRow.defenderId);
-                return defRow?.name ?? null;
-              })()
-            : null;
-
-          const reconquestUpdates = isHumanCapturingAI ? {
-            capturedFromFaction: defenderFactionName,
-            capturedAt:    now,
-            handoverCount: existingHandovers + 1,
-          } : isAIReconquering ? {
-            // AI has taken it back — clear contested status
-            capturedFromFaction: null,
-            capturedAt:          null,
-            handoverCount:       existingHandovers,
-          } : {};
-
           // ── Commander totalKills increment ────────────────────────────────
           let updatedCommandersForWin = attackerRow.commanders ?? [];
           if (battleRow.commanderId) {
@@ -2053,22 +2029,16 @@ export class DbStorage implements IStorage {
           await Promise.all([
             tx.update(parcelsTable)
               .set({
-                ownerId:              attackerRow.id,
-                ownerType:            attackerRow.isAi ? "ai" : "player",
                 defenseLevel:         Math.max(1, Math.floor(targetRow.defenseLevel / 2)),
                 ironStored:           targetRow.ironStored    - pillagedIron,
                 fuelStored:           targetRow.fuelStored    - pillagedFuel,
                 crystalStored:        targetRow.crystalStored - pillagedCrystal,
                 influence:            newInfluence,
-                purchasePriceAlgo:    null,
-                lastAscendClaimTs:  now,
-                ...reconquestUpdates,
               })
               .where(eq(parcelsTable.id, targetRow.id)),
             tx.update(playersTable)
               .set({
                 attacksWon:          sql`${playersTable.attacksWon} + 1`,
-                territoriesCaptured: sql`${playersTable.territoriesCaptured} + 1`,
                 consecutiveLosses:   0,
                 iron:                attackerRow.iron + pillagedIron,
                 fuel:                attackerRow.fuel + pillagedFuel,
@@ -2082,22 +2052,12 @@ export class DbStorage implements IStorage {
             ? ` Pillaged: ${pillagedIron} iron, ${pillagedFuel} fuel, ${pillagedCrystal} crystal.`
             : "";
 
-          // ── Sub-parcel reconquest: transfer defender-owned sub-parcels to attacker ──
-          if (targetRow.ownerId) {
-            await tx.update(subParcelsTable)
-              .set({ ownerId: attackerRow.id, ownerType: attackerRow.isAi ? "ai" : "player" })
-              .where(and(
-                eq(subParcelsTable.parentPlotId, targetRow.plotId),
-                eq(subParcelsTable.ownerId, targetRow.ownerId)
-              ));
-          }
-
           await this.addEvent({
             type:        "battle_resolved",
             playerId:    attackerRow.id,
             parcelId:    targetRow.id,
             battleId:    battleRow.id,
-            description: `${attackerRow.name} conquered plot #${targetRow.plotId}!${pillageMsg}${defenderPenaltyMsg}`,
+            description: `Military victory at plot #${targetRow.plotId}.${pillageMsg}${defenderPenaltyMsg}`,
             timestamp:   now,
           }, tx);
         } else {

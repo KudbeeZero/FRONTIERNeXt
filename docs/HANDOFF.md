@@ -5,10 +5,15 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** background-loop cost-control — **DONE & MERGED** (all three doc PRs closed).
-  - PR #243 `729c5ec` merged → auto-deployed; `/health` 200.
-  - PR #244 `f13d9f5` merged (recovery verification doc).
-  - PR #245 `e5b423b` merged (prod-verification limits; activation blocked on owner Fly/Neon access).
+- **Unit:** battle integrity — preserve land ownership on ordinary victory, enforce Commander battle locks, expose active-capacity UI. **IN PROGRESS** on `fix/frontier-battle-integrity-cooldowns`.
+  - Ordinary battle victory no longer transfers `parcels.ownerId`, `parcels.ownerType`, or `subParcels.ownerId`.
+  - No `capturedFromFaction` / `handoverCount` / `purchasePriceAlgo` mutation on ordinary victory.
+  - Defense damage, resource pillage, influence, rewards, events, and battle proof/snapshot remain unchanged.
+  - Reaper server-authoritative active-battle cap (3) preserved; `deployAttack()` attacker row locked with `FOR UPDATE` to close the concurrent-count race.
+  - CommanderPanel now shows active battle count, max concurrent, Commander lock countdown, target-engaged warning, and disables launch at capacity.
+  - Event copy updated from "conquered" / "captured" to truthful "military victory" / "defeated the defenses".
+  - Permanent Capture remains a future explicit system; Battle Target Selector remains parked.
+- **Next lane:** Battle Target Selector (Battle Planner pre-cursor) after this PR is merged and verified. Faction economy / treasury / equity / contribution-ledger remain future work.
 - **Owner-only blocker:** production activation was **not** performed by agents (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Owner must run:
   `flyctl secrets set -a frontiernext AI_ENABLED=true AI_TURN_INTERVAL_MS=120000 DEBUFF_CLEANUP_INTERVAL_MS=60000 AI_MAX_ACTIVE_BATTLES=12`
   then confirm `/health` 200 and observe 15 min (AI ~120 s, debuff ~60 s, active battles ≤ 12). See `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.

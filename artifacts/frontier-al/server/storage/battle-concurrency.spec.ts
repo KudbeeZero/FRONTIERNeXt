@@ -100,8 +100,9 @@ describe("resolveBattles", () => {
     expect((await storage.getBattle(battle.id))!.status).toBe("resolved");
   });
 
-  it("an attacker win transfers ownership to the attacker", async () => {
+  it("an attacker win does NOT transfer parcel ownership", async () => {
     const parcel = await freshParcel();
+    const originalOwnerId = parcel.ownerId;
     // Overwhelming force ⇒ deterministic attacker win regardless of randFactor.
     const battle = await deploy(parcel.id, 10_000);
     (battle as any).resolveTs = Date.now() - 1;
@@ -109,7 +110,59 @@ describe("resolveBattles", () => {
     const resolved = await storage.resolveBattles();
     const mine = resolved.find((b) => b.id === battle.id)!;
     expect(mine.outcome).toBe("attacker_wins");
-    expect((await storage.getParcel(parcel.id))!.ownerId).toBe(human.id);
+    expect((await storage.getParcel(parcel.id))!.ownerId).toBe(originalOwnerId);
+  });
+
+  it("an attacker win does NOT change parcel ownerType", async () => {
+    const parcel = await freshParcel();
+    const originalOwnerType = parcel.ownerType;
+    const battle = await deploy(parcel.id, 10_000);
+    (battle as any).resolveTs = Date.now() - 1;
+
+    await storage.resolveBattles();
+    expect((await storage.getParcel(parcel.id))!.ownerType).toBe(originalOwnerType);
+  });
+
+  it("battle victory applies defense damage and pillage but preserves ownership", async () => {
+    const parcel = await freshParcel();
+    parcel.defenseLevel = 5;
+    parcel.ironStored = 100;
+    parcel.fuelStored = 50;
+    parcel.crystalStored = 25;
+    const originalDefense = parcel.defenseLevel;
+    const originalIron = parcel.ironStored;
+    const battle = await deploy(parcel.id, 10_000);
+    (battle as any).resolveTs = Date.now() - 1;
+
+    await storage.resolveBattles();
+    const updated = await storage.getParcel(parcel.id);
+    if (!updated) throw new Error("parcel not found after resolution");
+    expect(updated.defenseLevel).toBeLessThan(originalDefense);
+    expect(updated.ironStored).toBeLessThan(originalIron);
+    expect(updated.ownerId).toBe(parcel.ownerId);
+  });
+
+  it("activeBattleId clears after resolution", async () => {
+    const parcel = await freshParcel();
+    const battle = await deploy(parcel.id);
+    expect((await storage.getParcel(parcel.id))!.activeBattleId).toBe(battle.id);
+
+    (battle as any).resolveTs = Date.now() - 1;
+    await storage.resolveBattles();
+    expect((await storage.getParcel(parcel.id))!.activeBattleId).toBeNull();
+  });
+
+  it("battle events describe military victory, not ownership transfer", async () => {
+    const parcel = await freshParcel();
+    const battle = await deploy(parcel.id, 10_000);
+    (battle as any).resolveTs = Date.now() - 1;
+
+    await storage.resolveBattles();
+    const events = await storage.getGameState().then(s => s.events);
+    const battleEvent = events.find(e => e.battleId === battle.id && e.type === "battle_resolved");
+    expect(battleEvent).toBeDefined();
+    expect(battleEvent!.description).not.toMatch(/conquered|captured|acquired|took ownership|now owns/i);
+    expect(battleEvent!.description).toMatch(/military victory|defeated the defenses|victory at/i);
   });
 });
 
