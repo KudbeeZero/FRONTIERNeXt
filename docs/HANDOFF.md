@@ -5,13 +5,21 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Mobile globe touch interaction — **DONE & MERGED** (PR #263 `18da3b9`).
+- **Unit:** Mobile plot sheet independent close — **DONE & MERGED** (PR #264 `eac4a2a`).
+  - Fixed the bug where tapping the X on the top globe peek card or the bottom MobilePlotSheet closed both layers at once.
+  - `GameLayout.tsx`: added `showMobileSheet` state separate from `selectedParcelId`. The bottom sheet X and backdrop now close only the sheet; the globe peek card remains visible.
+  - `GameLayout.tsx`: desktop panel and globe peek card X still clear `selectedParcelId` and fully dismiss the selection UI.
+  - `GameLayout.tsx`: selecting a new plot while the sheet is open updates the selected parcel and keeps the sheet open.
+  - `SelectedPlotPanel.tsx`: added `onSheetClose` prop, used for `MobilePlotSheet` on mobile while `onClose` remains the full dismiss for desktop.
+  - `client/tests/mobile-overlay-close.spec.tsx`: updated regression tests to cover the independent close state machine (sheet-only close, full close, backdrop, new plot while open).
+  - No server, API, DB, auth, wallet, chain, or archetype changes. No LandSheet behavior changes. No MobilePlotSheet internals changed.
+- **Previous unit:** Mobile globe touch interaction — **DONE & MERGED** (PR #263 `18da3b9`).
   - Fixed three diagnosed bugs: pinch-zoom synthesising plot selection, pinch-zoom rotating the camera, and the bottom HUD dock blocking canvas touches.
-  - `GlobeParcels.tsx`: pointer-count tracking (`activePointerCount`, `sawMultiTouch`) guards `onClick` so pinch gestures do not select plots.
-  - `PlanetGlobe.tsx`: `OrbitControls` touch config changed from `TWO: THREE.TOUCH.DOLLY_ROTATE` to `TWO: THREE.TOUCH.DOLLY_PAN`; with `enablePan={false}` this is pure pinch-to-zoom.
-  - `hud.css`: `.hud-dock` is `pointer-events: none`; `.hud-di` buttons remain `pointer-events: auto` so empty dock gaps pass through to the canvas.
-  - `GlobeHUD.tsx`: `PlayerLegend` wrapper now has `pointer-events-none` so it no longer blocks globe touches.
-  - `client/index.html`: viewport meta updated with `user-scalable=no, maximum-scale=1.0` to prevent browser page-level zoom competing with the canvas.
+  - `GlobeParcels.tsx`: pointer-count tracking guards `onClick` so pinch gestures do not select plots.
+  - `PlanetGlobe.tsx`: `OrbitControls` touch config changed to `TWO: THREE.TOUCH.DOLLY_PAN` for pure pinch-to-zoom.
+  - `hud.css`: `.hud-dock` is `pointer-events: none`; dock buttons `.hud-di` remain `pointer-events: auto`.
+  - `GlobeHUD.tsx`: `PlayerLegend` wrapper now has `pointer-events-none`.
+  - `client/index.html`: viewport meta updated with `user-scalable=no, maximum-scale=1.0`.
   - No server, API, DB, auth, wallet, chain, or archetype changes. No new dependencies.
 - **Previous unit:** NFT metadata proxy (production-domain `frontierprotocol.app/nft/metadata/*` → Fly backend) — **DONE & MERGED** (PR #260 `36fbf6c`).
   - Added `artifacts/frontier-al/client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200 (transparent proxy, not 3xx).
@@ -61,7 +69,8 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
-- **Shipped:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. `GlobeParcels.tsx` pointer-count guard, `OrbitControls` `DOLLY_PAN` config, HUD dock pointer-events passthrough, `PlayerLegend` pointer-events-none, and viewport `user-scalable=no`. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
+- **Shipped:** Mobile plot sheet independent close — PR #264 `eac4a2a` (2026-07-13). Added `showMobileSheet` state in GameLayout so the bottom sheet can be closed independently from the globe peek card. Sheet X/backdrop close only the sheet; peek card X clears selection and closes both; new plot taps while sheet open keep the sheet open. Updated regression tests in `mobile-overlay-close.spec.tsx`. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
+- **Previous result:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. `GlobeParcels.tsx` pointer-count guard, `OrbitControls` `DOLLY_PAN` config, HUD dock pointer-events passthrough, `PlayerLegend` pointer-events-none, and viewport `user-scalable=no`. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
 - **Previous result:** NFT metadata proxy — PR #260 `36fbf6c` (2026-07-13). Added `client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200. Wallets now resolve ARC-3 JSON from the branded domain. No application code, no chain, no auth, no idempotency, no marketing copy, no archetype/energy changes. CI green: typecheck clean · full client 466/466.
 
 ## NEXT
