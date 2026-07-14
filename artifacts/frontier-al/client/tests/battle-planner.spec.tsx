@@ -153,6 +153,27 @@ function findByTestIdInDom(root: ReactTestRenderer, testId: string): { props: Re
   return found;
 }
 
+/**
+ * A step testid appears on BOTH the stepper <button> and the content <div>.
+ * Return the content node — the match whose rendered text is the most verbose
+ * (the stepper button only holds the step number + label).
+ */
+function findStepContentInDom(root: ReactTestRenderer, stepTestId: string): { props: Record<string, unknown>; children: unknown[] } | null {
+  const json = root.toJSON();
+  const matches: { props: Record<string, unknown>; children: unknown[] }[] = [];
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const n = node as { props?: { "data-testid"?: string }; children?: unknown[] };
+    if (n.props?.["data-testid"] === stepTestId) {
+      matches.push(n as { props: Record<string, unknown>; children: unknown[] });
+    }
+    if (Array.isArray(n.children)) for (const c of n.children) walk(c);
+  };
+  walk(json);
+  if (matches.length === 0) return null;
+  return matches.reduce((a, b) => (flattenText(b.children).length >= flattenText(a.children).length ? b : a));
+}
+
 interface HostProps {
   target: LandParcel;
   origins: LandParcel[];
@@ -160,6 +181,7 @@ interface HostProps {
   onSelectTarget: (id: string) => void;
   onAttack: (troops: number, iron: number, fuel: number, crystal: number, commanderId?: string, sourceParcelId?: string) => void;
   onOpenMap: () => void;
+  initialTroops?: number;
 }
 
 /**
@@ -168,9 +190,9 @@ interface HostProps {
  * feeds them down to <BattlePlanner>. The BattlePlanner is a controlled
  * component for those values, so a unit test has to drive the parent.
  */
-function PlannerHost({ target, origins, player, onSelectTarget, onAttack, onOpenMap }: HostProps) {
+function PlannerHost({ target, origins, player, onSelectTarget, onAttack, onOpenMap, initialTroops }: HostProps) {
   const [sourceParcelId, setSourceParcelId] = useState<string | null>(null);
-  const [troops, setTroops] = useState(1);
+  const [troops, setTroops] = useState(initialTroops ?? 1);
   const [extraIron, setExtraIron] = useState(0);
   const [extraFuel, setExtraFuel] = useState(0);
   const [extraCrystal, setExtraCrystal] = useState(0);
@@ -236,6 +258,25 @@ describe("BattlePlanner (component)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  /** Drive the canonical flow to the Review step (origin → commander → review). */
+  function gotoReview(root: ReactTestRenderer, originPlotId = 10, commanderId = "cmd-s") {
+    act(() => {
+      (findByTestIdInDom(root, "planner-step-origin")!.props as { onClick: () => void }).onClick();
+    });
+    act(() => {
+      (findByTestIdInDom(root, `origin-card-${originPlotId}`)!.props as { onClick: () => void }).onClick();
+    });
+    act(() => {
+      (findByTestIdInDom(root, "planner-step-commander")!.props as { onClick: () => void }).onClick();
+    });
+    act(() => {
+      (findByTestIdInDom(root, `commander-card-${commanderId}`)!.props as { onClick: () => void }).onClick();
+    });
+    act(() => {
+      (findByTestIdInDom(root, "planner-step-review")!.props as { onClick: () => void }).onClick();
+    });
+  }
 
   it("renders exactly one planner with a single sticky CTA", () => {
     const root = render();
@@ -375,6 +416,67 @@ describe("BattlePlanner (component)", () => {
     });
     expect(onAttack).toHaveBeenCalledTimes(1);
   });
+
+  it("Outcome Preview section renders on the review step with attacker/defender/win-chance", () => {
+    const root = render();
+    gotoReview(root);
+    const review = findStepContentInDom(root, "planner-step-review");
+    expect(review).not.toBeNull();
+    const text = flattenText(review!.children);
+    expect(text).toContain("Outcome Preview");
+    expect(text).toContain("Attacker Power");
+    expect(text).toContain("Defender Power");
+    expect(text).toContain("Win Chance");
+    // With a target selected, values are numeric (not the "—" no-target sentinel).
+    const hasPercent = /Win Chance[^%]*\d+%/.test(text.replace(/\s+/g, " "));
+    expect(hasPercent).toBe(true);
+  });
+
+  it("Outcome values reflect the selected target (defender power is numeric when a target exists)", () => {
+    const root = render();
+    gotoReview(root);
+    const review = findStepContentInDom(root, "planner-step-review");
+    const text = flattenText(review!.children).replace(/\s+/g, " ");
+    // "Defender PowerNN" (no "—") and a win-chance percentage.
+    expect(text).toMatch(/Defender Power\d/);
+    expect(text).toMatch(/Win Chance\d+%/);
+  });
+
+  it("Outcome values update when planner inputs change (more troops → different projection)", () => {
+    const low = renderWith({ initialTroops: 1 });
+    const high = renderWith({ initialTroops: 10 });
+    gotoReview(low);
+    gotoReview(high);
+    const lowText = flattenText(findStepContentInDom(low, "planner-step-review")!.children).replace(/\s+/g, " ");
+    const highText = flattenText(findStepContentInDom(high, "planner-step-review")!.children).replace(/\s+/g, " ");
+    expect(lowText).not.toBe(highText);
+  });
+
+  it("Outcome Preview is display-only and does not trigger an attack or wallet interaction", () => {
+    const root = render();
+    gotoReview(root);
+    // The outcome section is advisory: simply reaching review must not fire onAttack.
+    expect(onAttack).not.toHaveBeenCalled();
+  });
+
+  /** Render the host with overrides (used by the troops-change test above). */
+  function renderWith(over: { initialTroops?: number }) {
+    let root!: ReactTestRenderer;
+    act(() => {
+      root = TestRenderer.create(
+        <PlannerHost
+          target={target}
+          origins={[originA, originB]}
+          player={player}
+          onSelectTarget={onSelectTarget}
+          onAttack={onAttack}
+          onOpenMap={onOpenMap}
+          initialTroops={over.initialTroops}
+        />,
+      );
+    });
+    return root;
+  }
 });
 
 /** Flatten a toJSON children tree into a single concatenated string for text assertions. */
