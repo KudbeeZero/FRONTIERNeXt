@@ -5,7 +5,11 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Mobile globe touch regression coverage — **DONE & MERGED** (PR #265 `ba2e71f`).
+- **Unit:** Memory Layer runner prompt + session updater — **DONE & PR OPEN** (PR #269 `a38a910`).
+  - Implemented the memory-layer runner workflow: `docs/memory/KILO_RUNNER_PROMPT.md` (session-start prompt), `docs/memory/SESSION_UPDATER.md` (closeout procedure, 5 memory-write targets), `docs/memory/00-STATE-INDEX.md` (canonical current-state index — previously missing), `docs/memory/10-completed/_INDEX.md` (completed-lane index).
+  - `.github/workflows/session-log.yml` confirmed as the **sole** session-updater trigger; added verification-only `.github/workflows/memory-session-check.yml` (no memory writes). Prior DRAFT's duplicate `memory-session-update.yml` + Notion scripts/secrets removed.
+  - Docs/process only: no app code, schema/migration, ASA/wallet/treasury, or combat changes. CI green (typecheck + server tests + memory-session-check).
+- **Previous unit:** Mobile globe touch regression coverage — **DONE & MERGED** (PR #265 `ba2e71f`).
   - Added regression documentation and TODO pointers for the mobile globe touch fixes from PR #263.
   - `client/docs/testing/mobile-globe-touch.md` — explains why automated multi-touch regression coverage is impractical in the current Node/SSR test harness, documents exact manual reproduction steps, expected outcomes, and future test ideas.
   - `client/docs/testing/mobile-globe-regression-checklist.md` — QA checklist with eight mobile interaction checks.
