@@ -99,7 +99,9 @@
   transition: transform .42s var(--hud-ease), opacity .3s ease;
   /* The dock bar sits over the canvas on mobile. Make the bar itself pass
      pointer events through; only the actual dock buttons consume touches.
-     This prevents empty space in the bottom bar from blocking globe zoom/pan. */
+     This prevents empty space in the bottom bar from blocking globe zoom/pan.
+     TODO(test/mobile): covered by the manual checklist in
+     client/docs/testing/mobile-globe-regression-checklist.md. */
   pointer-events: none;
 }
 .hud-dock.is-collapsed { transform: translateY(100%); opacity: 0; pointer-events: none; }

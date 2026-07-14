@@ -5,17 +5,18 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-<<<<<<< ours
-- **Unit:** NFT metadata proxy (production-domain `frontierprotocol.app/nft/metadata/*` → Fly backend) — **DONE & MERGED** (PR #260 `36fbf6c`).
-=======
-- **Unit:** Mobile plot sheet independent close — **DONE & MERGED** (PR #264 `eac4a2a`).
+- **Unit:** Mobile globe touch regression coverage — **DONE & MERGED** (PR #265 `ba2e71f`).
+  - Added regression documentation and TODO pointers for the mobile globe touch fixes from PR #263.
+  - `client/docs/testing/mobile-globe-touch.md` — explains why automated multi-touch regression coverage is impractical in the current Node/SSR test harness, documents exact manual reproduction steps, expected outcomes, and future test ideas.
+  - `client/docs/testing/mobile-globe-regression-checklist.md` — QA checklist with eight mobile interaction checks.
+  - `client/docs/testing/mobile-globe-e2e-investigation.md` — tool audit (Vitest present; Playwright/Cypress/Vitest Browser Mode absent) and a documented future Playwright spec if E2E is ever adopted.
+  - TODO comments in `GlobeParcels.tsx`, `PlanetGlobe.tsx`, `hud.css`, `GlobeHUD.tsx`, and `index.html` pointing to the docs.
+  - No production behavior changes, no gameplay changes, no server/API/wallet/chain/auth changes, no visual changes, no new dependencies, no refactors.
+- **Previous unit:** Mobile plot sheet independent close — **DONE & MERGED** (PR #264 `eac4a2a`).
   - Fixed the bug where tapping the X on the top globe peek card or the bottom MobilePlotSheet closed both layers at once.
   - `GameLayout.tsx`: added `showMobileSheet` state separate from `selectedParcelId`. The bottom sheet X and backdrop now close only the sheet; the globe peek card remains visible.
-  - `GameLayout.tsx`: desktop panel and globe peek card X still clear `selectedParcelId` and fully dismiss the selection UI.
-  - `GameLayout.tsx`: selecting a new plot while the sheet is open updates the selected parcel and keeps the sheet open.
   - `SelectedPlotPanel.tsx`: added `onSheetClose` prop, used for `MobilePlotSheet` on mobile while `onClose` remains the full dismiss for desktop.
-  - `client/tests/mobile-overlay-close.spec.tsx`: updated regression tests to cover the independent close state machine (sheet-only close, full close, backdrop, new plot while open).
-  - No server, API, DB, auth, wallet, chain, or archetype changes. No LandSheet behavior changes. No MobilePlotSheet internals changed.
+  - `client/tests/mobile-overlay-close.spec.tsx`: updated regression tests to cover the independent close state machine.
 - **Previous unit:** Mobile globe touch interaction — **DONE & MERGED** (PR #263 `18da3b9`).
   - Fixed three diagnosed bugs: pinch-zoom synthesising plot selection, pinch-zoom rotating the camera, and the bottom HUD dock blocking canvas touches.
   - `GlobeParcels.tsx`: pointer-count tracking guards `onClick` so pinch gestures do not select plots.
@@ -25,7 +26,6 @@
   - `client/index.html`: viewport meta updated with `user-scalable=no, maximum-scale=1.0`.
   - No server, API, DB, auth, wallet, chain, or archetype changes. No new dependencies.
 - **Previous unit:** NFT metadata proxy (production-domain `frontierprotocol.app/nft/metadata/*` → Fly backend) — **DONE & MERGED** (PR #260 `36fbf6c`).
->>>>>>> theirs
   - Added `artifacts/frontier-al/client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200 (transparent proxy, not 3xx).
   - Rules ordered BEFORE the `/*` SPA fallback; `/nft/biomes/*` and `/api/*` deliberately NOT proxied.
   - Added 8-case regression spec (`client/tests/cloudflare-redirects.spec.ts`); full client suite 466/466 + typecheck clean + CI green (Typecheck & server tests + Cloudflare Pages).
@@ -73,14 +73,9 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
-<<<<<<< ours
-- **Shipped:** NFT metadata proxy — PR #260 `36fbf6c` (2026-07-13). Added `client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200. Wallets now resolve ARC-3 JSON from the branded domain. No application code, no chain, no auth, no idempotency, no marketing copy, no archetype/energy changes. CI green: typecheck clean · full client 466/466.
-- **Verified:** 8 new test cases for the redirects file. Production curl post-deploy is the owner's responsibility (see PR body).
-=======
-- **Shipped:** Mobile plot sheet independent close — PR #264 `eac4a2a` (2026-07-13). Added `showMobileSheet` state in GameLayout so the bottom sheet can be closed independently from the globe peek card. Sheet X/backdrop close only the sheet; peek card X clears selection and closes both; new plot taps while sheet open keep the sheet open. Updated regression tests in `mobile-overlay-close.spec.tsx`. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
-- **Previous result:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. `GlobeParcels.tsx` pointer-count guard, `OrbitControls` `DOLLY_PAN` config, HUD dock pointer-events passthrough, `PlayerLegend` pointer-events-none, and viewport `user-scalable=no`. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
-- **Previous result:** NFT metadata proxy — PR #260 `36fbf6c` (2026-07-13). Added `client/public/_redirects` proxying `/nft/metadata/{:plotId,commander/:id,weapon/:id}` to `https://frontiernext.fly.dev/nft/metadata/*` with status 200. Wallets now resolve ARC-3 JSON from the branded domain. No application code, no chain, no auth, no idempotency, no marketing copy, no archetype/energy changes. CI green: typecheck clean · full client 466/466.
->>>>>>> theirs
+- **Shipped:** Mobile globe touch regression coverage — PR #265 `ba2e71f` (2026-07-14). Added regression docs and TODO pointers for the mobile globe touch fixes. Automated multi-touch coverage is impractical in the current Node/SSR test harness; manual QA checklist documents the eight verification steps. No production behavior changes. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
+- **Previous result:** Mobile plot sheet independent close — PR #264 `eac4a2a` (2026-07-13). Added `showMobileSheet` state in GameLayout so the bottom sheet can be closed independently from the globe peek card. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
+- **Previous result:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
 
 ## NEXT
 - **Next lane:** Battle Planner (Battle Target Selector shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
