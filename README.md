@@ -38,12 +38,69 @@
 <br/><br/>
 
 <img src="https://img.shields.io/badge/Network-Algorand_TestNet-000000?style=flat-square&logo=algorand&logoColor=white" alt="Algorand TestNet">
-<img src="https://img.shields.io/badge/Token-ASCEND_·_ASA_755818217-F5C518?style=flat-square" alt="ASCEND ASA">
+<img src="https://img.shields.io/badge/Token-ASCEND_·_ASA_764083761-F5C518?style=flat-square" alt="ASCEND ASA">
 <img src="https://img.shields.io/badge/World-21,000_Plots-2D7FF9?style=flat-square" alt="21000 plots">
 <img src="https://img.shields.io/badge/Factions-NEXUS--7_·_KRONOS_·_VANGUARD_·_SPECTRE-B26BFF?style=flat-square" alt="Factions">
 <img src="https://img.shields.io/badge/License-Proprietary-E5484D?style=flat-square" alt="License">
+<img src="https://img.shields.io/badge/HEAD-5bb2fac5-0B0E2A?style=flat-square" alt="HEAD SHA">
 
 </div>
+
+---
+
+## 🤖  Agent Onboarding — Orient Any AI in 2 Commands
+
+> **New agent? Paste these two commands. You're fully oriented.**
+
+```bash
+# 1. Master README (this file — stack, repo map, all links)
+curl https://raw.githubusercontent.com/KudbeeZero/FRONTIERNeXt/main/README.md
+
+# 2. Agent rules (PR conventions, forbidden patterns, test gates)
+curl https://raw.githubusercontent.com/KudbeeZero/FRONTIERNeXt/main/CLAUDE.md
+```
+
+After reading both, the agent knows:
+- Active app path: `artifacts/frontier-al/`
+- Current HEAD: `5bb2fac5` on `main`
+- Verify gate: `pnpm typecheck && pnpm test && pnpm build` (all must be green before any PR)
+- Branch naming: `fix/domain-description` or `feat/domain-description`
+- PR body must include: `HANDOFF: [done] → [next] → next branch: [name]`
+- **Never** touch `main` directly — always PR
+
+### Multi-Agent Coordination
+
+Multiple agents can work in parallel without colliding:
+
+```
+Agent A → fix/routes-auth-domain        (auth router split)
+Agent B → fix/routes-game-domain        (game router split)
+Agent C → feat/battle-planner-ui        (battle UI)
+```
+
+**Rule:** one agent owns one branch. Run `gh pr list` before starting — if your domain has an open PR, wait or coordinate. Never force-push to a branch another agent is using.
+
+### Rate Limit Guard Rails
+
+| Service | Free Limit | Rule |
+|---|---|---|
+| GitHub Codespaces | 60 core-hrs/mo | `gh codespace stop` when done — every time |
+| Gemini 1.5 Flash | 15 req/min free | Batch requests; use for large-file analysis only |
+| DeepSeek API | ~$0.14/1M tokens | Browser for quick questions, API for automation loops |
+| Fly.io | 3 shared-CPU machines | One staging deploy per PR — not per commit |
+
+---
+
+## 🧠  Memory Layers — Notion Control Center
+
+These pages are the live brain of the project. Always check before starting work.
+
+| Page | What it contains | Link |
+|---|---|---|
+| 📍 00 — Command Center | HEAD SHA, active PR, security blockers, last verified timestamp | [Open](https://app.notion.com/p/39ca1ce1cf1e817e969dd17ef36942d3) |
+| 🚨 20 — Launch Blockers | Full security audit, credential rotation status, rebuild order | [Open](https://app.notion.com/p/39ca1ce1cf1e81c7b4f5d149f0cba039) |
+| 📱 70 — iPhone Dev Workflow | Blink Shell + Codespaces + BT keyboard/mouse + DeepSeek/Gemini API | [Open](https://app.notion.com/p/39da1ce1cf1e81d4b357ff5ab651d596) |
+| 🌐 80 — Public Wiki & Agent Directory | All public links, player docs, multi-agent rules | [Open](https://app.notion.com/p/39da1ce1cf1e81dcaedcf262a1b2e9c1) |
 
 ---
 
@@ -101,6 +158,19 @@ For anyone deploying, extending, or auditing the frontier.
 | 🧪 | **[Testing Mode](artifacts/frontier-al/TESTING_MODE.md)** | Partner-testing emission rates and switches |
 | 🗺️ | **[Roadmap](artifacts/frontier-al/ROADMAP.md)** | The six-phase build-out toward the full release |
 | 📦 | **[Game README](artifacts/frontier-al/README.md)** | Deep technical reference: API, DB schema, project structure |
+| 📱 | **[iPhone Dev Workflow (Notion)](https://app.notion.com/p/39da1ce1cf1e81d4b357ff5ab651d596)** | Blink + Codespaces + BT keyboard/mouse + DeepSeek/Gemini API |
+
+---
+
+## 🤖  AI Tools for Development
+
+| Tool | Best For | Access |
+|---|---|---|
+| **Perplexity** | Architecture decisions, HANDOFF review, Notion updates | This chat |
+| **Gemini 1.5 Flash** | Large-file analysis (paste entire routes.ts ~205KB) | [aistudio.google.com](https://aistudio.google.com) · API key → `gh secret set GEMINI_API_KEY` |
+| **DeepSeek Chat** | Code review, refactor suggestions | [chat.deepseek.com](https://chat.deepseek.com) · API key → `gh secret set DEEPSEEK_API_KEY` |
+| **Lightning AI** | Long agent runs (>60 min), GPU tasks | [lightning.ai](https://lightning.ai) |
+| **GitHub Copilot** | Inline autocomplete in Codespace editor | Built into VS Code / Codespaces |
 
 ---
 
@@ -134,10 +204,14 @@ FRONTIERNeXt/
 │   ├── api-spec/                · OpenAPI spec + codegen
 │   ├── api-zod/                 · Zod validation schemas
 │   └── db/                      · Drizzle ORM + Postgres config
-└── scripts/                ◍ Build & utility scripts
+├── scripts/                ◍ Build & utility scripts
+├── CLAUDE.md               ◍ Agent rules — read this before any PR
+├── LOCAL_DEV.md            ◍ Desktop dev setup
+└── SESSION_LOG.md          ◍ Agent session continuity log
 ```
 
 > **New here?** Jump straight to the game → **[`artifacts/frontier-al/`](artifacts/frontier-al/README.md)**.
+> **New agent?** Read `CLAUDE.md` first — it has all the rules.
 
 ---
 
@@ -147,6 +221,6 @@ FRONTIERNeXt/
 
 *No part of this software may be used, copied, modified, or distributed without prior written permission.*
 
-<sub>🛰️ Built for the frontier. Claim your sky.</sub>
+<sub>🛰️ Built for the frontier. Claim your sky. · Last updated: 2026-07-14</sub>
 
 </div>
