@@ -1,155 +1,208 @@
-# KILO Runner Prompt — Memory Layer Workflow
+# KILO Runner Prompt — FRONTIERNeXt Memory Layer Workflow
 
-> **FRONTIERNeXt · Confidential · Do not expose secrets, keys, or treasury credentials.**
-
-This document is the canonical copy-paste runner prompt for KILO (Claude Code / Codex agent). It includes the Memory Layer session updater workflow and must be used at the start of every implementation lane.
-
----
-
-## 1. Pre-Session Checklist (Owner, before handing to KILO)
-
-Before starting KILO, verify:
-
-- [ ] `main` is green (CI passing)
-- [ ] No other lane PR is open and unreviewed
-- [ ] Memory Index (`00 — Index & Current State/CURRENT — FRONTIER Memory Index`) reflects latest merged commit
-- [ ] Active blocker and owner action are current in the Index
+> **Copy-paste this block in full at the start of every KILO session.**
+> Do not abbreviate. Do not skip the Memory Layer section.
 
 ---
 
-## 2. KILO Runner Prompt Template
-
-Copy the block below. Fill in `[LANE_NAME]`, `[BRANCH]`, `[BASE]`, `[SCOPE]`, and `[NON_GOALS]` before pasting.
+## Session Bootstrap
 
 ```
 Repo: KudbeeZero/FRONTIERNeXt
 App path: artifacts/frontier-al/
-Branch: [BRANCH]  ← create from [BASE]
-Mode: Code
-
-## Lane
-[LANE_NAME]
-
-## Scope
-[SCOPE — bullet list of exactly what changes]
-
-## Non-Goals
-[NON_GOALS — bullet list of what NOT to touch]
-- Do NOT modify production data, schema migrations, treasury addresses, ASA IDs, or wallet config
-- Do NOT open sub-agents or Orchestra unless explicitly required
-- Do NOT upgrade dependencies
-- Do NOT rewrite unrelated code
-
-## Memory Layer — READ FIRST
-Before writing a single line of code:
-1. Read `docs/HANDOFF.md`
-2. Read the relevant `docs/memory/` file for this lane (if exists)
-3. Check `00 — Index & Current State/CURRENT — FRONTIER Memory Index` (Drive) for:
-   - Current commit
-   - Latest completed PR
-   - Active launch blocker
-   - Owner action now
-
-## Memory Layer — WRITE AT CLOSEOUT
-At the end of the session, before stopping:
-1. Append a completed-lane record to `docs/memory/COMPLETED_LANES.md`
-   Format:
-   ```
-   ## [LANE_NAME] — [DATE]
-   Branch: [BRANCH]
-   PR: #[NUMBER]
-   Merged commit: [SHA]
-   Summary: [1–2 sentence description]
-   Files changed: [list]
-   Tests: [passed/failed/skipped]
-   Limitations: [any known gaps]
-   ```
-2. Output a **Memory Index update block** for the owner to paste into Drive:
-   ```
-   Current commit: [SHA]
-   Latest completed PR: #[NUMBER] — [LANE_NAME]
-   Launch verdict: [PASS / BLOCKED — reason]
-   Active blocker: [blocker or NONE]
-   Owner action now: [specific next step]
-   Last updated: [DATE]
-   ```
-
-## Session Updater Workflow
-The session updater runs automatically at the end of each KILO session via CI.
-It is confirmed GREEN (ran twice successfully — July 14 2026).
-
-Do NOT manually edit the Drive Memory Index during an active KILO session.
-Wait for the session updater to complete, then verify the index reflects the new state.
-If the updater fails, output the Memory Index update block manually (see above).
-
-## Tests
-- Run only tests relevant to changed files
-- Full verification suite once at closeout
-- Report: passed / failed / total
-
-## Closeout Format
-KILO must output a structured closeout block before ending:
-
----
-ASKED: [what was requested]
-DONE: [what was completed]
-NEEDS YOU: [what requires owner action]
-
-Branch: [BRANCH]
-Base: [BASE]
-Commits: [list of SHAs and messages]
-Changed files: [list]
-Uncommitted changes: [none / list]
-Tests: [X passed / Y failed / Z total]
-Typecheck/build: [PASS / FAIL]
-CI: [GREEN / RED / PENDING]
-Limitations: [any known gaps or skipped items]
-Restricted systems: [any systems not touched per non-goals]
-PR URL: [link or PENDING]
-Merge verdict: [MERGE READY / NEEDS REVIEW / BLOCKED]
----
+Production: https://frontierprotocol.app
+Fly: https://frontiernext.fly.dev
+Mode: Code (focused implementation)
 ```
 
 ---
 
-## 3. Memory Layer File Map
+## Active Lane
 
-| Purpose | Location |
-|---|---|
-| Current state (commit, blocker, action) | Drive: `00 — Index & Current State/CURRENT — FRONTIER Memory Index` |
-| Completed lane closeouts | `docs/memory/COMPLETED_LANES.md` (repo) + Drive: `10 — Completed Lanes` |
-| Full audits and roadmaps | Drive: `20 — Audits & Roadmaps` |
-| Historical context only | Drive: `90 — Consolidated Archive` |
-| Handoff reference | `docs/HANDOFF.md` |
+```
+Branch: <INSERT_BRANCH_NAME>
+Base: main
+Scope: <INSERT_SCOPE — one sentence max>
+Non-goals: <INSERT_NON_GOALS>
+Tests required: <INSERT_TEST_TARGETS>
+```
 
-**Source-of-truth order:**
-1. Current GitHub `main` (repo always wins)
+> Replace all `<INSERT_*>` placeholders before sending.
+> Never leave placeholders in a live prompt.
+
+---
+
+## Source-of-Truth Order (KILO must follow this)
+
+1. Current GitHub `main`, PRs, commits, migrations, tests, CI
 2. `docs/HANDOFF.md`
-3. `docs/memory/` files
-4. Drive `00 — Index & Current State`
-5. Drive `20 — Audits & Roadmaps`
-6. Drive `90 — Consolidated Archive` (historical only)
+3. Relevant `docs/memory/` files
+4. Drive: `00 — Index & Current State` → `20 — Audits & Roadmaps` → `10 — Completed Lanes`
+5. `90 — Consolidated Archive` only for missing historical context
+6. Older notes or chat summaries
 
-Never let Drive memory override current repo evidence.
-
----
-
-## 4. One-PR-At-a-Time Rule
-
-- One active implementation lane and one PR at a time.
-- Do not begin the next lane before the current PR is reviewed or merged.
-- Do not spend agent tokens on a mechanical merge when CI is green and verdict is `MERGE READY` — hand that step back to the owner.
+> Never let Drive memory override current repo evidence.
 
 ---
 
-## 5. Session Updater — Technical Notes
+## Default Priority Order
 
-- Confirmed running and green as of July 14 2026 (ran twice, both green).
-- The updater fires at end-of-session via CI workflow.
-- It writes the Memory Index update block to the designated Drive location.
-- If it runs twice in a session, both runs being green is expected and correct — idempotent by design.
-- Owner should verify the Drive index after each session to confirm the updater output is accurate.
+1. Ownership and funds safety
+2. Wallet/auth correctness
+3. Duplicate transaction prevention
+4. Plot/sub-plot purchase integrity
+5. ASA/NFT delivery and reconciliation
+6. Token accounting and duplicate-claim prevention
+7. Database/on-chain consistency
+8. Refresh/logout/reconnect persistence
+9. Mobile Safari and Pera reliability
+10. Upgrade and archetype correctness
+11. Terraforming
+12. Misleading UI/docs
+13. Visual polish
 
 ---
 
-*Last updated: 2026-07-14 by Perplexity / FRONTIERNeXt Space assistant.*
+## Coding Rules (KILO must follow this)
+
+- Inspect before editing
+- One active lane and one PR at a time
+- Preserve valid existing work
+- Avoid broad rewrites and dependency upgrades
+- Separate unrelated bugs into separate PRs
+- Run focused tests during development; full verification at closeout
+- Do not begin the next lane before the current lane is reviewed or merged
+- Use Code mode for focused implementation
+- Use Debug only for a specific reproducible failure
+- Avoid Orchestra/sub-agents unless truly necessary
+- Continue the same agent while context remains useful
+- Do not spend tokens on a mechanical merge when CI is green and verdict is `MERGE READY`
+
+---
+
+## Memory Layer — Session Updater (MANDATORY)
+
+### When to run
+
+Run the Session Updater **at the end of every KILO session**, regardless of whether changes were merged.
+
+### What to update
+
+#### `00 — Index & Current State` → `CURRENT — FRONTIER Memory Index`
+
+Update these fields every session:
+
+| Field | Value |
+|---|---|
+| Last session date | `YYYY-MM-DD` |
+| Current commit (main) | `<sha>` |
+| Latest completed PR | `#<number> — <title>` |
+| Active branch | `<branch>` |
+| Active lane | `<one-line description>` |
+| Launch verdict | `BLOCKED / STAGED / READY` |
+| Active blocker | `<one-line or NONE>` |
+| Owner action now | `<one-line or NONE>` |
+
+Do **not** overwrite historical entries. Append or update in-place.
+
+#### `10 — Completed Lanes` (only on successful merge)
+
+Write a closeout record using this template:
+
+```
+## Lane: <title>
+Branch: <branch>
+Base: main
+Merged: <PR #number> — <date>
+Commits: <sha list or range>
+Changed files: <count and key files>
+Tests: <pass/fail counts>
+Typecheck/build: PASS / FAIL
+CI: GREEN / RED
+Limitations: <any known gaps>
+Restricted systems touched: <list or NONE>
+Notes: <anything owner must know>
+```
+
+---
+
+## Closeout Block (KILO must output this at end of every session)
+
+```
+## ASKED
+<What was requested>
+
+## DONE
+<What was completed — file paths, functions, migrations, tests>
+
+## NEEDS YOU
+<Owner actions required — merge, env var, deploy, manual test, etc.>
+
+---
+Branch: <branch>
+Base: main
+Commits: <sha or range>
+Changed files: <count and key paths>
+Uncommitted changes: <YES — describe / NO>
+Tests: <pass count> passed, <fail count> failed
+Typecheck/build: PASS / FAIL
+CI: GREEN / RED / PENDING
+Limitations: <known gaps or NONE>
+Restricted systems: <list or NONE>
+PR URL: <url or N/A>
+Merge verdict: MERGE READY / NEEDS REVIEW / BLOCKED
+```
+
+---
+
+## Session Updater — Confirmation Signal
+
+At the end of every session, KILO must output this line:
+
+```
+✅ SESSION UPDATER: Memory layer updated — 00 Index written, 10 Completed (if merged).
+```
+
+If the session updater did **not** run (e.g., session ended early), KILO must output:
+
+```
+⚠️ SESSION UPDATER: Memory layer NOT updated this session. Owner must update manually.
+```
+
+---
+
+## System-Status Labels (use in all findings)
+
+`LIVE` · `PARTIAL` · `CONTRACT_ONLY` · `CATALOG_ONLY` · `UI_ONLY` · `PLANNED` · `DEPRECATED` · `UNKNOWN`
+
+## Finding Labels (use in all findings)
+
+`CRITICAL LAUNCH BLOCKER` · `REQUIRED BEFORE PUBLIC ACCESS` · `SAFE FOR STAGED RELEASE` · `POST-LAUNCH ENHANCEMENT`
+
+## Confidence Labels
+
+`High` · `Medium` · `Low`  
+Label every material conclusion as: `verified fact` · `code inference` · `missing evidence` · `owner verification`
+
+---
+
+## Evidence Standard
+
+For every material conclusion include:
+- Exact file path
+- Relevant function/component/route/table/schema
+- Supporting test or migration
+- Commit/PR evidence
+- Production/deployment evidence when available
+
+Trace active behavior through:
+```
+UI → client state → API → server validation → database → Algorand → client refresh
+```
+
+Do not say a system works just because a component, type, constant, schema field, test stub, or document exists.
+
+---
+
+*Last updated: 2026-07-14*  
+*Maintained by: Owner (KudbeeZero) + Perplexity research assistant*
