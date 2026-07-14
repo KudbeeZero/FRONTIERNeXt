@@ -186,6 +186,8 @@ export function GlobeCompass({ controlsRef }: { controlsRef: { current: OrbitCon
 
 export function PlayerLegend() {
   return (
+    // TODO(test/mobile): pointer-events passthrough is covered by the manual
+    // checklist in client/docs/testing/mobile-globe-regression-checklist.md.
     <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5 pointer-events-none select-none">
       <div className="flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md"
         style={{ background: "#00ff6a12", border: "1px solid #00ff6a30" }}>

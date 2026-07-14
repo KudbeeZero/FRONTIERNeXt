@@ -79,6 +79,9 @@
         }, 6000);
       })();
     </script>
+    <!-- maximum-scale + user-scalable=no prevent browser-level pinch zoom from
+         competing with the canvas zoom on mobile. Test coverage is manual; see
+         client/docs/testing/mobile-globe-regression-checklist.md. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>FRONTIER - Algorand Strategy Game</title>
     <meta name="description" content="FRONTIER is a persistent hex-based war strategy game where players and AI factions compete for land, resources, and dominance on the Algorand blockchain." />

@@ -64,6 +64,12 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   // Track active pointers so we can ignore clicks that are part of a multi-touch
   // gesture (e.g. pinch-zoom). Without this, lifting one finger during a pinch
   // can synthesise an `onClick` on the globe, opening plot sheets unexpectedly.
+  // TODO(test/mobile): automated multi-touch regression coverage is impractical
+  // in the current Node/SSR test harness (no jsdom/WebGL). Manual QA steps are
+  // documented in client/docs/testing/mobile-globe-touch.md and the checklist in
+  // client/docs/testing/mobile-globe-regression-checklist.md. If a headless
+  // browser harness (Playwright/Vitest Browser Mode) is added later, add
+  // synthetic single-tap vs pinch tests here.
   const activePointerCount = useRef(0);
   const sawMultiTouch = useRef(false);
 
@@ -371,6 +377,8 @@ export function PlotOverlay({ parcels, currentPlayerId, selectedPlotId, onPlotSe
   const handleClick = useCallback((e: any) => {
     e.stopPropagation();
     // Ignore drags and any gesture that involved more than one pointer (pinch-zoom).
+    // The pinch guard above prevents this handler from firing on the first pointer
+    // lift of a two-finger gesture. See TODO(test/mobile) near activePointerCount.
     if ((e.delta as number) > 6 || sawMultiTouch.current) return;
     const p = e.point as THREE.Vector3;
     const len = p.length();
