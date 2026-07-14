@@ -1,0 +1,84 @@
+name: Memory Layer Session Check
+
+# Verification-only check. Confirms the canonical memory index
+# (docs/memory/00-STATE-INDEX.md) exists, is fresh, and carries all five
+# memory-write targets. This workflow does NOT write memory and is NOT a
+# session-updater trigger. The sole session-updater trigger is
+# .github/workflows/session-log.yml (runs on push to main).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/memory/**'
+  push:
+    branches:
+      - 'feat/**'
+      - 'fix/**'
+      - 'chore/**'
+    paths:
+      - 'docs/memory/**'
+
+jobs:
+  session-index-check:
+    name: Verify Memory Index is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check 00-STATE-INDEX.md exists
+        run: |
+          if [ ! -f docs/memory/00-STATE-INDEX.md ]; then
+            echo "::error::docs/memory/00-STATE-INDEX.md missing. Update it at session closeout (see SESSION_UPDATER.md)."
+            exit 1
+          fi
+          echo "::notice::docs/memory/00-STATE-INDEX.md found"
+
+      - name: Check index is not stale (< 72h)
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const content = fs.readFileSync('docs/memory/00-STATE-INDEX.md', 'utf8');
+          const match = content.match(/\*\*Updated \(UTC\)\*\*\s*\|\s*([\d\-T:.Z]+)/);
+          if (!match) {
+            console.error('::error::No **Updated (UTC):** timestamp in 00-STATE-INDEX.md.');
+            process.exit(1);
+          }
+          const ageHours = (Date.now() - new Date(match[1]).getTime()) / 36e5;
+          if (ageHours > 72) {
+            console.error(`::error::Memory index is ${ageHours.toFixed(1)}h old (limit: 72h). Re-run SESSION_UPDATER.md.`);
+            process.exit(1);
+          }
+          console.log(`::notice::Memory index age: ${ageHours.toFixed(1)}h (within 72h window)`);
+          EOF
+
+      - name: Verify five memory-write targets present
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const content = fs.readFileSync('docs/memory/00-STATE-INDEX.md', 'utf8');
+          const need = ['Current commit', 'Latest merged PR', 'Launch verdict', 'Active blocker', 'Owner action'];
+          const missing = need.filter(n => !content.includes(n));
+          if (missing.length) {
+            console.error(`::error::Missing memory-write target(s): ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          console.log('::notice::All five memory-write targets present');
+          EOF
+
+  no-duplicate-updater:
+    name: Confirm exactly one session-updater trigger
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Count session-updater workflows
+        run: |
+          matches=$(ls .github/workflows | grep -iE 'session-log|memory.*update' || true)
+          count=$(echo "$matches" | grep -c . || true)
+          echo "Candidate updater workflows:"
+          echo "$matches"
+          if [ "$count" -ne 1 ]; then
+            echo "::error::Expected exactly 1 session-updater workflow (session-log.yml), found $count."
+            exit 1
+          fi
+          echo "::notice::Exactly one session-updater trigger confirmed (session-log.yml)"
