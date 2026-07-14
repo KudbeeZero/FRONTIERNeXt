@@ -32,6 +32,7 @@ import { OrbitalEventToast } from "./OrbitalEventToast";
 import { useOrbitalEngine } from "@/hooks/useOrbitalEngine";
 import { useWallet } from "@/hooks/useWallet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { readDraft, writeDraft, clearDraft } from "@/hooks/usePlannerDraft";
 import { TEST_GLOBE } from "@/lib/testMode";
 import { useBlockchainActions } from "@/hooks/useBlockchainActions";
 import { useGameSocket, useLiveWorldEvents } from "@/hooks/useGameSocket";
@@ -129,6 +130,33 @@ export function GameLayout() {
     if (!selectedParcelId || !gameState?.parcels) return null;
     return gameState.parcels.find(p => p.id === selectedParcelId) ?? null;
   }, [selectedParcelId, gameState?.parcels]);
+
+  // Hydrate planner draft once parcels are available; validate IDs still exist.
+  const draftHydratedRef = useRef(false);
+  useEffect(() => {
+    if (draftHydratedRef.current) return;
+    if (!gameState?.parcels) return;
+    const draft = readDraft();
+    if (!draft) {
+      draftHydratedRef.current = true;
+      return;
+    }
+    const parcelIds = new Set(gameState.parcels.map((p) => p.id));
+    if (draft.plannerSourceParcelId && parcelIds.has(draft.plannerSourceParcelId)) {
+      setPlannerSourceParcelId(draft.plannerSourceParcelId);
+    }
+    if (draft.selectedParcelId && parcelIds.has(draft.selectedParcelId)) {
+      setSelectedParcelId(draft.selectedParcelId);
+    }
+    draftHydratedRef.current = true;
+  }, [gameState?.parcels]);
+
+  // Persist planner draft on every change after hydration.
+  useEffect(() => {
+    if (!draftHydratedRef.current) return;
+    writeDraft({ selectedParcelId, plannerSourceParcelId });
+  }, [selectedParcelId, plannerSourceParcelId]);
+
   /** Controls whether the full LandSheet is open (vs. the lightweight SelectedPlotPanel) */
   const [showFullLandSheet, setShowFullLandSheet] = useState(false);
   /** Controls whether the mobile bottom sheet (MobilePlotSheet) is open.
@@ -155,6 +183,7 @@ export function GameLayout() {
     setSelectedParcelId(null);
     setShowMobileSheet(false);
     setShowFullLandSheet(false);
+    clearDraft();
   }, []);
 
   // Desktop shows the panel whenever a parcel is selected and the full sheet
@@ -473,6 +502,8 @@ export function GameLayout() {
           const battleId = data?.id as string | undefined;
           toast({ title: "Attack Deployed", description: "Battle will resolve in 10 minutes." });
           if (battleId) setWatchingBattleId(battleId);
+          // Battle launched — planner draft is consumed; clear it.
+          clearDraft();
         },
         onError: (error) => toast({ title: "Attack Failed", description: error.message, variant: "destructive" }),
       }
