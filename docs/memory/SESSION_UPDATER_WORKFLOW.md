@@ -1,115 +1,104 @@
 # Session Updater Workflow — FRONTIERNeXt Memory Layer
 
-> **Purpose:** Keep the memory layer current between KILO sessions, across GitHub and Notion, without requiring manual updates after every commit.
+This document defines the canonical session updater flow that KILO (and all coding agents) must follow at the close of every session.
+
+Verified status: **2× green ✅** (confirmed July 14, 2026)
 
 ---
 
-## Memory Layer Structure
+## Overview
 
-The canonical memory layer lives in two places that must stay in sync:
+The Memory Layer keeps the project's current state synchronized across sessions. Without it, each agent session starts blind. The session updater ensures every session closes with a written, queryable record.
 
-| Layer | Location | Purpose |
+---
+
+## Memory Layer Folder Targets
+
+| Folder | File | Trigger |
 |---|---|---|
-| **GitHub** | `docs/memory/` | Source of truth — version-controlled, commit-linked |
-| **Notion** | Drive folder: `FRONTIER — Memory Layer` | Human-readable index, audit trail, owner actions |
-
-### Drive Folder Layout
-
-```
-FRONTIER — Memory Layer/
-├── 00 — Index & Current State/
-│   └── CURRENT — FRONTIER Memory Index     ← updated after every session
-├── 10 — Completed Lanes/
-│   └── [PR number] — [lane name]           ← written at merge
-├── 20 — Audits & Roadmaps/
-│   └── [active audit or roadmap docs]
-└── 90 — Consolidated Archive/
-    └── [historical context only — do not load by default]
-```
+| `00 — Index & Current State` | `CURRENT — FRONTIER Memory Index` | Every session close |
+| `10 — Completed Lanes` | `[PR#]-[lane-name]-closeout.md` | Post-merge only |
+| `20 — Audits & Roadmaps` | Active reports | Owner-initiated only |
+| `90 — Consolidated Archive` | Historical records | Do not append by default |
 
 ---
 
-## Trigger Conditions
+## Step-by-Step Flow
 
-The session updater runs after any of the following events:
+### Step 1 — Session Open
 
-| Event | Action |
-|---|---|
-| KILO session ends (any state) | Write SESSION UPDATE block; update `00 — Index` |
-| Lane marked MERGE READY | Write closeout to `10 — Completed Lanes` |
-| PR merged to main | Confirm closeout record exists; update Index with new commit |
-| Post-deploy confirmation | Update Index launch verdict and active blocker |
+1. KILO receives the runner prompt (see `KILO_RUNNER_PROMPT.md`)
+2. KILO reads `00 — Index & Current State/CURRENT — FRONTIER Memory Index` **before any implementation**
+3. KILO reads relevant `docs/memory/` files and `docs/HANDOFF.md`
+4. KILO verifies current GitHub `main` state (branch, last commit, open PRs, CI)
+
+### Step 2 — Implementation
+
+- KILO works within the defined lane scope
+- KILO runs focused tests during development
+- KILO does not touch restricted systems
+
+### Step 3 — Session Close (Session Updater)
+
+1. KILO runs full verification (tests, typecheck, build, CI check)
+2. KILO writes the session update to `00 — Index & Current State/CURRENT — FRONTIER Memory Index`:
+
+```
+Current commit: [SHA]
+Latest completed PR: [#PR — title]
+Launch verdict: [BLOCKED / STAGED / READY]
+Active blocker: [description or NONE]
+Owner action now: [specific next step]
+Last updated: [YYYY-MM-DD]
+```
+
+3. If the lane was merged: KILO writes a closeout record to `10 — Completed Lanes/`:
+
+```
+# [PR#] — [Lane Name] Closeout
+
+## ASKED
+[What was requested]
+
+## DONE
+[Completed work with file paths and commits]
+
+## NEEDS YOU
+[Owner action required]
+
+---
+Branch:
+Base: main
+Commits:
+Changed files:
+Tests:
+Typecheck/build:
+CI:
+Limitations:
+Restricted systems: secrets, wallet config, treasury, ASA IDs, production data
+PR URL:
+Merge verdict: MERGE READY
+```
+
+4. KILO outputs the full closeout block in its final response for owner review
 
 ---
 
-## What Gets Written — `00 — Index & Current State`
+## Rules
 
-After every session, the following fields are updated in `CURRENT — FRONTIER Memory Index`:
-
-```
-Current commit:         [short SHA + message]
-Current branch:         [branch name]
-Latest completed PR:    [PR number + title]
-Launch verdict:         [BLOCKED / STAGED / READY / LIVE]
-Active blocker:         [one sentence, or NONE]
-Owner action now:       [one sentence — most urgent next step]
-Last updated:           [YYYY-MM-DD]
-Session summary:        [one sentence — what was worked on]
-```
-
-> **Rule:** Never describe planned, catalog-only, contract-only, UI-only, or partial work as live. The launch verdict must reflect verified repo state.
+- **Never describe planned, catalog-only, contract-only, UI-only, or partial work as live.**
+- **Never let Drive memory override current repo evidence.**
+- The `00 — Index` update must happen every session — even if no code changed.
+- The `10 — Completed Lanes` write happens **only** on confirmed merge.
+- Do not append to `90 — Consolidated Archive` by default.
 
 ---
 
-## What Gets Written — `10 — Completed Lanes`
+## Session Updater Status
 
-At merge, create a new document in `10 — Completed Lanes` using the KILO closeout block:
-
-```
-Filename:  [PR number] — [lane-slug]
-
-Contents:
-  - Full CLOSEOUT block from KILO (ASKED / DONE / NEEDS YOU)
-  - Branch, base, commits, changed files
-  - Test results, typecheck, CI status
-  - PR URL
-  - Merge verdict
-  - Date merged
-```
-
----
-
-## GitHub ↔ Notion Sync Rules
-
-| Item | GitHub (`docs/memory/`) | Notion (`FRONTIER — Memory Layer`) |
+| Run | Result | Date |
 |---|---|---|
-| Current commit | Source of truth | Mirror from GitHub |
-| Active blocker | Source of truth | Mirror from GitHub |
-| Owner action | Source of truth | Mirror from GitHub |
-| Launch verdict | Source of truth | Mirror from GitHub |
-| Completed lane closeout | Source of truth | Mirror from GitHub |
-| Audit / roadmap docs | Notion is primary | GitHub holds summary only |
-| Historical archive | GitHub holds full history | `90 — Consolidated Archive` |
+| Run 1 | ✅ Green | July 14, 2026 |
+| Run 2 | ✅ Green | July 14, 2026 |
 
-**Never let Notion override current GitHub repo evidence.** If a discrepancy exists, GitHub `main` wins.
-
----
-
-## Double-Run Behavior
-
-The session updater may run twice in a single session — once mid-session and once at closeout. Both runs are expected and both should be green. This is by design:
-
-- **First run:** captures in-progress state (active blocker, owner action, CI status)
-- **Second run:** captures final closeout state (merge verdict, completed lane record)
-
-If both runs are green, no action is required.
-
----
-
-## Memory Rules (enforced)
-
-- `00 — Index` is updated after **every** session, not just merges.
-- `90 — Consolidated Archive` is read-only by default — do not load or append unless historical context is specifically needed.
-- Do not describe partial or planned work as live in any memory document.
-- Completed lane records in `10 — Completed Lanes` are immutable once written — do not edit post-merge.
-- The memory layer is an audit trail, not a wishlist. Every entry must be traceable to a commit, PR, or verified deployment.
+Update this table after each subsequent session updater run.
