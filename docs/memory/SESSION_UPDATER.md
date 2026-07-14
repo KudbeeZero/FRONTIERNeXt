@@ -1,84 +1,124 @@
-# SESSION_UPDATER.md
+# Session Updater — FRONTIERNeXt Memory Layer
 
-> **Closeout procedure KILO executes at the end of every session.** Companion to
-> `KILO_RUNNER_PROMPT.md` (session start) and `00-STATE-INDEX.md` (current state).
-> This file defines the in-repo memory writes KILO must perform once a unit's PR
-> is opened and CI is green. It is the manual half of the session updater; the
-> automated half is the single GitHub workflow `.github/workflows/session-log.yml`.
+After every KILO implementation session, the agent outputs a **Session Update Block**.
+This block syncs GitHub state → Notion Memory Layer → next session bootstrap.
 
-## Trigger
+---
 
-- **Manual (KILO):** run at session closeout, after the PR is opened and CI is
-  green.
-- **Automated (GitHub):** `.github/workflows/session-log.yml` is the **only**
-  session-updater workflow. It runs on every `push` to `main` and rewrites
-  `SESSION_LOG.md`. Its double-commit pattern (log commit → re-triggers
-  workflow → second log commit) is **expected and healthy**. It is NOT a
-  duplicate no-op and must NOT be "fixed" by removing the re-trigger.
-- **Verification only:** `.github/workflows/memory-session-check.yml` runs on
-  PR/push touching `docs/memory/**` and confirms `00-STATE-INDEX.md` exists, is
-  fresh (< 72h), and carries all five write targets. It does **not** write
-  memory and is not a session-updater trigger.
-- **Exactly one** session-updater workflow must exist. Before adding anything,
-  confirm no second `session-log*` / `memory*update*` / `kilo*` workflow exists
-  under `.github/workflows/`.
+## When to Run
 
-## Five memory-write targets (all required)
+- End of every KILO session, whether or not the lane is complete
+- Immediately after a PR is merged
+- After any production deployment
+- After any schema migration or Algorand transaction affecting live data
 
-Every closeout MUST update these five fields in `docs/memory/00-STATE-INDEX.md`:
+---
 
-1. **Current commit** — the exact `main` HEAD SHA the work landed on (or the
-   merge commit SHA), with UTC date. If the tip is a `session-log.yml` commit,
-   note the latest *feature* PR separately.
-2. **Latest merged PR** — the PR number, squash-merge SHA, and one-line title.
-   List the most recent 1–3 merges.
-3. **Launch verdict** — current mainnet-readiness posture. For docs/process
-   lanes this is typically "TestNet only; `/mainnet-gate` not required for this
-   lane; N/A." For app-code lanes that touch funds/chain, record the actual
-   `/mainnet-gate` + `algo-auditor` status. Never claim a PASS without evidence.
-4. **Active blocker** — the single blocking item (usually the owner-only Fly
-   activation, or an owner decision). "None" is a valid value once unblocked.
-5. **Owner action** — the concrete next action(s) the human must take (fund
-   wallet, set secrets, decide architecture, prune branches).
-
-Always refresh the top-level `**Updated (UTC):**` timestamp when rewriting the
-index so `memory-session-check.yml` passes.
-
-## Completed-lane writeout (closeout block)
-
-When a lane is **complete** (its PR merged and its goal met), write a closeout
-block to `docs/memory/10-completed/<lane-name>.md` using this exact format:
+## Session Update Block (KILO outputs this)
 
 ```
-# <lane-name> — Completed
+## SESSION UPDATE — [DATE YYYY-MM-DD]
 
-- **Branch:** feat/<lane-name>
-- **Base:** main
-- **PR:** #NNN
-- **Merge SHA:** <squash-merge sha>
-- **Date:** YYYY-MM-DD
-- **What changed:** <one paragraph>
-- **Verified:** <test/CI evidence, or "untested">
-- **Confidence:** high | medium | low
-- **Restricted systems touched:** none | <list>
-- **Notes:** <limitations, follow-ups>
+### Current Commit
+[full SHA] on branch [branch] (base: main)
+
+### Lane
+[Lane title]
+
+### Status
+[ ] In Progress
+[ ] Merged
+[ ] Blocked
+[ ] Abandoned
+
+### PR
+[PR URL or "none"]
+
+### What Changed
+[Bullet list of changed files and what each does]
+
+### Active Blocker
+[Description, or "none"]
+
+### Owner Action Now
+[Exactly what the owner needs to do next, or "none"]
+
+### Launch Verdict
+[ ] LAUNCH READY
+[ ] PARTIAL
+[ ] BLOCKED — [reason]
+
+### Memory Writes Required
+[ ] Update Notion 00 — Index & Current State
+[ ] Write closeout to 10 — Completed Lanes (if merged)
+[ ] Update 20 — Audits & Roadmaps (if audit changed)
+[ ] No memory write needed
 ```
 
-`docs/memory/10-completed/_INDEX.md` lists every completed lane and links to
-its closeout block.
+---
 
-## Baton sync
+## Notion Memory Layer Targets
 
-Also update `docs/HANDOFF.md` so the "Current baton" reflects the just-finished
-unit and the "Next lane" points at the real next unit. The baton and
-`00-STATE-INDEX.md` must agree on the current commit and latest PR; a
-disagreement is a memory-layer gap to flag, not to paper over.
+### 00 — Index & Current State
+`FRONTIER — Memory Layer / 00 — Index & Current State / CURRENT — FRONTIER Memory Index`
 
-## Verification before hand-back
+Update these fields after every session:
 
-- [ ] `00-STATE-INDEX.md` updated for all five targets + `**Updated (UTC):**`.
-- [ ] `docs/HANDOFF.md` baton rewritten (current + next + blocker + owner action).
-- [ ] Relevant `docs/memory/FRONTIER_*.md` appended (what/verified/confidence).
-- [ ] Completed-lane block written to `docs/memory/10-completed/` if lane done.
-- [ ] No second session-updater workflow added; `session-log.yml` still the only one.
-- [ ] PR opened, CI green, closeout block produced for the human.
+| Field | Value |
+|---|---|
+| Current commit | [SHA] |
+| Current branch | [branch] |
+| Latest merged PR | [PR # and title] |
+| Active lane | [lane title or "none"] |
+| Active blocker | [description or "none"] |
+| Launch verdict | LAUNCH READY / PARTIAL / BLOCKED |
+| Owner action | [next step or "none"] |
+| Last updated | [YYYY-MM-DD HH:MM CDT] |
+
+### 10 — Completed Lanes
+`FRONTIER — Memory Layer / 10 — Completed Lanes / [LANE_TITLE — YYYY-MM-DD]`
+
+Write one page per completed (merged) lane with the full Closeout block from `KILO_RUNNER_PROMPT.md`.
+
+### 20 — Audits & Roadmaps
+Update only if the lane changes an active audit finding or roadmap item.
+
+---
+
+## Workflow Sequence
+
+```
+[KILO session ends]
+        │
+        ▼
+[KILO outputs Session Update Block]
+        │
+        ▼
+[Owner reviews block]
+        │
+        ├─── Lane merged? ──YES──► Write closeout to 10 — Completed Lanes
+        │                          Update 00 — Index
+        │
+        └─── Lane in progress? ──► Update 00 — Index only
+                                   Paste block as next session bootstrap context
+```
+
+---
+
+## Sync Rules
+
+- **GitHub is source of truth.** Notion reflects GitHub — never the reverse.
+- **Never describe planned, catalog-only, or UI-only work as live.**
+- **Never overwrite a completed lane record** — append a new entry if a lane is reopened.
+- **90 — Consolidated Archive** is read-only historical context. Do not append to it by default.
+- The session updater runs in every session, including sessions where nothing was merged.
+
+---
+
+## Verification
+
+After each Notion memory write, confirm:
+- [ ] `00 — Index` current commit matches `git rev-parse HEAD` on the active branch
+- [ ] Launch verdict matches the most recent audit in `20 — Audits & Roadmaps`
+- [ ] Active blocker field is either a specific issue or "none" — never vague
+- [ ] Owner action is a single, concrete next step

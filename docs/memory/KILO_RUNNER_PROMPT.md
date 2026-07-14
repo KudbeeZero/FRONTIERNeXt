@@ -1,103 +1,132 @@
-# KILO_RUNNER_PROMPT.md
+# KILO Runner Prompt — FRONTIERNeXt
 
-> **Start-of-session runner prompt.** KILO reads this file at the beginning of
-> every session to locate the memory layer, confirm the current unit, and know
-> exactly what to write at closeout. It is the human-facing companion to
-> `SESSION_UPDATER.md` (the closeout procedure) and `00-STATE-INDEX.md` (the
-> canonical current-state index).
->
-> Keep this file generic and reusable. Per-lane specifics (scope, non-goals,
-> tests) are supplied by the human in the session message, not hardcoded here.
+> **Copy this entire block as your first message to KILO (Claude Code / Codex) at the start of every implementation session.**
+> Replace bracketed values before sending.
 
-## Pre-flight (read before writing any code)
+---
 
-1. **Read `docs/HANDOFF.md`** — confirm current unit, active blocker, owner
-   action. The baton is the single source of truth for "what's next."
-2. **Read `docs/memory/00-STATE-INDEX.md`** — confirm last verified commit and
-   launch verdict. If this file is missing or disagrees with `main` HEAD, treat
-   it as a gap and flag it at closeout (do not silently trust it).
-3. **Read the relevant `docs/memory/FRONTIER_*.md`** for the lane's system
-   (battle engine, sub-plot combat, wallet stability, background-loop cost
-   control, commander NFT delivery, four-AI battle loop).
-4. **Read `docs/SESSION_PROTOCOL.md`** — follow the closeout discipline exactly
-   (one unit per chat, no inter-chat wait, self-audit before PR).
-
-## Session start checklist
-
-- [ ] Base confirmed: `git fetch origin main` and branch off clean `origin/main`.
-- [ ] Baton read; current unit + blocker + owner action noted.
-- [ ] State index read; recorded HEAD matches `main` HEAD (or gap flagged).
-- [ ] Lane-specific `docs/memory/FRONTIER_*.md` read.
-- [ ] `SESSION_PROTOCOL.md` closeout format noted.
-
-## Scope (fill in per session)
-
-Describe the one system / one concern this session owns. One unit per chat.
+## Session Bootstrap
 
 ```
-[ lane name ]
-[ what changes ]
-[ accept criteria ]
+Repo: https://github.com/KudbeeZero/FRONTIERNeXt
+App path: artifacts/frontier-al/
+Production: https://frontierprotocol.app
+Fly: https://frontiernext.fly.dev
+
+Branch: [BRANCH_NAME]
+Base: main
+Active PR: [PR_URL_OR_NUMBER]
 ```
 
-## Non-goals (fill in per session)
+---
 
-Explicitly list what this session must NOT touch. The standing HARD RULES
-always apply:
+## Lane Scope
 
-- No funds / ASA / transfer code toward mainnet without `/mainnet-gate` PASS
-  **and** an `algo-auditor` pass.
-- Do not merge `wip/atomic-purchase`; nothing in `ops/kestra/` may point at
-  mainnet.
-- Do not reintroduce mock/demo data into plot/HUD surfaces.
-- Do not change globe/combat/canvas behavior outside a scoped, audited unit.
-- Do not touch schema/migrations, wallet config, ASA IDs, or treasury
-  addresses unless the lane explicitly requires it (and is audited).
+**Lane:** [LANE_TITLE — e.g., "Battle Planner Phase 2"]
 
-## Tests (fill in per session)
+**Goal:** [One sentence — what this lane accomplishes for the user journey.]
 
-Specific commands to run for this lane, e.g.:
+**In scope:**
+- [Bullet 1]
+- [Bullet 2]
 
-- `pnpm --filter @workspace/frontier-al run check`
-- `pnpm --filter @workspace/frontier-al run test:server`
-- `pnpm --filter @workspace/frontier-al run test`
-- `pnpm run typecheck` (root, aggregate — `mockup-sandbox` excluded)
+**Non-goals (do not touch):**
+- Treasury addresses, ASA IDs, production data
+- Unrelated bug fixes (open a separate PR)
+- Dependency upgrades
+- Broad rewrites outside the lane
 
-For docs/process lanes: confirm rendered references resolve and required
-memory-write targets are covered (see `SESSION_UPDATER.md`).
+---
 
-## Memory write (required at closeout)
+## Source-of-Truth Order
 
-After CI is green and the PR is opened, KILO MUST:
+1. Current `main` — migrations, tests, CI, deployment evidence
+2. `docs/HANDOFF.md`
+3. Relevant `docs/memory/` files
+4. Notion Memory Layer (`FRONTIER — Memory Layer` Drive folder)
+   - `00 — Index & Current State/CURRENT — FRONTIER Memory Index`
+   - Active reports in `20 — Audits & Roadmaps`
+   - Completed closeouts in `10 — Completed Lanes`
+5. `90 — Consolidated Archive` only for missing historical context
 
-1. **Update `docs/HANDOFF.md` baton** — current unit, next lane, active
-   blocker, owner action.
-2. **Update `docs/memory/00-STATE-INDEX.md`** — current commit, latest merged
-   PR, launch verdict, active blocker, owner action.
-3. **Append to the relevant `docs/memory/FRONTIER_*.md`** — what changed, what
-   was verified, confidence level.
-4. **If the lane is complete:** write the closeout block to
-   `docs/memory/10-completed/<lane-name>.md` (see `SESSION_UPDATER.md` for the
-   exact block format).
+**Never let Drive memory override current repo evidence.**
 
-## Session updater note
+---
 
-The GitHub workflow `.github/workflows/session-log.yml` is the **sole** session
-updater. It auto-triggers on every `push` to `main` and appends a lightweight
-`SESSION_LOG.md`. Its double-commit pattern (log → re-trigger → log) is
-**expected and healthy**, not a duplicate no-op. The separate
-`.github/workflows/memory-session-check.yml` is a *verification* check only — it
-does not write memory and must not be mistaken for a second updater. There must
-be exactly **one** session-updater workflow; do not add a second trigger.
+## Inspect Before You Edit
 
-## Closeout format (hand back to human)
+1. Read all files you intend to change before touching them.
+2. Trace the active behavior: `UI → client state → API → server validation → database → Algorand → client refresh`
+3. Preserve valid existing work.
+4. Run focused tests during development; full verification at closeout.
+
+---
+
+## Default Priorities
+
+1. Ownership and funds safety
+2. Wallet/auth correctness
+3. Duplicate transaction prevention
+4. Plot/sub-plot purchase integrity
+5. ASA/NFT delivery and reconciliation
+6. Token accounting and duplicate-claim prevention
+7. Database/on-chain consistency
+8. Refresh/logout/reconnect persistence
+9. Mobile Safari and Pera reliability
+10. Upgrade and archetype correctness
+
+---
+
+## Session Updater — Run at End of Every Session
+
+Before closing, KILO must output the **Session Update Block** (see `docs/memory/SESSION_UPDATER.md`).
+
+This block is used to:
+- Update Notion `00 — Index & Current State` with the current commit, active blocker, and owner action
+- Write a completed closeout to `10 — Completed Lanes` if the lane is merged
+- Feed the next session's bootstrap context
+
+**Do not end a session without producing this block.**
+
+---
+
+## Closeout Checklist
+
+When the lane is complete, KILO outputs:
 
 ```
-ASKED / DONE / NEEDS YOU
-Branch · Base · Commits · Changed files · Tests · CI · PR URL · Merge verdict
+ASKED
+[What the lane was asked to do]
+
+DONE
+[What was actually completed, file by file]
+
+NEEDS YOU
+[Any owner action required before merge]
+
+---
+Branch: [branch]
+Base: main
+Commits: [list]
+Changed files: [list]
+Uncommitted changes: [none / list]
+Tests: [pass/fail + counts]
+Typecheck/build: [pass/fail]
+CI: [green / pending / failing]
+Limitations: [any known gaps]
+Restricted systems: [treasury, ASA IDs, production — not touched]
+PR URL: [url]
+Merge verdict: [MERGE READY / NEEDS REVIEW / DO NOT MERGE]
 ```
 
-Produce: Branch name and base, commits and changed files, uncommitted changes
-(if any), test results and totals, typecheck/build status, CI status,
-limitations, restricted systems untouched, PR URL, and merge verdict
-(`MERGE READY` or `BLOCKED` with reason).
+---
+
+## Coding Mode Rules
+
+- Use **Code mode** for focused implementation.
+- Use **Debug** only for a specific reproducible failure.
+- Avoid Orchestra/sub-agents unless truly necessary.
+- Continue the same agent while context remains useful.
+- Do not spend agent tokens on a mechanical merge when CI is green and verdict is `MERGE READY`.
+- One active lane and one PR at a time.
+- Separate unrelated bugs into separate PRs.
