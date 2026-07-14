@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { serverNow } from "@/lib/serverClock";
-import { COMMANDER_INFO, type CommanderTier, type LandParcel, type Player, type Battle } from "@shared/schema";
+import { COMMANDER_INFO, ATTACK_BASE_COST, type CommanderTier, type LandParcel, type Player, type Battle, type BiomeType } from "@shared/schema";
 import { classifyRelationship, type EffectiveFaction } from "@shared/factionIdentity";
 import type { PlayerFactionId } from "@shared/waitlist";
 import { PLAYER_FACTIONS } from "@/lib/factions";
@@ -26,6 +26,8 @@ import {
   LAUNCH_STATE_LABEL,
   isLaunchEnabled,
   PLANNER_STEPS,
+  computePlannedPowers,
+  projectWinChance,
   type PlannerStep,
   type CommanderEvaluation,
 } from "@/lib/battlePlanner";
@@ -174,6 +176,33 @@ export function BattlePlanner({
         now,
       }),
     [selectedParcel, sourceParcelId, selectedCommanderEval, player, cost, attacking, now],
+  );
+
+  // Advisory outcome preview — re-projects whenever the plan inputs change.
+  const plannedPowers = useMemo(
+    () =>
+      computePlannedPowers({
+        troops,
+        extraIron,
+        extraFuel,
+        extraCrystal,
+        commanderAttackBonus: selectedCommanderEval?.commander.attackBonus ?? 0,
+        targetDefenseLevel: selectedParcel?.defenseLevel ?? 0,
+        targetBiome: (selectedParcel?.biome ?? "plains") as BiomeType,
+      }),
+    [troops, extraIron, extraFuel, extraCrystal, selectedCommanderEval, selectedParcel],
+  );
+  const projectedWinChance = useMemo(
+    () => projectWinChance({
+      troops,
+      extraIron,
+      extraFuel,
+      extraCrystal,
+      commanderAttackBonus: selectedCommanderEval?.commander.attackBonus ?? 0,
+      targetDefenseLevel: selectedParcel?.defenseLevel ?? 0,
+      targetBiome: (selectedParcel?.biome ?? "plains") as BiomeType,
+    }),
+    [troops, extraIron, extraFuel, extraCrystal, selectedCommanderEval, selectedParcel],
   );
 
   const playerFaction = player.playerFactionId as PlayerFactionId | null | undefined;
@@ -345,8 +374,8 @@ export function BattlePlanner({
               sourceParcelId={sourceParcelId}
               currentCommanderName={selectedCommanderEval?.commander.name ?? null}
               currentTroops={troops}
-              baseCostIron={30}
-              baseCostFuel={20}
+              baseCostIron={ATTACK_BASE_COST.iron}
+              baseCostFuel={ATTACK_BASE_COST.fuel}
             />
 
             <div className="flex gap-1.5">
@@ -514,14 +543,14 @@ export function BattlePlanner({
                   label="Extra Iron"
                   icon={<Pickaxe className="w-2.5 h-2.5 text-iron" />}
                   value={extraIron}
-                  max={Math.max(0, player.iron - ATTACK_BASE_COST_IRON * troops)}
+                  max={Math.max(0, player.iron - ATTACK_BASE_COST.iron * troops)}
                   onChange={onExtraIronChange}
                 />
                 <ResourceSlider
                   label="Extra Fuel"
                   icon={<Fuel className="w-2.5 h-2.5 text-fuel" />}
                   value={extraFuel}
-                  max={Math.max(0, player.fuel - ATTACK_BASE_COST_FUEL * troops)}
+                  max={Math.max(0, player.fuel - ATTACK_BASE_COST.fuel * troops)}
                   onChange={onExtraFuelChange}
                 />
                 <ResourceSlider
@@ -589,6 +618,13 @@ export function BattlePlanner({
               <Row k="Crystal" v={String(cost.crystal)} />
             </ReviewSection>
 
+            {/* Outcome preview — advisory projection of the existing combat math. */}
+            <ReviewSection title="Outcome Preview" icon={<TargetIcon className="w-3 h-3" />}>
+              <Row k="Attacker Power" v={String(Math.round(plannedPowers.attackerPower))} />
+              <Row k="Defender Power" v={selectedParcel ? String(Math.round(plannedPowers.defenderPower)) : "—"} />
+              <Row k="Win Chance" v={selectedParcel ? `${Math.round(projectedWinChance)}%` : "—"} />
+            </ReviewSection>
+
             <ReviewSection title="Status" icon={<CheckCircle2 className="w-3 h-3" />}>
               <StatusRow ok={!selectedParcel || selectedParcel.activeBattleId == null} label="Target available" bad="Target already engaged" />
               <StatusRow ok={!selectedCommanderEval || selectedCommanderEval.state !== "maxed"} label="Commander available" bad="Commander maxed" />
@@ -633,9 +669,6 @@ export function BattlePlanner({
     </div>
   );
 }
-
-const ATTACK_BASE_COST_IRON = 30;
-const ATTACK_BASE_COST_FUEL = 20;
 
 function ResourceSlider({ label, icon, value, max, onChange }: { label: string; icon: React.ReactNode; value: number; max: number; onChange: (n: number) => void }) {
   return (

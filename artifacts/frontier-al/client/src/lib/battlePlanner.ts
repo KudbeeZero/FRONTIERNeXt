@@ -12,8 +12,8 @@
  * resolveBattles(), or idempotency — those remain server-authoritative.
  */
 
-import type { LandParcel, Player, CommanderAvatar, Battle } from "@shared/schema";
-import { ATTACK_BASE_COST, COMMANDER_INFO } from "@shared/schema";
+import type { LandParcel, Player, CommanderAvatar, Battle, BiomeType } from "@shared/schema";
+import { ATTACK_BASE_COST, COMMANDER_INFO, biomeBonuses } from "@shared/schema";
 
 // ── Geometry ──────────────────────────────────────────────────────────────────
 
@@ -230,6 +230,62 @@ export function maxTroopsFor(player: Player): number {
     Math.floor(player.iron / ATTACK_BASE_COST.iron),
     Math.floor(player.fuel / ATTACK_BASE_COST.fuel),
   );
+}
+
+// ── Outcome projection (advisory) ───────────────────────────────────────────────
+
+/**
+ * Inputs needed to project a planned attack's outcome. Every field is already
+ * present in the planner's props — no new server data is required.
+ */
+export interface PlannedPowersInput {
+  troops: number;
+  extraIron: number;
+  extraFuel: number;
+  extraCrystal: number;
+  /** Selected commander's `attackBonus`. Pass 0 when none selected. */
+  commanderAttackBonus: number;
+  /** Target `defenseLevel`. Pass 0 when no target is selected. */
+  targetDefenseLevel: number;
+  /** Target biome. `defenseMod` defaults to 1 when unknown. */
+  targetBiome: BiomeType;
+}
+
+export interface PlannedPowers {
+  attackerPower: number;
+  defenderPower: number;
+}
+
+/**
+ * Compute attacker/defender power for a planned attack.
+ *
+ * BYTE-FOR-BYTE equivalent to the legacy formula in `CommanderPanel.tsx`
+ * (the `attackerPower` / `defenderPower` derivation). Do not rebalance here —
+ * this is an advisory preview of the existing combat math.
+ *
+ * When no target is selected, pass `targetDefenseLevel = 0`, which yields
+ * `defenderPower = 0` and therefore a 75% projected win chance (matching the
+ * legacy `defenderPower > 0 ? … : 75` branch).
+ */
+export function computePlannedPowers(input: PlannedPowersInput): PlannedPowers {
+  const { troops, extraIron, extraFuel, extraCrystal, commanderAttackBonus, targetDefenseLevel, targetBiome } = input;
+  const attackerPower = troops * 10 + extraIron * 0.5 + extraFuel * 0.8 + extraCrystal * 1.2 + commanderAttackBonus;
+  const defenderPower = targetDefenseLevel * 15 * (biomeBonuses[targetBiome]?.defenseMod ?? 1);
+  return { attackerPower, defenderPower };
+}
+
+/**
+ * Project the win chance (%) for a planned attack.
+ *
+ * Mirrors `CommanderPanel.tsx`'s `winChance` exactly:
+ *   defenderPower <= 0  → 75
+ *   otherwise → clamp(5, 95, attacker / (attacker + defender) * 100)
+ */
+export function projectWinChance(input: PlannedPowersInput): number {
+  const { attackerPower, defenderPower } = computePlannedPowers(input);
+  if (defenderPower <= 0) return 75;
+  const raw = (attackerPower / (attackerPower + defenderPower)) * 100;
+  return Math.min(95, Math.max(5, raw));
 }
 
 // ── Launch-state resolution ────────────────────────────────────────────────────

@@ -18,9 +18,11 @@ import {
   maxTroopsFor,
   resolveLaunchState,
   isLaunchEnabled,
+  computePlannedPowers,
+  projectWinChance,
   type LaunchState,
 } from "@/lib/battlePlanner";
-import { ATTACK_BASE_COST, COMMANDER_INFO } from "@shared/schema";
+import { ATTACK_BASE_COST, COMMANDER_INFO, biomeBonuses, type BiomeType } from "@shared/schema";
 import type { LandParcel, Player, CommanderAvatar, Battle } from "@shared/schema";
 
 // ── Factories ──────────────────────────────────────────────────────────────────
@@ -409,5 +411,113 @@ describe("Battle Planner — pure logic", () => {
       ];
       expect(valid).toContain(base());
     });
+  });
+});
+
+// ── Outcome projection (advisory) ───────────────────────────────────────────────
+describe("Battle Planner — outcome projection", () => {
+  const input = (over: Partial<Parameters<typeof computePlannedPowers>[0]> = {}): Parameters<typeof computePlannedPowers>[0] => ({
+    troops: 1,
+    extraIron: 0,
+    extraFuel: 0,
+    extraCrystal: 0,
+    commanderAttackBonus: 0,
+    targetDefenseLevel: 5,
+    targetBiome: "grassland" as BiomeType,
+    ...over,
+  });
+
+  it("attacker stronger → high win chance", () => {
+    const wc = projectWinChance(input({ troops: 10, extraIron: 200, extraFuel: 200, extraCrystal: 100 }));
+    expect(wc).toBeGreaterThan(50);
+  });
+
+  it("defender stronger → low win chance", () => {
+    const wc = projectWinChance(input({ troops: 1, targetDefenseLevel: 100, targetBiome: "mountain" }));
+    expect(wc).toBeLessThan(50);
+  });
+
+  it("defender power = 0 → 75% (no target selected)", () => {
+    expect(projectWinChance(input({ targetDefenseLevel: 0 }))).toBe(75);
+  });
+
+  it("clamps the minimum win chance to 5%", () => {
+    const wc = projectWinChance(input({ troops: 1, targetDefenseLevel: 1000, targetBiome: "mountain" }));
+    expect(wc).toBe(5);
+  });
+
+  it("clamps the maximum win chance to 95%", () => {
+    const wc = projectWinChance(input({ troops: 100, extraIron: 1000, extraFuel: 1000, extraCrystal: 1000, targetDefenseLevel: 1 }));
+    expect(wc).toBe(95);
+  });
+
+  it("resource weighting increases attacker power (iron/fuel/crystal)", () => {
+    const base = computePlannedPowers(input()).attackerPower;
+    const boosted = computePlannedPowers(input({ extraIron: 100, extraFuel: 100, extraCrystal: 100 })).attackerPower;
+    expect(boosted).toBeGreaterThan(base);
+    // iron*0.5 + fuel*0.8 + crystal*1.2 for +100 each
+    expect(boosted - base).toBeCloseTo(100 * 0.5 + 100 * 0.8 + 100 * 1.2);
+  });
+
+  it("commander attack bonus increases attacker power", () => {
+    const base = computePlannedPowers(input()).attackerPower;
+    const withBonus = computePlannedPowers(input({ commanderAttackBonus: 25 })).attackerPower;
+    expect(withBonus - base).toBe(25);
+  });
+
+  it("biome modifiers scale defender power", () => {
+    const plains = computePlannedPowers(input({ targetDefenseLevel: 10, targetBiome: "plains" })).defenderPower;
+    const mountain = computePlannedPowers(input({ targetDefenseLevel: 10, targetBiome: "mountain" })).defenderPower;
+    expect(plains).toBe(10 * 15 * (biomeBonuses.plains.defenseMod));
+    expect(mountain).toBe(10 * 15 * (biomeBonuses.mountain.defenseMod));
+    expect(mountain).toBeGreaterThan(plains);
+  });
+
+  it("unknown biome falls back to defenseMod = 1", () => {
+    const def = computePlannedPowers(input({ targetDefenseLevel: 10, targetBiome: "grassland" })).defenderPower;
+    expect(def).toBe(10 * 15 * 1);
+  });
+
+  // ── Parity: new helper === legacy CommanderPanel formula ──
+  describe("parity with legacy CommanderPanel formula", () => {
+    /** Faithful copy of CommanderPanel.tsx lines 230-234. */
+    function legacyWinChance(opts: {
+      troops: number; extraIron: number; extraFuel: number; extraCrystal: number;
+      cmdBonus: number; defenseLevel: number; biome: BiomeType;
+    }) {
+      const attackerPower = opts.troops * 10 + opts.extraIron * 0.5 + opts.extraFuel * 0.8 + opts.extraCrystal * 1.2 + opts.cmdBonus;
+      const defenderPower = opts.defenseLevel ? opts.defenseLevel * 15 * (biomeBonuses[opts.biome]?.defenseMod ?? 1) : 0;
+      const winChance = defenderPower > 0 ? Math.min(95, Math.max(5, (attackerPower / (attackerPower + defenderPower)) * 100)) : 75;
+      return { attackerPower, defenderPower, winChance };
+    }
+
+    const scenarios = [
+      { troops: 5, extraIron: 60, extraFuel: 40, extraCrystal: 10, cmdBonus: 15, defenseLevel: 8, biome: "forest" as BiomeType },
+      { troops: 1, extraIron: 0, extraFuel: 0, extraCrystal: 0, cmdBonus: 0, defenseLevel: 0, biome: "plains" as BiomeType },
+      { troops: 10, extraIron: 200, extraFuel: 200, extraCrystal: 100, cmdBonus: 40, defenseLevel: 20, biome: "mountain" as BiomeType },
+      { troops: 3, extraIron: 10, extraFuel: 10, extraCrystal: 0, cmdBonus: 0, defenseLevel: 2, biome: "volcanic" as BiomeType },
+      { troops: 2, extraIron: 0, extraFuel: 0, extraCrystal: 50, cmdBonus: 10, defenseLevel: 15, biome: "swamp" as BiomeType },
+    ];
+
+    for (const s of scenarios) {
+      it(`matches legacy for troops=${s.troops} biome=${s.biome} defLvl=${s.defenseLevel}`, () => {
+        const legacy = legacyWinChance(s);
+        const attackerPower = computePlannedPowers({
+          troops: s.troops, extraIron: s.extraIron, extraFuel: s.extraFuel, extraCrystal: s.extraCrystal,
+          commanderAttackBonus: s.cmdBonus, targetDefenseLevel: s.defenseLevel, targetBiome: s.biome,
+        }).attackerPower;
+        const defenderPower = computePlannedPowers({
+          troops: s.troops, extraIron: s.extraIron, extraFuel: s.extraFuel, extraCrystal: s.extraCrystal,
+          commanderAttackBonus: s.cmdBonus, targetDefenseLevel: s.defenseLevel, targetBiome: s.biome,
+        }).defenderPower;
+        const winChance = projectWinChance({
+          troops: s.troops, extraIron: s.extraIron, extraFuel: s.extraFuel, extraCrystal: s.extraCrystal,
+          commanderAttackBonus: s.cmdBonus, targetDefenseLevel: s.defenseLevel, targetBiome: s.biome,
+        });
+        expect(attackerPower).toBeCloseTo(legacy.attackerPower, 10);
+        expect(defenderPower).toBeCloseTo(legacy.defenderPower, 10);
+        expect(winChance).toBeCloseTo(legacy.winChance, 10);
+      });
+    }
   });
 });
