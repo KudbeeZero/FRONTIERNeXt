@@ -1,137 +1,112 @@
 # KILO Runner Prompt — FRONTIERNeXt Memory Layer Workflow
 
-> **Copy-paste this block in full at the start of every KILO session.**  
-> Do not summarize or abbreviate. The agent must receive the complete context.
+> **Copy-paste this block at the start of every KILO / Claude Code / Codex session.**
+> Replace bracketed values before sending.
 
 ---
 
 ## Session Bootstrap
 
 ```
-Repo:        KudbeeZero/FRONTIERNeXt
-App path:    artifacts/frontier-al/
-Branch:      <INSERT ACTIVE BRANCH>
-Base:        main
-CI:          GitHub Actions (must be green before merge verdict)
-Production:  https://frontierprotocol.app
-Fly:         https://frontiernext.fly.dev
+Repo:       KudbeeZero/FRONTIERNeXt
+App path:   artifacts/frontier-al/
+Branch:     [BRANCH NAME]
+Base:       main
+Mode:       Code  (switch to Debug only for a specific reproducible failure)
 ```
 
----
+## Context Snapshot (fill before sending)
 
-## Source-of-Truth Order (enforce strictly)
-
-1. Current GitHub `main` — commits, PRs, migrations, tests, CI, deployment evidence
-2. `docs/HANDOFF.md`
-3. `docs/memory/` files (this folder)
-4. Notion Drive: `FRONTIER — Memory Layer`
-   - `00 — Index & Current State / CURRENT — FRONTIER Memory Index`
-   - Active reports in `20 — Audits & Roadmaps`
-   - Completed lanes in `10 — Completed Lanes`
-5. `90 — Consolidated Archive` — historical context only
-6. Older chat summaries — lowest priority
-
-**Never let Notion memory override current repo evidence.**
-
----
-
-## Lane Scope (fill in per session)
-
-```
-Lane:          <INSERT LANE NAME>
-Scope:         <ONE paragraph — what changes, what files, what systems>
-Non-goals:     <Explicit list of what this PR will NOT touch>
-Tests:         <Which tests must pass or be added>
-Closeout gate: <What proves this lane is done>
-```
-
----
-
-## Coding Mode Rules
-
-- **One active lane. One PR at a time.** Do not begin the next lane before this one is reviewed or merged.
-- **Inspect before editing.** Read the file, understand the structure, then change only what is in scope.
-- **Preserve valid existing work.** Avoid broad rewrites and dependency upgrades.
-- **Separate unrelated bugs** into separate PRs — do not bundle.
-- **Run focused tests during development.** Full verification once at closeout.
-- **Do not spend tokens on a mechanical merge** when CI is green and verdict is `MERGE READY`.
-- **Token efficiency:** Prefer targeted edits over full-file rewrites. Ask if uncertain rather than guess.
-
----
-
-## Evidence Tracing Standard
-
-For every material conclusion, provide:
-
-| Field | Required |
+| Field | Value |
 |---|---|
-| File path | Exact path in repo |
-| Function / component / route / table | Specific identifier |
-| Supporting test or migration | File name + test name |
-| Commit / PR evidence | SHA or PR number |
-| Production / deployment evidence | When available |
-| Confidence | High / Medium / Low |
-| Label | Verified fact / Code inference / Missing evidence / Owner verification |
+| Last merged PR | [PR # — from Memory Index] |
+| Current commit (main) | [SHA — from Memory Index] |
+| Active blocker | [one-line — from Memory Index] |
+| Lane goal | [one sentence] |
+| Non-goals | [list anything explicitly out of scope] |
 
-Trace active behavior through:  
-`UI → client state → API → server validation → database → Algorand → client refresh`
+## Scope
 
-System-status labels: `LIVE`, `PARTIAL`, `CONTRACT_ONLY`, `CATALOG_ONLY`, `UI_ONLY`, `PLANNED`, `DEPRECATED`, `UNKNOWN`  
-Finding labels: `CRITICAL LAUNCH BLOCKER`, `REQUIRED BEFORE PUBLIC ACCESS`, `SAFE FOR STAGED RELEASE`, `POST-LAUNCH ENHANCEMENT`
+[Describe the lane in 3–5 bullet points. Be specific about files, routes, components, and tables.]
 
----
+## Non-Goals (Repeat for clarity)
 
-## Session Updater Trigger (MANDATORY at closeout)
+- No schema migrations unless this lane explicitly requires one
+- No broad refactors or dependency upgrades
+- No changes to treasury/admin addresses, ASA IDs, or production config
+- No unrelated bug fixes — open a separate PR
 
-At the end of every session — whether the lane is complete or paused — the agent **must** write the Session Update block below and hand it back for the owner to post to Notion.
+## Memory Layer — REQUIRED Before You Write Code
 
-See: `docs/memory/SESSION_UPDATER.md` for the exact format and Notion write targets.
+1. Read `docs/HANDOFF.md`
+2. Read `docs/memory/MEMORY_INDEX.md` (current commit, last PR, active blocker, owner action)
+3. Read any relevant `docs/memory/` files for this lane
+4. If a completed lane closeout exists in `docs/memory/completed/`, read it before touching that system
 
-**The session is not closed until the updater block is delivered.**
+## Tests
 
----
+- Run focused tests during development: `[test command]`
+- Run full verification once at closeout: `[full test command]`
+- Typecheck: `[typecheck command]`
+- Build: `[build command]`
 
-## Agent Closeout Format
+## Closeout — REQUIRED Before Handing Back
+
+When the lane is complete, write a closeout block **in this exact format**:
 
 ```
-## ASKED
-<What the owner asked for this session>
+ASKED
+[one-line restatement of the original goal]
 
-## DONE
-<Bullet list of completed work — file paths, commits, PRs>
+DONE
+- [bullet: what was implemented, with file paths]
+- [bullet: tests added or updated]
+- [bullet: migrations run, if any]
 
-## NEEDS YOU
-<Explicit list of owner actions required before next session>
+NEEDS YOU
+- [anything requiring owner action before merge]
+- [any restricted system not touched]
 
----
-Branch:              <branch name>
-Base:                main
-Commits:             <SHAs or count>
-Changed files:       <list>
-Uncommitted changes: <none / list>
-Tests:               <pass count / fail count / skipped>
-Typecheck / Build:   <pass / fail>
-CI:                  <green / red / pending>
-Limitations:         <anything the agent could not verify>
-Restricted systems:  <Algorand mainnet, treasury, production DB — not touched>
-PR URL:              <GitHub PR link>
-Merge verdict:       <MERGE READY / NEEDS REVIEW / BLOCKED — reason>
+Branch:             [branch name]
+Base:               main
+Commits:            [count]
+Changed files:      [list]
+Uncommitted:        [none | list]
+Tests:              [X passed, Y skipped, Z failed]
+Typecheck:          [pass | fail]
+Build:              [pass | fail]
+CI:                 [green | pending | red]
+Limitations:        [anything not done and why]
+Restricted systems: [treasury, ASA IDs, prod data — confirm untouched]
+PR URL:             [URL]
+Merge verdict:      [MERGE READY | NEEDS OWNER REVIEW | BLOCKED]
 ```
 
+## Session Updater — REQUIRED at End of Every Session
+
+Before ending the session, update the Memory Index at `docs/memory/MEMORY_INDEX.md`:
+
+1. Set **Current commit** to the latest SHA on this branch
+2. Set **Latest completed PR** if a PR was merged this session
+3. Update **Active blocker** — clear it if resolved, add new one if found
+4. Update **Owner action now** — one clear next step
+5. Set **Last updated** to today's date
+6. If the lane is complete and merged, write the closeout to `docs/memory/completed/[PR#]_[lane-slug].md`
+
+> The session updater runs as a final commit on the branch before the PR is marked ready.
+> Confirm it ran by checking the last commit message includes `chore: update memory index`.
+
 ---
 
-## Default Priorities (never deprioritize 1–3)
+## Priority Order (always)
 
 1. Ownership and funds safety
-2. Wallet / auth correctness
+2. Wallet/auth correctness
 3. Duplicate transaction prevention
-4. Plot / sub-plot purchase integrity
-5. ASA / NFT delivery and reconciliation
-6. Token accounting and duplicate-claim prevention
-7. Database / on-chain consistency
-8. Refresh / logout / reconnect persistence
+4. Plot/sub-plot purchase integrity
+5. ASA/NFT delivery and reconciliation
+6. Token accounting
+7. Database/on-chain consistency
+8. Refresh/logout/reconnect persistence
 9. Mobile Safari and Pera reliability
 10. Upgrade and archetype correctness
-11. Terraforming
-12. Misleading UI / docs
-13. Visual polish
