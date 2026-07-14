@@ -1,0 +1,67 @@
+name: Session Log
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-session-log:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract merge information
+        id: merge-info
+        run: |
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oP '#\K\d+' | head -1)
+
+          if [ -n "$PR_NUMBER" ]; then
+            PR_TITLE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER" | \
+              jq -r '.title // "Unknown PR"')
+          else
+            PR_NUMBER="N/A"
+            PR_TITLE=$(echo "$COMMIT_MSG" | head -1)
+          fi
+
+          FILES_CHANGED=$(git diff HEAD~1 --name-only | tr '\n' ', ' | sed 's/,$//')
+
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "commit_date=$COMMIT_DATE" >> $GITHUB_OUTPUT
+          echo "files_changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Generate SESSION_LOG.md
+        run: |
+          cat > SESSION_LOG.md << EOF
+          # Session Log
+
+          ## Latest Session
+
+          - **PR Number:** #${{ steps.merge-info.outputs.pr_number }}
+          - **PR Title:** ${{ steps.merge-info.outputs.pr_title }}
+          - **Merge SHA:** ${{ steps.merge-info.outputs.commit_sha }}
+          - **Date/Time (UTC):** ${{ steps.merge-info.outputs.commit_date }}
+          - **Files Changed:** ${{ steps.merge-info.outputs.files_changed }}
+          EOF
+
+      - name: Commit and push SESSION_LOG.md
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add SESSION_LOG.md
+          git diff --staged --quiet || git commit -m "docs: update session log [skip ci]"
+          git push
