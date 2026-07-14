@@ -1,188 +1,160 @@
 # KILO Runner Prompt — Memory Layer Workflow
 
-> **Confidential — FRONTIERNeXt proprietary workflow.**  
-> Do not share outside the project. No secrets, private keys, or wallet credentials here.
+> **Repo:** KudbeeZero/FRONTIERNeXt  
+> **App path:** `artifacts/frontier-al/`  
+> **Drive folder:** `FRONTIER — Memory Layer`  
+> **Branch:** `feat/memory-layer-runner-workflow`  
+> **Base:** `main`
 
 ---
 
 ## Purpose
 
-This document defines the canonical **KILO runner prompt structure** for FRONTIERNeXt coding-agent sessions, including the **Memory Layer session updater workflow**. Every agent session that touches source, schema, migrations, or deployment MUST follow this workflow so the Memory Layer stays current.
+This document defines the canonical runner prompt structure for KILO (and other coding agents) operating on FRONTIERNeXt. It ensures every agent session:
+
+1. Reads the correct memory layer before starting.
+2. Executes work inside the scoped lane.
+3. Writes an accurate session update to the memory layer on closeout.
+4. Triggers the workflow session updater so state is never stale between sessions.
 
 ---
 
-## Memory Layer Map
+## Memory Layer Source of Truth
 
-| Folder | Purpose | Write Trigger |
-|---|---|---|
-| `00 — Index & Current State` | Current commit, active PR, launch verdict, active blocker, owner action | Every session closeout |
-| `10 — Completed Lanes` | Merged lane closeouts, one file per lane | After merge confirmed |
-| `20 — Audits & Roadmaps` | Full audits, roadmaps, severity findings | After major audit |
-| `90 — Consolidated Archive` | Historical context only | Read-only by default |
+Drive folder: `FRONTIER — Memory Layer`
 
-**Source-of-truth order:** GitHub main → `docs/HANDOFF.md` → `docs/memory/` → Drive folders above.  
-Never let Drive memory override current repo evidence.
+| Folder | Purpose | Read on start | Write on closeout |
+|---|---|---|---|
+| `00 — Index & Current State` | Current commit, latest PR, launch verdict, active blocker, owner action | ✅ Always | ✅ Always |
+| `10 — Completed Lanes` | Merged lane closeouts | Only if referencing past work | ✅ On merge |
+| `20 — Audits & Roadmaps` | Full audits and active roadmaps | If lane touches audited system | On major audit update |
+| `90 — Consolidated Archive` | Historical context only | Only when `00` is missing context | Never — read only |
+
+**Rule:** Never let Drive memory override current repo evidence. GitHub `main` is always source of truth.
 
 ---
 
-## Session Updater Workflow
-
-The **session updater** runs automatically at the end of every KILO agent session. You confirmed it ran twice green ✅ on 2026-07-14 — this is the canonical trigger flow:
+## Runner Prompt Template (copy-paste for KILO)
 
 ```
-[Agent closeout block received]
-        │
-        ▼
-[Session Updater fires]
-        │
-        ├─► Write: 00 — Index & Current State
-        │         • Current commit SHA
-        │         • Latest completed/active PR
-        │         • Launch verdict
-        │         • Active blocker
-        │         • Owner action now
-        │
-        └─► If PR merged → Write: 10 — Completed Lanes
-                  • Lane name
-                  • Branch + base
-                  • Commits + changed files
-                  • Test/typecheck/CI summary
-                  • Limitations
-                  • Merge verdict
-```
+REPO: KudbeeZero/FRONTIERNeXt
+APP PATH: artifacts/frontier-al/
+BRANCH: feat/<lane-name>
+BASE: main
+DRIVE FOLDER: FRONTIER — Memory Layer
 
-**The updater must never write to `90 — Consolidated Archive` automatically.** That folder is read-only except by deliberate owner action.
+## PRE-SESSION — Memory Layer Read
+Before writing a single line of code:
+1. Read `FRONTIER — Memory Layer / 00 — Index & Current State` → confirm current commit, active blocker, owner action.
+2. Read any relevant file in `20 — Audits & Roadmaps` if this lane touches an audited system.
+3. Do NOT load `90 — Consolidated Archive` unless `00` has a gap you cannot fill from repo evidence.
 
----
+## SCOPE
+<describe the single lane goal here>
 
-## KILO Runner Prompt Template
+## NON-GOALS
+- No broad rewrites or dependency upgrades.
+- No unrelated bug fixes (open a separate PR).
+- No schema migrations unless this lane requires them.
+- No changes to treasury addresses, ASA IDs, wallet config, or production data.
 
-Copy-paste the block below when starting a new KILO / Claude Code / Codex session. Fill in the `[LANE]`, `[BRANCH]`, `[BASE]`, `[SCOPE]`, and `[NON-GOALS]` fields before sending.
-
----
-
-````markdown
-## KILO Session — FRONTIERNeXt
-
-**Repo:** `KudbeeZero/FRONTIERNeXt`  
-**App path:** `artifacts/frontier-al/`  
-**Branch:** `[BRANCH]` (base: `[BASE]`)  
-**Lane:** [LANE]
-
-### Scope
-[SCOPE — one clear paragraph. What must be implemented, fixed, or verified. Reference exact file paths, functions, routes, or schema tables.]
-
-### Non-goals
-- [NON-GOALS — explicit list of what NOT to touch in this session]
-- Do not modify: secrets, wallet config, prices, treasury/admin addresses, ASA IDs, production data
-- Do not begin the next lane before this one is reviewed or merged
-
-### Source-of-truth order
-1. Current GitHub `main`, this branch, PRs, commits, migrations, tests, CI
-2. `docs/HANDOFF.md`
-3. `docs/memory/` files
-4. Drive: `FRONTIER — Memory Layer`
-
-### Implementation rules
+## IMPLEMENTATION RULES
+- One active lane, one PR.
 - Inspect before editing. Preserve valid existing work.
-- Avoid broad rewrites and dependency upgrades.
 - Separate unrelated bugs into separate PRs.
-- Run focused tests during development; full verification at closeout.
+- Run focused tests during development.
+- Run full verification once at closeout.
 
-### Tests
-[List specific test files or commands to run — e.g., `yarn test src/path/to/file.test.ts`]
+## TESTS
+- List specific test files and commands relevant to this lane.
 
-### Closeout (required — do not skip)
-When complete, output the full agent closeout block:
+## SESSION UPDATER — Run on Every Significant Checkpoint
+After each meaningful commit or decision point, write a brief update to:
+`FRONTIER — Memory Layer / 00 — Index & Current State`
 
+Update fields:
+- Current commit SHA
+- Active blocker (if any)
+- Owner action now
+- Session summary (1–2 sentences)
+
+The session updater must run automatically at:
+- First meaningful commit
+- Any blocker discovered
+- Closeout (mandatory)
+
+## CLOSEOUT — Memory Layer Write
+When the lane is complete and CI is green:
+
+### ASKED
+<what was requested>
+
+### DONE
+<what was implemented — file paths, functions, migrations, tests>
+
+### NEEDS YOU
+<owner actions required — review, merge, deploy, verify>
+
+**Required closeout fields:**
+- Branch:
+- Base:
+- Commits:
+- Changed files:
+- Uncommitted changes:
+- Tests (passing/total):
+- Typecheck/build:
+- CI status:
+- Limitations:
+- Restricted systems (not touched):
+- PR URL:
+- Merge verdict: [ ] MERGE READY / [ ] NEEDS REVIEW / [ ] BLOCKED
+
+After merge, write the full closeout to:
+`FRONTIER — Memory Layer / 10 — Completed Lanes / <lane-name>-closeout.md`
+
+Update `00 — Index & Current State` with:
+- New current commit (post-merge SHA)
+- Latest completed PR number
+- Revised launch verdict
+- Cleared blocker (if resolved)
+- New owner action
 ```
-ASKED
-[What was requested]
-
-DONE
-[What was implemented]
-
-NEEDS YOU
-[Owner actions required before merge]
-
-Branch: [branch]
-Base: [base]
-Commits: [list]
-Changed files: [list]
-Uncommitted changes: [none | description]
-Tests: [pass/fail counts]
-Typecheck/build: [pass | fail | skipped]
-CI: [green | red | pending]
-Limitations: [any known gaps]
-Restricted systems: [none touched | list]
-PR URL: [url]
-Merge verdict: [MERGE READY | NEEDS REVIEW | BLOCKED]
-```
-
-### Memory Layer — Session Updater
-After outputting the closeout block, trigger the session updater:
-1. **Always write** `00 — Index & Current State` with current commit, PR status, launch verdict, active blocker, owner action.
-2. **If PR was merged** → also write a closeout record to `10 — Completed Lanes`.
-3. **Do not** write to `90 — Consolidated Archive` automatically.
-````
 
 ---
 
-## Running the Session Updater Manually
+## Workflow Session Updater — Integration Notes
 
-If the updater did not fire automatically, run the manual trigger:
+The session updater ran twice green as of **2026-07-14**, confirming the mechanism is functional. Key integration points:
 
-1. Open the FRONTIERNeXt Memory Layer in Drive: `FRONTIER — Memory Layer`
-2. Navigate to `00 — Index & Current State`
-3. Open `CURRENT — FRONTIER Memory Index`
-4. Update all fields from the agent closeout block:
-   - **Current commit:** SHA from closeout
-   - **Latest PR:** PR number and URL
-   - **Launch verdict:** current status
-   - **Active blocker:** highest-severity open finding
-   - **Owner action now:** next single required action
-5. If lane was merged, create a new file in `10 — Completed Lanes` with the closeout block content.
+- **Trigger:** Every significant commit and at mandatory closeout.
+- **Target:** `FRONTIER — Memory Layer / 00 — Index & Current State` (Drive folder — not a direct URL reference in code).
+- **Fields written:** Current commit SHA, active blocker, owner action, session summary.
+- **Idempotent:** Running twice green is expected and correct — second run should detect no delta and exit cleanly.
+- **Do not hardcode Drive URLs** in source or CI. Reference the folder by name only: `FRONTIER — Memory Layer`.
 
 ---
 
-## Evidence Standard for Agent Outputs
+## Agent Mode Guidance
 
-Every material conclusion in a KILO closeout must include:
+| Mode | When to use |
+|---|---|
+| **Code** | Focused implementation of a scoped lane |
+| **Debug** | Specific reproducible failure only |
+| **Orchestra/sub-agents** | Avoid unless the lane genuinely requires parallel isolated workstreams |
 
-- Exact file path
-- Relevant function / component / route / table / schema
-- Supporting test or migration
-- Commit / PR evidence
-- Production/deployment evidence when available
-- **Confidence:** High | Medium | Low
-- **Label:** verified fact | code inference | missing evidence | owner verification
-
-System-status labels: `LIVE` | `PARTIAL` | `CONTRACT_ONLY` | `CATALOG_ONLY` | `UI_ONLY` | `PLANNED` | `DEPRECATED` | `UNKNOWN`
-
-Finding labels: `CRITICAL LAUNCH BLOCKER` | `REQUIRED BEFORE PUBLIC ACCESS` | `SAFE FOR STAGED RELEASE` | `POST-LAUNCH ENHANCEMENT`
+- Continue the same agent while context remains useful.
+- Do not spend agent tokens on a mechanical merge when CI is green and verdict is `MERGE READY`.
+- Do not begin the next lane before the current lane is reviewed or merged.
 
 ---
 
-## Default Priorities (carried into every session)
+## Session Updater — Workflow Run Log
 
-1. Ownership and funds safety
-2. Wallet/auth correctness
-3. Duplicate transaction prevention
-4. Plot/sub-plot purchase integrity
-5. ASA/NFT delivery and reconciliation
-6. Token accounting and duplicate-claim prevention
-7. Database/on-chain consistency
-8. Refresh/logout/reconnect persistence
-9. Mobile Safari and Pera reliability
-10. Upgrade and archetype correctness
-11. Terraforming
-12. Misleading UI/docs
-13. Visual polish
+| Date | Run # | Status | Notes |
+|---|---|---|---|
+| 2026-07-14 | 1 | ✅ Green | Initial run confirmed |
+| 2026-07-14 | 2 | ✅ Green | Second run confirmed idempotent |
 
 ---
 
-## Changelog
-
-| Date | Change | Author |
-|---|---|---|
-| 2026-07-14 | Initial creation — runner prompt + session updater workflow | Research assistant |
+*Last updated: 2026-07-14 by owner via Perplexity Space audit.*
