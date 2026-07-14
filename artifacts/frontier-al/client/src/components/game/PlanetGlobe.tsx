@@ -188,9 +188,11 @@ function Scene({
         maxDistance={GLOBE_RADIUS * 6.0}
         // TWO-finger pinch should zoom only (dolly). DOLLY_ROTATE made the globe
         // spin unexpectedly during pinch gestures, and the rotation often moved
-        // the user’s finger onto UI elements (dock, buttons) which then opened
+        // the user's finger onto UI elements (dock, buttons) which then opened
         // menus/sheets. With enablePan={false}, DOLLY_PAN is effectively a
         // pure zoom, matching mobile user expectations.
+        // TODO(test/mobile): multi-touch behavior is covered by the manual
+        // checklist in client/docs/testing/mobile-globe-regression-checklist.md.
         touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
         makeDefault
       />
