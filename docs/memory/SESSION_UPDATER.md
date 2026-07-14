@@ -1,127 +1,151 @@
-# Session Updater — FRONTIERNeXt Memory Layer
+# Session Updater Workflow — FRONTIERNeXt Memory Layer
 
-This file defines the **session update workflow**: what to write, where to write it, and in what order, at the close of every KILO coding session.
-
----
-
-## Purpose
-
-Keep the Notion Memory Layer and GitHub `docs/memory/` in sync after every session so that:
-
-- The next session starts with accurate context
-- No work is lost between agents or between days
-- The launch verdict and active blockers are always current
-- Completed lanes are archived cleanly
+> **This workflow runs at the END of every KILO / Claude Code / Codex session.**
+> It is the authoritative record of what happened and what the current state is.
+> The session updater ran green (×2) as of 2026-07-14 — workflow confirmed operational.
 
 ---
 
-## When to Run
+## Trigger
 
-Run this workflow **at the end of every KILO session**, whether the lane:
-- Completed successfully and is merge-ready
-- Was paused mid-lane
-- Was blocked and requires owner action
-- Produced no code changes (research / audit only)
-
-**The session is not closed until this workflow is complete.**
+Run the session updater when **any** of the following occur:
+- A PR is merged to `main`
+- A lane closeout block is produced
+- The owner explicitly requests a memory update
+- A CRITICAL LAUNCH BLOCKER is identified or resolved
 
 ---
 
-## Step 1 — Deliver the Closeout Block to Owner
+## Step-by-Step Workflow
 
-The agent writes the closeout block (defined in `KILO_RUNNER_PROMPT.md`) and hands it back in the chat.  
-The owner reviews it before any Notion writes happen.
-
----
-
-## Step 2 — Write to Notion: `00 — Index & Current State`
-
-Page: **`CURRENT — FRONTIER Memory Index`**
-
-Update these fields every session, no exceptions:
-
-| Field | What to write |
-|---|---|
-| **Current commit** | Latest SHA on the active branch |
-| **Latest completed PR** | PR number + title + merge date |
-| **Active branch** | Branch name + what it contains |
-| **Launch verdict** | One of: `NOT READY` / `STAGED RELEASE POSSIBLE` / `LAUNCH READY` + one-line reason |
-| **Active blocker** | Highest-priority unresolved finding (label + one sentence) |
-| **Owner action now** | Exact next step the owner must take before the next session |
-| **Last updated** | Date + session identifier |
-
-**Do not rewrite the entire page.** Update only the fields above. Preserve all other content.
-
----
-
-## Step 3 — Write to Notion: `10 — Completed Lanes` (merge only)
-
-Only write this entry if the lane reached `MERGE READY` and the PR was merged this session.
-
-Create a new page titled: `[PR #NNN] Lane Name — YYYY-MM-DD`
-
-Include:
+### Step 1 — Verify Current Repo State
 
 ```
-## Summary
-<One paragraph: what the lane did, why it was needed>
+GitHub: HEAD commit SHA on main
+Last merged PR: number + title
+Active branch: <branch name or none>
+CI status: green | red | pending
+```
 
-## PR
-PR #NNN — <title>
-Branch: <branch>
+Source: GitHub `main` branch. Never infer from Drive without GitHub confirmation.
+
+---
+
+### Step 2 — Write `00 — Index & Current State`
+
+File: Drive → `FRONTIER — Memory Layer / 00 — Index & Current State / CURRENT — FRONTIER Memory Index`
+
+Update the following fields:
+
+```
+Last updated: <ISO date>
+Current commit: <SHA>
+Last PR merged: #<number> — <title>
+Launch verdict: <LAUNCH READY | BLOCKED | STAGED | PARTIAL>
+Active blocker: <description or NONE>
+Active branch: <branch or NONE>
+Owner action now: <specific action required or NONE>
+```
+
+> Write verified facts only. Do not describe planned or partial work as live.
+
+---
+
+### Step 3 — Write `10 — Completed Lanes` (if lane merged this session)
+
+File: Drive → `FRONTIER — Memory Layer / 10 — Completed Lanes / <lane-name>-CLOSEOUT.md`
+
+Include the full closeout block:
+
+```
+Lane: <name>
+Merged PR: #<number>
 Merge commit: <SHA>
-Date merged: <YYYY-MM-DD>
+Date: <ISO date>
 
-## Changed Files
-<List of files>
+ASKED
+<what was asked>
 
-## Tests
-<Pass / fail counts, test names if notable>
+DONE
+<what was completed>
 
-## Limitations / Known Gaps
-<Anything explicitly not fixed or not verified>
+NEEDS YOU
+<owner action items>
 
-## Next Lane Recommended
-<One sentence: what should follow this lane>
+Tests: <results>
+CI: green
+Limitations: <any known gaps>
+Restricted systems: <untouched systems>
 ```
 
 ---
 
-## Step 4 — Write to GitHub: `docs/memory/CURRENT_STATE.md` (optional, session-by-session)
+### Step 4 — Update `docs/HANDOFF.md`
 
-If the session changed the launch verdict or uncovered a new critical blocker, also update `docs/memory/CURRENT_STATE.md` in the same branch commit.
+File: `docs/HANDOFF.md` in repo on `main`
 
-This keeps GitHub and Notion aligned without requiring a separate PR.
+Update:
+- Current state summary (1–2 sentences)
+- Last known good commit SHA
+- Active branch (or NONE)
+- Active blocker (or NONE)
+- Owner action now
 
----
-
-## Step 5 — Confirm Sync
-
-Before closing the session, confirm:
-
-- [ ] Closeout block delivered to owner
-- [ ] Notion `00 — Index` updated
-- [ ] Notion `10 — Completed Lanes` written (if merged)
-- [ ] GitHub `CURRENT_STATE.md` updated (if verdict changed)
-- [ ] No uncommitted changes left on the branch
-- [ ] CI status confirmed (green / red / pending)
+Commit directly to `main` post-merge, or include in the lane PR.
 
 ---
 
-## Notion Write Targets (quick reference)
+### Step 5 — Confirm Session Updater Complete
 
-| Target | When | Page name |
-|---|---|---|
-| `00 — Index & Current State` | Every session | `CURRENT — FRONTIER Memory Index` |
-| `10 — Completed Lanes` | Merge sessions only | `[PR #NNN] Lane Name — YYYY-MM-DD` |
-| `20 — Audits & Roadmaps` | Full audit sessions only | Audit report page |
-| `90 — Consolidated Archive` | Never (read-only for historical context) | — |
+Output this block at end of every session:
+
+```
+SESSION UPDATER — COMPLETE
+
+Timestamp: <ISO datetime>
+Commit: <SHA>
+Drive 00 updated: YES | NO
+Drive 10 updated: YES | NO | N/A (no merge this session)
+HANDOFF.md updated: YES | NO
+Active blocker: <description or NONE>
+Owner action now: <specific action or NONE>
+```
 
 ---
 
-## Notes for the Agent
+## Status Labels
 
-- Do not write to `90 — Consolidated Archive`.
-- Do not overwrite completed lane records — create a new page per lane.
-- If Notion is unavailable, write the update block to the chat and flag it for the owner to post manually.
-- If GitHub push fails, include the intended `CURRENT_STATE.md` content in the closeout block.
+Always label system state with one of:
+
+| Label | Meaning |
+|---|---|
+| `LIVE` | Verified working in production or staging |
+| `PARTIAL` | Partially implemented; some paths work |
+| `CONTRACT_ONLY` | Schema/type defined but no active behavior |
+| `CATALOG_ONLY` | Registered but not integrated |
+| `UI_ONLY` | Visible in UI but not wired to backend |
+| `PLANNED` | Designed but not yet built |
+| `DEPRECATED` | Removed or superseded |
+| `UNKNOWN` | Cannot verify without owner or production access |
+
+---
+
+## Finding Labels
+
+Use these in audit reports and session notes:
+
+| Label | Meaning |
+|---|---|
+| `CRITICAL LAUNCH BLOCKER` | Blocks public access; must fix before launch |
+| `REQUIRED BEFORE PUBLIC ACCESS` | Not a hard blocker but must ship at launch |
+| `SAFE FOR STAGED RELEASE` | Safe to ship in a controlled rollout |
+| `POST-LAUNCH ENHANCEMENT` | Deferred; does not affect launch |
+
+---
+
+## Notes
+
+- The session updater confirmed running **green ×2** as of 2026-07-14. Workflow is operational.
+- Do not skip Step 5. The confirmation block is the signal to the owner that memory is current.
+- If Drive is inaccessible, note it in Step 5 and complete Steps 1 and 4 (GitHub-only) instead.
+- Never overwrite a Completed Lane record — append a new file per lane.
