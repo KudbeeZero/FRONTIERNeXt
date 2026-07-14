@@ -1,83 +1,158 @@
 # KILO Runner Prompt — Memory Layer Workflow
 
-> **Copy-paste this block in full at the start of every KILO session.**  
-> Do not paraphrase. Do not omit sections. This prompt is the contract between the session and the memory layer.
+> **Copy-paste this block at the start of every KILO / Claude Code / Codex session.**  
+> Adjust bracketed fields before sending.
 
 ---
 
-## Session Bootstrap
+## 🔖 Session Bootstrap
 
 ```
-Repo:        KudbeeZero/FRONTIERNeXt
-App path:    artifacts/frontier-al/
-Branch:      <INSERT ACTIVE BRANCH>
-Base:        main
-Mode:        Code
+Repo: KudbeeZero/FRONTIERNeXt
+App path: artifacts/frontier-al/
+Branch: [BRANCH_NAME]
+Base: main
+Mode: Code (focused implementation)
 ```
 
 ---
 
-## Identity & Scope
+## 📋 Scope
 
-You are KILO, the implementation agent for FRONTIERNeXt.  
-You operate in **one active lane at a time**.  
-You do not open sub-agents unless the lane explicitly requires parallelism that a single agent cannot handle.
+**Lane:** [LANE_NAME — e.g., "Battle Planner Phase 2"]
+**PR:** [PR_NUMBER or "new"]
+**Goal:** [One sentence — what must be true when this lane is done]
 
-This session scope:
-- **Lane:** <INSERT LANE NAME>
-- **Goal:** <INSERT ONE-SENTENCE GOAL>
-- **Non-goals:** <INSERT WHAT IS EXPLICITLY OUT OF SCOPE>
+**In scope:**
+- [File / component / route / table]
+- [File / component / route / table]
 
----
-
-## Source-of-Truth Order
-
-Always read sources in this order before acting:
-
-1. Current `main` branch — migrations, tests, CI, deployment evidence
-2. `docs/HANDOFF.md`
-3. `docs/memory/` files relevant to this lane
-4. Drive: `00 — Index & Current State / CURRENT — FRONTIER Memory Index`
-5. Drive: active reports in `20 — Audits & Roadmaps`
-6. Drive: `10 — Completed Lanes` for historical lane closeouts
-7. `90 — Consolidated Archive` **only** for missing historical context
-
-Never let Drive memory override current repo evidence.
+**Non-goals (do not touch):**
+- Treasury / admin addresses
+- ASA IDs, prices, production data
+- Schema migrations outside this lane
+- Unrelated bugs — open a separate PR
+- Dependency upgrades
 
 ---
 
-## Default Priorities (Never Override Without Explicit Permission)
+## 🧠 Memory Layer — Read First
 
-1. Ownership and funds safety
-2. Wallet / auth correctness
-3. Duplicate transaction prevention
-4. Plot / sub-plot purchase integrity
-5. ASA / NFT delivery and reconciliation
-6. Token accounting and duplicate-claim prevention
-7. Database / on-chain consistency
-8. Refresh / logout / reconnect persistence
-9. Mobile Safari and Pera reliability
-10. Upgrade and archetype correctness
-11. Terraforming
-12. Misleading UI / docs
-13. Visual polish
+Before writing any code, read these files in order:
+
+1. `docs/HANDOFF.md` — current system state and active blockers
+2. `docs/memory/` — any file matching the current lane topic
+3. Drive: `00 — Index & Current State / CURRENT — FRONTIER Memory Index` — last verified commit, launch verdict, owner action
+
+If any of the above contradicts the current `main` branch, **trust the repo**. Note the discrepancy in your closeout.
 
 ---
 
-## Evidence Standard
+## ✅ Implementation Rules
+
+- Inspect before editing — never overwrite valid existing work
+- One active lane at a time; do not begin the next lane in this session
+- Avoid broad rewrites and dependency upgrades
+- Run focused tests during development
+- Run full verification once at closeout
+- Separate unrelated bugs into separate PRs
+- Do not spend tokens on a mechanical merge when CI is green
+
+---
+
+## 🔄 Session Updater — Run at End of Every Session
+
+**This is mandatory. Do not close the session without completing this block.**
+
+After your last code change, output the following filled-in block:
+
+```
+=== SESSION UPDATER ===
+
+Date: [YYYY-MM-DD]
+Agent: KILO / Claude Code / Codex
+Lane: [LANE_NAME]
+Branch: [BRANCH_NAME]
+Base: main
+
+Current HEAD commit: [SHA]
+Changed files:
+  - [path]
+  - [path]
+
+Uncommitted changes: [yes / no — describe if yes]
+
+Tests:
+  - [test name]: [pass / fail / skipped]
+  Total: [X passed, Y failed, Z skipped]
+
+Typecheck: [pass / fail]
+Build: [pass / fail]
+CI status: [green / red / pending — link if available]
+
+Limitations / known issues:
+  - [describe or "none"]
+
+Restricted systems (not touched):
+  - Treasury, admin addresses, ASA IDs, production data: ✓ untouched
+
+PR URL: [url or "not yet created"]
+Merge verdict: [MERGE READY / NEEDS REVIEW / BLOCKED — reason]
+
+=== MEMORY UPDATES ===
+
+00 — Index (update these fields):
+  current_commit: [SHA]
+  latest_completed_pr: [PR # or "in progress"]
+  launch_verdict: [LAUNCH READY / LAUNCH BLOCKED — reason]
+  active_blocker: [describe or "none"]
+  owner_action: [what the human must do next]
+
+10 — Completed Lanes (append only if lane is merged):
+  lane: [LANE_NAME]
+  pr: [PR #]
+  merged_commit: [SHA]
+  date: [YYYY-MM-DD]
+  summary: [1-2 sentences]
+  files_changed: [list]
+
+=== END SESSION UPDATER ===
+```
+
+---
+
+## 🚦 Closeout Checklist
+
+Before handing back to the owner:
+
+- [ ] All in-scope changes committed to branch
+- [ ] No uncommitted changes
+- [ ] Focused tests pass
+- [ ] Full verification complete
+- [ ] Typecheck clean
+- [ ] Build clean
+- [ ] CI green (or failure explained)
+- [ ] Session Updater block output above
+- [ ] PR created or updated
+- [ ] Merge verdict stated
+- [ ] Memory Index fields ready for owner to paste into Drive
+
+---
+
+## 📐 Evidence Standard
 
 For every material conclusion include:
 - Exact file path
 - Relevant function / component / route / table / schema
 - Supporting test or migration
 - Commit / PR evidence
-- Production / deployment evidence when available
-- Confidence: **High**, **Medium**, or **Low**
+- Confidence: High / Medium / Low
 - Label: `verified fact` | `code inference` | `missing evidence` | `owner verification`
 
-Do not say a system works because a component, type, constant, schema field, test stub, or document exists.  
-Trace active behavior through:  
-`UI → client state → API → server validation → database → Algorand → client refresh`
+Trace active behavior through:
+```
+UI → client state → API → server validation → database → Algorand → client refresh
+```
 
 System-status labels: `LIVE` | `PARTIAL` | `CONTRACT_ONLY` | `CATALOG_ONLY` | `UI_ONLY` | `PLANNED` | `DEPRECATED` | `UNKNOWN`
 
@@ -85,64 +160,10 @@ Finding labels: `CRITICAL LAUNCH BLOCKER` | `REQUIRED BEFORE PUBLIC ACCESS` | `S
 
 ---
 
-## Development Workflow Rules
+## 🔒 Restricted Systems (Never Touch in This Lane)
 
-- One active implementation lane and one PR at a time
-- Inspect before editing
-- Preserve valid existing work
-- Avoid broad rewrites and dependency upgrades
-- Separate unrelated bugs into separate PRs
-- Run focused tests during development; full verification at closeout
-- Do not begin the next lane before this lane is reviewed or merged
-- Do not spend agent tokens on a mechanical merge when CI is green and verdict is `MERGE READY`
-
----
-
-## Session Updater — Run at Closeout
-
-> This is mandatory. Do not end a session without completing the session updater.
-
-At the end of every session, KILO must emit a **Session Update Block** in the following exact format:
-
-```
-## SESSION UPDATE — <YYYY-MM-DD> — <LANE NAME>
-
-### Memory Index (00 — Index & Current State)
-Current commit:        <SHA>
-Latest completed PR:   #<N> — <title>
-Launch verdict:        <BLOCKED | STAGED | READY>
-Active blocker:        <one sentence or NONE>
-Owner action now:      <one sentence or NONE>
-
-### Lane Closeout (10 — Completed Lanes)
-Branch:                <branch name>
-Base:                  main
-Commits:               <list of commit SHAs and messages>
-Changed files:         <list>
-Uncommitted changes:   <NONE | description>
-Tests:                 <summary and totals>
-Typecheck / build:     <PASS | FAIL | SKIPPED>
-CI:                    <GREEN | RED | PENDING>
-Limitations:           <any scope restrictions>
-Restricted systems:    <list or NONE>
-PR URL:                <URL>
-Merge verdict:         <MERGE READY | NEEDS REVIEW | BLOCKED>
-```
-
-This block is the input for the **Workflow Session Updater** (see `docs/memory/WORKFLOW_SESSION_UPDATER.md`).
-
----
-
-## Closeout Checklist
-
-- [ ] Lane goal achieved
-- [ ] No unrelated changes in this PR
-- [ ] All tests passing or failures documented
-- [ ] TypeScript / build clean
-- [ ] CI green
-- [ ] Session Update Block emitted
-- [ ] Session Updater workflow triggered
-- [ ] Memory Index updated in Drive: `00 — Index & Current State`
-- [ ] Lane closeout written to Drive: `10 — Completed Lanes`
-- [ ] PR URL recorded
-- [ ] Owner action clearly stated
+- Treasury / admin wallet addresses
+- Private keys, mnemonics, environment variables
+- ASA IDs, land prices, NFT eligibility rules
+- Production database records
+- Any system outside the declared scope above
