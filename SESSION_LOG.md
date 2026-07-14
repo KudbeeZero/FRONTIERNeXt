@@ -3,7 +3,7 @@
 ## Latest Session
 
 - **PR Number:** #N/A
-- **PR Title:** ci: add session-log workflow — auto-update SESSION_LOG.md on merge to main
-- **Merge SHA:** 83b8eab1213f51f67ec484a8d0e915e39013df7e
-- **Date/Time (UTC):** 2026-07-14T15:14:58Z
-- **Files Changed:** .github/workflows/session-log.yml
+- **PR Title:** docs(readme): add agent onboarding, Notion links, multi-agent coordination, AI tools
+- **Merge SHA:** 9f9b4a6d17c325d151a34bda95f43f42fa564116
+- **Date/Time (UTC):** 2026-07-14T15:37:47Z
+- **Files Changed:** README.md
