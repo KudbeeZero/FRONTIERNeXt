@@ -77,6 +77,7 @@ export interface CommanderPanelProps {
   isClaimingAllPlotNfts?: boolean;
   battles?: Battle[];
   onSelectTarget?: (parcelId: string) => void;
+  onSourceParcelChange?: (parcelId: string | null) => void;
   onOpenMap?: () => void;
 }
 
@@ -87,6 +88,7 @@ export function CommanderPanel({
   allParcels = [], wallet, className, onDeliverPlotNft, isDeliveringPlotNftId,
   onClaimAllPlotNfts, isClaimingAllPlotNfts,   battles = [],
   onSelectTarget,
+  onSourceParcelChange,
   onOpenMap,
 }: CommanderPanelProps) {
   const queryClient = useQueryClient();
@@ -122,6 +124,11 @@ export function CommanderPanel({
   useEffect(() => {
     if (ownedParcels.length > 0 && !sourceParcelId) setSourceParcelId(ownedParcels[0].id);
   }, [ownedParcels]);
+
+  // Notify parent when source parcel changes (for globe attack path preview)
+  useEffect(() => {
+    onSourceParcelChange?.(sourceParcelId);
+  }, [sourceParcelId, onSourceParcelChange]);
 
   // Open the Battlefront when the parent signals an attack request (e.g. the
   // player tapped "Attack" on a plot/map). Ignores the initial 0 value.
