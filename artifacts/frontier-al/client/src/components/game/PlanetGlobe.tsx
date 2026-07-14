@@ -31,6 +31,7 @@ import { GlobeIncomingTelegraph } from "./globe/GlobeIncomingTelegraph";
 import { GlobeMusterLayer } from "./globe/GlobeMusterLayer";
 import { GlobeCinematicCamera } from "./globe/GlobeCinematicCamera";
 import { BattleSoundLayer } from "./globe/BattleSoundLayer";
+import { AttackPathPreview } from "./globe/AttackPathPreview";
 import { GlobeHUD, GlobeCompass, PlayerLegend, ParcelHUD } from "./globe/GlobeHUD";
 import { GlobeColorSettings } from "./globe/GlobeColorSettings";
 import { CameraController } from "@/hooks/useGlobeCamera";
@@ -100,6 +101,8 @@ interface SceneProps {
   flyRequestId?: number;
   onObserverOffset?: (ms: number) => void;
   battleScarSeed: BattleScarRecord[];
+  plannerOriginParcel?: LandParcel | null;
+  plannerTargetParcel?: LandParcel | null;
 }
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
@@ -108,7 +111,7 @@ function Scene({
   parcels, players, currentPlayerId, selectedPlotId, onPlotSelect,
   controlsRef, targetLat, targetLng, battles, livePulses, orbitalEvents,
   replayEvents, replayTime, replayVisibleTypes, streamMode, flyRequestId,
-  onObserverOffset, battleScarSeed,
+  onObserverOffset, battleScarSeed, plannerOriginParcel, plannerTargetParcel,
 }: SceneProps) {
   const prefs = useVisualPrefs();
   const battleHotspots = useMemo(() => {
@@ -166,6 +169,7 @@ function Scene({
         )}
       </group>
       <BattleArcs battles={battles} parcels={parcels} players={players} currentPlayerId={currentPlayerId} />
+      <AttackPathPreview originParcel={plannerOriginParcel ?? null} targetParcel={plannerTargetParcel ?? null} />
       <GlobeIncomingTelegraph battles={battles} parcels={parcels} />
       <GlobeMusterLayer battles={battles} parcels={parcels} players={players} />
       <GlobeBattleScars seedRecords={battleScarSeed} parcels={parcels} />
@@ -237,6 +241,9 @@ interface PlanetGlobeProps {
   nftInfo?: { assetId: number; inCustody: boolean } | null;
   onDeliverNft?: () => void;
   isDeliveringNft?: boolean;
+  /** Battle Planner attack path preview */
+  plannerOriginParcel?: LandParcel | null;
+  plannerTargetParcel?: LandParcel | null;
 }
 
 export default function PlanetGlobe({
@@ -262,6 +269,8 @@ export default function PlanetGlobe({
   nftInfo,
   onDeliverNft,
   isDeliveringNft,
+  plannerOriginParcel,
+  plannerTargetParcel,
 }: PlanetGlobeProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null!);
   const prefs = useVisualPrefs();
@@ -305,6 +314,8 @@ export default function PlanetGlobe({
           flyRequestId={flyRequestId}
           onObserverOffset={setObserverOffset}
           battleScarSeed={battleScarSeed}
+          plannerOriginParcel={plannerOriginParcel}
+          plannerTargetParcel={plannerTargetParcel}
         />
       </Canvas>
 

@@ -116,6 +116,19 @@ export function GameLayout() {
   }, [isConnected]);
 
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
+  /** Planner origin parcel ID — flows from CommanderPanel to globe for attack path preview */
+  const [plannerSourceParcelId, setPlannerSourceParcelId] = useState<string | null>(null);
+
+  // Compute planner parcels for globe attack path preview
+  const plannerOriginParcel = useMemo(() => {
+    if (!plannerSourceParcelId || !gameState?.parcels) return null;
+    return gameState.parcels.find(p => p.id === plannerSourceParcelId) ?? null;
+  }, [plannerSourceParcelId, gameState?.parcels]);
+
+  const plannerTargetParcel = useMemo(() => {
+    if (!selectedParcelId || !gameState?.parcels) return null;
+    return gameState.parcels.find(p => p.id === selectedParcelId) ?? null;
+  }, [selectedParcelId, gameState?.parcels]);
   /** Controls whether the full LandSheet is open (vs. the lightweight SelectedPlotPanel) */
   const [showFullLandSheet, setShowFullLandSheet] = useState(false);
   /** Controls whether the mobile bottom sheet (MobilePlotSheet) is open.
@@ -1289,6 +1302,7 @@ export function GameLayout() {
           ownedParcels={gameState?.parcels.filter(p => p.ownerId === player?.id) ?? []}
           battles={gameState?.battles ?? []}
             onSelectTarget={setSelectedParcelId}
+            onSourceParcelChange={setPlannerSourceParcelId}
             onOpenMap={() => setActiveTab("map")}
             wallet={{ isConnected: wallet.isConnected, address: wallet.address }}
             className="h-full border-0 rounded-none overflow-auto"
@@ -1350,6 +1364,8 @@ export function GameLayout() {
               nftInfo={null}
               onDeliverNft={undefined}
               isDeliveringNft={false}
+              plannerOriginParcel={plannerOriginParcel}
+              plannerTargetParcel={plannerTargetParcel}
             />
           </div>
 
@@ -1803,9 +1819,6 @@ export function GameLayout() {
           isPurchasing={purchaseMutation.isPending || isSigningBusy}
           isWalletConnected={isWalletConnected}
           isSpecialAttacking={specialAttackMutation.isPending}
-          nftInfo={null}
-          onDeliverNft={undefined}
-          isDeliveringNft={false}
         />
       )}
 
