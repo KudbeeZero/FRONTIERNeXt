@@ -2,7 +2,24 @@
  * Tests for usePlannerDraft localStorage utility
  */
 
+import { describe, it, expect, beforeEach } from "vitest";
 import { readDraft, writeDraft, clearDraft } from '../src/hooks/usePlannerDraft';
+
+// Minimal localStorage + window shim for the default-node test environment.
+// The hook guards with hasWindow(), so both globals must be present to
+// exercise the real localStorage code path.
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+  get length(): number { return this.store.size; }
+  clear(): void { this.store.clear(); }
+  getItem(key: string): string | null { return this.store.get(key) ?? null; }
+  key(i: number): string | null { return Array.from(this.store.keys())[i] ?? null; }
+  removeItem(key: string): void { this.store.delete(key); }
+  setItem(key: string, value: string): void { this.store.set(key, value); }
+}
+const g = globalThis as { localStorage?: Storage; window?: object };
+g.localStorage = new MemoryStorage();
+g.window = g.window ?? g;
 
 const DRAFT_KEY = 'planner_draft';
 
