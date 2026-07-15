@@ -122,6 +122,7 @@ export function MobilePlotSheet({
               "md:hidden fixed left-0 right-0 bottom-16",
               ZClass.plotSheet,
               "flex flex-col max-h-[60vh]",
+              "pb-[env(safe-area-inset-bottom,0px)]",
               "bg-card border-t border-border rounded-t-2xl shadow-2xl",
               "overflow-hidden"
             )}
@@ -159,7 +160,7 @@ export function MobilePlotSheet({
               </div>
               <button
                 onClick={onClose}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                 aria-label="Close panel"
               >
                 <X className="w-4 h-4" />

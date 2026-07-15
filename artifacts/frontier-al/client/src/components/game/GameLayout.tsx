@@ -282,11 +282,6 @@ export function GameLayout() {
     setReplayVisibleTypes(vt);
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   const mineMutation = useMine();
   const openLootBoxMutation = useOpenLootBox();
   const [openingLootBoxId, setOpeningLootBoxId] = useState<string | null>(null);

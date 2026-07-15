@@ -359,7 +359,7 @@ export default function PlanetGlobe({
               controlsRef.current.update();
             }}
             style={{
-              width: 32, height: 32,
+              width: 40, height: 40,
               background: "rgba(4,8,20,0.7)",
               border: "1px solid rgba(79,195,247,0.3)",
               borderRadius: 6, color: "rgba(0,229,255,0.85)",

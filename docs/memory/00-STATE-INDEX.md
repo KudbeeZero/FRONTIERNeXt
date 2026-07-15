@@ -6,18 +6,16 @@
 > If it disagrees with `main` HEAD, that is a memory-layer gap — flag it at
 > closeout, do not silently trust it.
 
-**Updated (UTC)** | 2026-07-15T08:15:00Z
+**Updated (UTC)** | 2026-07-16T03:31:00Z
 
 ## Current commit
 
-- **HEAD:** `3a15bad88f2119de68e48b3f2dd9167785a1074d`
-- **Date (UTC):** 2026-07-14T18:14:16Z
+- **HEAD:** `f397a8e` — docs(memory): resync state index and baton (#271)
+- **Date (UTC):** 2026-07-16T03:31:00Z
 - **Note:** tip is a `docs: update session log [skip ci]` commit produced by
-  `.github/workflows/session-log.yml`. The latest *feature* merge is PR #269
-  (`ae57840`). This index was resynced by the `docs/resync-memory-state` lane
-  to close the gap between its seed commit `2e81dc6` and current `main`
-  (PR #269 memory-layer workflow; PRs #266–#268 Battle Planner were already
-  present at seed but the baton in `docs/HANDOFF.md` had not recorded them).
+  `.github/workflows/session-log.yml`. The latest *feature* merge is PR #271
+  (`f397a8e`). STATE-INDEX resynced during the Release Coordinator merge pass;
+  PR #272 (mobile playability) is being rebased onto this HEAD.
 
 ## Latest merged PR
 
