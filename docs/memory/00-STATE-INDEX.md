@@ -6,19 +6,22 @@
 > If it disagrees with `main` HEAD, that is a memory-layer gap — flag it at
 > closeout, do not silently trust it.
 
-**Updated (UTC)** | 2026-07-14T18:01:00Z
+**Updated (UTC)** | 2026-07-15T08:15:00Z
 
 ## Current commit
 
-- **HEAD:** `2e81dc682598700624315411bcbd152f00656f06`
-- **Date (UTC):** 2026-07-14T16:59:36Z
+- **HEAD:** `3a15bad88f2119de68e48b3f2dd9167785a1074d`
+- **Date (UTC):** 2026-07-14T18:14:16Z
 - **Note:** tip is a `docs: update session log [skip ci]` commit produced by
-  `.github/workflows/session-log.yml`. The latest *feature* merge is PR #268
-  (`88ff4ff`). This index was (re)written by the `memory-layer-runner-workflow`
-  lane to make the previously-missing index real.
+  `.github/workflows/session-log.yml`. The latest *feature* merge is PR #269
+  (`ae57840`). This index was resynced by the `docs/resync-memory-state` lane
+  to close the gap between its seed commit `2e81dc6` and current `main`
+  (PR #269 memory-layer workflow; PRs #266–#268 Battle Planner were already
+  present at seed but the baton in `docs/HANDOFF.md` had not recorded them).
 
 ## Latest merged PR
 
+- **#269** `ae57840` — docs(memory): KILO runner prompt + session updater (single trigger, no Notion)
 - **#268** `88ff4ff` — feat(planner): Planner Draft Persistence (localStorage) — Phase 4
 - **#267** `b96f273` — feat(frontier): Battle Planner globe attack path visualization — Phase 3
 - **#266** `affaa52` — feat(frontier): add Battle Planner outcome preview — Phase 2
@@ -54,6 +57,17 @@
   desktop); gate audio; draggable plot panel.
 - Decide the orphaned `artifacts/api-server` + `lib/*` island; prune ~140 dead
   remote branches.
+
+## Current priorities
+
+- **Memory layer in sync:** this resync lane closes the gap between the seed
+  commit `2e81dc6` and current `main` (`3a15bad`); STATE-INDEX, HANDOFF, and
+  `10-completed/_INDEX.md` now reflect PRs #266–#269.
+- **Next engineering lane (recommended):** after the memory-layer sync, resume
+  the feature roadmap — faction economy / treasury / equity / contribution-ledger
+  foundation (deferred by PR #256) or the next Battle Planner / sub-plot combat
+  implementation phase, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval
+  required before any sub-plot combat application-code PR.
 
 ## How this index stays current
 

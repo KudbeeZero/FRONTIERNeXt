@@ -30,6 +30,7 @@ Every completed-lane file follows:
 | battle-planner-outcome-preview | #266 | `affaa52` | 2026-07-14 | high |
 | battle-planner-globe-attack-path | #267 | `b96f273` | 2026-07-14 | high |
 | battle-planner-draft-persistence | #268 | `88ff4ff` | 2026-07-14 | high |
+| memory-layer-runner-workflow | #269 | `ae57840` | 2026-07-14 | high |
 
 > Detailed per-lane closeout blocks for the above are backfilled on demand. This
 > index is seeded from `docs/HANDOFF.md` (the baton's "DONE & MERGED" history)
