@@ -4,11 +4,13 @@
 > Owner directive this session: preserve information often; update the memory
 > layer after work even if nothing merges; record branches created + status.
 
-## Active /ship run — token-leak fix (VERIFIED, opening PR)
-- **Status:** fix implemented + verified. `check` exit 0, client 10 pass (+1 security
-  test), server 708 pass. `generated.ts` remoteUrl scrubbed to
-  `github.com/KudbeeZero/FRONTIERNeXt`, 0 token matches. Audit: PASS. Next: PR.
-- **OWNER MUST ROTATE the exposed token** (history not rewritten).
+## Active /ship run — token-leak fix (SHIPPED ✅)
+- **MERGED:** PR #278 `b09695d`. `sanitizeRemoteUrl()` + regression test; token
+  scrubbed from `generated.ts` on main (0 matches). CI green on `e28dc4d`.
+- **Workflow correction:** first push had a `[skip ci]` commit as branch tip → no
+  CI; reordered so fix is the tip, force-pushed feature branch only, confirmed green.
+- **🔴 OWNER MUST ROTATE the exposed GitHub token** (history not rewritten).
+- Session note: `artifacts/frontier-al/session-notes/2026-07-16-mission-control-remoteurl-secret-fix.md`.
 
 ## Active /ship run — token-leak fix (details)
 - **Branch:** `fix/mission-control-strip-remote-token` (off clean origin/main `5b00be6`).
