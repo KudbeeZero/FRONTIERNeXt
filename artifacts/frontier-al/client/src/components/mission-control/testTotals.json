@@ -1,0 +1,14 @@
+{
+  "client": {
+    "files": 1,
+    "tests": 9,
+    "skipped": 0
+  },
+  "server": {
+    "files": 73,
+    "tests": 706,
+    "skipped": 26
+  },
+  "captured": true,
+  "lastUpdatedIso": "2026-07-16T08:40:53.862Z"
+}
