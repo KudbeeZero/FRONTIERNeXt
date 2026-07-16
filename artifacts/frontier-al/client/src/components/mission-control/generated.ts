@@ -20,20 +20,20 @@
 
 export const generated = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T08:40:52.434Z",
+  "generatedAt": "2026-07-16T14:46:50.477Z",
   "repository": {
-    "headSha": "4ab5ce1",
-    "headShaFull": "4ab5ce117d9d9bd0ea0b958b9b64de726227ccfd",
+    "headSha": "5e4c1a3",
+    "headShaFull": "5e4c1a308aa11c37386aa18dd1879d500788b5a6",
     "branch": "feat/mission-control-repo-intelligence",
-    "remoteUrl": "https://github.com/KudbeeZero/FRONTIERNeXt.git",
-    "commitTimestampIso": "2026-07-16T03:49:32Z",
-    "commitSubject": "feat(mission-control): internal dashboard at /mission-control"
+    "remoteUrl": "https://x-access-token:kgh2.Hw+RIq79SsKfBvgVyMe4Sg%3D%3D%3AeJXsoOOvmm1P4mr%2F+DfXBg%3D%3D%3A%2F43VgIh8deljQwatYY6G%2F2RGn4BxlbLOKN+BRcLguh42BYihL1wV9L+1DxjGtMwC0vqaddsJ6i404NyZ6gOjcWMB%2Fus1g0M3RgyoiLu5cFZc91CewVd9MnGcr+DejeE1S9wjmecOZYVu7cxAibEIoUIrVcpg33OVgEKt+befEEWTcM5FYr61mmoHN8cFBKtGjReqRl%2FgZ%2FvSmXKm72ScCDZpbAbmumVG8RiFVyao6M5Kxt4pz2R6NixYir65Pi+UPLKhn4w0W4vfdi0D7pbejxPjmvsXyKDBQOc2kfwEWFuW5jnKzfNCCx4tdF3gnyWuyWDG0Y8bAETVGE5p9ypfRftxe1s6OErcwGs5kNnWhWj%2F4sWOdV%2FeFPI0s8P5BPrh5n+I8VX2ewIbX+pKcaHKjGx3BOm73ZKDjwHk+dT1NxZe5BhWaTNdSpGGeygFtxApo1BPoJj+GPYpdX4GUS2Bumw1OSvwgAWtgvEpSk5NZM5zbwrCfypARzbXHNRpbCJuXZ5QTvLSvsv7TjP9FMx2jgVH1noQZqeA4QJoPEp692ELKpwGDGM2BLivZ3DxwuHIuzriOKRRarI1igwjvkST8aabFABmqU9K47n%2Fn4YyP3yj77BNfYkt%2FYPsYZVOkZmh5oPvJFjezhKvJxHZLAa0c7%2Ft+fX1m2VwtyrH%2FOoxAEn7mkM8FZ4JnzaNS%2FRbMFaGGMJJ1kMVWrMjL1CcVJj7R+ARInnuk0QDhECnnHbG+IBxbisso%2FbDRXO1pzBkiij4czI%3D@github.com/KudbeeZero/FRONTIERNeXt.git",
+    "commitTimestampIso": "2026-07-16T14:45:06Z",
+    "commitSubject": "feat(mission-control): Phase 2 — repository intelligence via build-time generator"
   },
   "build": {
     "appVersion": "2.0.1",
     "env": "development",
     "mode": "production",
-    "builtAtIso": "2026-07-16T08:40:52.434Z",
+    "builtAtIso": "2026-07-16T14:46:50.477Z",
     "testTotals": {
       "client": {
         "files": 1,
@@ -54,10 +54,10 @@ export const generated = {
   },
   "workflow": {
     "lastMergedPr": {
-      "number": 272,
-      "title": "fix(mobile): safe-area insets, touch targets, drop duplicate render timer",
-      "mergedSha": "e2c94bb",
-      "mergedAt": "2026-07-16T03:36:30Z"
+      "number": 273,
+      "title": "feat(mission-control): internal dashboard at /mission-control",
+      "mergedSha": "b82ff23",
+      "mergedAt": "2026-07-16T11:19:09Z"
     },
     "lastSessionNote": {
       "date": "2026-07-16",
@@ -65,14 +65,14 @@ export const generated = {
       "filename": "2026-07-16-mission-control-phase-2.md"
     },
     "lastSessionLog": {
-      "prNumber": "272",
-      "prTitle": "fix(mobile): safe-area insets, touch targets, drop duplicate render timer",
-      "mergeSha": "e2c94bb4bba17118fe74613d78bac3f97969951a",
-      "date": "2026-07-16T03:36:30Z",
-      "filesChanged": "artifacts/frontier-al/client/src/components/game/BattlePlanner.tsx,artifacts/frontier-al/client/src/components/game/CommanderPanel.tsx,artifacts/frontier-al/client/src/components/game/GameLayout.tsx,artifacts/frontier-al/client/src/components/game/LandSheet.tsx,artifacts/frontier-al/client/src/components/game/MobilePlotSheet.tsx,artifacts/frontier-al/client/src/components/game/PlanetGlobe.tsx,artifacts/frontier-al/client/src/components/game/hud/hud.css,docs/memory/00-STATE-INDEX.md"
+      "prNumber": "273",
+      "prTitle": "feat(mission-control): internal dashboard at /mission-control",
+      "mergeSha": "b82ff2328c70e9b69465c29e998a9ad7b1883b49",
+      "date": "2026-07-16T11:19:09Z",
+      "filesChanged": "artifacts/frontier-al/client/src/App.tsx,artifacts/frontier-al/client/src/components/mission-control/MissionControlSection.tsx,artifacts/frontier-al/client/src/components/mission-control/StatusChip.tsx,artifacts/frontier-al/client/src/components/mission-control/missionControlData.test.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.ts,artifacts/frontier-al/client/src/pages/MissionControl.tsx,artifacts/frontier-al/session-notes/2026-07-16-mission-control-dashboard.md,artifacts/frontier-al/vitest.config.ts,docs/HANDOFF.md"
     },
     "latestCompletedLane": "mobile-globe-touch-regression",
-    "memoryLayerHeadSha": "4ab5ce1",
+    "memoryLayerHeadSha": "5e4c1a3",
     "workflows": [
       {
         "name": "ci",
@@ -108,7 +108,8 @@ export const generated = {
   },
   "branches": {
     "activeFeatureBranches": [
-      "feat/mission-control-repo-intelligence"
+      "feat/mission-control-repo-intelligence",
+      "session/agent_3d6000eb-b7ed-4249-8526-d8d1a79cf529"
     ],
     "staleBranches": [],
     "localOnlyBranches": []

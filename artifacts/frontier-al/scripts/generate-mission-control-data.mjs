@@ -108,6 +108,12 @@ function readGit() {
   const headSha = safeExec("git", ["rev-parse", "HEAD"]);
   const shortSha = trimSha(headSha);
   const branch = safeExec("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+  // CI runs on a detached HEAD, so `git branch`/`rev-parse --abbrev-ref` yields
+  // null. Fall back to the ref GitHub Actions exposes, then to "main".
+  const resolvedBranch =
+    (branch && branch !== "HEAD" ? branch : null) ||
+    (process.env.GITHUB_REF_NAME?.trim() || "") ||
+    "main";
   const commitIso = safeExec("git", ["log", "-1", "--format=%cI"]);
   const commitSubject = firstLine(
     safeExec("git", ["log", "-1", "--format=%s"]),
@@ -121,7 +127,7 @@ function readGit() {
   return {
     headSha: shortSha,
     headShaFull: headSha,
-    branch: branch && branch !== "HEAD" ? branch : null,
+    branch: resolvedBranch,
     commitTimestampIso: commitIso,
     commitSubject,
     remoteUrl,
