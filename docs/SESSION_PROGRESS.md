@@ -4,7 +4,13 @@
 > Owner directive this session: preserve information often; update the memory
 > layer after work even if nothing merges; record branches created + status.
 
-## Active /ship run — token-leak fix (IN PROGRESS)
+## Active /ship run — token-leak fix (VERIFIED, opening PR)
+- **Status:** fix implemented + verified. `check` exit 0, client 10 pass (+1 security
+  test), server 708 pass. `generated.ts` remoteUrl scrubbed to
+  `github.com/KudbeeZero/FRONTIERNeXt`, 0 token matches. Audit: PASS. Next: PR.
+- **OWNER MUST ROTATE the exposed token** (history not rewritten).
+
+## Active /ship run — token-leak fix (details)
 - **Branch:** `fix/mission-control-strip-remote-token` (off clean origin/main `5b00be6`).
 - **Why (finding):** the mission-control generator runs `git config --get
   remote.origin.url` and writes it into the committed `generated.ts`, which the
