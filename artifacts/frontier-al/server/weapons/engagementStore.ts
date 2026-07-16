@@ -207,8 +207,11 @@ export class EngagementStore {
   /** Engagements still relevant for rendering (in-flight or within fade window). */
   active(now: number = Date.now()): Engagement[] {
     return [...this.engagements.values()].filter((e) => {
-      const endTs = e.status === "intercepted" ? (e.interceptTs ?? e.impactTs) : e.impactTs;
-      return now <= endTs + ENGAGEMENT_FADE_MS;
+      if (e.status === "intercepted") {
+        return now <= (e.interceptTs ?? e.impactTs) + ENGAGEMENT_FADE_MS;
+      }
+      // in_flight and impacted both use impactTs as the end of relevance
+      return now <= e.impactTs + ENGAGEMENT_FADE_MS;
     });
   }
 
@@ -228,6 +231,19 @@ export class EngagementStore {
   clear(): void {
     this.engagements.clear();
     this.batteries.clear();
+  }
+
+  /**
+   * C-1 fix: Settle a completed engagement by marking it as impacted and returning
+   * its payload. Caller must apply the damage to the target parcel and persist state.
+   * Only succeeds for engagements past their impactTs that haven't been intercepted.
+   */
+  settle(engagementId: string, now: number = Date.now()): { engagement: Engagement; damage: number } | null {
+    const e = this.engagements.get(engagementId);
+    if (!e || e.status !== "in_flight") return null;
+    if (now < e.impactTs) return null;
+    e.status = "impacted";
+    return { engagement: e, damage: e.damage };
   }
 }
 
