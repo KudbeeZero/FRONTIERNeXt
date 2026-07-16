@@ -5,10 +5,16 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Memory Layer runner prompt + session updater — **DONE & PR OPEN** (PR #269 `a38a910`).
-  - Implemented the memory-layer runner workflow: `docs/memory/KILO_RUNNER_PROMPT.md` (session-start prompt), `docs/memory/SESSION_UPDATER.md` (closeout procedure, 5 memory-write targets), `docs/memory/00-STATE-INDEX.md` (canonical current-state index — previously missing), `docs/memory/10-completed/_INDEX.md` (completed-lane index).
-  - `.github/workflows/session-log.yml` confirmed as the **sole** session-updater trigger; added verification-only `.github/workflows/memory-session-check.yml` (no memory writes). Prior DRAFT's duplicate `memory-session-update.yml` + Notion scripts/secrets removed.
-  - Docs/process only: no app code, schema/migration, ASA/wallet/treasury, or combat changes. CI green (typecheck + server tests + memory-session-check).
+- **Unit:** Mission Control Phase 2 — repository intelligence — **DONE & MERGED** (PR #274 `dd91980`).
+  - Build-time generator (`scripts/generate-mission-control-data.mjs`) derives repo metadata, workflow status, build info, health indicators, and branch hygiene from local git + files — no GitHub auth, no API, no polling.
+  - Dashboard reorganised into 9 sections (4 auto-derived + 5 hand-curated). `missionControlData.test.ts` expanded 3→9 contract tests. `testTotals.json` captures client/server test counts.
+  - CI green on head `793e745`: Typecheck & server tests ✅ + Cloudflare Pages ✅.
+- **Unit:** Mission Control Phase 1 — internal dashboard — **DONE & MERGED** (PR #273 `0913ac4`).
+  - `client/src/pages/MissionControl.tsx` + `client/src/components/mission-control/` — 7 panels: System Status, Workflow Health, Current Priorities, Build Health, Owner Actions, Memory Layer, Branch Hygiene.
+  - `/mission-control` route added to `App.tsx`, lazy-loaded, mounted OUTSIDE `WalletProvider` (same pattern as `/admin` + `/university`) — no wallet/chain/backend/DB.
+  - Static-only (no API/polling). Status color chips, copy-SHA button, and mobile collapsible sections included. Dark-mode compatible, mobile-first.
+- **Previous unit:** docs(memory): resync state index and baton — **DONE & MERGED** (PR #271 `3a15bad`).
+- **Previous unit:** fix(mobile): safe-area insets, touch targets, drop duplicate render timer — **DONE & MERGED** (PR #272 `e2c94bb`).
 - **Previous unit:** Mobile globe touch regression coverage — **DONE & MERGED** (PR #265 `ba2e71f`).
   - Added regression documentation and TODO pointers for the mobile globe touch fixes from PR #263.
   - `client/docs/testing/mobile-globe-touch.md` — explains why automated multi-touch regression coverage is impractical in the current Node/SSR test harness, documents exact manual reproduction steps, expected outcomes, and future test ideas.
@@ -77,12 +83,15 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
-- **Shipped:** Mobile globe touch regression coverage — PR #265 `ba2e71f` (2026-07-14). Added regression docs and TODO pointers for the mobile globe touch fixes. Automated multi-touch coverage is impractical in the current Node/SSR test harness; manual QA checklist documents the eight verification steps. No production behavior changes. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
-- **Previous result:** Mobile plot sheet independent close — PR #264 `eac4a2a` (2026-07-13). Added `showMobileSheet` state in GameLayout so the bottom sheet can be closed independently from the globe peek card. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
-- **Previous result:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
+- **Shipped:** Mission Control Phase 2 — PR #274 `dd91980` (2026-07-16). Build-time generator + 9-section dashboard. CI green on head `793e745`: Typecheck & server tests ✅ + Cloudflare Pages ✅. `missionControlData.test.ts` 9/9 pass.
+- **Shipped:** Mission Control Phase 1 — PR #273 `0913ac4` (2026-07-16). Internal `/mission-control` dashboard, 7 panels, mounted outside WalletProvider. Typecheck clean; server tests 706/706; client tests 9/9; CI green.
+- **Shipped:** fix(mobile) safe-area + touch targets — PR #272 `e2c94bb` (2026-07-15). Dropped duplicate render timer.
+- **Shipped:** docs(memory) resync state index and baton — PR #271 `3a15bad` (2026-07-15).
+- **Previous result:** Mobile globe touch regression coverage — PR #265 `ba2e71f` (2026-07-14).
 
 ## NEXT
-- **Next lane:** Battle Planner (Battle Target Selector shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
+- **Next lane:** Resume feature roadmap — Battle Planner planner UI, or faction economy / treasury / equity / contribution-ledger foundation, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR.
+- **Open PR blocker:** PR #270 (`feat/memory-layer-runner-workflow`) is still a draft. `/ship` cannot open a new PR until #270 is closed or merged (one-PR-at-a-time invariant).
 - **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
