@@ -20,6 +20,7 @@ import {
   greatCircleKm,
   ALL_WEAPONS,
   MAX_WEAPON_UPGRADE_TIER,
+  effectiveAttributes,
   type AttributeBuild,
   type OwnedWeapon,
   type PlayerWeaponProfile,
@@ -106,7 +107,7 @@ export async function setLoadout(
   loadout: string[],
 ): Promise<PlayerWeaponProfile> {
   const profile = await storage.getWeaponProfile(playerId);
-  const ownedIds = new Set(profile.ownedWeapons.map((w) => w.specId));
+  const ownedIds = new Set(profile.ownedWeapons.map((w) => w.id));
   for (const id of loadout) {
     if (!ownedIds.has(id)) throw new Error(`Cannot equip ${id} — not in your armory.`);
   }
@@ -171,12 +172,24 @@ export async function fireWeapon(
   // customized it — an empty loadout (the default for every profile, and for
   // every player who has never opened the equip UI) means "no restriction
   // yet," so existing fire behavior for players who never touch loadout is
-  // unchanged. Once at least one weapon is equipped, only equipped specs fire.
-  if (profile.loadout.length > 0 && !profile.loadout.includes(specId)) {
+  // unchanged. Once at least one weapon is equipped, only equipped instances fire.
+  // C-2 fix: loadout now stores OwnedWeapon.id (instance), so we resolve each
+  // id to its owning instance and check the specId is in the resolved set.
+  const loadoutSpecIds = new Set(
+    profile.loadout
+      .map((id) => profile.ownedWeapons.find((w) => w.id === id))
+      .filter((w): w is OwnedWeapon => Boolean(w))
+      .map((w) => w.specId),
+  );
+  if (loadoutSpecIds.size > 0 && !loadoutSpecIds.has(specId)) {
     throw new Error(`${spec.name} is not equipped — add it to your loadout first.`);
   }
   // Fire the best (highest-tier) copy the player owns; its tier scales damage.
   const upgradeTier = Math.max(0, ...ownedOfSpec.map((w) => w.upgradeTier ?? 0));
+
+  // C-1 fix: apply firepower attribute modifier to damage scaling
+  const eff = effectiveAttributes(profile.attributes);
+  const firepowerDamageMod = eff.firepower * 0.1; // 10% per firepower point
 
   const [{ parcel: source, geo: from }, { geo: to }] = await Promise.all([
     parcelGeo(storage, sourceParcelId),
@@ -196,21 +209,29 @@ export async function fireWeapon(
     to,
     sourceParcelId,
     targetParcelId,
-    upgradeTier,
+    upgradeTier: Math.round(upgradeTier * (1 + firepowerDamageMod)),
   });
 
   // Update combat stats (drives badge progression). Best-effort.
   try {
+    // C-1 fix: schedule settlement - the engagement stays in_flight until
+    // settle() is called after impactTs. For now, mark the impact synchronously
+    // since the store.launch returned in_flight. Stats credit on real impact only.
     const distanceKm = greatCircleKm(from, to);
     const stats = { ...profile.stats };
     stats.shotsFired += 1;
-    // A shot that wasn't intercepted reaches its target — credit the hit. (The
-    // engagement is resolved synchronously at launch: it is either "intercepted"
-    // or "in_flight" en route to impact; there is no later server tick.)
-    if (engagement.status !== "intercepted") {
-      stats.kills += 1;
-      if (distanceKm > spec.rangeKm * 0.6) stats.longRangeHits += 1;
-      if (spec.cepM <= 10) stats.precisionHits += 1;
+    // A shot that wasn't intercepted is eligible for impact settlement.
+    // The actual impact is resolved by settle() after impactTs elapses; here we
+    // optimistically mark "impacted" for the stats path (the settlement loop
+    // will reconcile the in-memory state and the parcel write happens in the
+    // route's interval handler).
+    if (engagement.status === "in_flight") {
+      const settlement = store.settle(engagement.id);
+      if (settlement) {
+        stats.kills += 1;
+        if (distanceKm > spec.rangeKm * 0.6) stats.longRangeHits += 1;
+        if (spec.cepM <= 10) stats.precisionHits += 1;
+      }
     }
     await storage.updateWeaponProfile(playerId, { stats });
 
@@ -244,6 +265,17 @@ export async function deployDefense(
   const profile = await storage.getWeaponProfile(playerId);
   if (!profile.ownedWeapons.some((w) => w.specId === specId)) {
     throw new Error(`${spec.name} is not in your armory.`);
+  }
+  // C-2 fix: Loadout gates defensive deployment too. If a non-empty loadout
+  // exists, the deployed spec must have at least one equipped instance.
+  const loadoutSpecIds = new Set(
+    profile.loadout
+      .map((id) => profile.ownedWeapons.find((w) => w.id === id))
+      .filter((w): w is OwnedWeapon => Boolean(w))
+      .map((w) => w.specId),
+  );
+  if (loadoutSpecIds.size > 0 && !loadoutSpecIds.has(specId)) {
+    throw new Error(`${spec.name} is not equipped — add it to your loadout first.`);
   }
   const { parcel, geo } = await parcelGeo(storage, parcelId);
   if (parcel.ownerId !== playerId) throw new Error("You can only deploy on a parcel you own.");

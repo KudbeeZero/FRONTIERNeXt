@@ -122,8 +122,9 @@ describe("weapon service · fire + deploy guards", () => {
     it("rejects firing an owned-but-unequipped weapon once the loadout is non-empty", async () => {
       const { storage, store, playerId } = await setup();
       await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
-      await svc.unlockWeapon(storage, playerId, "msl_cruise_1");
-      await svc.setLoadout(storage, playerId, ["msl_cruise_1"]);
+      const cruiseProfile = await svc.unlockWeapon(storage, playerId, "msl_cruise_1");
+      const cruiseInstance = cruiseProfile.ownedWeapons.find((w) => w.specId === "msl_cruise_1")!;
+      await svc.setLoadout(storage, playerId, [cruiseInstance.id]);
       await expect(
         svc.fireWeapon(storage, store, { playerId, specId: "msl_ballistic_1", sourceParcelId: "a", targetParcelId: "b" }),
       ).rejects.toThrow(/not equipped/i);
@@ -131,11 +132,25 @@ describe("weapon service · fire + deploy guards", () => {
 
     it("allows firing an equipped weapon past the gate once the loadout is non-empty", async () => {
       const { storage, store, playerId } = await setup();
-      await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
-      await svc.setLoadout(storage, playerId, ["msl_ballistic_1"]);
+      const profile = await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
+      const ballisticInstance = profile.ownedWeapons.find((w) => w.specId === "msl_ballistic_1")!;
+      await svc.setLoadout(storage, playerId, [ballisticInstance.id]);
       await expect(
         svc.fireWeapon(storage, store, { playerId, specId: "msl_ballistic_1", sourceParcelId: "a", targetParcelId: "b" }),
       ).rejects.toThrow(/parcel not found/i); // past the gate, blocked by the (bogus) parcel lookup instead
+    });
+
+    // C-2 fix: defensive loadout gate
+    it("rejects deploying an unequipped defensive spec once the loadout is non-empty", async () => {
+      const { storage, store, playerId } = await setup();
+      const aaProfile = await svc.unlockWeapon(storage, playerId, "def_cram");
+      const aaInstance = aaProfile.ownedWeapons.find((w) => w.specId === "def_cram")!;
+      const otherProfile = await svc.unlockWeapon(storage, playerId, "msl_ballistic_1");
+      const missileInstance = otherProfile.ownedWeapons.find((w) => w.specId === "msl_ballistic_1")!;
+      await svc.setLoadout(storage, playerId, [missileInstance.id]);
+      await expect(
+        svc.deployDefense(storage, store, { playerId, specId: "def_cram", parcelId: "x" }),
+      ).rejects.toThrow(/not equipped/i);
     });
   });
 });

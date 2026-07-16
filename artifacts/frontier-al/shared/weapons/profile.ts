@@ -38,7 +38,7 @@ export interface PlayerWeaponProfile {
   /** Derived badge tiers (recomputed from attributes + stats). */
   badges: Record<BadgeKey, BadgeTier>;
   ownedWeapons: OwnedWeapon[];
-  /** Equipped weapon spec ids (the active loadout / "sub-shots"). */
+  /** Equipped weapon instance ids (OwnedWeapon.id). Preserves upgrade tier. */
   loadout: string[];
   /** Animation variant ids the player has unlocked. */
   unlockedAnimations: string[];
