@@ -20,20 +20,20 @@
 
 export const generated = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T16:57:35.056Z",
+  "generatedAt": "2026-07-16T17:16:06.965Z",
   "repository": {
-    "headSha": "bacd73b",
-    "headShaFull": "bacd73be500e76e443428651cb61891623fd4b31",
-    "branch": "fix/weapons-engagement-settle",
-    "remoteUrl": "https://x-access-token:kgh2.ZdmyYDPzZkpxtUf7scOEtw%3D%3D%3A2BNELdI+v%2FJgUl7Lc853+g%3D%3D%3AN2EfTppkUc6KdviWDXzHvnBypUZsgt44%2F1dHz8MPs4J5tuHk6SZwAv19teC8ydoo2FjsajczCz5qLI7DZ+v5H39LyjghsFOLC2vJ17h7A6ZErkhmEl5uGohx8AdEFbos6FEFhp+3O++rcpK1EDp7fSbjwhjDqIHfbyqDsOsXR4rJytRX8XJdOfCtWbvRes6hL1MQHgIJDD9gZ6XXlrVUyzHOTdf52R2LTQRUX4ONYT7lUPTHUlOwXbqug%2FrQF02t4SoetYWQ5rM1sS%2Fm88yT4po30lg+zo2D7tCI8XXC3WqvH67ws6S1LhmBxfuLwsvi6x0G7Rj8d8ZBJvHx5JvC0PpitlhZlAHx%2F+63FuAo0GdkA27fn3eVBpxm62KyA+IQWHPw0eTZiR+yYqMTifk%2FqHPCcFXUmHyESFOVyUSs2RIzO3TXho4z74kkWzoWr9mxAQqYKmfJ3x0Msi85EoeNOkf2q379OoVHpGm+XEUttKWIN0g8KTiT8V0OPT0TT3hEZOqsmZV0eGaV+66kqj4Z3sAAWX1%2FI3XP8QWRssQu1pruIsJpSM+mc9H4YhMTW24JFXW%2FHMF9c7D8OZNopTodRx4gPqZBsLHt51ul+mPUhkyGNQxWDJ1s33AcPN6PSpcisKNQc0BW3FEahToRWafY7USpPicb97j0XEdhEfRAYP+sIR%2Fouel+ktc2qOhIsCa3ivRL7Lc3zXclSzgImvigCXuLIHGBqsxBdPNCvk5o1dYj7NTHw0JYkiNGCEKKzbXL5v8%3D@github.com/KudbeeZero/FRONTIERNeXt.git",
-    "commitTimestampIso": "2026-07-16T16:52:42Z",
-    "commitSubject": "fix(weapons): add EngagementStore.settle() + active() impacted handling (C-1)"
+    "headSha": "573d516",
+    "headShaFull": "573d516a5e51eca9fe0bd4e31bdc71cdabd3726a",
+    "branch": "fix/mission-control-strip-remote-token",
+    "remoteUrl": "github.com/KudbeeZero/FRONTIERNeXt",
+    "commitTimestampIso": "2026-07-16T17:14:51Z",
+    "commitSubject": "docs: preserve ASA draft + live session progress log (info-preservation) [skip ci]"
   },
   "build": {
     "appVersion": "2.0.1",
     "env": "development",
     "mode": "production",
-    "builtAtIso": "2026-07-16T16:57:35.056Z",
+    "builtAtIso": "2026-07-16T17:16:06.965Z",
     "testTotals": {
       "client": {
         "files": 1,
@@ -54,25 +54,25 @@ export const generated = {
   },
   "workflow": {
     "lastMergedPr": {
-      "number": 0,
-      "title": "session-note: Battle Planner route + page shell (2026-07-16)",
-      "mergedSha": "6119872",
-      "mergedAt": "2026-07-16T16:34:02Z"
+      "number": 277,
+      "title": "fix(weapons): EngagementStore.settle() + active() impacted handling (C-1)",
+      "mergedSha": "0e16e56",
+      "mergedAt": "2026-07-16T17:04:30Z"
     },
     "lastSessionNote": {
-      "date": "2026-07-12",
-      "title": "phase a merge and phase b persistence",
-      "filename": "2026-07-12-phase-a-merge-and-phase-b-persistence.md"
+      "date": "2026-07-16",
+      "title": "salvage weapons settle and ci unblock",
+      "filename": "2026-07-16-salvage-weapons-settle-and-ci-unblock.md"
     },
     "lastSessionLog": {
-      "prNumber": "N/A",
-      "prTitle": "session-note: Battle Planner route + page shell (2026-07-16)",
-      "mergeSha": "61198725a4b1a9d91572f9d39d45c47e324d95ee",
-      "date": "2026-07-16T16:34:02Z",
-      "filesChanged": "artifacts/frontier-al/session-notes/2026-07-16-battle-planner-route.md"
+      "prNumber": "277",
+      "prTitle": "fix(weapons): EngagementStore.settle() + active() impacted handling (C-1)",
+      "mergeSha": "0e16e56763406c70815c03cd78f2aa4e8b5b0e23",
+      "date": "2026-07-16T17:04:30Z",
+      "filesChanged": "artifacts/frontier-al/client/src/components/mission-control/generated.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.test.ts,artifacts/frontier-al/scripts/generate-mission-control-data.mjs,artifacts/frontier-al/server/weapons/engagementStore.spec.ts,artifacts/frontier-al/server/weapons/engagementStore.ts,docs/audits/fix-weapons-engagement-settle.md"
     },
     "latestCompletedLane": "mobile-globe-touch-regression",
-    "memoryLayerHeadSha": "bacd73b",
+    "memoryLayerHeadSha": "573d516",
     "workflows": [
       {
         "name": "ci",
@@ -108,7 +108,7 @@ export const generated = {
   },
   "branches": {
     "activeFeatureBranches": [
-      "fix/weapons-engagement-settle",
+      "fix/mission-control-strip-remote-token",
       "session/agent_57a3587c-f202-4b0f-b716-0639f72c9105"
     ],
     "staleBranches": [],
