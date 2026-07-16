@@ -1,103 +1,158 @@
-# KILO_RUNNER_PROMPT.md
+# KILO Runner Prompt — Memory Layer Workflow
 
-> **Start-of-session runner prompt.** KILO reads this file at the beginning of
-> every session to locate the memory layer, confirm the current unit, and know
-> exactly what to write at closeout. It is the human-facing companion to
-> `SESSION_UPDATER.md` (the closeout procedure) and `00-STATE-INDEX.md` (the
-> canonical current-state index).
->
-> Keep this file generic and reusable. Per-lane specifics (scope, non-goals,
-> tests) are supplied by the human in the session message, not hardcoded here.
+> **Space:** FRONTIERNeXt · **Branch:** `feat/memory-layer-kilo-runner` · **Base:** `main`
+> **Purpose:** Canonical copy-paste prompt block handed to KILO (or any coding agent) at the start of every implementation lane. Embeds the Memory Layer session updater so it runs automatically at lane close.
 
-## Pre-flight (read before writing any code)
+---
 
-1. **Read `docs/HANDOFF.md`** — confirm current unit, active blocker, owner
-   action. The baton is the single source of truth for "what's next."
-2. **Read `docs/memory/00-STATE-INDEX.md`** — confirm last verified commit and
-   launch verdict. If this file is missing or disagrees with `main` HEAD, treat
-   it as a gap and flag it at closeout (do not silently trust it).
-3. **Read the relevant `docs/memory/FRONTIER_*.md`** for the lane's system
-   (battle engine, sub-plot combat, wallet stability, background-loop cost
-   control, commander NFT delivery, four-AI battle loop).
-4. **Read `docs/SESSION_PROTOCOL.md`** — follow the closeout discipline exactly
-   (one unit per chat, no inter-chat wait, self-audit before PR).
+## How to Use This File
 
-## Session start checklist
+1. Copy the block under **KILO Prompt Block** below.
+2. Paste it at the top of your KILO session (Code mode).
+3. Fill in the bracketed values for the current lane.
+4. At closeout, KILO writes the Memory Layer outputs listed in the **Session Updater** section.
+5. You review and approve the memory writes before the session ends.
 
-- [ ] Base confirmed: `git fetch origin main` and branch off clean `origin/main`.
-- [ ] Baton read; current unit + blocker + owner action noted.
-- [ ] State index read; recorded HEAD matches `main` HEAD (or gap flagged).
-- [ ] Lane-specific `docs/memory/FRONTIER_*.md` read.
-- [ ] `SESSION_PROTOCOL.md` closeout format noted.
+---
 
-## Scope (fill in per session)
-
-Describe the one system / one concern this session owns. One unit per chat.
+## KILO Prompt Block
 
 ```
-[ lane name ]
-[ what changes ]
-[ accept criteria ]
+REPO:       KudbeeZero/FRONTIERNeXt
+APP PATH:   artifacts/frontier-al/
+BRANCH:     [feature-branch-name]
+BASE:       main
+MODE:       Code
+
+## SCOPE
+[One paragraph describing exactly what this lane implements — no more, no less.]
+
+## NON-GOALS
+- Do not modify schema, migrations, ASA IDs, treasury addresses, or production data.
+- Do not upgrade dependencies.
+- Do not touch unrelated systems or open bugs outside this lane.
+- Do not begin a new lane before this one is reviewed or merged.
+
+## IMPLEMENTATION STEPS
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
+
+## TESTS
+- [ ] [Test 1 — describe the specific assertion]
+- [ ] [Test 2]
+- Run focused tests during development; full suite once at closeout.
+
+## CLOSEOUT REQUIRED
+At the end of this lane, before ending the session, you MUST:
+
+### Agent Closeout Block
+Output a closeout block in this exact format:
+
+ASKED
+[What was requested in one sentence]
+
+DONE
+- [File changed: path/to/file — what changed]
+- [File changed: path/to/file — what changed]
+
+NEEDS YOU
+- [Any owner action required before merge]
+
+BRANCH:          [branch name]
+BASE:            main
+COMMITS:         [count and short SHAs]
+CHANGED FILES:   [list]
+UNCOMMITTED:     [none | describe]
+TESTS:           [passed X / failed Y / skipped Z]
+TYPECHECK/BUILD: [green | errors listed]
+CI:              [green | pending | failing — describe]
+LIMITATIONS:     [anything left out of scope or deferred]
+RESTRICTED:      [no production data, no secrets, no treasury touched]
+PR URL:          [GitHub PR URL]
+MERGE VERDICT:   [MERGE READY | NEEDS OWNER REVIEW | BLOCKED — reason]
+
+### Memory Layer Session Updater
+After outputting the closeout block, write the following memory files:
+
+**1. Update `00 — Index & Current State / CURRENT — FRONTIER Memory Index`**
+Set these fields to reflect the completed lane:
+- `current_commit`: [latest commit SHA on this branch]
+- `latest_completed_pr`: [PR number and title]
+- `launch_verdict`: [unchanged | updated — describe]
+- `active_blocker`: [none | describe the current blocker]
+- `owner_action`: [what the owner must do right now]
+- `last_updated`: [ISO date]
+
+**2. Write `10 — Completed Lanes / [PR#]-[branch-name]-closeout.md`**
+Content: the full Agent Closeout Block above, plus:
+- Date completed
+- Merge SHA (if merged)
+- Any post-merge notes
+
+**3. Do NOT write to:**
+- `90 — Consolidated Archive` (historical only, never appended by agent)
+- `20 — Audits & Roadmaps` (owner-managed)
+- Any Drive file not listed above
+
+## TOKEN EFFICIENCY
+- Prefer targeted edits over full-file rewrites.
+- Do not re-read files you already have in context.
+- Do not explain reasoning in comments — code should be self-documenting.
+- Stop and ask the owner before taking any action that touches: wallet config, ASA IDs, treasury addresses, prices, production data, secrets, or deployments.
 ```
 
-## Non-goals (fill in per session)
+---
 
-Explicitly list what this session must NOT touch. The standing HARD RULES
-always apply:
+## Session Updater — Standalone Reference
 
-- No funds / ASA / transfer code toward mainnet without `/mainnet-gate` PASS
-  **and** an `algo-auditor` pass.
-- Do not merge `wip/atomic-purchase`; nothing in `ops/kestra/` may point at
-  mainnet.
-- Do not reintroduce mock/demo data into plot/HUD surfaces.
-- Do not change globe/combat/canvas behavior outside a scoped, audited unit.
-- Do not touch schema/migrations, wallet config, ASA IDs, or treasury
-  addresses unless the lane explicitly requires it (and is audited).
+The session updater runs at the end of every KILO lane (embedded in the prompt above). It is confirmed working as of 2026-07-14 (ran twice, both green).
 
-## Tests (fill in per session)
+### Trigger Condition
+Fired automatically at lane closeout — no manual step required when using the KILO Prompt Block above.
 
-Specific commands to run for this lane, e.g.:
+### Write Targets
 
-- `pnpm --filter @workspace/frontier-al run check`
-- `pnpm --filter @workspace/frontier-al run test:server`
-- `pnpm --filter @workspace/frontier-al run test`
-- `pnpm run typecheck` (root, aggregate — `mockup-sandbox` excluded)
+| Target | Location | Fields Updated |
+|---|---|---|
+| Memory Index | `00 — Index & Current State/CURRENT — FRONTIER Memory Index` | `current_commit`, `latest_completed_pr`, `launch_verdict`, `active_blocker`, `owner_action`, `last_updated` |
+| Lane Closeout | `10 — Completed Lanes/[PR#]-[branch]-closeout.md` | Full closeout block + merge SHA |
 
-For docs/process lanes: confirm rendered references resolve and required
-memory-write targets are covered (see `SESSION_UPDATER.md`).
+### Write-Protected Locations
+- `90 — Consolidated Archive` — historical only, never written by agent
+- `20 — Audits & Roadmaps` — owner-managed only
+- Secrets, wallet config, ASA IDs, treasury addresses, production data
 
-## Memory write (required at closeout)
+---
 
-After CI is green and the PR is opened, KILO MUST:
+## Source-of-Truth Order (from Space Instructions)
 
-1. **Update `docs/HANDOFF.md` baton** — current unit, next lane, active
-   blocker, owner action.
-2. **Update `docs/memory/00-STATE-INDEX.md`** — current commit, latest merged
-   PR, launch verdict, active blocker, owner action.
-3. **Append to the relevant `docs/memory/FRONTIER_*.md`** — what changed, what
-   was verified, confidence level.
-4. **If the lane is complete:** write the closeout block to
-   `docs/memory/10-completed/<lane-name>.md` (see `SESSION_UPDATER.md` for the
-   exact block format).
+1. Current GitHub `main`, PRs, commits, branches, migrations, tests, CI, deployment, and production evidence.
+2. `docs/HANDOFF.md`
+3. Relevant `docs/memory/` files (this file lives here)
+4. Drive `00 — Index & Current State/CURRENT — FRONTIER Memory Index`
+5. Drive `20 — Audits & Roadmaps` (active reports)
+6. Drive `10 — Completed Lanes` (merged closeouts)
+7. `90 — Consolidated Archive` — historical context only
 
-## Session updater note
+---
 
-The GitHub workflow `.github/workflows/session-log.yml` is the **sole** session
-updater. It auto-triggers on every `push` to `main` and appends a lightweight
-`SESSION_LOG.md`. Its double-commit pattern (log → re-trigger → log) is
-**expected and healthy**, not a duplicate no-op. The separate
-`.github/workflows/memory-session-check.yml` is a *verification* check only — it
-does not write memory and must not be mistaken for a second updater. There must
-be exactly **one** session-updater workflow; do not add a second trigger.
+## Default Priorities (per Space Rules)
 
-## Closeout format (hand back to human)
+1. Ownership and funds safety
+2. Wallet/auth correctness
+3. Duplicate transaction prevention
+4. Plot/sub-plot purchase integrity
+5. ASA/NFT delivery and reconciliation
+6. Token accounting and duplicate-claim prevention
+7. Database/on-chain consistency
+8. Refresh/logout/reconnect persistence
+9. Mobile Safari and Pera reliability
+10. Upgrade and archetype correctness
+11. Terraforming
+12. Misleading UI/docs
+13. Visual polish
 
-```
-ASKED / DONE / NEEDS YOU
-Branch · Base · Commits · Changed files · Tests · CI · PR URL · Merge verdict
-```
+---
 
-Produce: Branch name and base, commits and changed files, uncommitted changes
-(if any), test results and totals, typecheck/build status, CI status,
-limitations, restricted systems untouched, PR URL, and merge verdict
-(`MERGE READY` or `BLOCKED` with reason).
+_Last updated: 2026-07-14 · Session updater confirmed: 2× green runs_
