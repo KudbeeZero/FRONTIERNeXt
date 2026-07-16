@@ -526,7 +526,7 @@ export function CommanderPanel({
                     <button
                       key={i}
                       onClick={() => setRosterPage(i)}
-                      className="w-7 h-7 rounded-md text-[10px] font-mono font-bold transition-colors"
+                      className="w-9 h-9 rounded-md text-[10px] font-mono font-bold transition-colors"
                       style={{
                         background: i === rosterPage ? "rgba(239,68,68,0.85)" : "rgba(255,255,255,0.06)",
                         border: `1px solid ${i === rosterPage ? "rgba(239,68,68,0.7)" : "rgba(255,255,255,0.1)"}`,
@@ -712,9 +712,9 @@ export function CommanderPanel({
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] font-display uppercase text-muted-foreground">Troops</span>
                           <div className="flex items-center gap-1.5">
-                            <Button variant="outline" size="icon" className="h-5 w-5" onClick={() => setTroops(Math.max(1, troops - 1))} disabled={troops <= 1}><ChevronDown className="w-2.5 h-2.5" /></Button>
+                            <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setTroops(Math.max(1, troops - 1))} disabled={troops <= 1}><ChevronDown className="w-3.5 h-3.5" /></Button>
                             <span className="font-mono text-sm w-5 text-center">{troops}</span>
-                            <Button variant="outline" size="icon" className="h-5 w-5" onClick={() => setTroops(Math.min(maxTroops, troops + 1))} disabled={troops >= maxTroops}><ChevronUp className="w-2.5 h-2.5" /></Button>
+                            <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setTroops(Math.min(maxTroops, troops + 1))} disabled={troops >= maxTroops}><ChevronUp className="w-3.5 h-3.5" /></Button>
                           </div>
                         </div>
                         <Slider value={[troops]} onValueChange={([v]) => setTroops(v)} min={1} max={Math.max(1, maxTroops)} step={1} className="w-full" />

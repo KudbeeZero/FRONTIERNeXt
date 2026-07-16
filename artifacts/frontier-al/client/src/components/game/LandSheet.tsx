@@ -120,7 +120,7 @@ export function LandSheet({
       )}
       data-testid="land-sheet"
     >
-      <div className="mx-2 backdrop-blur-xl bg-gradient-to-b from-card/95 to-card/85 border border-border/60 rounded-t-xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: expanded ? "75vh" : "280px" }}>
+       <div className="mx-2 backdrop-blur-xl bg-gradient-to-b from-card/95 to-card/85 border border-border/60 rounded-t-xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: expanded ? "75vh" : "280px", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div
           className="h-2 w-full shrink-0"
           style={{ backgroundColor: biomeColors[parcel.biome] }}
