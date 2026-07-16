@@ -102,6 +102,36 @@ function firstLine(s) {
   return (idx === -1 ? s : s.slice(0, idx)).trim();
 }
 
+/**
+ * Strip any embedded credentials from a git remote URL before it is written to
+ * the committed generated.ts (which is imported by the client bundle). CI/build
+ * environments configure `remote.origin.url` with an authenticated form such as
+ * `https://x-access-token:<TOKEN>@github.com/owner/repo.git`; writing that
+ * verbatim leaks the token into version control and the shipped frontend.
+ * We keep only host + path (e.g. `github.com/owner/repo`) and drop the scheme,
+ * any `user[:password]@` userinfo, and the `.git` suffix. Non-URL/SSH forms and
+ * anything unparseable collapse to a safe placeholder.
+ */
+function sanitizeRemoteUrl(url) {
+  if (!url) return null;
+  let s = String(url).trim();
+  // scp-like SSH form: git@github.com:owner/repo.git
+  const sshMatch = s.match(/^[^@/]+@([^:]+):(.+)$/);
+  if (sshMatch) {
+    return `${sshMatch[1]}/${sshMatch[2]}`.replace(/\.git$/, "");
+  }
+  // Strip scheme.
+  s = s.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, "");
+  // Strip any userinfo (user[:password]@) — this is where the token lives.
+  const at = s.lastIndexOf("@");
+  if (at !== -1) s = s.slice(at + 1);
+  s = s.replace(/\.git$/, "");
+  // Final defensive guard: never emit a value that still contains ':' before a
+  // path separator with credentials-looking content, or an '@'.
+  if (s.includes("@")) return "redacted";
+  return s || null;
+}
+
 // --- Git -------------------------------------------------------------------
 
 function readGit() {
@@ -118,7 +148,9 @@ function readGit() {
   const commitSubject = firstLine(
     safeExec("git", ["log", "-1", "--format=%s"]),
   );
-  const remoteUrl = safeExec("git", ["config", "--get", "remote.origin.url"]);
+  const remoteUrl = sanitizeRemoteUrl(
+    safeExec("git", ["config", "--get", "remote.origin.url"]),
+  );
   // Try to find the memory layer's HEAD. The memory layer is docs/memory — no
   // separate branch, so we report the same SHA. We still try the env override
   // MEMORY_LAYER_HEAD_SHA in case future work splits it.

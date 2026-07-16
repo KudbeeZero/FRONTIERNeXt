@@ -46,6 +46,20 @@ describe("missionControlData (Phase 2)", () => {
     ).toBe(true);
   });
 
+  it("never leaks credentials in the remote URL (no embedded token)", () => {
+    // Security regression guard: the generator runs
+    // `git config --get remote.origin.url`, which in CI/build is an
+    // authenticated form like `https://x-access-token:<TOKEN>@github.com/...`.
+    // That value MUST be sanitized to host/path only before being written to
+    // this committed, client-bundled file — otherwise the token leaks into
+    // version control and the shipped frontend.
+    const url = generated.repository.remoteUrl ?? "";
+    expect(url).not.toContain("@");
+    expect(url).not.toMatch(/x-access-token/i);
+    expect(url).not.toMatch(/:\/\//); // scheme (and thus any userinfo) stripped
+    expect(url).not.toMatch(/:[^/]*@/); // user:password@ form
+  });
+
   it("derives the app version and built timestamp from the build environment", () => {
     expect(generated.build.appVersion).toMatch(/^\d+\.\d+\.\d+/);
     expect(generated.build.env).toBeTruthy();
