@@ -5,6 +5,12 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
+- **Unit:** Mission Control dashboard (internal dev tool) — **DONE, PR OPEN** (branch `feat/mission-control-dashboard`, off `origin/main` @ `0913ac4`).
+  - `client/src/pages/MissionControl.tsx` + `client/src/components/mission-control/` (`missionControlData.ts` static data, `StatusChip.tsx`, `MissionControlSection.tsx`) — 7 panels: System Status, Workflow Health, Current Priorities, Build Health, Owner Actions, Memory Layer, Branch Hygiene.
+  - `/mission-control` route added to `App.tsx`, lazy-loaded, mounted OUTSIDE `WalletProvider` (same pattern as `/admin` + `/university`) — no wallet/chain/backend/DB.
+  - Static-only (no API/polling). Status color chips, copy-SHA button, and mobile collapsible sections included. Dark-mode compatible, mobile-first (desktop / iPhone portrait / landscape).
+  - Added `vitest.config.ts` + `client/src/components/mission-control/missionControlData.test.ts` (data-contract guard). `pnpm check` clean; `test` 3/3; `test:server` 706/706; `build` green.
+  - Headless screenshots NOT captured in-sandbox (Chromium missing OS shared libs `libnspr4.so`); documented as not browser-verified in this container. Owner device QA still required for wallet flows.
 - **Unit:** Memory Layer runner prompt + session updater — **DONE & MERGED** (PR #269 `ae57840`).
   - Implemented the memory-layer runner workflow: `docs/memory/KILO_RUNNER_PROMPT.md` (session-start prompt), `docs/memory/SESSION_UPDATER.md` (closeout procedure, 5 memory-write targets), `docs/memory/00-STATE-INDEX.md` (canonical current-state index — previously missing), `docs/memory/10-completed/_INDEX.md` (completed-lane index).
   - `.github/workflows/session-log.yml` confirmed as the **sole** session-updater trigger; added verification-only `.github/workflows/memory-session-check.yml` (no memory writes). Prior DRAFT's duplicate `memory-session-update.yml` + Notion scripts/secrets removed.
@@ -92,7 +98,7 @@
 - **Previous result:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
 
 ## NEXT
-- **Next lane (after memory resync):** Memory layer is now in sync with `main` (`3a15bad`) — STATE-INDEX, this baton, and `10-completed/_INDEX.md` reflect PRs #266–#269. Resume the feature roadmap: faction economy / treasury / equity / contribution-ledger foundation (deferred by PR #256) or the next Battle Planner / sub-plot combat implementation phase, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR.
+- **Next lane (after Mission Control merge + owner review):** resume the feature roadmap — faction economy / treasury / equity / contribution-ledger foundation (deferred by PR #256) or the next Battle Planner / sub-plot combat implementation phase, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR. Do NOT begin economy work, backend automation, or branch cleanup until owner signs off on the dashboard.
 - **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
