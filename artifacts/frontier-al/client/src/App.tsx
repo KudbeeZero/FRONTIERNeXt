@@ -27,6 +27,8 @@ import UniversityPage from "@/pages/university";
 // Lazy-loaded so the dashboard's chart library (recharts) is code-split out of
 // the main bundle and only fetched when an operator opens /admin.
 const AdminDashboard = lazy(() => import("@/pages/admin"));
+// Internal Mission Control dashboard — informational only, no wallet/chain.
+const MissionControl = lazy(() => import("@/pages/MissionControl"));
 
 function App() {
   const [location] = useLocation();
@@ -48,6 +50,11 @@ function App() {
                   U1 audit note). Kept outside the shared provider below. */}
               <Route path="/university">
                 <UniversityPage />
+              </Route>
+              <Route path="/mission-control">
+                <Suspense fallback={null}>
+                  <MissionControl />
+                </Suspense>
               </Route>
               <Route path="/admin">
                 <Suspense fallback={null}>
