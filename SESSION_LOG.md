@@ -2,8 +2,8 @@
 
 ## Latest Session
 
-- **PR Number:** #269
-- **PR Title:** docs(memory): KILO runner prompt + session updater (single trigger, no Notion)
-- **Merge SHA:** ae578407db1c9204d4c51abacb66971826affde2
-- **Date/Time (UTC):** 2026-07-14T18:14:15Z
-- **Files Changed:** .github/workflows/memory-session-check.yml,docs/memory/00-STATE-INDEX.md,docs/memory/10-completed/_INDEX.md,docs/memory/KILO_RUNNER_PROMPT.md,docs/memory/SESSION_UPDATER.md
+- **PR Number:** #271
+- **PR Title:** docs(memory): resync state index and baton
+- **Merge SHA:** f397a8e2bfc33046c1003cb87acf8d758a98167e
+- **Date/Time (UTC):** 2026-07-16T03:32:27Z
+- **Files Changed:** docs/HANDOFF.md,docs/memory/00-STATE-INDEX.md,docs/memory/10-completed/_INDEX.md
