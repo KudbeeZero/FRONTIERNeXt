@@ -20,20 +20,20 @@
 
 export const generated = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T14:46:50.477Z",
+  "generatedAt": "2026-07-16T15:57:07.962Z",
   "repository": {
-    "headSha": "5e4c1a3",
-    "headShaFull": "5e4c1a308aa11c37386aa18dd1879d500788b5a6",
-    "branch": "feat/mission-control-repo-intelligence",
-    "remoteUrl": "https://x-access-token:kgh2.Hw+RIq79SsKfBvgVyMe4Sg%3D%3D%3AeJXsoOOvmm1P4mr%2F+DfXBg%3D%3D%3A%2F43VgIh8deljQwatYY6G%2F2RGn4BxlbLOKN+BRcLguh42BYihL1wV9L+1DxjGtMwC0vqaddsJ6i404NyZ6gOjcWMB%2Fus1g0M3RgyoiLu5cFZc91CewVd9MnGcr+DejeE1S9wjmecOZYVu7cxAibEIoUIrVcpg33OVgEKt+befEEWTcM5FYr61mmoHN8cFBKtGjReqRl%2FgZ%2FvSmXKm72ScCDZpbAbmumVG8RiFVyao6M5Kxt4pz2R6NixYir65Pi+UPLKhn4w0W4vfdi0D7pbejxPjmvsXyKDBQOc2kfwEWFuW5jnKzfNCCx4tdF3gnyWuyWDG0Y8bAETVGE5p9ypfRftxe1s6OErcwGs5kNnWhWj%2F4sWOdV%2FeFPI0s8P5BPrh5n+I8VX2ewIbX+pKcaHKjGx3BOm73ZKDjwHk+dT1NxZe5BhWaTNdSpGGeygFtxApo1BPoJj+GPYpdX4GUS2Bumw1OSvwgAWtgvEpSk5NZM5zbwrCfypARzbXHNRpbCJuXZ5QTvLSvsv7TjP9FMx2jgVH1noQZqeA4QJoPEp692ELKpwGDGM2BLivZ3DxwuHIuzriOKRRarI1igwjvkST8aabFABmqU9K47n%2Fn4YyP3yj77BNfYkt%2FYPsYZVOkZmh5oPvJFjezhKvJxHZLAa0c7%2Ft+fX1m2VwtyrH%2FOoxAEn7mkM8FZ4JnzaNS%2FRbMFaGGMJJ1kMVWrMjL1CcVJj7R+ARInnuk0QDhECnnHbG+IBxbisso%2FbDRXO1pzBkiij4czI%3D@github.com/KudbeeZero/FRONTIERNeXt.git",
-    "commitTimestampIso": "2026-07-16T14:45:06Z",
-    "commitSubject": "feat(mission-control): Phase 2 — repository intelligence via build-time generator"
+    "headSha": "3b8f50a",
+    "headShaFull": "3b8f50a7850f8f2150e1ef7943d289bdffe8897f",
+    "branch": "feat/memory-layer-kilo-runner",
+    "remoteUrl": "https://x-access-token:kgh2.87dY7QlSviZB08XuDYhTMg%3D%3D%3AkoI4eLWIfrTtP2CJrMW6%2FA%3D%3D%3AEPwIXwIQcPBA17bdidLcOVh67a3d6bIcaf%2FAnJOKFKSvDrsVis5%2FG3hubMwJ5tx49O0D99KVZq2SQdcRePL21bvkdRnbeIfNAY883mKnBZa256FMs2fVKw6NauDrMqpmgP3WW2VJGrJ0JKCZxO2WoCumkWnjab%2FI449XNOjljnoGC+zswyN%2FyPmYIWh9YCCYrXvXnlRASMskD9qXTZMKAPUnAIrVTuZS9YJIaFaqfGHA0M+L1Jo0MDXh7YodafRQDZPzM2qkZe8le6yZe0YQPv+LA7ezg+ntzFXlU31hTtBkdkBrUgAjmhvZZtVxSLRM4VE6oPOyrR2yKUKgqCySqk7dY6UzlUu2k7DU3FyzsfKNTqFCAqUDGkre30EyCUvNHEXcMlZZ4HKJuLNQAOubtJxoQ+7u5n1GiZ9OydGb90iG3UBZZtKBtrc+Gqn8kDB5tfuMoCtLcCb2709Ep3TwRw5mPyBEleLMhKzd2Pd%2Fk0blarMVMwXCoyjxYnidnMKKK1eGYWwjLSNMyAh8hG3UHRRThG5qfY%2Fy2%2FkDyjQ%2FBWP2MNEVUZqbryKXJnOjz7PxdXfj%2Fz32M2eExa%2F5Dm7CCOHVzNbxveK6C1KHGeaYvQ2ENV71ZhT3KDIqmyxG43YNtjj8P23nXNzfg3ooy29B0x3Pt8aLSF21xSMrWvJOXwozOxihyMwYM2SO8ggI7OkTLBkxMtxOlNLfvrg3dxaCX%2FzbgE5aiW3MhQ+bnm9acrDD6CER6rlMz4+UYhij6KG6Iuo%3D@github.com/KudbeeZero/FRONTIERNeXt.git",
+    "commitTimestampIso": "2026-07-16T15:54:48Z",
+    "commitSubject": "docs(memory): port KILO runner prompt + session updater workflow"
   },
   "build": {
     "appVersion": "2.0.1",
     "env": "development",
     "mode": "production",
-    "builtAtIso": "2026-07-16T14:46:50.477Z",
+    "builtAtIso": "2026-07-16T15:57:07.962Z",
     "testTotals": {
       "client": {
         "files": 1,
@@ -54,10 +54,10 @@ export const generated = {
   },
   "workflow": {
     "lastMergedPr": {
-      "number": 273,
-      "title": "feat(mission-control): internal dashboard at /mission-control",
-      "mergedSha": "b82ff23",
-      "mergedAt": "2026-07-16T11:19:09Z"
+      "number": 274,
+      "title": "feat(mission-control): Phase 2 — repository intelligence via build-time generator",
+      "mergedSha": "dd91980",
+      "mergedAt": "2026-07-16T15:40:14Z"
     },
     "lastSessionNote": {
       "date": "2026-07-16",
@@ -65,14 +65,14 @@ export const generated = {
       "filename": "2026-07-16-mission-control-phase-2.md"
     },
     "lastSessionLog": {
-      "prNumber": "273",
-      "prTitle": "feat(mission-control): internal dashboard at /mission-control",
-      "mergeSha": "b82ff2328c70e9b69465c29e998a9ad7b1883b49",
-      "date": "2026-07-16T11:19:09Z",
-      "filesChanged": "artifacts/frontier-al/client/src/App.tsx,artifacts/frontier-al/client/src/components/mission-control/MissionControlSection.tsx,artifacts/frontier-al/client/src/components/mission-control/StatusChip.tsx,artifacts/frontier-al/client/src/components/mission-control/missionControlData.test.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.ts,artifacts/frontier-al/client/src/pages/MissionControl.tsx,artifacts/frontier-al/session-notes/2026-07-16-mission-control-dashboard.md,artifacts/frontier-al/vitest.config.ts,docs/HANDOFF.md"
+      "prNumber": "274",
+      "prTitle": "feat(mission-control): Phase 2 — repository intelligence via build-time generator",
+      "mergeSha": "dd91980880b1ce5d1e9d167977e99392ee385bf6",
+      "date": "2026-07-16T15:40:14Z",
+      "filesChanged": "artifacts/frontier-al/client/src/components/mission-control/generated.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.test.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.ts,artifacts/frontier-al/client/src/components/mission-control/testTotals.json,artifacts/frontier-al/client/src/pages/MissionControl.tsx,artifacts/frontier-al/package.json,artifacts/frontier-al/scripts/capture-test-totals.mjs,artifacts/frontier-al/scripts/generate-mission-control-data.mjs,artifacts/frontier-al/session-notes/2026-07-16-mission-control-phase-2.md"
     },
     "latestCompletedLane": "mobile-globe-touch-regression",
-    "memoryLayerHeadSha": "5e4c1a3",
+    "memoryLayerHeadSha": "3b8f50a",
     "workflows": [
       {
         "name": "ci",
@@ -108,8 +108,9 @@ export const generated = {
   },
   "branches": {
     "activeFeatureBranches": [
-      "feat/mission-control-repo-intelligence",
-      "session/agent_3d6000eb-b7ed-4249-8526-d8d1a79cf529"
+      "feat/memory-layer-kilo-runner",
+      "feat/memory-layer-runner-workflow",
+      "session/agent_091033b4-09e3-4148-9664-1bea220e13cc"
     ],
     "staleBranches": [],
     "localOnlyBranches": []
