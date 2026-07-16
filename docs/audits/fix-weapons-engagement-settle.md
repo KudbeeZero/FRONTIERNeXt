@@ -1,7 +1,13 @@
 # Audit — fix/weapons-engagement-settle
 
 ## Verdict
-**PASS** — additive, self-contained bug fix; no gameplay-math, persisted-data, funds, ASA, or auth changes. Local tests green (tsc exit 0, server 708 pass, client 9 pass). One pre-existing, unrelated `precheck`-generator typecheck break on `main` is documented below and is NOT introduced by this diff.
+**PASS** — additive, self-contained weapons bug fix + a required CI-unblocking fix to the mission-control generator (owner-authorised). No gameplay-math, persisted-data, funds, ASA, or auth changes. Full gate green together: `pnpm run check` exit 0 (precheck generator + tsc), server 708 pass, client 9 pass.
+
+## Second concern in this PR — mission-control generator CI unblock (owner-authorised)
+The pre-existing break noted below (the generator emitting `null` for `lastMergedPr.number`) **blocked CI on this PR** (`Typecheck & server tests` failed on head with the identical `TS2322` at `missionControlData.ts:184,202`, also failing on clean `main`). With owner authorisation, fixed at the root cause:
+- ✅ **`scripts/generate-mission-control-data.mjs`**: `Number(sessionLog.prNumber)` returned `NaN` for a non-numeric/empty PR-number field (e.g. a session-note commit), and `JSON.stringify(NaN)` → `null`. Now parses via `Number.parseInt` and only takes the numeric branch when the result is a finite positive integer; else falls back to the existing `number: 0` shape. Verified: fresh regen now emits `"number": 0`, and `pnpm run check` exits 0.
+- ✅ **`missionControlData.test.ts`**: strengthened the existing `lastMergedPr` test to assert `typeof number === "number"` and `Number.isFinite(number)` — a regression guard that fails if the generator ever emits `null` again. Client suite 9/9.
+- Committed `generated.ts` updated so its `lastMergedPr.number` is `0` (valid) rather than the stale `274`.
 
 ## PR / branch / commit
 - **Branch:** `fix/weapons-engagement-settle` (off clean `origin/main`)
@@ -24,8 +30,8 @@ Run from `artifacts/frontier-al` (hooks bypassed to avoid the pre-existing gener
 - `npx vitest run --config vitest.server.config.ts` (full server) → **73 passed | 8 skipped; 708 tests passed | 26 skipped** (main is 706; +2 = new tests).
 - `npx vitest run --config vitest.config.ts` (client) → **1 file, 9 passed**.
 
-### Pre-existing, unrelated break (NOT introduced here)
-`pnpm run check` fails via its `precheck` hook, which runs `scripts/generate-mission-control-data.mjs` and regenerates `client/src/components/mission-control/generated.ts` with `null` where `missionControlData.ts` expects `number` (`TS2322` at lines 184, 202). **Reproduced identically on clean `origin/main`** (git-stashed this diff, checked out `main`, same error). It is an environment/generator issue independent of this change. This diff reverts the byproduct `generated.ts` regen and does not touch mission-control code. Flagged in the baton for a separate fix.
+### Pre-existing break — NOW FIXED in this PR (see "Second concern" above)
+`pnpm run check` used to fail via its `precheck` hook regenerating `generated.ts` with `null` where `missionControlData.ts` expects `number`. Root-caused to `NaN`→`null` JSON serialization and fixed in the generator (owner-authorised). `pnpm run check` now exits 0 with the precheck generator running.
 
 ## Scope creep
 None in the shipped diff. Files changed: `server/weapons/engagementStore.ts`, `server/weapons/engagementStore.spec.ts` only.
