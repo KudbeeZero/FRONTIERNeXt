@@ -5,6 +5,11 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
+- **Unit:** Weapons `EngagementStore.settle()` (C-1) + mission-control generator CI unblock — **DONE & MERGED** (PR #277 `0e16e56`, 2026-07-16).
+  - Salvaged the SAFE, additive slice of stranded session branch `session/agent_169829a4` (committed weapons work, never opened a PR): added idempotent `EngagementStore.settle()` (in_flight→impacted past impactTs, returns damage) + `active()` now retains `impacted` within fade window + 2 unit tests. `settle()` is NOT yet wired to a live route (dead-code-with-coverage; labeled).
+  - **Owner-authorised CI fix:** the mission-control build-time generator emitted `"number": null` for `lastMergedPr` when the latest SESSION_LOG entry had a non-numeric PR field (`Number(x)`→`NaN`→JSON `null`), breaking `pnpm run check` (TS2322 `missionControlData.ts:184,202`) non-deterministically (green on stale committed snapshot, red on fresh precheck regen). Fixed at root: `Number.parseInt` + finite-positive-int guard, else `number:0`. Strengthened `missionControlData.test.ts` contract test to assert `number` is always finite.
+  - Verify gate green: `check` exit 0 (precheck generator + tsc); `test:server` 708/708 (+2); `test` 9/9. CI green on head `3b5a4a2`: Typecheck & server tests ✅ + Cloudflare Pages ✅.
+  - **DELIBERATELY EXCLUDED from `session/agent_169829a4` (risky — owner decision needed): (1)** `loadout` spec-id→instance-id change — `loadout` is a PERSISTED field (`db-schema.ts:217`); flipping its meaning with NO migration would silently un-equip existing players' weapons. **(2)** firepower `*0.1` (10%/pt) damage modifier — a COMBAT-BALANCE change, not a bug fix. Both need an owner-approved gameplay unit + a migration for (1).
 - **Unit:** Battle Planner route + page shell — **DONE & MERGED** (PR #276 `f9fb5b6`).
   - Added `client/src/pages/battle-planner.tsx` with `BattlePlannerPage` shell wiring existing `BattlePlanner` component to `useGameState`, `useAttack`, `useCurrentPlayer`, `useWallet`, `useToast`.
   - Wired `/battle-planner` route in `App.tsx`.
@@ -102,6 +107,7 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
+- **Shipped:** Weapons `EngagementStore.settle()` (C-1) + mission-control generator CI unblock — PR #277 `0e16e56` (2026-07-16). Salvaged safe slice of stranded branch `session/agent_169829a4`; fixed flaky precheck generator at root cause (owner-authorised). Gate green: `check` exit 0; `test:server` 708/708; `test` 9/9. CI green on `3b5a4a2` (Typecheck & server tests ✅ + Cloudflare Pages ✅).
 - **Shipped:** Battle Planner route + page shell — PR #276 `f9fb5b6` (2026-07-16). Added `/battle-planner` route and `BattlePlannerPage` shell. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
 - **Shipped:** Memory Layer runner prompt + session updater — PR #275 `76a559d` (2026-07-16). Clean port of `docs/memory/KILO_RUNNER_PROMPT.md` + `docs/memory/SESSION_UPDATER_WORKFLOW.md` onto fresh branch after closing obsolete PR #270. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
 - **Shipped:** Mission Control Phase 2 — PR #274 `dd91980` (2026-07-16). Build-time generator + 9-section dashboard. CI green on head `793e745`: Typecheck & server tests ✅ + Cloudflare Pages ✅. `missionControlData.test.ts` 9/9 pass.
@@ -111,6 +117,12 @@
 - **Previous result:** Mobile globe touch regression coverage — PR #265 `ba2e71f` (2026-07-14).
 
 ## NEXT
+- **Owner decision — weapons loadout + firepower (from stranded `session/agent_169829a4`):** two changes were deliberately NOT shipped in PR #277. (1) `loadout` spec-id→instance-id data-model change needs a DB migration for existing persisted loadouts before it is safe. (2) firepower `*0.1` damage modifier is a combat-balance change needing owner approval. Only re-open these as an owner-approved gameplay unit (with migration for #1). Do NOT cherry-pick them as-is.
+- **Wire `EngagementStore.settle()`:** it now exists + is tested but is not called by any live route/interval. A follow-up unit can wire settlement into the weapons fire/impact flow (server-authoritative). Keep it scoped and audited.
+- **Stranded session branches still un-shipped (inventory as of 2026-07-16, for cleanup/owner triage):**
+  - `session/agent_169829a4` — weapons work; SAFE slice salvaged into PR #277. Remaining risky parts (loadout+firepower) intentionally left; branch can be deleted once the owner-approved gameplay unit is planned.
+  - `session/agent_d60fbfc0` + `session/agent_bb0af933` — near-duplicate `tx-asa-764083761-config.md` audit docs for the OWNER-ONLY ASCEND ASA on-chain reconfig (signed on-chain action, not an app-code PR). Dedupe into one doc PR or leave; not blocking.
+  - `session/agent_091033b4` — `docs/audits/feat-mission-control-repo-intelligence.md` audit doc for already-merged PR #274; stale, safe to delete.
 - **Next lane:** Resume feature roadmap — Battle Planner planner UI, or faction economy / treasury / equity / contribution-ledger foundation, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR.
 - **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
