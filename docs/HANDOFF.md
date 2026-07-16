@@ -5,7 +5,17 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Mobile globe touch regression coverage — **DONE & MERGED** (PR #265 `ba2e71f`).
+- **Unit:** Memory Layer runner prompt + session updater — **DONE & MERGED** (PR #269 `ae57840`).
+  - Implemented the memory-layer runner workflow: `docs/memory/KILO_RUNNER_PROMPT.md` (session-start prompt), `docs/memory/SESSION_UPDATER.md` (closeout procedure, 5 memory-write targets), `docs/memory/00-STATE-INDEX.md` (canonical current-state index — previously missing), `docs/memory/10-completed/_INDEX.md` (completed-lane index).
+  - `.github/workflows/session-log.yml` confirmed as the **sole** session-updater trigger; added verification-only `.github/workflows/memory-session-check.yml` (no memory writes). Prior DRAFT's duplicate `memory-session-update.yml` + Notion scripts/secrets removed.
+  - Docs/process only: no app code, schema/migration, ASA/wallet/treasury, or combat changes. CI green (typecheck + server tests + memory-session-check).
+- **Previous unit:** Battle Planner Draft Persistence (Phase 4) — **DONE & MERGED** (PR #268 `88ff4ff`).
+  - `feat(planner)`: Planner Draft Persistence via `localStorage`.
+- **Previous unit:** Battle Planner globe attack path visualization (Phase 3) — **DONE & MERGED** (PR #267 `b96f273`).
+  - `feat(frontier)`: Battle Planner globe attack path visualization.
+- **Previous unit:** Battle Planner outcome preview (Phase 2) — **DONE & MERGED** (PR #266 `affaa52`).
+  - `feat(frontier)`: add Battle Planner outcome preview.
+- **Previous unit:** Mobile globe touch regression coverage — **DONE & MERGED** (PR #265 `ba2e71f`).
   - Added regression documentation and TODO pointers for the mobile globe touch fixes from PR #263.
   - `client/docs/testing/mobile-globe-touch.md` — explains why automated multi-touch regression coverage is impractical in the current Node/SSR test harness, documents exact manual reproduction steps, expected outcomes, and future test ideas.
   - `client/docs/testing/mobile-globe-regression-checklist.md` — QA checklist with eight mobile interaction checks.
@@ -30,7 +40,7 @@
   - Rules ordered BEFORE the `/*` SPA fallback; `/nft/biomes/*` and `/api/*` deliberately NOT proxied.
   - Added 8-case regression spec (`client/tests/cloudflare-redirects.spec.ts`); full client suite 466/466 + typecheck clean + CI green (Typecheck & server tests + Cloudflare Pages).
   - No application code, no chain/ASA, no auth, no idempotency, no marketing copy, no archetype/energy changes.
-- **Next lane:** Battle Planner (Battle Target Selector pre-cursor shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work. The ASCEND ASA `764083761` on-chain URL reconfiguration is a separate OWNER-SIGNED ON-CHAIN ACTION, not an app-code PR (verified in the Perplexity launch-blocker audit, separate lane).
+- **Next lane:** Battle Planner is **DONE & MERGED** through Phase 4 (PRs #266 outcome preview, #267 globe attack path, #268 draft persistence). Faction economy / treasury / equity / contribution-ledger remain future work. The ASCEND ASA `764083761` on-chain URL reconfiguration is a separate OWNER-SIGNED ON-CHAIN ACTION, not an app-code PR (verified in the Perplexity launch-blocker audit, separate lane).
 - **Owner-only blocker:** production activation was **not** performed by agents (no `flyctl`/`FLY_API_TOKEN`, no secret-setting workflow). Owner must run:
   `flyctl secrets set -a frontiernext AI_ENABLED=true AI_TURN_INTERVAL_MS=120000 DEBUFF_CLEANUP_INTERVAL_MS=60000 AI_MAX_ACTIVE_BATTLES=12`
   then confirm `/health` 200 and observe 15 min (AI ~120 s, debuff ~60 s, active battles ≤ 12). See `docs/memory/FRONTIER_BACKGROUND_LOOP_COST_CONTROL.md`.
@@ -73,12 +83,17 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
+- **Shipped:** Memory Layer runner prompt + session updater — PR #269 `ae57840` (2026-07-14). Established the memory-layer workflow: `KILO_RUNNER_PROMPT.md` (session-start), `SESSION_UPDATER.md` (closeout, 5 targets), `00-STATE-INDEX.md` + `10-completed/_INDEX.md`. Verification-only `memory-session-check.yml` added; `session-log.yml` is the sole updater trigger. Docs/process only; no app/schema/ASA/combat changes. CI green.
+- **Shipped:** Battle Planner Draft Persistence (Phase 4) — PR #268 `88ff4ff` (2026-07-14). `localStorage` draft persistence for the planner.
+- **Shipped:** Battle Planner globe attack path visualization (Phase 3) — PR #267 `b96f273` (2026-07-14).
+- **Shipped:** Battle Planner outcome preview (Phase 2) — PR #266 `affaa52` (2026-07-14).
 - **Shipped:** Mobile globe touch regression coverage — PR #265 `ba2e71f` (2026-07-14). Added regression docs and TODO pointers for the mobile globe touch fixes. Automated multi-touch coverage is impractical in the current Node/SSR test harness; manual QA checklist documents the eight verification steps. No production behavior changes. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
 - **Previous result:** Mobile plot sheet independent close — PR #264 `eac4a2a` (2026-07-13). Added `showMobileSheet` state in GameLayout so the bottom sheet can be closed independently from the globe peek card. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
 - **Previous result:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
 
 ## NEXT
-- **Next lane:** Battle Planner (Battle Target Selector shipped; next is the planner UI). Faction economy / treasury / equity / contribution-ledger remain future work.
+- **Next lane (after memory resync):** Memory layer is now in sync with `main` (`3a15bad`) — STATE-INDEX, this baton, and `10-completed/_INDEX.md` reflect PRs #266–#269. Resume the feature roadmap: faction economy / treasury / equity / contribution-ledger foundation (deferred by PR #256) or the next Battle Planner / sub-plot combat implementation phase, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR.
+- **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.
