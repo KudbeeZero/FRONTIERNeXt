@@ -75,6 +75,13 @@ describe("missionControlData (Phase 2)", () => {
     // accepts anything that looks like a real PR (>0, has a title, merged
     // at a parseable date).
     const pr = generated.workflow.lastMergedPr;
+    // Regression guard: `number` must ALWAYS be a finite number, never null.
+    // A non-numeric SESSION_LOG "PR Number" (e.g. a session-note commit) used
+    // to make the generator emit Number("x") === NaN, which JSON-serialised to
+    // `null` and broke the `number: number` contract, failing `pnpm run check`
+    // non-deterministically depending on the latest log entry.
+    expect(typeof pr.number).toBe("number");
+    expect(Number.isFinite(pr.number)).toBe(true);
     if (pr.number > 0) {
       expect(pr.title.length).toBeGreaterThan(0);
       if (pr.mergedAt) {

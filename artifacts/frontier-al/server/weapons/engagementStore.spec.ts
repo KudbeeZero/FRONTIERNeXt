@@ -103,4 +103,24 @@ describe("EngagementStore", () => {
     expect(() => store.deployDefense({ specId: "def_aegis", ownerId: "p3", parcelId: "ok", at: TARGET }))
       .not.toThrow();
   });
+
+  // C-1 fix: settle() transitions in_flight -> impacted past impactTs
+  it("settle() marks an in-flight engagement as impacted past its impact time", () => {
+    const e = launchCruise(store, "p1", 1000);
+    expect(e.status).toBe("in_flight");
+    // Before impactTs: settle is a no-op
+    expect(store.settle(e.id, 1000)).toBeNull();
+    expect(store.get(e.id)?.status).toBe("in_flight");
+    // At/past impactTs: settle transitions to impacted and returns damage
+    const result = store.settle(e.id, e.impactTs);
+    expect(result).not.toBeNull();
+    expect(result!.damage).toBeGreaterThan(0);
+    expect(store.get(e.id)?.status).toBe("impacted");
+  });
+
+  it("settle() refuses to re-settle an already-impacted engagement", () => {
+    const e = launchCruise(store, "p1", 1000);
+    store.settle(e.id, e.impactTs);
+    expect(store.settle(e.id, e.impactTs + 100)).toBeNull();
+  });
 });

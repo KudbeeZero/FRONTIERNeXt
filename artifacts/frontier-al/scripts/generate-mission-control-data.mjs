@@ -355,19 +355,27 @@ function buildOutput() {
   const branchHygiene = readBranchHygiene();
   const totals = readTestTotalsFile();
 
+  // Guard against a non-numeric PR number (e.g. a session-note commit whose
+  // "PR Number" field is empty or "N/A"): Number("x") is NaN, and
+  // JSON.stringify(NaN) is `null`, which broke the `number: number` contract in
+  // missionControlData.ts and made `pnpm run check` fail non-deterministically
+  // depending on the latest SESSION_LOG entry. Parse to a finite positive int or
+  // fall through to the unknown shape.
+  const parsedPrNumber = sessionLog?.prNumber ? Number.parseInt(sessionLog.prNumber, 10) : NaN;
+  const hasValidPrNumber = Number.isInteger(parsedPrNumber) && parsedPrNumber > 0;
   const lastMergedPr =
-    sessionLog && sessionLog.prNumber
+    sessionLog && hasValidPrNumber
       ? {
-          number: Number(sessionLog.prNumber),
+          number: parsedPrNumber,
           title: sessionLog.prTitle || "(no title)",
           mergedSha: trimSha(sessionLog.mergeSha),
           mergedAt: sessionLog.date,
         }
       : {
           number: 0,
-          title: "unknown",
-          mergedSha: null,
-          mergedAt: null,
+          title: sessionLog?.prTitle || "unknown",
+          mergedSha: trimSha(sessionLog?.mergeSha) ?? null,
+          mergedAt: sessionLog?.date ?? null,
         };
 
   const output = {

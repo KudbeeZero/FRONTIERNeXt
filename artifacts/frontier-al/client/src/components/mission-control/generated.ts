@@ -20,20 +20,20 @@
 
 export const generated = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T15:57:07.962Z",
+  "generatedAt": "2026-07-16T16:57:35.056Z",
   "repository": {
-    "headSha": "3b8f50a",
-    "headShaFull": "3b8f50a7850f8f2150e1ef7943d289bdffe8897f",
-    "branch": "feat/memory-layer-kilo-runner",
-    "remoteUrl": "https://x-access-token:kgh2.87dY7QlSviZB08XuDYhTMg%3D%3D%3AkoI4eLWIfrTtP2CJrMW6%2FA%3D%3D%3AEPwIXwIQcPBA17bdidLcOVh67a3d6bIcaf%2FAnJOKFKSvDrsVis5%2FG3hubMwJ5tx49O0D99KVZq2SQdcRePL21bvkdRnbeIfNAY883mKnBZa256FMs2fVKw6NauDrMqpmgP3WW2VJGrJ0JKCZxO2WoCumkWnjab%2FI449XNOjljnoGC+zswyN%2FyPmYIWh9YCCYrXvXnlRASMskD9qXTZMKAPUnAIrVTuZS9YJIaFaqfGHA0M+L1Jo0MDXh7YodafRQDZPzM2qkZe8le6yZe0YQPv+LA7ezg+ntzFXlU31hTtBkdkBrUgAjmhvZZtVxSLRM4VE6oPOyrR2yKUKgqCySqk7dY6UzlUu2k7DU3FyzsfKNTqFCAqUDGkre30EyCUvNHEXcMlZZ4HKJuLNQAOubtJxoQ+7u5n1GiZ9OydGb90iG3UBZZtKBtrc+Gqn8kDB5tfuMoCtLcCb2709Ep3TwRw5mPyBEleLMhKzd2Pd%2Fk0blarMVMwXCoyjxYnidnMKKK1eGYWwjLSNMyAh8hG3UHRRThG5qfY%2Fy2%2FkDyjQ%2FBWP2MNEVUZqbryKXJnOjz7PxdXfj%2Fz32M2eExa%2F5Dm7CCOHVzNbxveK6C1KHGeaYvQ2ENV71ZhT3KDIqmyxG43YNtjj8P23nXNzfg3ooy29B0x3Pt8aLSF21xSMrWvJOXwozOxihyMwYM2SO8ggI7OkTLBkxMtxOlNLfvrg3dxaCX%2FzbgE5aiW3MhQ+bnm9acrDD6CER6rlMz4+UYhij6KG6Iuo%3D@github.com/KudbeeZero/FRONTIERNeXt.git",
-    "commitTimestampIso": "2026-07-16T15:54:48Z",
-    "commitSubject": "docs(memory): port KILO runner prompt + session updater workflow"
+    "headSha": "bacd73b",
+    "headShaFull": "bacd73be500e76e443428651cb61891623fd4b31",
+    "branch": "fix/weapons-engagement-settle",
+    "remoteUrl": "https://x-access-token:kgh2.ZdmyYDPzZkpxtUf7scOEtw%3D%3D%3A2BNELdI+v%2FJgUl7Lc853+g%3D%3D%3AN2EfTppkUc6KdviWDXzHvnBypUZsgt44%2F1dHz8MPs4J5tuHk6SZwAv19teC8ydoo2FjsajczCz5qLI7DZ+v5H39LyjghsFOLC2vJ17h7A6ZErkhmEl5uGohx8AdEFbos6FEFhp+3O++rcpK1EDp7fSbjwhjDqIHfbyqDsOsXR4rJytRX8XJdOfCtWbvRes6hL1MQHgIJDD9gZ6XXlrVUyzHOTdf52R2LTQRUX4ONYT7lUPTHUlOwXbqug%2FrQF02t4SoetYWQ5rM1sS%2Fm88yT4po30lg+zo2D7tCI8XXC3WqvH67ws6S1LhmBxfuLwsvi6x0G7Rj8d8ZBJvHx5JvC0PpitlhZlAHx%2F+63FuAo0GdkA27fn3eVBpxm62KyA+IQWHPw0eTZiR+yYqMTifk%2FqHPCcFXUmHyESFOVyUSs2RIzO3TXho4z74kkWzoWr9mxAQqYKmfJ3x0Msi85EoeNOkf2q379OoVHpGm+XEUttKWIN0g8KTiT8V0OPT0TT3hEZOqsmZV0eGaV+66kqj4Z3sAAWX1%2FI3XP8QWRssQu1pruIsJpSM+mc9H4YhMTW24JFXW%2FHMF9c7D8OZNopTodRx4gPqZBsLHt51ul+mPUhkyGNQxWDJ1s33AcPN6PSpcisKNQc0BW3FEahToRWafY7USpPicb97j0XEdhEfRAYP+sIR%2Fouel+ktc2qOhIsCa3ivRL7Lc3zXclSzgImvigCXuLIHGBqsxBdPNCvk5o1dYj7NTHw0JYkiNGCEKKzbXL5v8%3D@github.com/KudbeeZero/FRONTIERNeXt.git",
+    "commitTimestampIso": "2026-07-16T16:52:42Z",
+    "commitSubject": "fix(weapons): add EngagementStore.settle() + active() impacted handling (C-1)"
   },
   "build": {
     "appVersion": "2.0.1",
     "env": "development",
     "mode": "production",
-    "builtAtIso": "2026-07-16T15:57:07.962Z",
+    "builtAtIso": "2026-07-16T16:57:35.056Z",
     "testTotals": {
       "client": {
         "files": 1,
@@ -54,25 +54,25 @@ export const generated = {
   },
   "workflow": {
     "lastMergedPr": {
-      "number": 274,
-      "title": "feat(mission-control): Phase 2 — repository intelligence via build-time generator",
-      "mergedSha": "dd91980",
-      "mergedAt": "2026-07-16T15:40:14Z"
+      "number": 0,
+      "title": "session-note: Battle Planner route + page shell (2026-07-16)",
+      "mergedSha": "6119872",
+      "mergedAt": "2026-07-16T16:34:02Z"
     },
     "lastSessionNote": {
-      "date": "2026-07-16",
-      "title": "mission control phase 2",
-      "filename": "2026-07-16-mission-control-phase-2.md"
+      "date": "2026-07-12",
+      "title": "phase a merge and phase b persistence",
+      "filename": "2026-07-12-phase-a-merge-and-phase-b-persistence.md"
     },
     "lastSessionLog": {
-      "prNumber": "274",
-      "prTitle": "feat(mission-control): Phase 2 — repository intelligence via build-time generator",
-      "mergeSha": "dd91980880b1ce5d1e9d167977e99392ee385bf6",
-      "date": "2026-07-16T15:40:14Z",
-      "filesChanged": "artifacts/frontier-al/client/src/components/mission-control/generated.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.test.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.ts,artifacts/frontier-al/client/src/components/mission-control/testTotals.json,artifacts/frontier-al/client/src/pages/MissionControl.tsx,artifacts/frontier-al/package.json,artifacts/frontier-al/scripts/capture-test-totals.mjs,artifacts/frontier-al/scripts/generate-mission-control-data.mjs,artifacts/frontier-al/session-notes/2026-07-16-mission-control-phase-2.md"
+      "prNumber": "N/A",
+      "prTitle": "session-note: Battle Planner route + page shell (2026-07-16)",
+      "mergeSha": "61198725a4b1a9d91572f9d39d45c47e324d95ee",
+      "date": "2026-07-16T16:34:02Z",
+      "filesChanged": "artifacts/frontier-al/session-notes/2026-07-16-battle-planner-route.md"
     },
     "latestCompletedLane": "mobile-globe-touch-regression",
-    "memoryLayerHeadSha": "3b8f50a",
+    "memoryLayerHeadSha": "bacd73b",
     "workflows": [
       {
         "name": "ci",
@@ -108,9 +108,8 @@ export const generated = {
   },
   "branches": {
     "activeFeatureBranches": [
-      "feat/memory-layer-kilo-runner",
-      "feat/memory-layer-runner-workflow",
-      "session/agent_091033b4-09e3-4148-9664-1bea220e13cc"
+      "fix/weapons-engagement-settle",
+      "session/agent_57a3587c-f202-4b0f-b716-0639f72c9105"
     ],
     "staleBranches": [],
     "localOnlyBranches": []
