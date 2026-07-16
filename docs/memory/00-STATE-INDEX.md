@@ -6,16 +6,13 @@
 > If it disagrees with `main` HEAD, that is a memory-layer gap — flag it at
 > closeout, do not silently trust it.
 
-**Updated (UTC)** | 2026-07-16T03:31:00Z
+**Updated (UTC)** | 2026-07-16T16:09:00Z
 
 ## Current commit
 
-- **HEAD:** `f397a8e` — docs(memory): resync state index and baton (#271)
-- **Date (UTC):** 2026-07-16T03:31:00Z
-- **Note:** tip is a `docs: update session log [skip ci]` commit produced by
-  `.github/workflows/session-log.yml`. The latest *feature* merge is PR #271
-  (`f397a8e`). STATE-INDEX resynced during the Release Coordinator merge pass;
-  PR #272 (mobile playability) is being rebased onto this HEAD.
+- **HEAD:** `76a559d` — docs(memory): port KILO runner prompt + session updater workflow (#275)
+- **Date (UTC):** 2026-07-16T16:09:00Z
+- **Note:** tip is the memory-layer docs port PR #275. Prior merges include Mission Control Phase 2 (#274 `dd91980`), Phase 1 (#273 `0913ac4`), mobile fixes (#272 `e2c94bb`), and memory resync (#271 `3a15bad`).
 
 ## Latest merged PR
 
