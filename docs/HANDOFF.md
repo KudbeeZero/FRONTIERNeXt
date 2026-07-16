@@ -5,13 +5,21 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Mission Control dashboard (internal dev tool) — **DONE, PR OPEN** (branch `feat/mission-control-dashboard`, off `origin/main` @ `0913ac4`).
-  - `client/src/pages/MissionControl.tsx` + `client/src/components/mission-control/` (`missionControlData.ts` static data, `StatusChip.tsx`, `MissionControlSection.tsx`) — 7 panels: System Status, Workflow Health, Current Priorities, Build Health, Owner Actions, Memory Layer, Branch Hygiene.
+- **Unit:** Memory Layer runner prompt + session updater — **DONE & MERGED** (PR #275 `76a559d`).
+  - Ported clean docs onto fresh branch from current `main`: `docs/memory/KILO_RUNNER_PROMPT.md` (session-start prompt with embedded closeout block) and `docs/memory/SESSION_UPDATER_WORKFLOW.md` (standalone session-close procedure).
+  - Closed obsolete PR #270 first; queue now clear.
+  - Docs/process only: no app code, schema/migration, ASA/wallet/treasury, or combat changes. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
+- **Previous unit:** Mission Control Phase 2 — repository intelligence — **DONE & MERGED** (PR #274 `dd91980`).
+  - Build-time generator (`scripts/generate-mission-control-data.mjs`) derives repo metadata, workflow status, build info, health indicators, and branch hygiene from local git + files — no GitHub auth, no API, no polling.
+  - Dashboard reorganised into 9 sections (4 auto-derived + 5 hand-curated). `missionControlData.test.ts` expanded 3→9 contract tests. `testTotals.json` captures client/server test counts.
+  - CI green on head `793e745`: Typecheck & server tests ✅ + Cloudflare Pages ✅.
+- **Previous unit:** Mission Control Phase 1 — internal dashboard — **DONE & MERGED** (PR #273 `0913ac4`).
+  - `client/src/pages/MissionControl.tsx` + `client/src/components/mission-control/` — 7 panels: System Status, Workflow Health, Current Priorities, Build Health, Owner Actions, Memory Layer, Branch Hygiene.
   - `/mission-control` route added to `App.tsx`, lazy-loaded, mounted OUTSIDE `WalletProvider` (same pattern as `/admin` + `/university`) — no wallet/chain/backend/DB.
-  - Static-only (no API/polling). Status color chips, copy-SHA button, and mobile collapsible sections included. Dark-mode compatible, mobile-first (desktop / iPhone portrait / landscape).
-  - Added `vitest.config.ts` + `client/src/components/mission-control/missionControlData.test.ts` (data-contract guard). `pnpm check` clean; `test` 3/3; `test:server` 706/706; `build` green.
-  - Headless screenshots NOT captured in-sandbox (Chromium missing OS shared libs `libnspr4.so`); documented as not browser-verified in this container. Owner device QA still required for wallet flows.
-- **Unit:** Memory Layer runner prompt + session updater — **DONE & MERGED** (PR #269 `ae57840`).
+  - Static-only (no API/polling). Status color chips, copy-SHA button, and mobile collapsible sections included. Dark-mode compatible, mobile-first.
+- **Previous unit:** fix(mobile): safe-area insets, touch targets, drop duplicate render timer — **DONE & MERGED** (PR #272 `e2c94bb`).
+- **Previous unit:** docs(memory): resync state index and baton — **DONE & MERGED** (PR #271 `3a15bad`).
+- **Previous unit:** Memory Layer runner prompt + session updater — **DONE & MERGED** (PR #269 `ae57840`).
   - Implemented the memory-layer runner workflow: `docs/memory/KILO_RUNNER_PROMPT.md` (session-start prompt), `docs/memory/SESSION_UPDATER.md` (closeout procedure, 5 memory-write targets), `docs/memory/00-STATE-INDEX.md` (canonical current-state index — previously missing), `docs/memory/10-completed/_INDEX.md` (completed-lane index).
   - `.github/workflows/session-log.yml` confirmed as the **sole** session-updater trigger; added verification-only `.github/workflows/memory-session-check.yml` (no memory writes). Prior DRAFT's duplicate `memory-session-update.yml` + Notion scripts/secrets removed.
   - Docs/process only: no app code, schema/migration, ASA/wallet/treasury, or combat changes. CI green (typecheck + server tests + memory-session-check).
@@ -89,17 +97,15 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
-- **Shipped:** Memory Layer runner prompt + session updater — PR #269 `ae57840` (2026-07-14). Established the memory-layer workflow: `KILO_RUNNER_PROMPT.md` (session-start), `SESSION_UPDATER.md` (closeout, 5 targets), `00-STATE-INDEX.md` + `10-completed/_INDEX.md`. Verification-only `memory-session-check.yml` added; `session-log.yml` is the sole updater trigger. Docs/process only; no app/schema/ASA/combat changes. CI green.
-- **Shipped:** Battle Planner Draft Persistence (Phase 4) — PR #268 `88ff4ff` (2026-07-14). `localStorage` draft persistence for the planner.
-- **Shipped:** Battle Planner globe attack path visualization (Phase 3) — PR #267 `b96f273` (2026-07-14).
-- **Shipped:** Battle Planner outcome preview (Phase 2) — PR #266 `affaa52` (2026-07-14).
-- **Shipped:** Mobile globe touch regression coverage — PR #265 `ba2e71f` (2026-07-14). Added regression docs and TODO pointers for the mobile globe touch fixes. Automated multi-touch coverage is impractical in the current Node/SSR test harness; manual QA checklist documents the eight verification steps. No production behavior changes. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
-- **Previous result:** Mobile plot sheet independent close — PR #264 `eac4a2a` (2026-07-13). Added `showMobileSheet` state in GameLayout so the bottom sheet can be closed independently from the globe peek card. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
-- **Previous result:** Mobile globe touch interaction — PR #263 `18da3b9` (2026-07-13). Fixed pinch-zoom accidentally selecting plots, pinch-zoom rotating the camera, and the bottom dock blocking canvas touches. Typecheck clean; server tests 706/706; client tests 493/493; CI green.
+- **Shipped:** Memory Layer runner prompt + session updater — PR #275 `76a559d` (2026-07-16). Clean port of `docs/memory/KILO_RUNNER_PROMPT.md` + `docs/memory/SESSION_UPDATER_WORKFLOW.md` onto fresh branch after closing obsolete PR #270. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
+- **Shipped:** Mission Control Phase 2 — PR #274 `dd91980` (2026-07-16). Build-time generator + 9-section dashboard. CI green on head `793e745`: Typecheck & server tests ✅ + Cloudflare Pages ✅. `missionControlData.test.ts` 9/9 pass.
+- **Shipped:** Mission Control Phase 1 — PR #273 `0913ac4` (2026-07-16). Internal `/mission-control` dashboard, 7 panels, mounted outside WalletProvider. Typecheck clean; server tests 706/706; client tests 9/9; CI green.
+- **Shipped:** fix(mobile) safe-area + touch targets — PR #272 `e2c94bb` (2026-07-15). Dropped duplicate render timer.
+- **Shipped:** docs(memory) resync state index and baton — PR #271 `3a15bad` (2026-07-15).
+- **Previous result:** Mobile globe touch regression coverage — PR #265 `ba2e71f` (2026-07-14).
 
 ## NEXT
-- **Next lane (after Mission Control merge + owner review):** resume the feature roadmap — faction economy / treasury / equity / contribution-ledger foundation (deferred by PR #256) or the next Battle Planner / sub-plot combat implementation phase, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR. Do NOT begin economy work, backend automation, or branch cleanup until owner signs off on the dashboard.
-- **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
+- **Next lane:** Resume feature roadmap — Battle Planner planner UI, or faction economy / treasury / equity / contribution-ledger foundation, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR.
 - **Owner-only follow-up (separate lane, NOT an app-code PR):** reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. The ASA's current URL points at a dead Replit placeholder. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager). Verified in the Perplexity launch-blocker audit; intentionally NOT bundled with the NFT-metadata proxy PR.
 - **Canonical documentation:** Master game spec, production roadmap, and reconciliation ledger are LIVE. All future implementation must align with `FRONTIER_MASTER_GAME_SPEC.md`. See `PRODUCTION_READINESS_ROADMAP.md` for lane priorities.
 - **Off-limits:** standard HARD RULES below. Do NOT touch `server/services/chain/`, transaction amounts, ASA destinations, or the parked auth cleanup branch. Do **not** start `chore/ts7-migration` until owner approves.

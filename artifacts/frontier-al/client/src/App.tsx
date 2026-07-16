@@ -24,6 +24,7 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import BattlesPage from "@/pages/battles";
 import ArmoryPage from "@/pages/armory";
 import UniversityPage from "@/pages/university";
+import BattlePlannerPage from "@/pages/battle-planner";
 // Lazy-loaded so the dashboard's chart library (recharts) is code-split out of
 // the main bundle and only fetched when an operator opens /admin.
 const AdminDashboard = lazy(() => import("@/pages/admin"));
@@ -100,6 +101,9 @@ function App() {
                     </Route>
                     <Route path="/battles">
                       <BattlesPage />
+                    </Route>
+                    <Route path="/battle-planner">
+                      <BattlePlannerPage />
                     </Route>
                     <Route path="/armory">
                       <ArmoryPage />
