@@ -5,7 +5,12 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Memory Layer runner prompt + session updater — **DONE & MERGED** (PR #275 `76a559d`).
+- **Unit:** Battle Planner route + page shell — **DONE & MERGED** (PR #276 `f9fb5b6`).
+  - Added `client/src/pages/battle-planner.tsx` with `BattlePlannerPage` shell wiring existing `BattlePlanner` component to `useGameState`, `useAttack`, `useCurrentPlayer`, `useWallet`, `useToast`.
+  - Wired `/battle-planner` route in `App.tsx`.
+  - Added smoke test `client/tests/battle-planner-page.spec.tsx`.
+  - No server/API/DB/wallet/chain/combat changes. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
+- **Previous unit:** Memory Layer runner prompt + session updater — **DONE & MERGED** (PR #275 `76a559d`).
   - Ported clean docs onto fresh branch from current `main`: `docs/memory/KILO_RUNNER_PROMPT.md` (session-start prompt with embedded closeout block) and `docs/memory/SESSION_UPDATER_WORKFLOW.md` (standalone session-close procedure).
   - Closed obsolete PR #270 first; queue now clear.
   - Docs/process only: no app code, schema/migration, ASA/wallet/treasury, or combat changes. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
@@ -97,6 +102,7 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
+- **Shipped:** Battle Planner route + page shell — PR #276 `f9fb5b6` (2026-07-16). Added `/battle-planner` route and `BattlePlannerPage` shell. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
 - **Shipped:** Memory Layer runner prompt + session updater — PR #275 `76a559d` (2026-07-16). Clean port of `docs/memory/KILO_RUNNER_PROMPT.md` + `docs/memory/SESSION_UPDATER_WORKFLOW.md` onto fresh branch after closing obsolete PR #270. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
 - **Shipped:** Mission Control Phase 2 — PR #274 `dd91980` (2026-07-16). Build-time generator + 9-section dashboard. CI green on head `793e745`: Typecheck & server tests ✅ + Cloudflare Pages ✅. `missionControlData.test.ts` 9/9 pass.
 - **Shipped:** Mission Control Phase 1 — PR #273 `0913ac4` (2026-07-16). Internal `/mission-control` dashboard, 7 panels, mounted outside WalletProvider. Typecheck clean; server tests 706/706; client tests 9/9; CI green.
