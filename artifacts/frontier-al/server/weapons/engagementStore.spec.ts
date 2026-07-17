@@ -123,4 +123,35 @@ describe("EngagementStore", () => {
     store.settle(e.id, e.impactTs);
     expect(store.settle(e.id, e.impactTs + 100)).toBeNull();
   });
+
+  it("settleExpired() settles all due in-flight engagements and leaves others alone", () => {
+    const e1 = launchCruise(store, "p1", 1000); // impactTs = 1000 + tof
+    const e2 = launchCruise(store, "p1", 2000); // later launch
+    const before = store.active(e2.impactTs - 1);
+    expect(before.map((e) => e.id).sort()).toEqual([e1.id, e2.id].sort());
+
+    const results = store.settleExpired(e1.impactTs);
+    expect(results.map((r) => r.engagement.id).sort()).toEqual([e1.id].sort());
+    expect(results[0].damage).toBeGreaterThan(0);
+    expect(store.get(e1.id)?.status).toBe("impacted");
+    expect(store.get(e2.id)?.status).toBe("in_flight");
+  });
+
+  it("settleExpired() ignores intercepted and already-impacted engagements", () => {
+    const e1 = launchCruise(store, "p1", 1000);
+    const e3 = launchCruise(store, "p1", 3000);
+    store.settle(e3.id, e3.impactTs);
+    store.deployDefense({ specId: "def_aegis", ownerId: "p2", parcelId: "dst", at: TARGET });
+    const e2 = launchCruise(store, "p1", 1000 + 1);
+
+    const results = store.settleExpired(e3.impactTs);
+    expect(results.map((r) => r.engagement.id).sort()).toEqual([e1.id].sort());
+    expect(store.get(e2.id)?.status).toBe("intercepted");
+    expect(store.get(e3.id)?.status).toBe("impacted");
+  });
+
+  it("settleExpired() returns an empty array when nothing is due", () => {
+    launchCruise(store, "p1", 1000);
+    expect(store.settleExpired(999)).toEqual([]);
+  });
 });

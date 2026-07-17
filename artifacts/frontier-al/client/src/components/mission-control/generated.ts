@@ -20,20 +20,20 @@
 
 export const generated = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T17:16:06.965Z",
+  "generatedAt": "2026-07-17T05:07:18.050Z",
   "repository": {
-    "headSha": "573d516",
-    "headShaFull": "573d516a5e51eca9fe0bd4e31bdc71cdabd3726a",
-    "branch": "fix/mission-control-strip-remote-token",
+    "headSha": "554a84c",
+    "headShaFull": "554a84c6f4774b5007fe5e463cab5c7c300e5d5b",
+    "branch": "session/agent_0436e198-0b32-430b-aba2-38ffe8eaaf28",
     "remoteUrl": "github.com/KudbeeZero/FRONTIERNeXt",
-    "commitTimestampIso": "2026-07-16T17:14:51Z",
-    "commitSubject": "docs: preserve ASA draft + live session progress log (info-preservation) [skip ci]"
+    "commitTimestampIso": "2026-07-16T17:25:05Z",
+    "commitSubject": "docs: baton + session note for remoteUrl secret fix (PR #278); flag OWNER token rotation [skip ci]"
   },
   "build": {
     "appVersion": "2.0.1",
     "env": "development",
     "mode": "production",
-    "builtAtIso": "2026-07-16T17:16:06.965Z",
+    "builtAtIso": "2026-07-17T05:07:18.050Z",
     "testTotals": {
       "client": {
         "files": 1,
@@ -60,9 +60,9 @@ export const generated = {
       "mergedAt": "2026-07-16T17:04:30Z"
     },
     "lastSessionNote": {
-      "date": "2026-07-16",
-      "title": "salvage weapons settle and ci unblock",
-      "filename": "2026-07-16-salvage-weapons-settle-and-ci-unblock.md"
+      "date": "README",
+      "title": "README",
+      "filename": "README.md"
     },
     "lastSessionLog": {
       "prNumber": "277",
@@ -72,7 +72,7 @@ export const generated = {
       "filesChanged": "artifacts/frontier-al/client/src/components/mission-control/generated.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.test.ts,artifacts/frontier-al/scripts/generate-mission-control-data.mjs,artifacts/frontier-al/server/weapons/engagementStore.spec.ts,artifacts/frontier-al/server/weapons/engagementStore.ts,docs/audits/fix-weapons-engagement-settle.md"
     },
     "latestCompletedLane": "mobile-globe-touch-regression",
-    "memoryLayerHeadSha": "573d516",
+    "memoryLayerHeadSha": "554a84c",
     "workflows": [
       {
         "name": "ci",
@@ -108,8 +108,7 @@ export const generated = {
   },
   "branches": {
     "activeFeatureBranches": [
-      "fix/mission-control-strip-remote-token",
-      "session/agent_57a3587c-f202-4b0f-b716-0639f72c9105"
+      "session/agent_0436e198-0b32-430b-aba2-38ffe8eaaf28"
     ],
     "staleBranches": [],
     "localOnlyBranches": []

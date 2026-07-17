@@ -2691,6 +2691,17 @@ export async function registerRoutes(
   // process open (tests / graceful shutdown).
   setInterval(() => engagementStore.prune(), 30_000).unref();
 
+  // Settle expired engagements so in-flight projectiles that have reached their
+  // impactTs are marked impacted and their damage payload is broadcast. unref()
+  // so it never holds the process open.
+  setInterval(() => {
+    const impacts = engagementStore.settleExpired();
+    for (const impact of impacts) {
+      broadcastRaw({ type: "weapon_impact", payload: impact });
+    }
+    if (impacts.length > 0) markDirty();
+  }, 5_000).unref();
+
   // Read a player's armory: full catalog annotated with unlock/own state + costs.
   app.get("/api/weapons/catalog", async (req, res) => {
     try {

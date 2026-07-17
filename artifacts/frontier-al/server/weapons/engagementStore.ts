@@ -245,6 +245,22 @@ export class EngagementStore {
     e.status = "impacted";
     return { engagement: e, damage: e.damage };
   }
+
+  /**
+   * Settle every in-flight engagement past its impactTs. Returns the list of
+   * newly impacted engagements (empty if none are due). Intercepted engagements
+   * are left untouched.
+   */
+  settleExpired(now: number = Date.now()): { engagement: Engagement; damage: number }[] {
+    const results: { engagement: Engagement; damage: number }[] = [];
+    for (const e of this.engagements.values()) {
+      if (e.status === "in_flight" && now >= e.impactTs) {
+        const result = this.settle(e.id, now);
+        if (result) results.push(result);
+      }
+    }
+    return results;
+  }
 }
 
 /** Process-wide singleton used by the live server. */

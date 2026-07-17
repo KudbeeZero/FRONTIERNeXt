@@ -5,6 +5,11 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
+- **Unit:** Weapons `EngagementStore.settleExpired()` wired to live tick (M2-1) — **DONE** (uncommitted, this session).
+  - Added `settleExpired(now?)` to `EngagementStore` (iterates `in_flight` engagements past `impactTs`, settles them, returns payload). Wired a 5-second background tick in `routes.ts` that calls `settleExpired()` and broadcasts `weapon_impact` events for each settled engagement. `settle()` is now live, not dead code.
+  - Added 3 unit tests in `engagementStore.spec.ts` (settleExpired settles due engagements, ignores intercepted/already-impacted, returns empty when nothing due). Total server tests: 711/711.
+  - Verify gate green: `check` exit 0; `test:server` 711/711; `build` green. No migrations, no funds/ASA/chain/mainnet, no battle-resolver changes.
+  - **Next unit (M2-2):** `feat/combat-convergence` — settled damage feeds plot state; badges/stats credit on impact only.
 - **Unit:** Strip credentials from mission-control `remoteUrl` (secret-leak fix) — **DONE & MERGED** (PR #278 `b09695d`, 2026-07-16).
   - **🔴 OWNER ACTION REQUIRED — ROTATE/REVOKE the exposed GitHub token.** The mission-control generator wrote `git config --get remote.origin.url` verbatim into the committed, client-bundled `generated.ts`; in CI that URL is `https://x-access-token:<TOKEN>@github.com/...`, so a token was committed to `main` (and prior history) and could ship in the frontend. Code now sanitizes to host/path only (`sanitizeRemoteUrl()`) + regression test; committed value scrubbed to `github.com/KudbeeZero/FRONTIERNeXt`. **Git history was NOT rewritten** — the historical token is still compromised until rotated.
   - Verify gate green: `check` exit 0; `test:server` 708/708; `test` 10/10 (+1 security test). CI green on head `e28dc4d`: Typecheck & server tests ✅ + Cloudflare Pages ✅.
@@ -111,6 +116,7 @@
   - **Explicitly NOT done (future work):** faction treasury / equity / contribution ledger / leadership / full faction economy; Battle Planner + Battle Target Selector; human mining/building/combat/finance faction-aggregation.
 
 ## LAST RESULT
+- **Shipped:** Weapons `EngagementStore.settleExpired()` wired to live tick (M2-1) — uncommitted (this session). Added `settleExpired()` + 5s background tick in `routes.ts` broadcasting `weapon_impact`. `settle()` is no longer dead code. Gate green: `check` exit 0; `test:server` 711/711 (+3); `build` green.
 - **Shipped:** Strip credentials from mission-control `remoteUrl` (secret-leak fix) — PR #278 `b09695d` (2026-07-16). `sanitizeRemoteUrl()` + regression test; committed token scrubbed. **🔴 OWNER MUST ROTATE the exposed GitHub token; history not rewritten.** Gate green: `check` exit 0; `test:server` 708/708; `test` 10/10. CI green on `e28dc4d`.
 - **Shipped:** Weapons `EngagementStore.settle()` (C-1) + mission-control generator CI unblock — PR #277 `0e16e56` (2026-07-16). Salvaged safe slice of stranded branch `session/agent_169829a4`; fixed flaky precheck generator at root cause (owner-authorised). Gate green: `check` exit 0; `test:server` 708/708; `test` 9/9. CI green on `3b5a4a2`.
 - **Shipped:** Battle Planner route + page shell — PR #276 `f9fb5b6` (2026-07-16). Added `/battle-planner` route and `BattlePlannerPage` shell. Verify gate green: `check` clean; `test:server` 706/706; `test` 9/9; `build` green.
@@ -125,7 +131,7 @@
 - **🔴 OWNER — ROTATE the exposed GitHub token (from PR #278):** the mission-control generator historically committed an authenticated `remote.origin.url` (with an `x-access-token`) into `generated.ts`. Code is fixed, but the token in git history is compromised. Revoke/rotate that token in GitHub. Git history was intentionally not rewritten.
 - **Re-home the consolidated ASA doc:** `docs/pending/asa-764083761-reconfiguration-DRAFT.md` was written this session but its own docs PR was pre-empted by the token fix. A later docs-only /ship unit should move it into `artifacts/frontier-al/docs/audit/2026-07-16-asa-764083761-reconfiguration.md` and delete the pending file. (It supersedes the dup drafts on `session/agent_d60fbfc0` + `session/agent_bb0af933`.)
 - **Owner decision — weapons loadout + firepower (from stranded `session/agent_169829a4`):** two changes were deliberately NOT shipped in PR #277. (1) `loadout` spec-id→instance-id data-model change needs a DB migration for existing persisted loadouts before it is safe. (2) firepower `*0.1` damage modifier is a combat-balance change needing owner approval. Only re-open these as an owner-approved gameplay unit (with migration for #1). Do NOT cherry-pick them as-is.
-- **Wire `EngagementStore.settle()`:** it now exists + is tested but is not called by any live route/interval. A follow-up unit can wire settlement into the weapons fire/impact flow (server-authoritative). Keep it scoped and audited.
+- **Next unit (M2-2):** `feat/combat-convergence` — settled damage feeds plot state; badges/stats credit on impact only (`service.ts:202-206`). Depends on M2-1 landing first.
 - **Stranded session branches still un-shipped (inventory as of 2026-07-16, for cleanup/owner triage):**
   - `session/agent_169829a4` — weapons work; SAFE slice salvaged into PR #277. Remaining risky parts (loadout+firepower) intentionally left; branch can be deleted once the owner-approved gameplay unit is planned.
   - `session/agent_d60fbfc0` + `session/agent_bb0af933` — near-duplicate `tx-asa-764083761-config.md` audit docs for the OWNER-ONLY ASCEND ASA on-chain reconfig (signed on-chain action, not an app-code PR). Dedupe into one doc PR or leave; not blocking.
