@@ -25,6 +25,7 @@ import type { Server, IncomingMessage } from "http";
 import type { IStorage } from "./storage";
 import type { GameState } from "@shared/schema";
 import { getPoolStats } from "./db";
+import { isDbHalted } from "./dbHaltMiddleware";
 import { verifySession, isWalletAuthRequired, SESSION_COOKIE } from "./auth";
 import { scopeGameStateFor } from "./stateScope";
 
@@ -166,6 +167,7 @@ export function initWsServer(httpServer: Server, storage: IStorage): WebSocketSe
   // Flush loop — one DB read + broadcast per interval when dirty
   _flushTimer = setInterval(async () => {
     if (!_dirty || !_storage || !_wss) return;
+    if (isDbHalted()) return;
     if (_wss.clients.size === 0) { _dirty = false; return; }
     _dirty = false;
     _flushCount++;

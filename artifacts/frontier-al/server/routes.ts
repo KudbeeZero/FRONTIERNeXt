@@ -80,7 +80,7 @@ import { economicsSnapshots as economicsSnapshotsTable } from "./db-schema";
 import { evaluateOwnership } from "./routeOwnership";
 import { createActionIdempotencyGuard } from "./idempotencyGuard";
 import { attackIdempotencyScope, attackPayloadFingerprint } from "./attackIdempotency";
-import { haltDbMiddleware, guardInterval } from "./dbHaltMiddleware";
+import { haltDbMiddleware, guardInterval, isDbHalted } from "./dbHaltMiddleware";
 
 // Shared error responder for action routes: zod validation failures map to a
 // generic 400, everything else surfaces the error message (or the per-route
@@ -2696,7 +2696,9 @@ export async function registerRoutes(
   // Reap faded engagements so the runtime store can't grow unbounded if play goes
   // quiet (launch() also prunes opportunistically). unref() so it never holds the
   // process open (tests / graceful shutdown).
-  setInterval(guardInterval(() => engagementStore.prune()), 30_000).unref();
+  setInterval(() => {
+    if (!isDbHalted()) engagementStore.prune();
+  }, 30_000).unref();
 
   // Read a player's armory: full catalog annotated with unlock/own state + costs.
   app.get("/api/weapons/catalog", async (req, res) => {

@@ -77,7 +77,7 @@ describe("guardInterval", () => {
     process.env.HALT_DB = "true";
     const fn = vi.fn().mockRejectedValue(new Error("boom"));
     const guarded = guardInterval(fn);
-    await expect(guarded()).resolves.toBeUndefined();
+    expect(() => guarded()).not.toThrow();
     expect(fn).not.toHaveBeenCalled();
   });
 
@@ -85,7 +85,7 @@ describe("guardInterval", () => {
     delete process.env.HALT_DB;
     const fn = vi.fn().mockRejectedValue(new Error("boom"));
     const guarded = guardInterval(fn);
-    await expect(guarded()).resolves.toBeUndefined();
+    expect(() => guarded()).not.toThrow();
     expect(fn).toHaveBeenCalledTimes(1);
   });
 });

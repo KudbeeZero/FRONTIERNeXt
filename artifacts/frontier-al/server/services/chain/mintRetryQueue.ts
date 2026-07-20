@@ -23,6 +23,7 @@
 
 import { randomUUID } from "crypto";
 import { db } from "../../db";
+import { isDbHalted } from "../../dbHaltMiddleware";
 import { plotMintRetryQueue, plotNfts, mintIdempotency } from "../../db-schema";
 import { eq, and } from "drizzle-orm";
 import { mintLandNft } from "./land";
@@ -357,6 +358,7 @@ export function startPlotMintRetryWorker(intervalMs = 60_000): ReturnType<typeof
   );
 
   const handle = setInterval(() => {
+    if (isDbHalted()) return;
     drainPlotMintRetries().catch((err) =>
       console.error("[mintRetryQueue] Drain failed:", err)
     );
