@@ -80,6 +80,7 @@ import { economicsSnapshots as economicsSnapshotsTable } from "./db-schema";
 import { evaluateOwnership } from "./routeOwnership";
 import { createActionIdempotencyGuard } from "./idempotencyGuard";
 import { attackIdempotencyScope, attackPayloadFingerprint } from "./attackIdempotency";
+import { haltDbMiddleware, guardInterval } from "./dbHaltMiddleware";
 
 // Shared error responder for action routes: zod validation failures map to a
 // generic 400, everything else surfaces the error message (or the per-route
@@ -354,9 +355,9 @@ export function logApiRouteStats(): void {
 }
 
 // Log API stats every 120 seconds
-setInterval(() => {
+setInterval(guardInterval(() => {
   logApiRouteStats();
-}, 120_000);
+}), 120_000);
 
 const algodClient    = getAlgodClient();
 const indexerClient  = getIndexerClient();
@@ -402,6 +403,12 @@ export async function registerRoutes(
       console.error("[routes] Blockchain init failed:", err);
     }
   })();
+
+  // ── DB halt switch ──────────────────────────────────────────────────────────
+  // When HALT_DB=true, short-circuit all /api routes with 503 so no DB
+  // connections are opened or queries run. Healthcheck and static assets are
+  // intentionally excluded so the process can still be probed.
+  app.use("/api", haltDbMiddleware);
 
   /**
    * Verifies the playerId in req.body exists in the DB and is not an AI player.
@@ -2689,7 +2696,7 @@ export async function registerRoutes(
   // Reap faded engagements so the runtime store can't grow unbounded if play goes
   // quiet (launch() also prunes opportunistically). unref() so it never holds the
   // process open (tests / graceful shutdown).
-  setInterval(() => engagementStore.prune(), 30_000).unref();
+  setInterval(guardInterval(() => engagementStore.prune()), 30_000).unref();
 
   // Read a player's armory: full catalog annotated with unlock/own state + costs.
   app.get("/api/weapons/catalog", async (req, res) => {
@@ -3224,7 +3231,7 @@ export async function registerRoutes(
   // interval after its countdown hits 0:00. Env-tunable (`BATTLE_RESOLVE_INTERVAL_MS`,
   // default 5000ms, floored at 1000ms to protect the DB).
   const BATTLE_RESOLVE_INTERVAL_MS = clampIntervalMs(process.env.BATTLE_RESOLVE_INTERVAL_MS, 5000, 1000);
-  setInterval(async () => {
+  setInterval(guardInterval(async () => {
     try {
       const resolved = await withDbRetry(() => storage.resolveBattles(), "resolveBattles");
       if (resolved.length > 0) {
@@ -3280,22 +3287,22 @@ export async function registerRoutes(
     } catch (error) {
       console.warn("Background task (battles):", error instanceof Error ? error.message : error);
     }
-  }, BATTLE_RESOLVE_INTERVAL_MS);
+  }), BATTLE_RESOLVE_INTERVAL_MS);
 
   // ── Expired debuff cleanup ──────────────────────────────────────────────
   // Runs on its own interval (DEBUFF_CLEANUP_INTERVAL_MS, default 60s) instead
   // of piggybacking on the 5-second battle resolver, so it costs a single
   // bounded UPDATE only when a debuff is actually expired.
   const DEBUFF_CLEANUP_INTERVAL_MS_RESOLVED = resolveDebuffCleanupIntervalMs();
-  setInterval(async () => {
+  setInterval(guardInterval(async () => {
     try {
       await withDbRetry(() => runDebuffCleanup(db), "runDebuffCleanup");
     } catch (error) {
       console.warn("Background task (debuff cleanup):", error instanceof Error ? error.message : error);
     }
-  }, DEBUFF_CLEANUP_INTERVAL_MS_RESOLVED);
+  }), DEBUFF_CLEANUP_INTERVAL_MS_RESOLVED);
 
-  setInterval(async () => {
+  setInterval(guardInterval(async () => {
     try {
       if (process.env.AI_ENABLED === "true") {
         const aiEvents = await withDbRetry(() => storage.runAITurn(), "runAITurn");
@@ -3304,10 +3311,10 @@ export async function registerRoutes(
     } catch (error) {
       console.warn("Background task (AI):", error instanceof Error ? error.message : error);
     }
-  }, resolveAiTurnIntervalMs());
+  }), resolveAiTurnIntervalMs());
 
   // Orbital check every 5 minutes
-  setInterval(async () => {
+  setInterval(guardInterval(async () => {
     try {
       const event = await withDbRetry(() => storage.triggerOrbitalCheck(), "triggerOrbitalCheck");
       if (event) {
@@ -3317,7 +3324,7 @@ export async function registerRoutes(
     } catch (error) {
       console.warn("[ORBITAL] background check:", error instanceof Error ? error.message : error);
     }
-  }, 5 * 60 * 1000);
+  }), 5 * 60 * 1000);
 
   // ── Battle countdown tick ──────────────────────────────────────────────────
   // Push the server's current active-battle set so clients reflect resolutions
@@ -3326,7 +3333,7 @@ export async function registerRoutes(
   // env-tunable (`BATTLE_TICK_INTERVAL_MS`, default 1000ms, floored at 250ms).
   // Best-effort: never throws on the interval.
   const BATTLE_TICK_INTERVAL_MS = clampIntervalMs(process.env.BATTLE_TICK_INTERVAL_MS, 1000, 250);
-  setInterval(async () => {
+  setInterval(guardInterval(async () => {
     try {
       if (wsClientCount() === 0) return;
       const active = await withDbRetry(() => storage.getActiveBattles(), "getActiveBattles");
@@ -3339,7 +3346,7 @@ export async function registerRoutes(
     } catch (error) {
       console.warn("Background task (battle_tick):", error instanceof Error ? error.message : error);
     }
-  }, BATTLE_TICK_INTERVAL_MS);
+  }), BATTLE_TICK_INTERVAL_MS);
 
   // ── Trade Station ────────────────────────────────────────────────────────────
 
@@ -3463,7 +3470,7 @@ export async function registerRoutes(
 
   // Background resolver (every 60s): close expired markets, then DERIVE outcomes for
   // any market whose deterministic resolution condition is now met. No human in the loop.
-  setInterval(async () => {
+  setInterval(guardInterval(async () => {
     try {
       await withDbRetry(() => storage.resolveExpiredMarkets(), "resolveExpiredMarkets");
     } catch (err) {
@@ -3474,7 +3481,7 @@ export async function registerRoutes(
     } catch (err) {
       console.warn("[markets] resolveReadyMarkets:", err instanceof Error ? err.message : err);
     }
-  }, 60_000);
+  }), 60_000);
 
   app.get("/api/markets", async (_req, res) => {
     try {

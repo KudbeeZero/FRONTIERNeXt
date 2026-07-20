@@ -20,29 +20,29 @@
 
 export const generated = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T17:16:06.965Z",
+  "generatedAt": "2026-07-20T02:39:24.443Z",
   "repository": {
-    "headSha": "573d516",
-    "headShaFull": "573d516a5e51eca9fe0bd4e31bdc71cdabd3726a",
-    "branch": "fix/mission-control-strip-remote-token",
+    "headSha": "c7a647d",
+    "headShaFull": "c7a647d2125273bc77fc06ae7f84f28fa132a0ad",
+    "branch": "feat/frontier-halt-db-kill-switch",
     "remoteUrl": "github.com/KudbeeZero/FRONTIERNeXt",
-    "commitTimestampIso": "2026-07-16T17:14:51Z",
-    "commitSubject": "docs: preserve ASA draft + live session progress log (info-preservation) [skip ci]"
+    "commitTimestampIso": "2026-07-17T19:28:13Z",
+    "commitSubject": "docs: update session log [skip ci]"
   },
   "build": {
     "appVersion": "2.0.1",
     "env": "development",
     "mode": "production",
-    "builtAtIso": "2026-07-16T17:16:06.965Z",
+    "builtAtIso": "2026-07-20T02:39:24.443Z",
     "testTotals": {
       "client": {
         "files": 1,
-        "tests": 9,
+        "tests": 10,
         "skipped": 0
       },
       "server": {
-        "files": 73,
-        "tests": 706,
+        "files": 76,
+        "tests": 719,
         "skipped": 26
       },
       "captured": true
@@ -54,25 +54,25 @@ export const generated = {
   },
   "workflow": {
     "lastMergedPr": {
-      "number": 277,
-      "title": "fix(weapons): EngagementStore.settle() + active() impacted handling (C-1)",
-      "mergedSha": "0e16e56",
-      "mergedAt": "2026-07-16T17:04:30Z"
+      "number": 0,
+      "title": "Create defender-for-devops.yml",
+      "mergedSha": "fba717d",
+      "mergedAt": "2026-07-17T19:28:12Z"
     },
     "lastSessionNote": {
-      "date": "2026-07-16",
-      "title": "salvage weapons settle and ci unblock",
-      "filename": "2026-07-16-salvage-weapons-settle-and-ci-unblock.md"
+      "date": "2026-07-08",
+      "title": "mobile plot panel gate and hud overlap",
+      "filename": "2026-07-08-mobile-plot-panel-gate-and-hud-overlap.md"
     },
     "lastSessionLog": {
-      "prNumber": "277",
-      "prTitle": "fix(weapons): EngagementStore.settle() + active() impacted handling (C-1)",
-      "mergeSha": "0e16e56763406c70815c03cd78f2aa4e8b5b0e23",
-      "date": "2026-07-16T17:04:30Z",
-      "filesChanged": "artifacts/frontier-al/client/src/components/mission-control/generated.ts,artifacts/frontier-al/client/src/components/mission-control/missionControlData.test.ts,artifacts/frontier-al/scripts/generate-mission-control-data.mjs,artifacts/frontier-al/server/weapons/engagementStore.spec.ts,artifacts/frontier-al/server/weapons/engagementStore.ts,docs/audits/fix-weapons-engagement-settle.md"
+      "prNumber": "N/A",
+      "prTitle": "Create defender-for-devops.yml",
+      "mergeSha": "fba717d0c383fc9ab3cda033e36cf6b60872e508",
+      "date": "2026-07-17T19:28:12Z",
+      "filesChanged": ".github/workflows/defender-for-devops.yml"
     },
     "latestCompletedLane": "mobile-globe-touch-regression",
-    "memoryLayerHeadSha": "573d516",
+    "memoryLayerHeadSha": "c7a647d",
     "workflows": [
       {
         "name": "ci",
@@ -83,6 +83,11 @@ export const generated = {
         "name": "db-push",
         "status": "healthy",
         "note": "present at .github/workflows/db-push.yml"
+      },
+      {
+        "name": "defender-for-devops",
+        "status": "healthy",
+        "note": "present at .github/workflows/defender-for-devops.yml"
       },
       {
         "name": "fly-deploy",
@@ -108,8 +113,8 @@ export const generated = {
   },
   "branches": {
     "activeFeatureBranches": [
-      "fix/mission-control-strip-remote-token",
-      "session/agent_57a3587c-f202-4b0f-b716-0639f72c9105"
+      "feat/frontier-halt-db-kill-switch",
+      "session/agent_8bf07fda-60a2-499e-b91b-b498e2317aec"
     ],
     "staleBranches": [],
     "localOnlyBranches": []
