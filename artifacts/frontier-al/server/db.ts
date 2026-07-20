@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./db-schema";
+import { isDbHalted } from "./dbHalt";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");
@@ -140,6 +141,9 @@ process.on("exit", () => clearInterval(_poolStatsInterval));
 const CONN_ERR = /Connection terminated|ECONNRESET|connection timeout|ETIMEDOUT/i;
 
 export async function withDbRetry<T>(fn: () => Promise<T>, label = "db", maxRetries = 3): Promise<T> {
+  if (isDbHalted()) {
+    throw new Error("Database operations halted");
+  }
   let lastErr: unknown;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const queryStart = Date.now();

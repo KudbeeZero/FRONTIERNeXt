@@ -19,6 +19,7 @@
 
 import { randomUUID } from "crypto";
 import { db } from "../../db";
+import { isDbHalted } from "../../dbHaltMiddleware";
 import { pendingAscendTransfers } from "../../db-schema";
 import { eq } from "drizzle-orm";
 import { getAscendAsaId, isAddressOptedIn, transferAsa } from "./asa";
@@ -182,6 +183,7 @@ export function startAscendTransferWorker(intervalMs = 30_000): ReturnType<typeo
   );
 
   const handle = setInterval(() => {
+    if (isDbHalted()) return;
     drainAscendTransfers().catch((err) =>
       console.error("[transferQueue] Drain failed:", err)
     );

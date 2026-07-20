@@ -17,6 +17,7 @@
 import type { IStorage } from "../../storage/interface";
 import type { Season } from "@shared/schema";
 import { broadcastRaw, markDirty } from "../../wsServer";
+import { isDbHalted } from "../../dbHaltMiddleware";
 
 const CHECK_INTERVAL_MS  = 60_000;  // check every 60 seconds
 const WARN_THRESHOLD_MS  = 60 * 60 * 1000;   // broadcast 1h warning
@@ -36,6 +37,7 @@ export function initSeasonManager(storage: IStorage): void {
 
   _checkTimer = setInterval(async () => {
     if (!_storage) return;
+    if (isDbHalted()) return;
     try {
       await _tick();
     } catch (err) {
