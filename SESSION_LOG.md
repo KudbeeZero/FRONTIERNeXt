@@ -4,6 +4,6 @@
 
 - **PR Number:** #279
 - **PR Title:** feat(server): add database kill switch (HALT_DB)
-- **Merge SHA:** 02df579b6741e0caf874d8ca12aa8bf3d3e55766
-- **Date/Time (UTC):** 2026-07-20T03:07:08Z
-- **Files Changed:** artifacts/frontier-al/client/src/components/mission-control/generated.ts,artifacts/frontier-al/client/src/components/mission-control/testTotals.json,artifacts/frontier-al/server/db.ts,artifacts/frontier-al/server/dbHalt.db.spec.ts,artifacts/frontier-al/server/dbHalt.spec.ts,artifacts/frontier-al/server/dbHalt.ts,artifacts/frontier-al/server/dbHaltMiddleware.spec.ts,artifacts/frontier-al/server/dbHaltMiddleware.ts,artifacts/frontier-al/server/engine/season/manager.ts,artifacts/frontier-al/server/routes.ts,artifacts/frontier-al/server/services/chain/mintRetryQueue.ts,artifacts/frontier-al/server/services/chain/transferQueue.ts,artifacts/frontier-al/server/wsServer.ts
+- **Merge SHA:** d320179ad64709d12b9b8a20650490142bebb8f9
+- **Date/Time (UTC):** 2026-07-20T03:09:15Z
+- **Files Changed:** artifacts/frontier-al/session-notes/2026-07-20-db-kill-switch.md,docs/HANDOFF.md,docs/audits/feat/frontier-halt-db-kill-switch.md
