@@ -4,6 +4,6 @@
 
 - **PR Number:** #280
 - **PR Title:** ops(server): deploy HALT_DB=true to put database in dormant state (#280)
-- **Merge SHA:** e65aa3b9864ebb099b1224c7834f99a007651442
-- **Date/Time (UTC):** 2026-07-22T02:26:08Z
-- **Files Changed:** artifacts/frontier-al/ENV_VARS.md,artifacts/frontier-al/docs/DEPLOYMENT_ENV_CHECKLIST.md,docs/audits/ops/frontier-halt-db-deploy.md,fly.toml
+- **Merge SHA:** 91c192c10082f2348645666c2b4527ecc34988be
+- **Date/Time (UTC):** 2026-07-22T02:27:05Z
+- **Files Changed:** artifacts/frontier-al/client/src/components/mission-control/generated.ts,artifacts/frontier-al/client/src/components/mission-control/testTotals.json,artifacts/frontier-al/session-notes/2026-07-22-deploy-halt-db-dormant.md,docs/HANDOFF.md
