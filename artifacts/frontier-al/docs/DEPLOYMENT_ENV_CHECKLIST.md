@@ -48,6 +48,7 @@ Legend: **[REQ]** boot fails / unsafe without it · **[SEC]** security-critical 
 | `PURCHASE_INTENT_REAP_INTERVAL_MS` (`3600000`) | How often the stale-purchase-intent reaper runs (best-effort, `unref`'d; floor 60s). |
 | `BATTLE_TICK_INTERVAL_MS` (`1000`) | Cadence of the `battle_tick` WS broadcast (active-battle set; gated on clients+active battles; floor 250ms). |
 | `BATTLE_RESOLVE_INTERVAL_MS` (`5000`) | How often the battle auto-resolver polls for due battles. Player-felt: a battle resolves up to one interval after 0:00. Lower = snappier but more DB queries; floor 1000ms. |
+| `HALT_DB` (`false`) | **Database kill switch.** Set `true` to halt ALL database reads/writes + background tasks (battle resolver, AI turns, market resolvers, transfer/mint queues, season ticks, orbital, WS flush). `/api` → 503; `/health` → 200. Only exact `"true"` activates (unset/any-other = normal operation). Use for dormant/zero-data-transfer state. Reversible. |
 | `ELEVENLABS_API_KEY` (optional) | ElevenLabs key for Comm Terminal whisper voice. Unset → text-only (no network call). Secret — host env only, never committed. |
 | `COMM_TERMINAL_VOICE_ID` (optional) | ElevenLabs voice id for Comm Terminal whispers. Needs `ELEVENLABS_API_KEY` too; absent either → text-only. |
 | `ADVICE_RATE_LIMIT` (`30`) | Per-IP/min on the LLM terraform-advice endpoint. |

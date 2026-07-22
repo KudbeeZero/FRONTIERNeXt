@@ -36,6 +36,14 @@ primary_region = 'ord'
   # mainnet / ECONOMY_MODE=production, so it can never make mainnet purchases
   # free. Remove this line (or set ECONOMY_MODE=production) to charge again.
   FREE_PURCHASES = 'true'
+  # HALT_DB: database kill switch (PR #279). When 'true', the server stops ALL
+  # database reads/writes AND background tasks (battle resolver, AI turns, market
+  # resolvers, transfer/mint queues, season ticks, orbital checks, WS flush).
+  # /api routes return 503; /health still responds 200. Unset, empty, or any
+  # value other than the literal string 'true' = normal operation (fail-open).
+  # Set to 'true' to put the database in dormant/zero-data-transfer state while
+  # keeping the app live (cheap health-check pings only).
+  HALT_DB = 'true'
 
 [http_service]
   internal_port = 5000
