@@ -2,8 +2,8 @@
 
 ## Latest Session
 
-- **PR Number:** #279
-- **PR Title:** feat(server): add database kill switch (HALT_DB)
-- **Merge SHA:** d320179ad64709d12b9b8a20650490142bebb8f9
-- **Date/Time (UTC):** 2026-07-20T03:09:15Z
-- **Files Changed:** artifacts/frontier-al/session-notes/2026-07-20-db-kill-switch.md,docs/HANDOFF.md,docs/audits/feat/frontier-halt-db-kill-switch.md
+- **PR Number:** #280
+- **PR Title:** ops(server): deploy HALT_DB=true to put database in dormant state (#280)
+- **Merge SHA:** e65aa3b9864ebb099b1224c7834f99a007651442
+- **Date/Time (UTC):** 2026-07-22T02:26:08Z
+- **Files Changed:** artifacts/frontier-al/ENV_VARS.md,artifacts/frontier-al/docs/DEPLOYMENT_ENV_CHECKLIST.md,docs/audits/ops/frontier-halt-db-deploy.md,fly.toml
