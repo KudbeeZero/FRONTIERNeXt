@@ -20,20 +20,20 @@
 
 export const generated = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-20T02:39:24.443Z",
+  "generatedAt": "2026-07-22T02:22:32.128Z",
   "repository": {
-    "headSha": "c7a647d",
-    "headShaFull": "c7a647d2125273bc77fc06ae7f84f28fa132a0ad",
-    "branch": "feat/frontier-halt-db-kill-switch",
+    "headSha": "f32337e",
+    "headShaFull": "f32337eff2baea088c1ae7efc8a54cff60339e4a",
+    "branch": "ops/frontier-halt-db-deploy",
     "remoteUrl": "github.com/KudbeeZero/FRONTIERNeXt",
-    "commitTimestampIso": "2026-07-17T19:28:13Z",
+    "commitTimestampIso": "2026-07-20T03:09:16Z",
     "commitSubject": "docs: update session log [skip ci]"
   },
   "build": {
     "appVersion": "2.0.1",
     "env": "development",
     "mode": "production",
-    "builtAtIso": "2026-07-20T02:39:24.443Z",
+    "builtAtIso": "2026-07-22T02:22:32.128Z",
     "testTotals": {
       "client": {
         "files": 1,
@@ -54,25 +54,25 @@ export const generated = {
   },
   "workflow": {
     "lastMergedPr": {
-      "number": 0,
-      "title": "Create defender-for-devops.yml",
-      "mergedSha": "fba717d",
-      "mergedAt": "2026-07-17T19:28:12Z"
+      "number": 279,
+      "title": "feat(server): add database kill switch (HALT_DB)",
+      "mergedSha": "d320179",
+      "mergedAt": "2026-07-20T03:09:15Z"
     },
     "lastSessionNote": {
-      "date": "2026-07-08",
-      "title": "mobile plot panel gate and hud overlap",
-      "filename": "2026-07-08-mobile-plot-panel-gate-and-hud-overlap.md"
+      "date": "2026-07-07",
+      "title": "ascend satellites lootbox armory",
+      "filename": "2026-07-07-ascend-satellites-lootbox-armory.md"
     },
     "lastSessionLog": {
-      "prNumber": "N/A",
-      "prTitle": "Create defender-for-devops.yml",
-      "mergeSha": "fba717d0c383fc9ab3cda033e36cf6b60872e508",
-      "date": "2026-07-17T19:28:12Z",
-      "filesChanged": ".github/workflows/defender-for-devops.yml"
+      "prNumber": "279",
+      "prTitle": "feat(server): add database kill switch (HALT_DB)",
+      "mergeSha": "d320179ad64709d12b9b8a20650490142bebb8f9",
+      "date": "2026-07-20T03:09:15Z",
+      "filesChanged": "artifacts/frontier-al/session-notes/2026-07-20-db-kill-switch.md,docs/HANDOFF.md,docs/audits/feat/frontier-halt-db-kill-switch.md"
     },
     "latestCompletedLane": "mobile-globe-touch-regression",
-    "memoryLayerHeadSha": "c7a647d",
+    "memoryLayerHeadSha": "f32337e",
     "workflows": [
       {
         "name": "ci",
@@ -113,11 +113,12 @@ export const generated = {
   },
   "branches": {
     "activeFeatureBranches": [
-      "feat/frontier-halt-db-kill-switch",
-      "session/agent_8bf07fda-60a2-499e-b91b-b498e2317aec"
+      "session/agent_94a08a74-315f-40c7-a494-3b45cb91d0d9"
     ],
     "staleBranches": [],
-    "localOnlyBranches": []
+    "localOnlyBranches": [
+      "ops/frontier-halt-db-deploy"
+    ]
   }
 } as const;
 

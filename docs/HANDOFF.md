@@ -5,17 +5,19 @@
 > One agent now runs the whole loop end-to-end via **/ship** — no inter-chat wait, no manual audit handoff.
 
 ## Current baton
-- **Unit:** Database kill switch (`HALT_DB=true` halts all DB communication) — **DONE & MERGED** (PR #279 `0cc5c3b`, 2026-07-20).
-  - Three defense-in-depth layers: `withDbRetry` pool guard throws before any query; `/api` middleware returns 503; all background intervals (battle resolver, debuff cleanup, AI turns, orbital checks, battle ticks, market resolvers, WS flush, transfer/mint retry workers, season manager) check `isDbHalted()` and skip work.
-  - New files: `server/dbHalt.ts`, `server/dbHaltMiddleware.ts`, `server/dbHalt.spec.ts`, `server/dbHalt.db.spec.ts`, `server/dbHaltMiddleware.spec.ts`.
-  - Reversible: unset or set `HALT_DB` to any value other than `"true"` to resume normal operation.
-  - Verify gate green: `check` exit 0; `test:server` 719/719; `test` 10/10. CI green on head `0cc5c3b`: Typecheck & server tests ✅ + Cloudflare Pages ✅.
+- **Unit:** Deploy database kill switch — `HALT_DB = 'true'` in `fly.toml` — **DONE & MERGED** (PR #280 `e65aa3b`, 2026-07-22).
+  - Set `HALT_DB = 'true'` in `fly.toml` `[env]` block. When deployed (`fly deploy`), the server stops ALL DB reads/writes and background tasks. `/api` → 503; `/health` → 200. Zero data transfer from Postgres (cheap health-check pings only).
+  - Documented `HALT_DB` in `ENV_VARS.md` and `DEPLOYMENT_ENV_CHECKLIST.md` (was missing after PR #279).
+  - Reversible: change to `'false'`, unset, or remove the line → normal operation.
+  - Verify gate green: `check` exit 0; `test:server` 719/719; `test` 10/10. CI green on head `e65aa3b`: Typecheck & server tests ✅ + Cloudflare Pages ✅.
 - **🔴 OWNER ACTION STILL REQUIRED — ROTATE the exposed GitHub token (from PR #278).** The mission-control generator historically committed an authenticated `remote.origin.url` into `generated.ts`. Code is fixed, but the token in git history is compromised. Revoke/rotate that token in GitHub. Git history was intentionally not rewritten.
+- **🔴 OWNER ACTION: `fly deploy`** to activate the kill switch. The code + config are merged; deployment is manual.
 
 ## LAST RESULT
-- **Shipped:** Database kill switch — PR #279 `0cc5c3b` (2026-07-20). `HALT_DB=true` stops all DB reads/writes and background tasks. Gate green: `check` exit 0; `test:server` 719/719; `test` 10/10. CI green on `0cc5c3b`.
+- **Shipped:** Deploy `HALT_DB = 'true'` — PR #280 `e65aa3b` (2026-07-22). Sets the kill switch in `fly.toml`; when deployed, all DB reads/writes stop, background tasks idle, `/api` returns 503, `/health` returns 200. Gate green: `check` exit 0; `test:server` 719/719; `test` 10/10. CI green on `e65aa3b`.
 
 ## NEXT
+- **Owner must `fly deploy`** to activate the dormant state. Until deployed, the DB runs normally.
 - Resume feature roadmap — Battle Planner planner UI, or faction economy / treasury / equity / contribution-ledger foundation, per `PRODUCTION_READINESS_ROADMAP.md`. Owner approval required before any sub-plot combat application-code PR.
 - Owner-only follow-up (separate lane, NOT an app-code PR): reconfigure ASCEND ASA `764083761` on-chain URL to a valid endpoint. This is an OWNER-SIGNED ON-CHAIN ACTION (Algosdk `asset_config` tx signed by the ASA manager).
 
